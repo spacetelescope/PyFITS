@@ -51,12 +51,12 @@ publication, NOST 100-2.0.
 """
 
 import re, string, types, os, tempfile, exceptions, copy
-import __builtin__, UserList
+import __builtin__, sys, UserList
 import numarray as num
 import chararray
 import recarray as rec
 
-__version__ = '0.7.0.1 (May 9, 2002)'
+__version__ = '0.7.2 (June 19, 2002)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -514,7 +514,7 @@ class Card(_Verify):
                 if valu == None:
                     raise FITS_SevereError, 'comment of old card has '\
                           'invalid syntax'
-                comment = valu.group('comm')
+                comment = valu.group('comm').rstrip()
             else:
                 # !!! Could also raise a exception. !!!
                 comment = None
@@ -1116,7 +1116,7 @@ class ValidHDU(AllHDU, _Verify):
             _data = self.data.copy()
         else:
             _data = None
-        return self.__class__(_data, self.header.copy())
+        return self.__class__(data=_data, header=self.header.copy())
 
     def _verify(self, option='warn'):
         _err = ErrList([], unit='Card')
@@ -1163,7 +1163,8 @@ class ValidHDU(AllHDU, _Verify):
             _index = None
         fixable = fix_value is not None
 
-        # if pos is a tring, it must be of the syntax of "> n" where n is an int
+        # if pos is a string, it must be of the syntax of "> n",
+        # where n is an int
         if isinstance(pos, types.StringType):
             _parse = pos.split()
             if _parse[0] in ['>=', '==']:
@@ -1333,8 +1334,7 @@ class ImageBaseHDU(ValidHDU):
                 #  make zero and scale 0-dim numarray arrays.
                 code = ImageBaseHDU.NumCode[self.header['BITPIX']]
                 self.data = num.fromfile(self._file, type=code, shape=dims)
-                if not num.isBigEndian:
-                    self.data._byteswap = not(self.data._byteswap)
+                self.data._byteorder = 'big'
                 if self.autoscale:
                     zero = num.array([self.zero], type=code)
                     scale = num.array([self.scale], type=code)
@@ -1390,10 +1390,11 @@ class PrimaryHDU(ImageBaseHDU):
         self.name = 'PRIMARY'
 
         # insert the keywords EXTEND
-        dim = `self.header['NAXIS']`
-        if dim == '0':
-            dim = ''
-        self.header.update('EXTEND', TRUE, after='NAXIS'+dim)
+        if header is None:
+            dim = `self.header['NAXIS']`
+            if dim == '0':
+                dim = ''
+            self.header.update('EXTEND', TRUE, after='NAXIS'+dim)
 
 
 class ImageHDU(ExtensionHDU, ImageBaseHDU):
@@ -1411,6 +1412,16 @@ class ImageHDU(ExtensionHDU, ImageBaseHDU):
         self.header._hdutype = ImageHDU
 
         # insert the require keywords PCOUNT and GCOUNT
+        dim = `self.header['NAXIS']`
+        if dim == '0':
+            dim = ''
+
+        # only update if they don't exist, if they exist but have incorrect
+        # values, keep as is
+        if not self.header.has_key('PCOUNT'):
+            self.header.update('PCOUNT', 0, after='NAXIS'+dim)
+        if not self.header.has_key('GCOUNT'):
+            self.header.update('GCOUNT', 1, after='PCOUNT')
 
         #  set extension name
         if not name and self.header.has_key('EXTNAME'):
@@ -1738,7 +1749,7 @@ def get_tbdata(data_source, col_def=None):
         tmp = col_def
         _data = rec.array(data_source, formats=tmp.formats, names=tmp.names, shape=tmp._shape)
         if isinstance(data_source, types.FileType):
-            _data._byteswap = not(num.isBigEndian)
+            _data._byteorder = 'big'
 
         # pass the attributes
         for attr in ['formats', 'names']:
@@ -2101,6 +2112,10 @@ class _File:
         else:
             self.__file = __builtin__.open(name, python_mode[mode])
 
+            # For 'ab+' mode, the pointer is at the end after the open in
+            # Linux, but is at the beginning in Solaris.
+            self.__file.seek(0)
+
     def getfile(self):
         return self.__file
 
@@ -2182,7 +2197,7 @@ class _File:
         loc = self.__file.tell()
         if hdu.data is not None:
 
-            # if image, need to deal with bzero/bscale and byteswap
+            # if image, need to deal with bzero/bscale and byteorder
             if isinstance(hdu, ImageBaseHDU):
                 hdu.zero = hdu.header.get('BZERO', 0)
                 hdu.scale = hdu.header.get('BSCALE', 1)
@@ -2193,28 +2208,31 @@ class _File:
                     scale = num.array([hdu.scale], type=code)
                     hdu.data = (hdu.data - zero) / scale
 
-                if not num.isBigEndian:
-                    if hdu.data._byteswap == 0:
-                        hdu.data.byteswap()
+                if hdu.data._byteorder != 'big':
+                    hdu.data.byteswap()
+                    hdu.data._byteorder = 'big'
 
             # Binary table byteswap
             elif isinstance(hdu, BinTableHDU):
-                if not num.isBigEndian:
-                    for i in range(hdu.data._nfields):
-                        coldata = hdu.data.field(i)
-                        if not isinstance(coldata, chararray.CharArray):
-                            if coldata._type.bytes > 1:
+                for i in range(hdu.data._nfields):
+                    coldata = hdu.data.field(i)
+                    if not isinstance(coldata, chararray.CharArray):
+                        if coldata._type.bytes > 1:
 
-                                # only swap unswapped
-                                if hdu.data._byteswap == 0:
-                                    coldata.byteswap()
+                            # only swap unswapped
+                            if coldata._byteorder != 'big':
+                                coldata.byteswap()
+                                coldata._byteorder = 'big'
 
-            block = hdu.data.tostring()
-            if len(block) > 0:
-                block = block + padLength(len(block))*'\0'
-                if len(block)%blockLen != 0:
-                    raise IOError
-                self.__file.write(block)
+                # In case the FITS_rec was created in a LittleEndian machine
+                hdu.data._byteorder = 'big'
+
+            hdu.data.tofile(self.__file)
+            _size = hdu.data.nelements() * hdu.data._itemsize
+
+            # pad the FITS data block
+            if _size > 0:
+                self.__file.write(padLength(_size)*'\0')
 
         # flush, to make sure the content is written
         self.__file.flush()
