@@ -1,15 +1,17 @@
 #!/usr/bin/env python2.0
 
-"""  A module for reading and writing Flexible Image Transport System
-  (FITS) files.  This file format was endorsed by the International
-  Astronomical Union in 1999 and mandated by NASA as the standard format
-  for storing high energy astrophysics data.  For details of the FITS
-  standard, see the NASA/Science Office of Standards and Technology
-  publication, NOST 100-2.0.
+"""A module for reading and writing FITS files.
+
+A module for reading and writing Flexible Image Transport System
+(FITS) files.  This file format was endorsed by the International
+Astronomical Union in 1999 and mandated by NASA as the standard format
+for storing high energy astrophysics data.  For details of the FITS
+standard, see the NASA/Science Office of Standards and Technology
+publication, NOST 100-2.0.
 
 """
 
-import re, string, types, sys
+import re, string, types, sys, exceptions
 import UserList, Numeric
 import record
 
@@ -23,11 +25,13 @@ def padLength(stringLen):
 __octalRegex = re.compile(r'([+-]?)0+([1-9][0-9]*)')
 
 def _eval(number):
+    
+    """Trap octal and long integers
 
-    """Convert a numeric string value (integer or floating point)
+    Convert a numeric string value (integer or floating point)
     to a Python integer or float converting integers greater than
     32-bits to Python long-integers and octal strings to integers
-
+    
     """
 
     try:
@@ -45,8 +49,33 @@ def _eval(number):
 
 #   FITS Classes
 
+#   A base class for FITS specific exceptions of which there are
+#   three: Warning, Severe, and Critical/Fatal.  Warning messages are
+#   always caught and their messages printed.  Execution resumes.
+#   Severe errors are those which can be fixed-up in many cases, so
+#   that execution can continue, whereas Critical Errors are so severe
+#   execution can not continue under any situation.
+
+class FITS_FatalError(exceptions.Exception):
+    
+    """This level of exception raises an unrecoverable error."""
+    
+class FITS_SevereError(FITS_FatalError):
+    
+    """This level of exception raises a recoverable error which is likely
+    to be fixed, so that processing can continue.
+    
+    """
+
+class FITS_Warning(FITS_SevereError):
+    
+    """This level of exception raises a warning and allows processing to
+    continue.
+    
+    """
 
 class Boolean:
+    
     """Boolean type class"""
     
     def __init__(self, bool):
@@ -60,209 +89,438 @@ class Boolean:
 
 
 class Card:
+    
+    """The Card class provides access to individual header cards.
 
-    """FITS card class: Corresponds to an 80 character string used
-    in each line of the header.
+    A FITS Card is an 80 character string containing a key, a value
+    (optional) and a comment (optional).  Cards are divided into two
+    groups: value and commentary cards.  A value card has '= ' in
+    columns 9-10 and does not begin with a commentary key (namely
+    'COMMENT ', 'HISTORY ', or '        '), otherwise it is considered
+    a commentary card.
+
+    Cards that are read from files are stored in their original format
+    as 80 character strings as are any new cards that are created.
+    The default format of new cards is fixed format.  Free format
+    cards can be created using the 'format=' option.  The key, value,
+    and comment parts of the card are accessed and modified by the
+    .key, .value, and .comment attributes.  Commentary cards have no
+    .comment attribute.
+
     """
     
+    #  String length of a card
     length = 80
+    keyLen = 8
+    valLen = 70
+    comLen = 72
     
-    __comment_RE  = re.compile(r'[ -~]{72}')
-    __keywd_RE = re.compile(r'[A-Z0-9_-]* *')
-    __numr = r'[+-]?(?:\.\d+|\d+(?:\.\d*)?)(?:[deDE][+-]?\d+)?'
+    #  This regex checks for a valid keyword.  The length of the
+    #  keyword string is assumed to be 8.
+    __keywd_RE = re.compile(r'[A-Z0-9_-]* *$')
+    
+    #  This regex checks for a number sub-string, either an integer
+    #  or a float in fixed or scientific notation.
+    __numr = r'[+-]?(\.\d+|\d+(\.\d*)?)([DE][+-]?\d+)?'
+    
+    #  This regex checks for a valid value/comment string.  The
+    #  valu_field group will always return a match for a valid value
+    #  field, including a null or empty value.  Therefore, __value_RE
+    #  will return a match object for a valid value/comment string.
+    #  The valu group will return a match if a FITS string, boolean,
+    #  number, or complex value is found, otherwise it will return
+    #  None, meaning the keyword is undefined.  The comment field will
+    #  return a match if the comment separator is found, though the
+    #  comment maybe an empty string.
+
     __value_RE = re.compile(
         r'(?P<valu_field> *'
-        r'(?P<valu>'
-        r'(?P<strg>\'[ -~]*\')[ /\z]?|'
-        r'(?P<bool>[FT])|'
-        r'(?P<numr>'+__numr+')|'
-        r'(?P<cplx>\( *(?P<real>'+__numr+') *, *(?P<imag>'+__numr+') *\))'
-        r') *)'
+            r'(?P<valu>'
+                #  The <strg> regex is not correct for all cases, but
+                #  it comes pretty darn close.  It appears to find the
+                #  end of a string rather well, but will accept
+                #  strings with an odd number of single quotes,
+                #  instead of issuing an error.  The FITS standard
+                #  appears vague on this issue and only states that a
+                #  string should not end with two single quotes,
+                #  whereas it should not end with an even number of
+                #  quotes to be precise.
+                #
+                #  Note that a non-greedy match is done for a string,
+                #  since a greedy match will find a single-quote after
+                #  the comment separator resulting in an incorrect
+                #  match.
+                r'\'(?P<strg>([ -~]+?|\'\'|)) *?\'(?=$|/| )|'
+                r'(?P<bool>[FT])|'
+                r'(?P<numr>'+__numr+')|'
+                r'(?P<cplx>\( *'
+                    r'(?P<real>'+__numr+') *, *(?P<imag>'+__numr+') *\))'
+            r')? *)'
         r'(?P<comm_field>'
-        r'(?P<sepr>/ *)'
-        r'(?P<comm>[!-~][ -~]*)?)?')
+            r'(?P<sepr>/ *)'
+            r'(?P<comm>[!-~][ -~]*)?'
+        r')?$')
+    
+    #  This regex checks for a valid commentary card string which must
+    #  contain _printable_ ASCII characters.
 
+    __comment_RE = re.compile(r'[ -~]*$')
+
+    #  This regex helps delete leading zeros from numbers, otherwise
+    #  Python might evaluate them as octal values.
+    
+    __number_RE = re.compile(
+        r'(?P<sign>[+-])?0*(?P<digt>(\.\d+|\d+(\.\d*)?)([DE][+-]?\d+)?)')
+
+    #  This regex checks for a valid printf-style formatting sub-string.
     __format = r'%[-+0 #]*\d*(?:\.\d*)?[csdiufEG]'
+
+    #  This regex checks for a valid value/comment format string, the
+    #  form of which is expected to be simple, e.g. "%d / %s".  The
+    #  use of the '%' character should be used with caution, since it
+    #  is used as the escape character as in a printf statement.
+
     __format_RE= re.compile(
-        r'(?P<valfmt> *'+__format+r' *)'\
-        r'(?:(?P<sepfmt>/[ -$&-~]*)'\
+        r'(?:(?P<valfmt> *'+__format+r' *)|'
+        r'(?P<cpxfmt> *\('+__format+r' *, *'+__format+r' *\) *))'
+        r'(?:(?P<sepfmt>/[ -~]*?)'
         r'(?P<comfmt>'+__format+r'[ -~]*)?)?$')
 
-    __comment_keys = ['', 'COMMENT', 'HISTORY', 'END']
+    #  A list of commentary keywords.  Note that their length is 8.
+
+    __comment_keys = ['        ', 'COMMENT ', 'HISTORY ']
     
+    #  A list of mandatory keywords, whose syntax must be in fixed-
+    #  format.
+
+    __mandatory_keys = ['SIMPLE  ', 'EXTEND  ', 'BITPIX  ',
+                        'PCOUNT  ', 'GCOUNT  ']
+
     def __init__(self, key, value=None, comment=None, format=None):
-        """Create an 80 character record from the key, value, and comment"""
+        """Create a new card from key, value, and comment arguments.
+
+        Cards are an 80 character string composed of a key, a value
+        indicator (optional unless a value is present), a value
+        (optional) and a comment (optional); and come in two flavors:
+        value and commentary.
+
+        By default cards are created in fixed-format, but by using the
+        'format=' option they can be created in free-format, e.g.
+        Card('KEY', value, comment, format='%d / %s').
+
+        Lower-case keys are converted to upper-case.
+
+        """
+        cardLen = Card.length
+        keyLen  = Card.keyLen
+        valLen  = Card.valLen
+        comLen  = Card.comLen
         
-        #  check keyword for type, length, and invalid characters
-        key = string.upper(string.strip(key))
-        if type(key) != types.StringType:
-            raise ValueError, "keyword is not StringType '%s'"%key
-        if len(key) > 8:
-            raise ValueError, "keyword length is > 8 characters '%s'"%key
-        if not Card.__keywd_RE.search(key):
-            raise ValueError, "keyword has unsupported character '%s'"%key
+        #  Prepare keyword for regex match
+        if not isinstance(key, types.StringType):
+            raise FITS_SevereError, 'key is not StringType'
+        key = string.strip(key)
+        if len(key) > keyLen:
+            raise FITS_SevereError, 'key length is >%d' % keyLen
+        key = "%-*s" % (keyLen, string.upper(key))
+        if not Card.__keywd_RE.match(key):
+            raise FITS_SevereError, 'key has invalid syntax'
         
-        #  check for card type and value, and begin creating card
-        if key in Card.__comment_keys:
-            if comment:
-                raise ValueError, "card contains comment '%s'"%key
-            if key == 'END' or type(value) == types.NoneType:
-                value = ''
-            if type(value) != types.StringType:
-                raise ValueError, "card comment is not StringType '%s'"%key
-            card = '%-8s%-72s' % (key, '%-72s' % value[:72])
+        if isinstance(value, types.StringType) and \
+           not self.__comment_RE.match(value):
+            raise FITS_SevereError, 'value has unprintable characters'
+        
+        if comment:
+            if not isinstance(comment, types.StringType):
+                raise FITS_SevereError, 'comment is not StringType'
+            if not self.__comment_RE.match(comment):
+                raise FITS_SevereError, 'comment has unprintable characters'
+        
+        #  Create the following card types: comment cards, and free- and
+        #  fixed-format value cards.
+
+        #  Create a commentary card
+        if key in Card.__comment_keys+['END     ']:
+            if comment != None:
+                raise FITS_SevereError, 'commentary card has no comment '\
+                      'attribute'
+            if key == 'END     ' and not isinstance(value, types.NoneType):
+                raise FITS_SevereError, 'END card has no value attribute'
+            if isinstance(value, types.NoneType):
+                card = '%-*s' % (cardLen, key)
+            elif isinstance(value, types.StringType):
+                if len(value) > comLen:
+                    raise FITS_SevereError, 'comment length is >%d' % comLen
+                card = '%-*s%-*s' % (keyLen, key, comLen, value)
+            else:
+                raise FITS_SevereError, 'comment is not StringType'
+
+        #  Create a free-format value card
         elif format:
+            if "%-8s"%key in Card.__mandatory_keys+["XTENSION"] or \
+               key[:5] == 'NAXIS':
+                raise FITS_SevereError, 'mandatory keys are fixed-format only'
             fmt = Card.__format_RE.match(format)
             if not fmt:
-                raise ValueError, "card has invalid format string '%s'"%key
-            card = ('%-8s= '+ fmt.group('valfmt')) % (key, value)
+                raise FITS_SevereError, 'format has invalid syntax'
+            if fmt.group('valfmt'):
+                card = ('%-8s= '+ fmt.group('valfmt')) % (key, value)
+            elif fmt.group('cpxfmt'):
+                card = ('%-8s= '+ fmt.group('cpxfmt')) % (key, value.real,
+                                                          value.imag)
             if fmt.group('sepfmt'):
-                card = card + fmt.group('sepfmt')
+                card += fmt.group('sepfmt')
             if fmt.group('comfmt') and comment:
-                card = card + fmt.group('comfmt') % comment
+                card += fmt.group('comfmt') % comment
+        
+        #  Create a fixed-format value card
         else:
-            card = '%-8s= %20s' % (key, self.__asString(value))
-            comLen = Card.length - (len(card) + 3)
-            if comment and comLen > 15:
-                card = card + ' / %-*s' % (comLen, comment[:comLen])
-        card = card + (Card.length - len(card))*' '
-        if len(card) != Card.length:
-            raise ValueError, "Card length is %d characters"%len(card)
-        self.__dict__['_Card__card'] = card
+            if isinstance(value, types.StringType):
+                card = '%-8s= %-20s' % (key, self.__formatter(value))
+            else:
+                card = '%-8s= %20s' % (key, self.__formatter(value))
+            if comment:
+                card = '%s / %-s' % (card, comment)
+        self.__dict__['_Card__card'] = '%-*s' % (cardLen, card[:cardLen])
     
     def __getattr__(self, attr):
-	"""Get a card attribute"""
+        """Get a card attribute: .key, .value, or .comment.
 
-        key = string.rstrip(self.__card[:8])
+        Commentary cards ('COMMENT ', 'HISTORY ', '        ') have no
+        .comment attribute and attributes of invalid cards may not be
+        accessible.
+        
+        """
+
+        keyLen = Card.keyLen
+
+        kard = self.__card
 	if attr == 'key':
-            return key
+            return string.rstrip(kard[:8])
 	elif attr == 'value':
-            if key in Card.__comment_keys:
-                value = self.__card[8:]
-            else:
-                valu = Card.__value_RE.match(self.__card[10:])
-                if   valu.group('bool'):
+            if kard[:keyLen] not in Card.__comment_keys and \
+               kard[keyLen:10] == '= ' :
+                #  Value card
+                valu = Card.__value_RE.match(kard[10:])
+                if valu == None:
+                    raise FITS_SevereError, 'value of old card has '\
+                          'invalid syntax'
+                elif valu.group('bool') != None:
                     value = Boolean(valu.group('bool'))
-                elif valu.group('strg'):
-                    value = re.sub("''", "'", valu.group('strg')[1:-1])
-                elif valu.group('numr'):
-                    value = _eval(valu.group('numr'))
-                elif valu.group('cplx'):
-                    value = _eval(valu.group('real')) + \
-                            _eval(valu.group('imag'))*1j
+                elif valu.group('strg') != None:
+                    value = re.sub("''", "'", valu.group('strg'))
+                elif valu.group('numr') != None:
+                    #  Check for numbers with leading 0s.
+                    numr  = Card.__number_RE.match(valu.group('numr'))
+                    if numr.group('sign') == None:
+                        value = _eval(numr.group('digt'))
+                    else:
+                        value = _eval(numr.group('sign')+numr.group('digt'))
+                elif valu.group('cplx') != None:
+                    #  Check for numbers with leading 0s.
+                    #  When integers and long integers (literal 'L') are
+                    #  unified in Python v2.2, _eval() can be removed and
+                    #  replace by eval().
+                    real  = Card.__number_RE.match(valu.group('real'))
+                    if real.group('sign') == None:
+                        value = _eval(real.group('digt'))
+                    else:
+                        value = _eval(real.group('sign')+real.group('digt'))
+                    imag  = Card.__number_RE.match(valu.group('imag'))
+                    if imag.group('sign') == None:
+                        value += _eval(imag.group('digt'))*1j
+                    else:
+                        value += _eval(imag.group('sign')+\
+                                       imag.group('digt'))*1j
                 else:
                     value = None
+            else:
+                #  Commentary card
+                value = kard[keyLen:]
             return value
 	elif attr == 'comment':
-            valu = Card.__value_RE.search(self.__card[10:])
-            if valu.group('comm'):
-                value = valu.group('comm')
+            #  for value card
+            if kard[0:8] not in Card.__comment_keys and kard[8:10] == '= ' :
+                valu = Card.__value_RE.match(kard[10:])
+                if valu == None:
+                    raise FITS_SevereError, 'comment of old card has '\
+                          'invalid syntax'
+                comment = valu.group('comm')
             else:
-                value = None
-            return value
+                # !!! Could also raise a exception. !!!
+                comment = None
+            return comment
         else:
             raise AttributeError, attr
     
-    def __setattr__(self, attr, value):
-        """Set a Card attribute"""
+    def __setattr__(self, attr, val):
+        """Set a card attribute: .key, .value, or .comment.
+
+        Commentary cards ('COMMENT ', 'HISTORY ', '        ') have no
+        .comment attribute and attributes of invalid cards may not be
+        accessible.
         
-        key = string.rstrip(self.__card[:8])
+        """
+        keyLen = Card.keyLen
+        valLen = Card.valLen
+
+        kard = self.__card
+        if kard[:keyLen] == 'END     ':
+            raise FITS_SevereError, 'cannot modify END card'
         if attr == 'key':
-
-            # check card and value keywords for compatibility
-            if not ((key in Card.__comment_keys and \
-                     value in ['', 'COMMENT', 'HISTORY']) or \
-                    (self.__card[8:10] == '= ' and \
-                     not value in Card.__comment_keys)):
-                raise ValueError, 'Card and value keywords are not compatible'
-            card = "%-8s" % string.upper(value) + self.__card[8:]
+            #  Check keyword for type, length, and invalid characters
+            if not isinstance(val, types.StringType):
+                raise FITS_SevereError, 'key is not StringType'
+            key = string.strip(val)
+            if len(val) > 8:
+                raise FITS_SevereError, 'key length is >8'
+            val = "%-8s" % string.upper(val)
+            if not Card.__keywd_RE.match(val):
+                raise FITS_SevereError, 'key has invalid syntax'
+            #  Check card and value keywords for compatibility
+            if val == 'END     ':
+                raise FITS_SevereError, 'cannot set key to END'
+            elif not ((kard[:8] in Card.__comment_keys and \
+                     val in Card.__comment_keys) or (kard[8:10] == '= ' and \
+                     val not in Card.__comment_keys)):
+                raise FITS_SevereError, 'old and new card types do not match'
+            card = val + kard[8:]
         elif attr == 'value':
-            if key in Card.__comment_keys:
-                card = '%-8s%-72s' % (key, '%-72s' % value[:72])
-            else:
-                card = '%-8s= ' % key
-                valu = Card.__value_RE.match(self.__card[10:])
-
-                # check card for fixed or free format
+            if isinstance(val, types.StringType) and \
+               not self.__comment_RE.match(val):
+                raise FITS_SevereError, 'value has unprintable characters'
+            if kard[0:8] not in Card.__comment_keys and kard[8:10] == '= ' :
+                #  This is a value card
+                valu = Card.__value_RE.match(kard[10:])
+                if valu == None:
+                    raise FITS_SevereError, 'value of old card has '\
+                          'invalid syntax'
+                #  Check card for fixed- or free-format
                 if (valu.group('strg') and valu.start('strg') == 0) or \
                    valu.end('valu') == 20:
-
-                    # if fixed format, then write it as fixed format
-                    if type(value) == types.StringType:
-                        card = card + '%-20s' % self.__asString(value)
+                    #  This is fixed-format card.
+                    if isinstance(val, types.StringType):
+                        card = '%-8s= %-20s'%(kard[:8], self.__formatter(val))
                     else:
-                        card = card + '%20s' % self.__asString(value)
+                        card = '%-8s= %20s'% (kard[:8], self.__formatter(val))
                 else:
-
-                    # if free format, then write it as free format
-                    card = card + '%*s' % ((10+valu.end('valu')-len(card)),\
-                                           self.__asString(value))
-
-                # check for comment field
+                    #  This is a free-format card
+                    card = '%-8s= %*s' % (kard[:8], valu.end('valu'),
+                           self.__formatter(val))
                 if valu.group('comm_field'):
-                    card = card + (10+valu.start('sepr')-len(card))*' '
-                    card = card + \
-                           valu.group('comm_field')[:Card.length-len(card)]
+                    card = '%-*s%s' % (10+valu.start('sepr'), card,
+                                       valu.group('comm_field'))
+            else:
+                #  Commentary card
+                if isinstance(val, types.StringType):
+                    if len(val) > valLen:
+                        raise FITS_SevereError, 'comment length is >%d'%valLen
+                    card = '%-*s%-*s' % (keyLen, kard[:8], valLen, val)
+                else:
+                    raise FITS_SevereError, 'comment is not StringType'
         elif attr == 'comment':
-
-            # check for comment attribute
-            if key in Card.__comment_keys:
-                raise ValueError, 'Comment keywords have no comment attribute'
-            valu = Card.__value_RE.search(self.__card[10:])
-            card = self.__card[:10+valu.end('valu_field')]
-            if valu.group('comm_field'):
-                card = card + valu.group('sepr')
-                card = card + value[:Card.length-len(card)]
+            if not isinstance(val, types.StringType):
+                raise FITS_SevereError, 'comment is not StringType'
+            if kard[0:8] not in Card.__comment_keys and kard[8:10] == '= ' :
+                #  Then this is value card
+                valu = Card.__value_RE.match(kard[10:])
+                if valu == None:
+                    raise FITS_SevereError, 'value of old card has '\
+                          'invalid syntax'
+                if valu.group('comm_field'):
+                    card = kard[:10+valu.end('sepr')] + val
+                elif valu.end('valu') > 0:
+                    card = '%s / %s' % (kard[:10+valu.end('valu')], val)
+                else:
+                    card = '%s / %s' % (kard[:10], val)
+            else:
+                #  This is commentary card
+                raise AttributeError, 'commentary card has no comment '\
+                      'attribute'
         else:
             raise AttributeError, attr
-        card = card + (Card.length - len(card))*' '
-        if len(card) != Card.length:
-            raise ValueError, "Card length is %d characters"%len(card)
-        self.__dict__['_Card__card'] = card
+        self.__dict__['_Card__card'] = '%-80s' % card[:80]
     
     def __str__(self):
+        """Return a card as a printable 80 character string."""
         return self.__card
     
     def fromstring(self, card):
-        """Parse a card (an 80 char string) for the keyword, value,
-        comment, and format (fixed or free)
+        """Create a card from an 80 character string.
 
+        Verify an 80 character string for valid card syntax in either
+        fixed- or free-format.  Create a new card if the syntax is
+        valid, otherwise raise an exception.
+        
         """
         
-        if len(card) != Card.length:
-            raise ValueError, "card length != 80: %d"%len(card)
-        if card[:3] == 'END':
-            if card[3:] != 77*' ':
-                raise ValueError, "invalid END card\n'%s'"%card
-        elif card[:8] in ['        ', 'COMMENT ', 'HISTORY ']:
-            if not Card.__comment_RE.match(card[8:]):
-                raise ValueError, "invalid comment card\n'%s'"%card
-        elif card[8:10] == '= ':
-            if not Card.__keywd_RE.match(card[:8]):
-                raise ValueError, "invalid keyword:'%s'"%card[:8]
-            if not Card.__value_RE.match(card[10:]):
-                raise ValueError, "invalid value type:'%s'"%card[10:]
+        if len(card) != 80:
+            raise FITS_SevereError, 'card length != 80'
+        if not Card.__keywd_RE.match(card[:8]):
+            raise FITS_SevereError, 'key has invalid syntax'
+        
+        if card[0:8] == 'END     ':
+            if not card[8:] == 72*' ':
+                raise FITS_SevereError, 'END card has invalid syntax'
+        elif card[0:8] not in Card.__comment_keys and card[8:10] == '= ' :
+            #  Check for fixed-format of mandatory keywords
+            valu = Card.__value_RE.match(card[10:])
+            if valu == None:
+                raise FITS_SevereError, 'value has invalid syntax'
+            elif ((card[:8] in Card.__mandatory_keys or card[:5] == 'NAXIS') \
+                 and valu.end('valu') != 20) or \
+                 (card[:8] == 'XTENSION' and valu.start('valu') != 0):
+                raise FITS_SevereError, 'mandatory keywords are not '\
+                      'fixed format'
         else:
-            raise ValueError, "invalid card syntax\n'%s'"%card
+            if not Card.__comment_RE.match(card[8:]):
+                raise FITS_SevereError, 'commentary card has unprintable '\
+                      'characters'
 
 	self.__dict__['_Card__card'] = card
         return self
     
-    def __asString(self, value):
+    def __formatter(self, value):
+        """Format a value based on its type
+
+        Strings are delimited by single quotes, contain at least 8
+        characters and are left justified, unless it is a null string
+        which is just two single quotes.  Single quotes embedded in a
+        string are expanded to two single quotes.
+
+        Complex numbers are a pair of real and imaginary values
+        delimited by paratheses and separated by a comma.  The
+        precision and type of real numbers should be preserved.
+
+        """
+        
         if isinstance(value, Boolean):
             res = "%s" % value
-        elif type(value) == types.StringType:
-            res = "%-20s" % ("'%-8s'" % re.sub("'", "''", value))
-        elif type(value) == types.IntType:
+        elif isinstance(value, types.StringType):
+            if len(value) > 0:
+                res = ("'%-8s'" % re.sub("'", "''", value))
+            else:
+                res = "''"
+        elif isinstance(value, types.IntType) or \
+             isinstance(value, types.LongType):
             res = "%d" % value
-        elif type(value) == types.LongType:
-            res = ("%s" % value)[:-1]
-        elif type(value) == types.FloatType:
-            res = "%#G" % value
-        elif type(value) == types.ComplexType:
-            res = "(%#8G, %#8G)" % (value.real, value.imag)
+        elif isinstance(value, types.FloatType):
+            res = "%.16G" % value
+            if "." not in res and "E" not in res:
+                res += ".0"
+        elif isinstance(value, types.ComplexType):
+            real, imag = "%.16G" % value.real, "%.16G" % value.imag
+            if "." not in real and "E" not in real:
+                real += ".0"
+            if "." not in imag and "E" not in imag:
+                imag += ".0"
+            res = "(%8s, %8s)" % (real, imag)
+        elif value == None:
+            res = ""
         else:
             raise TypeError, value
+        if len(res) > 70:
+            raise FITS_SevereError, 'value length > 70'
         return res
 
 
@@ -830,7 +1088,7 @@ class Table:
                  Card('PCOUNT',         0, 'number of group parameters'),
                  Card('GCOUNT',         1, 'number of groups'),
                  Card('TFIELDS',        0, 'number of table fields')])
-        
+
         if type(data) == type(record.record((1,))):
             self.header['NAXIS1'] = len(data[0].tostring())
             self.header['NAXIS2'] = data.shape[0]
@@ -1157,7 +1415,13 @@ class FITS(UserList.UserList):
                                                          len(block))
         cards = []
         for i in range(0, FITS.blockLen, Card.length):
-            cards.append(Card('').fromstring(block[i:i+Card.length]))
+            try:
+                cards.append(Card('').fromstring(block[i:i+Card.length]))
+            except ValueError:
+                if Card._Card__keywd_RE.match(string.upper(block[i:i+8])):
+                    print "Warning: fixing-up invalid keyword: '%s'"%card[:8]
+                    block[i:i+8] = string.upper(block[i:i+8])
+                    cards.append(Card('').fromstring(block[i:i+Card.length]))
             if cards[-1].key == 'END':
                 break
         return cards
