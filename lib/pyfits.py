@@ -12,13 +12,9 @@ publication, NOST 100-2.0.
 
 """
 """
-                But men at whiles are sober
-                  And think by fits and starts.
-                And if they think, they fasten
-                  Their hands upon their hearts.
+        Do you mean: "Profits"?
 
-                                                Last Poems X, Housman
-
+                - Google Search, when asked for "PyFITS"
 """
 
 import re, types, os, tempfile, exceptions
@@ -28,10 +24,11 @@ import numarray as num
 import numarray.generic as ndarray
 import numarray.strings as chararray
 import numarray.records as rec
+import numarray.objects as objects
 import numarray.memmap as Memmap
 from string import maketrans
 
-__version__ = '0.9.3 (June 30, 2004)'
+__version__ = '0.9.6 (November 24, 2004)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -42,7 +39,7 @@ TAB = "   "
 DELAYED = "delayed"     # used for lazy instantiation of data
 ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
                         # this can be reset by user.
-isInt = "isinstance(val, types.IntType)"
+isInt = "isinstance(val, (int, long))"
 
 
 # Functions
@@ -874,7 +871,7 @@ class Header:
                     self._hdutype = TableHDU
                 elif xtension == 'IMAGE':
                     self._hdutype = ImageHDU
-                elif xtension == 'BINTABLE':
+                elif xtension in ('BINTABLE', 'A3DTABLE'):
                     self._hdutype = BinTableHDU
                 else:
                     self._hdutype = ExtensionHDU
@@ -1459,19 +1456,19 @@ class _TempHDU(ValidHDU):
 
         simple = re_simple.search(block[:80])
         mo = re_bitpix.search(block)
-        if mo:
+        if mo is not None:
             bitpix = int(mo.group(1))
         else:
             raise ValueError("BITPIX not found where expected")
 
         mo = re_gcount.search(block)
-        if mo:
+        if mo is not None:
             gcount = int(mo.group(1))
         else:
             gcount = 1
 
         mo = re_pcount.search(block)
-        if mo:
+        if mo is not None:
             pcount = int(mo.group(1))
         else:
             pcount = 0
@@ -1483,7 +1480,7 @@ class _TempHDU(ValidHDU):
             groups = 0
 
         mo = re_naxis.search(block)
-        if mo:
+        if mo is not None:
             naxis = int(mo.group(1))
             pos = mo.end(0)
         else:
@@ -1796,10 +1793,16 @@ class ImageBaseHDU(ValidHDU):
             else:
                 self.header = header
         else:
-            self.header = Header(CardList(
-                [Card('SIMPLE', TRUE, 'conforms to FITS standard'),
-                 Card('BITPIX',         8, 'array data type'),
-                 Card('NAXIS',          0, 'number of array dimensions')]))
+            _list = [
+                Card('SIMPLE', TRUE, 'conforms to FITS standard'),
+                Card('BITPIX',    8, 'array data type'),
+                Card('NAXIS',     0, 'number of array dimensions')]
+            if isinstance(self, GroupsHDU):
+                _list += [
+                    Card('GROUPS', TRUE, 'has groups'),
+                    Card('PCOUNT',    0, 'number of parameters'),
+                    Card('GCOUNT',    1, 'number of groups')]
+            self.header = Header(CardList(_list))
 
         self._bzero = self.header.get('BZERO', 0)
         self._bscale = self.header.get('BSCALE', 1)
@@ -1818,13 +1821,17 @@ class ImageBaseHDU(ValidHDU):
 
     def update_header(self):
         """Update the header keywords to agree with the data.
-
-           Does not work for GroupHDU.  Need a separate method.
         """
 
         old_naxis = self.header.get('NAXIS', 0)
 
-        if isinstance(self.data, num.NumArray):
+        if isinstance(self.data, GroupData):
+            self.header['BITPIX'] = ImageBaseHDU.ImgCode[self.data.data.type()]
+            axes = list(self.data.data.getshape())[1:]
+            axes.reverse()
+            axes = [0] + axes
+
+        elif isinstance(self.data, num.NumArray):
             self.header['BITPIX'] = ImageBaseHDU.ImgCode[self.data.type()]
             axes = list(self.data.getshape())
             axes.reverse()
@@ -1854,6 +1861,24 @@ class ImageBaseHDU(ValidHDU):
             except KeyError:
                 pass
 
+        if isinstance(self.data, GroupData):
+            self.header.update('GROUPS', TRUE, after='NAXIS'+`len(axes)`)
+            self.header.update('PCOUNT', len(self.data.parnames), after='GROUPS')
+            self.header.update('GCOUNT', len(self.data), after='PCOUNT')
+            npars = len(self.data.parnames)
+            (_scale, _zero)  = self.data._get_scale_factors(npars)[3:5]
+            if _scale:
+                self.header.update('BSCALE', self.data._coldefs.bscales[npars])
+            if _zero:
+                self.header.update('BZERO', self.data._coldefs.bzeros[npars])
+            for i in range(npars):
+                self.header.update('PTYPE'+`i+1`, self.data.parnames[i])
+                (_scale, _zero)  = self.data._get_scale_factors(i)[3:5]
+                if _scale:
+                    self.header.update('PSCAL'+`i+1`, self.data._coldefs.bscales[i])
+                if _zero:
+                    self.header.update('PZERO'+`i+1`, self.data._coldefs.bzeros[i])
+
     def __getattr__(self, attr):
         """Get the data attribute."""
         if attr == 'section':
@@ -1861,10 +1886,14 @@ class ImageBaseHDU(ValidHDU):
         elif attr == 'data':
             self.__dict__[attr] = None
             if self.header['NAXIS'] > 0:
-                self._file.seek(self._datLoc)
-                dims = self._dimShape()
-
                 _bitpix = self.header['BITPIX']
+                self._file.seek(self._datLoc)
+                if isinstance(self, GroupsHDU):
+                    dims = self.size()*8/abs(_bitpix)
+                else:
+                    dims = self._dimShape()
+
+
                 code = ImageBaseHDU.NumCode[self.header['BITPIX']]
 
                 if self._ffile.memmap:
@@ -1923,21 +1952,31 @@ class ImageBaseHDU(ValidHDU):
 
                 # the shape will be in the order of NAXIS's which is the
                 # reverse of the numarray shape
-                _shape = list(self.data.getshape())
+                if isinstance(self, GroupsHDU):
+                    _shape = list(self.data.data.getshape())[1:]
+                    _format = `self.data._parent.field(0).type()`
+                else:
+                    _shape = list(self.data.getshape())
+                    _format = `self.data.type()`
                 _shape.reverse()
                 _shape = tuple(_shape)
-                _format = `self.data.type()`
                 _format = _format[_format.rfind('.')+1:]
 
         # if data is not touched yet, use header info.
         else:
             _shape = ()
             for j in range(self.header['NAXIS']):
+                if isinstance(self, GroupsHDU) and j == 0:
+                    continue
                 _shape += (self.header['NAXIS'+`j+1`],)
             _format = self.NumCode[self.header['BITPIX']]
 
-        return "%-10s  %-11s  %5d  %-12s  %s" % \
-               (self.name, type, len(self.header.ascard), _shape, _format)
+        if isinstance(self, GroupsHDU):
+            _gcount = '   %d Groups  %d Parameters' % (self.header['GCOUNT'], self.header['PCOUNT'])
+        else:
+            _gcount = ''
+        return "%-10s  %-11s  %5d  %-12s  %s%s" % \
+            (self.name, type, len(self.header.ascard), _shape, _format, _gcount)
 
     def scale(self, type=None, option="old", bscale=1, bzero=0):
         """Scale image data by using BSCALE/BZERO."""
@@ -2075,20 +2114,61 @@ class ImageHDU(ExtensionHDU, ImageBaseHDU):
 class GroupsHDU(PrimaryHDU):
     """FITS Random Groups HDU class."""
 
+    _dict = {8:'B', 16:'I', 32:'J', -32:'E', -64:'D'}
+
     def __init__(self, data=None, header=None, groups=None, name=None):
         PrimaryHDU.__init__(self, data=data, header=header)
         self.header._hdutype = GroupsHDU
         self.name = name
 
         # insert the require keywords GROUPS, PCOUNT, and GCOUNT
-        if self.header['NAXIS'] <= 0:
-            self.header['NAXIS'] = 1
-        self.header.update('NAXIS1', 0, after='NAXIS')
 
-        dim = `self.header['NAXIS']`
-        self.header.update('GROUPS', TRUE, after='NAXIS'+dim)
-        self.header.update('PCOUNT', 0, after='GROUPS')
-        self.header.update('GCOUNT', 1, after='PCOUNT')
+
+    def __getattr__(self, attr):
+        """Get the 'data' or 'columns' attribute.  The data of random group
+           FITS file will be like a binary table's data.
+        """
+
+        if attr == 'data': # same code as in TableBaseHDU
+            size = self.size()
+            if size:
+                self._file.seek(self._datLoc)
+                data = GroupData(_get_tbdata(self))
+                data._coldefs = self.columns
+                data.parnames = self.columns._pnames
+            else:
+                data = None
+            self.__dict__[attr] = data
+
+        elif attr == 'columns':
+            _cols = []
+            _pnames = []
+            _pcount = self.header['PCOUNT']
+            _format = GroupsHDU._dict[self.header['BITPIX']]
+            for i in range(self.header['PCOUNT']):
+                _bscale = self.header.get('PSCAL'+`i+1`, 1)
+                _bzero = self.header.get('PZERO'+`i+1`, 0)
+                _pnames.append(self.header['PTYPE'+`i+1`].lower())
+                _cols.append(Column(name='c'+`i+1`, format = _format, bscale = _bscale, bzero = _bzero))
+            data_shape = self._dimShape()[:-1]
+            dat_format = `int(num.array(data_shape).sum())` + _format
+
+            _bscale = self.header.get('BSCALE', 1)
+            _bzero = self.header.get('BZERO', 0)
+            _cols.append(Column(name='data', format = dat_format, bscale = _bscale, bzero = _bzero))
+            _coldefs = ColDefs(_cols)
+            _coldefs._shape = self.header['GCOUNT']
+            _coldefs._dat_format = fits2rec[_format]
+            _coldefs._pnames = _pnames
+            self.__dict__[attr] = _coldefs
+
+        elif attr == '_theap':
+            self.__dict__[attr] = 0
+
+        try:
+            return self.__dict__[attr]
+        except KeyError:
+            raise AttributeError(attr)
 
     # 0.6.5.5
     def size(self):
@@ -2118,7 +2198,7 @@ class GroupsHDU(PrimaryHDU):
         # if the card EXTEND exists, must be after it.
         try:
             _dum = self.header['EXTEND']
-            _after += 1
+            #_after += 1
         except:
             pass
         _pos = '>= '+`_after`
@@ -2151,7 +2231,9 @@ class _FormatX(str):
     """For X format in binary tables."""
     pass
 
-# move the following up once numarray supports complex data types (XXX)
+class _FormatP(str):
+    """For P format in variable length table."""
+    pass
 
 # TFORM regular expression
 tformat_re = re.compile(r'(?P<repeat>^[0-9]*)(?P<dtype>[A-Za-z])(?P<option>[!-~]*)')
@@ -2162,7 +2244,7 @@ tdef_re = re.compile(r'(?P<label>^T[A-Z]*)(?P<num>[1-9][0-9 ]*$)')
 def parse_tformat(tform):
     """Parse the TFORM value into repeat, data type, and option."""
     try:
-        (repeat, dtype, option) = tformat_re.match(tform).groups()
+        (repeat, dtype, option) = tformat_re.match(tform.strip()).groups()
     except:
         print 'Format "%s" is not recognized.' % tform
 
@@ -2182,6 +2264,11 @@ def convert_format(input_format, reverse=0):
         if dtype in fits2rec.keys():                            # FITS format
             if dtype == 'A':
                 output_format = fits2rec[dtype]+`repeat`
+                # to accomodate both the ASCII table and binary table column
+                # format sepc, i.e. A7 in ASCII table is the same as 7A in
+                # binary table, so both will produce 'a7'.
+                if fmt.lstrip()[0] == 'A' and option != '':
+                    output_format = fits2rec[dtype]+`int(option)` # make sure option is integer
             else:
                 _repeat = ''
                 if repeat != 1:
@@ -2193,6 +2280,10 @@ def convert_format(input_format, reverse=0):
             # use an array, even if it is only ONE u1 (i.e. use tuple always)
             output_format = _FormatX(`(nbytes,)`+'u1')
             output_format._nx = repeat
+
+        elif dtype == 'P':
+            output_format = _FormatP('2i4')
+            output_format._dtype = fits2rec[option[0]]
         else:
             raise ValueError, "Illegal format %s" % fmt
     else:
@@ -2209,6 +2300,22 @@ def convert_format(input_format, reverse=0):
             raise ValueError, "Illegal format %s" % fmt
 
     return output_format
+
+def convert_ASCII_format(input_format):
+    """Convert ASCII table format spec to record format spec. """
+
+    ascii2rec = {'A':'a', 'I':'i4', 'F':'f4', 'E':'f4', 'D':'f8'}
+    _re = re.compile(r'(?P<dtype>[AIFED])(?P<width>[0-9]+)')
+
+    # Parse the TFORM value into data type and width.
+    try:
+        (dtype, width) = _re.match(input_format.strip()).groups()
+        dtype = ascii2rec[dtype]
+        width = eval(width)
+    except:
+        raise ValueError, 'Illegal format `%s` for ASCII table.' % input_format
+
+    return (dtype, width)
 
 def get_index(nameList, key):
     """
@@ -2294,6 +2401,63 @@ def _wrapx(input, output, nx):
     # shift the unused bits
     num.lshift(output[...,i], unused, output[...,i])
 
+def _makep(input, desp_output, dtype):
+    """Construct the P format column array, both the data descriptors and
+       the data.  It returns the output "data" array of data type dtype.
+
+       The descriptor location will have a zero offset for all columns
+       after this call.  The final offset will be calculated when the file
+       is written.
+
+       input:  input object array
+       desp_output: output "descriptor" array of data type 2Int32
+       dtype:  data type of the variable array
+    """
+
+    _offset = 0
+    data_output = _VLF([None]*len(input))
+    data_output._dtype = dtype
+
+    if dtype == 'a':
+        _nbytes = 1
+    else:
+        _nbytes = num.getType(dtype).bytes
+
+    for i in range(len(input)):
+        if dtype == 'a':
+            data_output[i] = chararray.array(input[i], itemsize=1)
+        else:
+            data_output[i] = num.array(input[i], type=dtype)
+
+        desp_output[i,0] = len(data_output[i])
+        desp_output[i,1] = _offset
+        _offset += len(data_output[i]) * _nbytes
+
+    return data_output
+
+
+class _VLF(objects.ObjectArray):
+    """variable length field object."""
+    def __init__(self, input):
+        objects.ObjectArray.__init__(self, input)
+        self._max = 0
+
+    def __setitem__(self, key, value):
+        """To make sure the new item has consistent data type to avoid
+           misalignment.
+        """
+
+        if isinstance(value, num.NumArray) and value.type() == self._dtype:
+            pass
+        elif isinstance(value, chararray.CharArray) and value.itemsize() == 1:
+            pass
+        elif self._dtype == 'a':
+            value = chararray.array(value, itemsize=1)
+        else:
+            value = num.array(value, type=self._dtype)
+        objects.ObjectArray.__setitem__(self, key, value)
+        self._max = max(self._max, len(value))
+
 
 class Column:
     """Column class which contains the definition of one column, e.g.
@@ -2307,17 +2471,6 @@ class Column:
            except format can be optional.
         """
 
-        # check format
-        try:
-            # legit FITS format?
-            tmp = convert_format(format)
-        except:
-            try:
-                # legit RecArray format?
-                format = convert_format(format, reverse=1)
-            except:
-                raise ValueError, "Illegal or empty format `%s`." % format
-
         # any of the input argument (except array) can be a Card or just
         # a number/string
         for cname in commonNames:
@@ -2329,12 +2482,58 @@ class Column:
             else:
                 setattr(self, cname, value)
 
-        # column data should be a Numeric array
-        if isinstance(array, num.NumArray) or isinstance(array, chararray.CharArray) or array == None:
-            self.array = array
-        else:
-            raise TypeError, "array must be a NumArray or CharArray"
+        # if the column data is not NDarray, make it to be one, i.e.
+        # input arrays can be just list or tuple, not required to be NDArray
+        if format is not None:
+            # check format
+            try:
+                # legit FITS format?
+                tmp = convert_format(format)
+            except:
+                try:
+                    # legit RecArray format?
+                    tmp = format
+                    format = convert_format(tmp, reverse=1)
+                except:
+                    raise ValueError, "Illegal format `%s`." % format
 
+            # does not include Object array because there is not guarantee
+            # the elements in the object array are consistent.
+            if not isinstance(array, (num.NumArray, chararray.CharArray)):
+                try: # try to convert to a numarray first
+                    array = num.array(array)
+                except:
+                    try: # then try to conver it to a strings array
+                        array = chararray.array(array, itemsize=eval(tmp[1:]))
+
+                    # then try variable length array
+                    except:
+                        if isinstance(tmp, _FormatP):
+                            try:
+                                _func = lambda x: num.array(x, type=tmp._dtype)
+                                array = _VLF(map(_func, array))
+                            except:
+                                try:
+                                    # this handles ['abc'] and [['a','b','c']]
+                                    # equally, beautiful!
+                                    _func = lambda x: chararray.array(x, itemsize=1)
+                                    array = _VLF(map(_func, array))
+                                except:
+                                    raise ValueError, "Inconsistent input data array: %s" % array
+                            array._dtype = tmp._dtype
+                        else:
+                            raise ValueError, "Data is inconsistent with the format `%s`." % format
+
+        else:
+            raise ValueError, "Must specify format to construct Column"
+
+        # scale the array back if there is bscale or bzero
+        if isinstance(array, num.NumArray):
+            if bzero not in ['', None, 0]:
+                array -= bzero
+            if bscale not in ['', None, 1]:
+                array /= bscale
+        self.array = array
 
     def __repr__(self):
         text = ''
@@ -2353,8 +2552,9 @@ class ColDefs:
     """
 
     def __init__(self, input, tbtype='BinTableHDU'):
-        """The input can be a list of Columns, a (table) Header or a
-           BinTableHDU.
+        """input:  a list of Columns, a (table) Header or a BinTableHDU.
+           tbtype: which table HDU, 'BinTableHDU' (default) or
+                   'TableHDU' (text table).
         """
         self._tbtype = tbtype
 
@@ -2362,6 +2562,10 @@ class ColDefs:
         if isinstance(input, types.ListType):
             self._nfields = len(input)
             self._setup()
+
+            if tbtype == 'TableHDU':
+                self.spans = [0] * self._nfields
+                last_end = 0
 
             # populate the attributes
             for i in range(self._nfields):
@@ -2375,6 +2579,17 @@ class ColDefs:
 
                 if tbtype == 'BinTableHDU':
                     self.formats[i] = convert_format(self.formats[i])
+                # make sure to consider the case that the starting column of
+                # a field may not be the column right after the last field
+                elif tbtype == 'TableHDU':
+                    (_format, _width) = convert_ASCII_format(self.formats[i])
+                    if self.starts[i] is '':
+                        self.starts[i] = last_end + 1
+                    _end = self.starts[i] + _width - 1
+                    self.spans[i] = _end - last_end
+                    last_end = _end
+                    self._Formats = self.formats
+
                 self._arrays[i] = input[i].array
 
         # if the input is a table header, the array (data part) will be None's
@@ -2400,7 +2615,7 @@ class ColDefs:
             # following TBCOL's
             if tbtype == 'TableHDU':
                 self._Formats = self.formats
-                dummy = map(lambda x, y: x-y, self.starts[1:], self.starts[:-1])
+                dummy = map(lambda x, y: x-y, self.starts[1:], [1]+self.starts[1:-1])
                 dummy.append(input['NAXIS1']-self.starts[-1]+1)
                 self.formats = map(lambda y: 'a'+`y`, dummy)
 
@@ -2500,6 +2715,10 @@ def _get_tbdata(hdu):
 
 
     tmp = hdu.columns
+    # get the right shape for the data part of the random group,
+    # since binary table does not support ND yet
+    if isinstance(hdu, GroupsHDU):
+        tmp.formats[-1] = `hdu._dimShape()[:-1]` + tmp._dat_format
 
     if hdu._ffile.memmap:
         _mmap = hdu._ffile._mm[hdu._datLoc:hdu._datLoc+hdu._datSpan]
@@ -2509,6 +2728,13 @@ def _get_tbdata(hdu):
 
     if isinstance(hdu._ffile, _File):
         _data._byteorder = 'big'
+
+    # pass datLoc, for P format
+    _data._heapoffset = hdu._theap + hdu._datLoc
+    _data._file = hdu._file
+    _tbsize = hdu.header['NAXIS1']*hdu.header['NAXIS2']
+    _data._gap = hdu._theap - _tbsize
+    # comment out to avoid circular reference of _pcount
 
     # pass the attributes
     for attr in ['formats', 'names']:
@@ -2549,6 +2775,19 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
             if dim > nrows:
                 nrows = dim
 
+    if tbtype == 'TableHDU':
+        _formats = ''
+        _itemsize = 0
+        for i in range(tmp._nfields):
+            _formats += 'a%d,' % tmp.spans[i]
+            _itemsize += tmp.spans[i]
+        hdu.data = FITS_rec(rec.array(' '*_itemsize*nrows, formats=_formats[:-1], names=tmp.names, shape=nrows))
+        hdu.data._coldefs = hdu.columns
+        for i in range(tmp._nfields):
+            hdu.data._convert[i] = tmp._arrays[i]
+        hdu.update()
+        return hdu
+
     hdu.data = FITS_rec(rec.array(None, formats=tmp.formats, names=tmp.names, shape=nrows))
     hdu.data._coldefs = hdu.columns
 
@@ -2562,9 +2801,12 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
         n = min(size, nrows)
         if fill:
             n = 0
+
         if n > 0:
             if isinstance(tmp.formats[i], _FormatX):
                 _wrapx(tmp._arrays[i][:n], hdu.data._parent.field(i)[:n], tmp.formats[i]._nx)
+            elif isinstance(tmp.formats[i], _FormatP):
+                hdu.data._convert[i] = _makep(tmp._arrays[i][:n], hdu.data._parent.field(i)[:n], tmp.formats[i]._dtype)
             else:
                 hdu.data._parent.field(i)[:n] = tmp._arrays[i][:n]
 
@@ -2635,6 +2877,11 @@ class FITS_rec(rec.RecArray):
         bzero = self._coldefs.bzeros[indx]
         _scale = bscale not in ['', None, 1]
         _zero = bzero not in ['', None, 0]
+        # ensure bscale/bzero are numbers
+        if not _scale:
+            bscale = 1
+        if not _zero:
+            bzero = 0
 
         return (_str, _bool, _number, _scale, _zero, bscale, bzero)
 
@@ -2653,6 +2900,32 @@ class FITS_rec(rec.RecArray):
 
             (_str, _bool, _number, _scale, _zero, bscale, bzero) = self._get_scale_factors(indx)
 
+            # for P format
+            if isinstance(self._coldefs.formats[indx], _FormatP):
+                dummy = _VLF([None]*len(self._parent))
+                dummy._dtype = self._coldefs.formats[indx]._dtype
+                for i in range(len(self._parent)):
+                    _offset = self._parent.field(indx)[i,1] + self._heapoffset
+                    self._file.seek(_offset)
+                    if self._coldefs.formats[indx]._dtype is 'a':
+                        dummy[i] = chararray.array(self._file, itemsize=self._parent.field(indx)[i,0], shape=1)
+                    else:
+                        dummy[i] = num.array(self._file, type=self._coldefs.formats[indx]._dtype, shape=self._parent.field(indx)[i,0])
+                        dummy[i]._byteorder = 'big'
+
+                # scale by TSCAL and TZERO
+                if _scale or _zero:
+                    for i in range(len(self._parent)):
+                        dummy[i][:] = dummy[i]*bscale+bzero
+
+                # Boolean (logical) column
+                if self._coldefs.formats[indx]._dtype is 'i1':
+                    for i in range(len(self._parent)):
+                        dummy[i] = num.equal(dummy[i], ord('T'))
+
+                self._convert[indx] = dummy
+                return self._convert[indx]
+
             if _str:
                 return self._parent.field(indx)
 
@@ -2668,7 +2941,7 @@ class FITS_rec(rec.RecArray):
                 self._convert[indx] = dummy
                 for i in range(len(self._parent)):
                     if self._parent.field(indx)[i].strip() != nullval:
-                        dummy[i] = eval(self._parent.field(indx)[i])
+                        dummy[i] = float(self._parent.field(indx)[i].replace('D', 'E'))
             else:
                 dummy = self._parent.field(indx)
 
@@ -2676,7 +2949,7 @@ class FITS_rec(rec.RecArray):
             if _number and (_scale or _zero):
 
                 # only do the scaling the first time and store it in _convert
-                self._convert[indx] = num.array(dummy, type=num.Float32)
+                self._convert[indx] = num.array(dummy, type=num.Float64)
                 if _scale:
                     num.multiply(self._convert[indx], bscale, self._convert[indx])
                 if _zero:
@@ -2691,6 +2964,16 @@ class FITS_rec(rec.RecArray):
     def _scale_back(self):
         """Update the parent array, using the (latest) scaled array."""
 
+        _dict = {'A':'s', 'I':'d', 'F':'f', 'E':'E', 'D':'E'}
+        # calculate the starting point and width of each field for ASCII table
+        if self._coldefs._tbtype == 'TableHDU':
+            _loc = [1]
+            _width = []
+            for i in range(self._nfields):
+                _loc.append(_loc[-1]+self._parent.field(i).itemsize())
+                _width.append(convert_ASCII_format(self._coldefs._Formats[i])[1])
+
+        self._heapsize = 0
         for indx in range(self._nfields):
             if (self._convert[indx] is not None):
                 if isinstance(self._coldefs.formats[indx], _FormatX):
@@ -2699,17 +2982,57 @@ class FITS_rec(rec.RecArray):
 
                 (_str, _bool, _number, _scale, _zero, bscale, bzero) = self._get_scale_factors(indx)
 
+                # add the location offset of the heap area for each
+                # variable length column
+                if isinstance(self._coldefs.formats[indx], _FormatP):
+                    desc = self._parent.field(indx)
+                    desc[:] = 0 # reset
+                    _npts = map(len, self._convert[indx])
+                    desc[:len(_npts),0] = _npts
+                    _dtype = num.getType(self._coldefs.formats[indx]._dtype)
+                    desc[1:,1] = num.add.accumulate(desc[:-1,0])*_dtype.bytes
+
+                    desc[:,1][:] += self._heapsize
+                    self._heapsize += desc[:,0].sum()*_dtype.bytes
+
                 # conversion for both ASCII and binary tables
-                if _number and (_scale or _zero):
-                    dummy = self._convert[indx].copy()
-                    if _zero:
-                        dummy -= bzero
-                    if _scale:
-                        dummy /= bscale
+                if _number or _str:
+                    if _number and (_scale or _zero):
+                        dummy = self._convert[indx].copy()
+                        if _zero:
+                            dummy -= bzero
+                        if _scale:
+                            dummy /= bscale
+                    elif self._coldefs._tbtype == 'TableHDU':
+                        dummy = self._convert[indx]
+                    else:
+                        continue
 
                     # ASCII table, convert numbers to strings
                     if self._coldefs._tbtype == 'TableHDU':
-                        pass
+                        _format = self._coldefs._Formats[indx].strip()
+                        _lead = self._coldefs.starts[indx] - _loc[indx]
+                        if _lead < 0:
+                            raise ValueError, "column `%s` starting point overlaps to the previous column" % indx+1
+                        _trail = _loc[indx+1] - _width[indx] - self._coldefs.starts[indx]
+                        if _trail < 0:
+                            raise ValueError, "column `%s` ending point overlaps to the next column" % indx+1
+                        if 'A' in _format:
+                            _pc = '%-'
+                        else:
+                            _pc = '%'
+                        _fmt = ' '*_lead + _pc + _format[1:] + _dict[_format[0]] + ' '*_trail
+
+                        # not using numarray.strings's num2char because the
+                        # result is not allowed to expand (as C/Python does).
+                        for i in range(len(dummy)):
+                            x = _fmt % dummy[i]
+                            if len(x) > (_loc[indx+1]-_loc[indx]):
+                                raise ValueError, "number `%s` does not fit into the output's itemsize of %s" % (x, _width[indx])
+                            else:
+                                self._parent.field(indx)[i] = x
+                        if 'D' in _format:
+                            self._parent.field(indx).sub('E', 'D')
 
 
                     # binary table
@@ -2723,6 +3046,149 @@ class FITS_rec(rec.RecArray):
                 # ASCII table does not have Boolean type
                 elif _bool:
                     self._parent.field(indx)[:] = num.choose(self._convert[indx], (ord('F'),ord('T')))
+
+
+class GroupData(FITS_rec):
+    """Random groupd data object."""
+
+    def __init__(self, input=None, bitpix=None, pardata=None, parnames=[],
+                 bscale=None, bzero=None, parbscales=None, parbzeros=None):
+        """input: input data, either the group data itself (a numarray) or
+                  a record array (FITS_rec) which will contain both group
+                  parameter info and the data.  The rest of the arguments are
+                  used only for the first case.
+           bitpix: data type as expressed in FITS BITPIX value
+                  (8, 16, 32, -32, or -64)
+
+           pardata: parameter data, as a list of (numeric) arrays.
+
+           parnames: list of parameter names.
+
+           bscale: BSCALE of the data
+
+           bzero: BZERO of the data
+
+           parbscales: list of bscales for the parameters
+
+           parbzeros: list of bzeros for the parameters
+        """
+
+        if isinstance(input, num.NumArray):
+            _formats = ''
+            _cols = []
+            if pardata is None:
+                npars = 0
+            else:
+                npars = len(pardata)
+
+            if parbscales is None:
+                parbscales = [None]*npars
+            if parbzeros is None:
+                parbzeros = [None]*npars
+
+            if bitpix is None:
+                bitpix = ImageBaseHDU.ImgCode[input.type()]
+            fits_fmt = GroupsHDU._dict[bitpix] # -32 -> 'E'
+            _fmt = fits2rec[fits_fmt] # 'E' -> 'f4'
+            _formats = (_fmt+',') * npars
+            data_fmt = '%s%s' % (`input.shape[1:]`, _fmt)
+            _formats += data_fmt
+            gcount = input.shape[0]
+            for i in range(npars):
+                _cols.append(Column(name='c'+`i+1`, format = fits_fmt, bscale = parbscales[i], bzero = parbzeros[i]))
+            _cols.append(Column(name='data', format = fits_fmt, bscale = bscale, bzero = bzero))
+            self._coldefs = ColDefs(_cols)
+            self.parnames = [i.lower() for i in parnames]
+            tmp = FITS_rec(rec.array(None, formats=_formats, shape=gcount, names= self._coldefs.names))
+            self.__setstate__(tmp.__getstate__())
+            for i in range(npars):
+                (_scale, _zero)  = self._get_scale_factors(i)[3:5]
+                if _scale or _zero:
+                    self._convert[i] = pardata[i]
+                else:
+                    self._parent.field(i)[:] = pardata[i]
+            (_scale, _zero)  = self._get_scale_factors(npars)[3:5]
+            if _scale or _zero:
+                self._convert[npars] = input
+            else:
+                self._parent.field(npars)[:] = input
+        else:
+            self.__setstate__(input.__getstate__())
+
+    def __getattr__(self, attr):
+        if attr == 'data':
+            self.__dict__[attr] = self.field('data')
+        elif attr == '_unique':
+            _unique = {}
+            for i in range(len(self.parnames)):
+                _name = self.parnames[i]
+                if _name in _unique:
+                    _unique[_name].append(i)
+                else:
+                    _unique[_name] = [i]
+            self.__dict__[attr] = _unique
+        try:
+            return self.__dict__[attr]
+        except KeyError:
+            raise AttributeError(attr)
+
+    def par(self, parName):
+        """Get the group parameter values."""
+
+        if isinstance(parName, (int, long)):
+            result = self.field(parName)
+        else:
+            indx = self._unique[parName.lower()]
+            if len(indx) == 1:
+                result = self.field(indx[0])
+
+            # if more than one group parameter have the same name
+            else:
+                result = self.field(indx[0]).astype('f8')
+                for i in indx[1:]:
+                    result += self.field(i)
+
+        return result
+
+    def setpar(self, parName, value):
+        """Set the group parameter values."""
+
+        if isinstance(parName, (int, long)):
+            self.field(parName)[:] = value
+        else:
+            indx = self._unique[parName]
+            if len(indx) == 1:
+                self.field(indx[0])[:] = value
+
+            # if more than one group parameter have the same name, the
+            # value must be a list (or tuple) containing arrays
+            else:
+                if isinstance(value, (list, tuple)) and len(indx) == len(value):
+                    for i in range(len(indx)):
+                        self.field(indx[i])[:] = value[i]
+                else:
+                    raise ValueError, "parameter value must be a sequence with %d arrays/numbers." % len(indx)
+
+    def _getitem(self, offset):
+        row = (offset - self._byteoffset) / self._strides[0]
+        return _Group(self, row)
+
+
+class _Group(rec.Record):
+    """One group of the random group data."""
+
+    def __init__(self, input, row=0):
+        rec.Record.__init__(self, input, row)
+
+    def par(self, fieldName):
+        """Get the group parameter value."""
+
+        return self.array.par(fieldName)[self.row]
+
+    def setpar(self, fieldName, value):
+        """Set the group parameter value."""
+
+        self.array[self.row:self.row+1].setpar(fieldName, value)
 
 
 class TableBaseHDU(ExtensionHDU):
@@ -2783,6 +3249,11 @@ class TableBaseHDU(ExtensionHDU):
             class_name = str(self.__class__)
             class_name = class_name[class_name.rfind('.')+1:]
             self.__dict__[attr] = ColDefs(self.header, tbtype=class_name)
+
+        elif attr == '_theap':
+            self.__dict__[attr] = self.header.get('THEAP', self.header['NAXIS1']*self.header['NAXIS2'])
+        elif attr == '_pcount':
+            self.__dict__[attr] = self.header.get('PCOUNT', 0)
 
         try:
             return self.__dict__[attr]
@@ -2853,9 +3324,13 @@ class TableBaseHDU(ExtensionHDU):
                 val = getattr(_cols, cname+'s')[i]
                 if val != '':
                     keyword = keyNames[commonNames.index(cname)]+`i+1`
-                    if cname == 'format':
+                    if cname == 'format' and isinstance(self, BinTableHDU):
                         if isinstance(val, _FormatX):
                             val = `val._nx` + 'X'
+                        elif isinstance(val, _FormatP):
+                            VLdata = self.data.field(i)
+                            VLdata._max = max(map(len, VLdata))
+                            val = 'P' + convert_format(val._dtype, reverse=1) + '(%d)' %  VLdata._max
                         else:
                             val = convert_format(val, reverse=1)
                     #_update(keyword, val)
@@ -2924,13 +3399,6 @@ class TableHDU(TableBaseHDU):
 class BinTableHDU(TableBaseHDU):
     """Binary table HDU class."""
 
-    fitsComment = {
-        's'  :'character array',
-        'I8' :'1-byte integer (unsigned)',
-        'i16':'2-byte integer (signed)',
-        'i32':'4-byte integer (signed)',
-        'f32':'real',
-        'f64':'double precision'}
 
     def __init__(self, data=None, header=None, name=None):
         """data:   a record array
@@ -3010,7 +3478,6 @@ class _File:
             raise EOFError
 
         hdu = _TempHDU()
-        _size, hdu.name = hdu._getsize(block)
         hdu._raw = ''
 
         # continue reading header blocks until END card is reached
@@ -3026,6 +3493,8 @@ class _File:
             else:
                 break
         hdu._raw += block
+
+        _size, hdu.name = hdu._getsize(hdu._raw)
 
         # get extname and extver
         if hdu.name == '':
@@ -3095,21 +3564,58 @@ class _File:
             elif isinstance(hdu, BinTableHDU):
                 for i in range(hdu.data._nfields):
                     coldata = hdu.data.field(i)
+                    coldata2 = hdu.data._parent.field(i)
+
                     if not isinstance(coldata, chararray.CharArray):
-                        if coldata._type.bytes > 1:
 
                             # only swap unswapped
-                            if coldata._byteorder != 'big':
-                                coldata.byteswap()
-                                coldata._byteorder = 'big'
+                            # deal with var length table
+                        if isinstance(coldata, _VLF):
+                            for i in coldata:
+                                if not isinstance(i, chararray.CharArray):
+                                    if i._type.bytes > 1:
+                                        if i._byteorder != 'big':
+                                            i.byteswap()
+                                            i._byteorder = 'big'
+                        else:
+                            if coldata._type.bytes > 1:
+                                if coldata._byteorder != 'big':
+                                    coldata.byteswap()
+                                    coldata._byteorder = 'big'
+
+                        if coldata2._type.bytes > 1:
+
+                            # do the _parent too, otherwise the _parent
+                            # of a scaled column may have wrong byteorder
+                            if coldata2._byteorder != 'big':
+                                coldata2.byteswap()
+                                coldata2._byteorder = 'big'
 
                 # In case the FITS_rec was created in a LittleEndian machine
                 hdu.data._byteorder = 'big'
                 hdu.data._parent._byteorder = 'big'
+
             output = hdu.data
 
             output.tofile(self.__file)
             _size = output.nelements() * output._itemsize
+
+            # write out the heap of variable length array columns
+            # this has to be done after the "regular" data is written (above)
+            _where = self.__file.tell()
+            if isinstance(hdu, BinTableHDU):
+                self.__file.write(hdu.data._gap*'\0')
+
+                for i in range(hdu.data._nfields):
+                    if isinstance(hdu.columns.formats[i], _FormatP):
+                        for j in range(len(hdu.data.field(i))):
+                            coldata = hdu.data.field(i)[j]
+                            if len(coldata) > 0:
+                                coldata.tofile(self.__file)
+
+                _shift = self.__file.tell() - _where
+                hdu.data._heapsize = _shift - hdu.data._gap
+                _size = _size + _shift
 
             # pad the FITS data block
             if _size > 0:
@@ -3278,9 +3784,27 @@ class HDUList(UserList.UserList, _Verify):
 
     def update_tbhdu(self):
         """Update all table HDU's for scaled fields."""
+
         for hdu in self:
-            if isinstance(hdu, TableBaseHDU) and hdu.data is not None:
-                hdu.data._scale_back()
+            if 'data' in dir(hdu):
+                if isinstance(hdu, (GroupsHDU, TableBaseHDU)) and hdu.data is not None:
+                    hdu.data._scale_back()
+                if isinstance(hdu, TableBaseHDU) and hdu.data is not None:
+
+                    # calculate PCOUNT, for variable length tables
+                    _tbsize = hdu.header['NAXIS1']*hdu.header['NAXIS2']
+                    _heapstart = hdu.header.get('THEAP', _tbsize)
+                    hdu.data._gap = _heapstart - _tbsize
+                    _pcount = hdu.data._heapsize + hdu.data._gap
+                    if _pcount > 0:
+                        hdu.header['PCOUNT'] = _pcount
+
+                    # update TFORM for variable length columns
+                    for i in range(hdu.data._nfields):
+                        if isinstance(hdu.columns.formats[i], _FormatP):
+                            key = hdu.header['TFORM'+`i+1`]
+                            hdu.header['TFORM'+`i+1`] = key[:key.find('(')+1] + `hdu.data.field(i)._max` + ')'
+
 
     def flush(self, verbose=0):
         """Force a write of the HDUList back to the file (for append and
@@ -3489,7 +4013,9 @@ def open(name, mode="copyonwrite", memmap=0, output_verify="exception"):
             hduList.append(ffo._readHDU())
         except EOFError:
             break
-        except IOError:
+        # check in the case there is extra space after the last HDU or corrupted HDU
+        except ValueError:
+            print 'Warning:  Required keywords missing when trying to read HDU #%d.\n    There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList)+1)
             break
 
     # initialize/reset attributes to be used in "update/append" mode
