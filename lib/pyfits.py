@@ -28,7 +28,7 @@ import ndarray, chararray
 import recarray as rec
 import memmap as Memmap
 
-__version__ = '0.7.7.1 (January 30, 2003)'
+__version__ = '0.7.8 (May 02, 2003)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -620,8 +620,8 @@ class Card(_Verify):
                       'fixed format'
         else:
             if not Card._comment_RE.match(card[8:]):
-                raise FITS_SevereError, 'commentary card has unprintable '\
-                      'characters'
+                raise FITS_SevereError, 'commentary card "%s" has unprintable '\
+                      'characters' % card
 
         self.__dict__['_Card__card'] = card
         return self
@@ -1277,7 +1277,7 @@ class ImageBaseHDU(ValidHDU):
            Does not work for GroupHDU.  Need a separate method.
         """
 
-        old_naxis = self.header['NAXIS']
+        old_naxis = self.header.get('NAXIS', 0)
 
         if isinstance(self.data, num.NumArray):
             self.header['BITPIX'] = ImageBaseHDU.ImgCode[self.data.type()]
@@ -1933,11 +1933,18 @@ class FITS_rec(rec.RecArray):
         tmp = rec.RecArray.__getitem__(self, key)
 
         if type(key) == types.SliceType:
-            out = FITS_rec(tmp)
+            out = tmp
             out._parent = rec.RecArray.__getitem__(self._parent, key)
+            out._convert = [None]*self._nfields
+            for i in range(self._nfields):
 
-            # no need to slice ._convert, the new instance will reinitialize to
-            # None and will recalculate on the fly when used.
+                # touch all fields to expand the original ._convert list
+                # so the sliced FITS_rec will view the same scaled columns as
+                # the original
+                dummy = self.field(i)
+                if self._convert[i] is not None:
+                    out._convert[i] = ndarray.NDArray.__getitem__(self._convert[i], key)
+            del dummy
             return out
 
         # if not a slice, do this because Record has no __getstate__.
@@ -2224,8 +2231,8 @@ class _File:
         self.mode = mode
         self.memmap = memmap
 
-        if memmap and mode not in ['readonly', 'copyonwrite']:
-            raise "Memory mapping is not implemented for mode `%s` yet." % mode
+        if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
+            raise "Memory mapping is not implemented for mode `%s`." % mode
         else:
             self.__file = __builtin__.open(name, python_mode[mode])
 
@@ -2373,9 +2380,6 @@ class _File:
     def close(self):
         """ close the 'physical' FITS file"""
 
-        if self.__file.closed:
-            print "The associated file is already closed."
-
         self.__file.close()
 
 class HDUList(UserList.UserList, _Verify):
@@ -2420,11 +2424,6 @@ class HDUList(UserList.UserList, _Verify):
         del self.data[i:j]
         self._resize = 1
 
-    def __getattr__(self, attr):
-        """Get the 'closed' attribute."""
-        if attr == 'closed':
-            return self.__file._File__file.closed
-        raise AttributeError(attr)
 
     def _verify (self, option='warn'):
         _text = ''
@@ -2664,18 +2663,26 @@ class HDUList(UserList.UserList, _Verify):
             hduList.close()
 
     def close(self, verbose=0):
-        """Close the associated FITS file."""
+        """Close the associated FITS file and memmap object, if any."""
 
         """This simply calls the close method of the _File class.  It has
         this two-tier calls because _File has ts own private attribute __file.
         """
 
-        if self.__file == None:
-            print "No file associated with this HDUList."
-        else:
+        if self.__file != None:
+            if self.__file.memmap == 1:
+                self.mmobject = self.__file._mm
             if self.__file.mode in ['append', 'update']:
                 self.flush(verbose)
             self.__file.close()
+
+        # close the memmap object, it is designed to use an independent
+        # attribute of mmobject so if the HDUList object is created from files
+        # other than FITS, the close() call can also close the mm object.
+        try:
+            self.mmobject.close()
+        except:
+            pass
 
     def info(self):
         """Summarize the info of the HDU's in this HDUList."""
