@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.2
+#!/usr/bin/env python
 
 """
         fitsdiff: Compare two FITS image files and report the differences
