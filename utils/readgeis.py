@@ -53,9 +53,9 @@
 """
 
 # Developed by Science Software Branch, STScI, USA.
-__version__ = "Version 1.2 (07 March, 2003), \xa9 AURA"
+__version__ = "Version 1.2.1 (10 March, 2003), \xa9 AURA"
 
-import sys, string
+import os, sys, string
 import pyfits
 import numarray
 import recarray
@@ -248,7 +248,7 @@ def parse_path(f1, f2):
 
     """Parse two input arguments and return two lists of file names"""
 
-    import glob, os
+    import glob
 
     # if second argument is missing or is a wild card, point it
     # to the current directory
@@ -272,7 +272,8 @@ def parse_path(f1, f2):
             fitsname = name[:-4] + '_' + name[-3:-1] + 'f.fits'
             list2.append(os.path.join(f2, fitsname))
     else:
-        list2 = glob.glob(f2)
+        list2 = f2.split(",")
+        list2 = map(string.strip, list2)
 
     if (list1 == [] or list2 == []):
         str = ""
@@ -313,10 +314,14 @@ if __name__ == "__main__":
         list1, list2 = parse_path (args[0], args[1])
         npairs = min (len(list1), len(list2))
         for i in range(npairs):
+            if os.path.exists(list2[i]):
+                print "Output file %s already exists, skip." % list2[i]
+                break
             try:
                 hdulist = readgeis(list1[i])
                 stsci2(hdulist, list2[i])
                 hdulist.writeto(list2[i])
                 print "%s -> %s" % (list1[i], list2[i])
             except:
+                print "Conversion fails for %s." % list1[i]
                 break
