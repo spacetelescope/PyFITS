@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.0
+#!/usr/bin/env python2.2
 
 """
         fitsdiff: Compare two FITS image files and report the differences
@@ -76,15 +76,14 @@
 
 """
 
-# This version needs pyfits version 0.6 (or later), and numarray.
+# This version needs python 2.2 and numarray 0.6, or later.
 # Developed by Science Software Group, STScI, USA.
-__version__ = "Version 1.1.2 (07 March, 2003), \xa9 AURA"
+__version__ = "Version 1.2 (20 August, 2003), \xa9 AURA"
 
-import sys, string, types
+import sys, types
 import pyfits
 import numarray as num
-import chararray
-import time ####
+import numarray.strings as chararray
 
 def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', field_excl_list='', maxdiff=10, delta=0., neglect_blanks=1, output=None):
 
@@ -134,7 +133,7 @@ def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', field_ex
             xtension = ''
             print "\nPrimary HDU:"
         else:
-            xtension = string.strip(im1[i].header['XTENSION'])
+            xtension = im1[i].header['XTENSION'].strip()
             print "\n%s Extension %d HDU:" % (xtension, i)
 
         # build dictionaries of keyword values and comments
@@ -193,7 +192,7 @@ def list_parse (name_list):
             fd = open(name_list[1:])
             text = fd.read()
             fd.close()
-            kw_list = string.split(string.upper(text))
+            kw_list = (text.upper()).split()
 
             # if the file only have blanks
             if kw_list == []: kw_list = ['']
@@ -203,7 +202,7 @@ def list_parse (name_list):
             return([''])
 
     else:
-        return(string.split(string.upper(name_list), ','))
+        return (name_list.upper()).split(',')
 
 #-------------------------------------------------------------------------------
 def open_and_read (filename):
@@ -243,7 +242,7 @@ def keyword_dict(header, neglect_blanks=1):
 
         # keep trailing blanks for a string value?
         if type(value) == types.StringType and neglect_blanks:
-            value = string.rstrip(value)
+            value = value.rstrip()
 
         # existing keyword
         if dict_value.has_key(keyword):
@@ -309,7 +308,7 @@ def row_parse (row, img):
         # get the format (e.g. I8, A10, or G25.16) of the field (column)
         tform = img.header['TFORM'+str(col+1)]
 
-        item = string.strip(row[col])
+        item = row[col].strip()
 
         # evaluate the substring
         if (tform[0] != 'A'):
