@@ -24,7 +24,7 @@ import numarray as num
 import chararray
 import recarray as rec
 
-version = '0.6.1 (Jan 25, 2002)'
+version = '0.6.2 (Feb 12, 2002)'
 
 # Public variables
 blockLen = 2880         # the FITS block size
@@ -970,7 +970,7 @@ class CorruptedHDU:
     def summary(self, format):
         clas  = str(self.__class__)
         type  = clas[string.rfind(clas, '.')+1:]
-        if self.data != None:
+        if self.data is not None:
             shape, code = self.data.getshape(), self.data.typecode()
         else:
             shape, code = (), ''
@@ -1014,7 +1014,7 @@ class NonConformingHDU:
 
         clas  = str(self.__class__)
         type  = clas[string.rfind(clas, '.')+1:]
-        if self.data != None:
+        if self.data is not None:
             shape, code = self.data.getshape(), self.data.typecode()
         else:
             shape, code = (), ''
@@ -1080,7 +1080,7 @@ class ConformingHDU:
     def summary(self, format):
         clas  = str(self.__class__)
         type  = clas[string.rfind(clas, '.')+1:]
-        if self.data != None:
+        if self.data is not None:
             shape, code = self.data.getshape(), self.data.typecode()
         else:
             shape, code = (), ''
@@ -1180,7 +1180,7 @@ class ImageHDU(ImageBaseHDU):
         self.__dict__[attr] = value
 
     def copy(self):
-        if self.data != None:
+        if self.data is not None:
             Data = self.data[:]
         else:
             Data = None
@@ -1455,9 +1455,34 @@ class ColDefs:
     def change_unit(self, col_name, new_unit):
         self.change_attrib(col_name, 'unit', new_unit)
 
-    def change_format(self, col_name, new_format):
-        new_format = convert_format(new_format)
-        self.change_attrib(col_name, 'format', new_format)
+    def info(self, attrib='all'):
+        """Get attribute(s) of the column definition.
+
+           the attrib can be one or more of the atrributes listed in
+           commonNames.  The default is "all" which will print out
+           all attributes.  It forgives plurals and blanks.  If there are
+           two or more attribute names, they must be separated by comma(s).
+        """
+
+        if attrib.strip().lower() in ['all', '']:
+            list = commonNames
+        else:
+            list = attrib.split(',')
+            for i in range(len(list)):
+                list[i]=list[i].strip().lower()
+                if list[i][-1] == 's':
+                    list[i]=list[i][:-1]
+
+        for att in list:
+            if att not in commonNames:
+                print "'%s' is not an attribute of the column definitions."%att
+                continue
+            print "%s:" % att
+            print '    ', getattr(self, '_'+att+'s')
+
+    #def change_format(self, col_name, new_format):
+        #new_format = convert_format(new_format)
+        #self.change_attrib(col_name, 'format', new_format)
 
 def get_data(data_source, col_def=None):
     """ Get the table data from data_source, using column definitions in
@@ -1620,6 +1645,10 @@ class Table:
             shape, format = (), ''
         return "%-10s  %-11s  %5d  %-12s  %s"%\
                (self.name, type, len(self.header.ascard), shape, format)
+
+    # 0.6.2
+    def get_coldefs(self):
+        return self._columns
 
     def update(self):
         """ Update header keywords to reflect recent changes of columns"""
@@ -1881,7 +1910,7 @@ class _File:
 
         self.__file.flush()
         loc = self.__file.tell()
-        if hdu.data != None:
+        if hdu.data is not None:
 
             # if image, need to deal with bzero/bscale and byteswap
             if isinstance(hdu, ImageBaseHDU):
@@ -2025,7 +2054,7 @@ class HDUList(UserList.UserList):
         """Read all data into memory"""
 
         for hdu in self:
-            if hdu.data != None:
+            if hdu.data is not None:
                 continue
 
     def flush(self, verbose=0):
@@ -2099,7 +2128,7 @@ class HDUList(UserList.UserList):
                         if (verbose):
                             print "update header in place: Name =", hdu.name, _extver
                     if 'data' in dir(hdu):
-                        if hdu.data != None:
+                        if hdu.data is not None:
                             hdu._file.seek(hdu._datLoc)
                             self.__file.writeHDUdata(hdu)
                             if (verbose):
