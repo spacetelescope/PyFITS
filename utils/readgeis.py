@@ -53,8 +53,8 @@
 """
 
 # Developed by Science Software Branch, STScI, USA.
-# This version needs Python 2.2/numarray 0.6/records 2.0
-__version__ = "1.7 (28 April, 2004), \xa9 AURA"
+# This version needs pyfits 0.9.6.3 or later
+__version__ = "Version 1.8 (05 April, 2005), \xa9 AURA"
 
 import os, sys, string
 import pyfits
@@ -174,7 +174,7 @@ def readgeis(input):
 
     _shape = _naxis[1:]
     _shape.reverse()
-    _code = pyfits.ImageBaseHDU.NumCode[_bitpix]
+    _code = pyfits._ImageBaseHDU.NumCode[_bitpix]
     _bscale = phdr.get('BSCALE', 1)
     _bzero = phdr.get('BZERO', 0)
     if phdr['DATATYPE'][:10] == 'UNSIGNED*2':
