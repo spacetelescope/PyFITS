@@ -3,7 +3,20 @@
 
 #define NAME_LEN 20
 
+/*
+ *  Enumerated endian character codes, where NAT, LIL, BIG, and NET
+ *  are native-, little-, big-, and network-endian byte order, resp.
+ *  The default is native-endian order.  network-endian order is the
+ *  same as big-endian order.
+ */
+
 enum Endians {NAT='=', LIL='<', BIG='>', NET='!'};
+
+
+/*
+ *  Enumerated list of allow record types.  Includes most signed and
+ *  unsigned integer types.
+ */
 
 enum Item_Types {
     Item_STRING,    Item_CHAR8,
@@ -15,6 +28,11 @@ enum Item_Types {
     Item_NTYPES,    Item_UNTYPED
 };
 
+/*
+ *  Function descriptors for the cast, getitem, and setitem function
+ *  pointers.
+ */
+
 typedef void (*ItemCastFunc) Py_PROTO((void *, char *, void *, char *));
 typedef PyObject * (*ItemGetFunc) Py_PROTO((void *, char *));
 typedef int (*ItemSetFunc) Py_PROTO((void *, char *, PyObject *));
@@ -22,12 +40,12 @@ typedef int (*ItemSetFunc) Py_PROTO((void *, char *, PyObject *));
 /* Item descriptor structure */
 
 typedef struct {
-    int      type;
-    char     repr[4];
-    int      size;
-    ItemCastFunc *cast;
-    ItemGetFunc get;
-    ItemSetFunc set;
+    int      type;           /* index of type */
+    char     repr[4];        /* char representation */
+    int      size;           /* size of type in bytes */
+    ItemCastFunc *cast;      /* functions to convert between record types */
+    ItemGetFunc get;         /* function to convert Python type to record */
+    ItemSetFunc set;         /* function to convert record to Python type */
 } Item_Descr;
 
 /* Item structure */
@@ -64,15 +82,10 @@ typedef struct {
     PyObject *data;          /* data buffer */
 } RecordObject;
 
-extern DL_IMPORT(PyTypeObject) Item_Type;
-extern DL_IMPORT(PyTypeObject) Record_Type;
-extern DL_IMPORT(PyTypeObject) RecArray_Type;
-
-#define Item_Check(op) ((op)->ob_type == &Item_Type)
-#define Record_Check(op) ((op)->ob_type == &Record_Type)
-#define RecArray_Check(op) ((op)->ob_type == &RecArray_Type)
-
 /*
+ *  Function prototypes for (an intented) Recordmodule API.
+/*
+
 extern int Format_Name Py_PROTO((char *, char *));
 extern int Format_Length Py_PROTO((char *));
 extern int Format_Type Py_PROTO((char *));

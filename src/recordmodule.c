@@ -20,6 +20,17 @@ static char seqs_neq[] = "unequal sequence lengths";
 
 /*
  *        TYPE ACCESS AND CONVERSION FUNCTIONS
+ *
+ *  Each record type has an array of functions to cast or coerce data
+ *  from other types into its type.  A NULL pointer is used to indicate
+ *  that no function exist for coercion between the two types.
+ *  
+ *  Each record type also has 'set' and 'get' item functions for
+ *  converting between record types and builtin Python types, such as
+ *  tuples and lists.
+ *
+ *  All functions handle byte swapping (between different endian
+ *  orders) and data alignment issues.
  */
 
 /*
@@ -149,8 +160,8 @@ sInt8_from_uInt8(Item *i1, char *p1, Item *i2, char *p2) {
 static ItemCastFunc sInt8_cast[Item_NTYPES] = {
     0,
     0,
-    (ItemCastFunc)sInt8_from_sInt8,
     (ItemCastFunc)sInt8_from_uInt8,
+    (ItemCastFunc)sInt8_from_sInt8,
     0,
     0,
     0,
@@ -212,8 +223,8 @@ uInt8_from_uInt8(Item *i1, char *p1, Item *i2, char *p2) {
 static ItemCastFunc uInt8_cast[Item_NTYPES] = {
     0,
     0,
-    (ItemCastFunc)uInt8_from_sInt8,
     (ItemCastFunc)uInt8_from_uInt8,
+    (ItemCastFunc)uInt8_from_sInt8,
     0,
     0,
     0,
@@ -297,10 +308,10 @@ sInt16_from_uInt16(Item *i1, char *p1, Item *i2, char *p2) {
 static ItemCastFunc sInt16_cast[Item_NTYPES] = {
     0,
     0,
-    (ItemCastFunc)sInt16_from_sInt8,
     (ItemCastFunc)sInt16_from_uInt8,
-    (ItemCastFunc)sInt16_from_sInt16,
+    (ItemCastFunc)sInt16_from_sInt8,
     (ItemCastFunc)sInt16_from_uInt16,
+    (ItemCastFunc)sInt16_from_sInt16,
     0,
     0,
     0,
@@ -382,10 +393,10 @@ uInt16_from_uInt16(Item *i1, char *p1, Item *i2, char *p2) {
 static ItemCastFunc uInt16_cast[Item_NTYPES] = {
     0,
     0,
-    (ItemCastFunc)uInt16_from_sInt8,
     (ItemCastFunc)uInt16_from_uInt8,
-    (ItemCastFunc)uInt16_from_sInt16,
+    (ItemCastFunc)uInt16_from_sInt8,
     (ItemCastFunc)uInt16_from_uInt16,
+    (ItemCastFunc)uInt16_from_sInt16,
     0,
     0,
     0,
@@ -489,12 +500,12 @@ sInt32_from_uInt32(Item *i1, char *p1, Item *i2, char *p2) {
 static ItemCastFunc sInt32_cast[Item_NTYPES] = {
     0,
     0,
-    (ItemCastFunc)sInt32_from_sInt8,
     (ItemCastFunc)sInt32_from_uInt8,
-    (ItemCastFunc)sInt32_from_sInt16,
+    (ItemCastFunc)sInt32_from_sInt8,
     (ItemCastFunc)sInt32_from_uInt16,
-    (ItemCastFunc)sInt32_from_sInt32,
+    (ItemCastFunc)sInt32_from_sInt16,
     (ItemCastFunc)sInt32_from_uInt32,
+    (ItemCastFunc)sInt32_from_sInt32,
     0,
     0,
     0,
@@ -596,12 +607,12 @@ uInt32_from_uInt32(Item *i1, char *p1, Item *i2, char *p2) {
 static ItemCastFunc uInt32_cast[Item_NTYPES] = {
     0,
     0,
-    (ItemCastFunc)uInt32_from_sInt8,
     (ItemCastFunc)uInt32_from_uInt8,
-    (ItemCastFunc)uInt32_from_sInt16,
+    (ItemCastFunc)uInt32_from_sInt8,
     (ItemCastFunc)uInt32_from_uInt16,
-    (ItemCastFunc)uInt32_from_sInt32,
+    (ItemCastFunc)uInt32_from_sInt16,
     (ItemCastFunc)uInt32_from_uInt32,
+    (ItemCastFunc)uInt32_from_sInt32,
     0,
     0,
     0,
@@ -725,12 +736,12 @@ Float32_from_Float64(Item *i1, char *p1, Item *i2, char *p2) {
 static ItemCastFunc Float32_cast[Item_NTYPES] = {
     0,
     0,
-    (ItemCastFunc)Float32_from_sInt8,
     (ItemCastFunc)Float32_from_uInt8,
-    (ItemCastFunc)Float32_from_sInt16,
+    (ItemCastFunc)Float32_from_sInt8,
     (ItemCastFunc)Float32_from_uInt16,
-    (ItemCastFunc)Float32_from_sInt32,
+    (ItemCastFunc)Float32_from_sInt16,
     (ItemCastFunc)Float32_from_uInt32,
+    (ItemCastFunc)Float32_from_sInt32,
     (ItemCastFunc)Float32_from_Float32,
     (ItemCastFunc)Float32_from_Float64,
     0,
@@ -854,12 +865,12 @@ Float64_from_Float64(Item *i1, char *p1, Item *i2, char *p2) {
 static ItemCastFunc Float64_cast[Item_NTYPES] = {
     0,
     0,
-    (ItemCastFunc)Float64_from_sInt8,
     (ItemCastFunc)Float64_from_uInt8,
-    (ItemCastFunc)Float64_from_sInt16,
+    (ItemCastFunc)Float64_from_sInt8,
     (ItemCastFunc)Float64_from_uInt16,
-    (ItemCastFunc)Float64_from_sInt32,
+    (ItemCastFunc)Float64_from_sInt16,
     (ItemCastFunc)Float64_from_uInt32,
+    (ItemCastFunc)Float64_from_sInt32,
     (ItemCastFunc)Float64_from_Float32,
     (ItemCastFunc)Float64_from_Float64,
     0,
@@ -1041,12 +1052,12 @@ Complex32_from_Complex64(Item *i1, char *p1, Item *i2, char *p2) {
 static ItemCastFunc Complex32_cast[Item_NTYPES] = {
     0,
     0,
-    (ItemCastFunc)Complex32_from_sInt8,
     (ItemCastFunc)Complex32_from_uInt8,
-    (ItemCastFunc)Complex32_from_sInt16,
+    (ItemCastFunc)Complex32_from_sInt8,
     (ItemCastFunc)Complex32_from_uInt16,
-    (ItemCastFunc)Complex32_from_sInt32,
+    (ItemCastFunc)Complex32_from_sInt16,
     (ItemCastFunc)Complex32_from_uInt32,
+    (ItemCastFunc)Complex32_from_sInt32,
     (ItemCastFunc)Complex32_from_Float32,
     (ItemCastFunc)Complex32_from_Float64,
     (ItemCastFunc)Complex32_from_Complex32,
@@ -1234,12 +1245,12 @@ Complex64_from_Complex64(Item *i1, char *p1, Item *i2, char *p2) {
 static ItemCastFunc Complex64_cast[Item_NTYPES] = {
     0,
     0,
-    (ItemCastFunc)Complex64_from_sInt8,
     (ItemCastFunc)Complex64_from_uInt8,
-    (ItemCastFunc)Complex64_from_sInt16,
+    (ItemCastFunc)Complex64_from_sInt8,
     (ItemCastFunc)Complex64_from_uInt16,
-    (ItemCastFunc)Complex64_from_sInt32,
+    (ItemCastFunc)Complex64_from_sInt16,
     (ItemCastFunc)Complex64_from_uInt32,
+    (ItemCastFunc)Complex64_from_sInt32,
     (ItemCastFunc)Complex64_from_Float32,
     (ItemCastFunc)Complex64_from_Float64,
     (ItemCastFunc)Complex64_from_Complex32,
@@ -1276,6 +1287,10 @@ static Item_Descr Complex64_descr = {
 
 /*
  *        Type Description Table
+ *
+ *  This table is essentially an array of arrays to functions.  The 
+ *  first axis is the destination type and the second axis the source
+ *  type.
  */
 
 static Item_Descr *descr_table[Item_NTYPES] = {
@@ -1291,14 +1306,23 @@ static Item_Descr *descr_table[Item_NTYPES] = {
  *        FORMAT STRING FUNCTIONS
  */
 
-/*    Format string is of the form,   "ETss",   where
- *      E :  endian of item type
- *      T :  type of item (required), and
- *      ss:  size of item type.
+/*  A format string is of the form,   "ETss, Tss, Tss",   where
+ *    E :  endian of item type
+ *         (Default is native endian order.)
+ *    T :  type of item (required), and
+ *    ss:  size of item type
+ *         (Default is largest size of type class, e.g. Int == Int32.)
+ */
+
+/*
+ *  Utility functions for private format type.
  */
 
 static char *
 skip_space(char *fmt) {
+    /*
+     *  Skips over spaces when parsing the format string.
+     */
     for (; *fmt == ' '; fmt++)
         ;
     return fmt;
@@ -1306,6 +1330,11 @@ skip_space(char *fmt) {
 
 static char
 format_swap(char endian) {
+    /* 
+     *  Return 1, meaning data buffer is to be byte-swapped, when the
+     *  endianness of the data type and machine type differ.  This
+     *  function tests for the native (machine) endian order.
+     */
     int one=1, res=0;
 
     if (endian == LIL)
@@ -1319,6 +1348,9 @@ format_swap(char endian) {
 
 static char *
 format_endian(char *fmt, char *endian) {
+    /*
+     *  Return endian code if present or native if default.
+     */
     *endian = (*fmt==LIL || *fmt==BIG ||
                *fmt==NET || *fmt==NAT)? *fmt++: '=';
     return fmt;
@@ -1326,6 +1358,9 @@ format_endian(char *fmt, char *endian) {
 
 static int
 type_check(char *fmt, char *dsc) {
+    /*
+     *  Parses format string and checks for a valid record type.
+     */
     if (fmt[0]==dsc[0] && (fmt[1] == ' ' || fmt[1]==',' ||
                            fmt[1]=='\0' || type_check(fmt+1, dsc+1)))
         return 1;
@@ -1335,6 +1370,10 @@ type_check(char *fmt, char *dsc) {
 
 static char *
 format_type_and_size(char *fmt, int *type, int *size) {
+    /*
+     *  Parses format string, returning a type's integer identifier
+     *  and size when found.
+     */
     char c, *r;
     int cnt=0, i;
 
@@ -1356,6 +1395,9 @@ format_type_and_size(char *fmt, int *type, int *size) {
 static char *
 Format_Next(char *fmt)
 {
+    /*
+     *  Returns a pointer to the next format type.
+     */
     while (*fmt != ',' && *fmt != '\0') fmt++;
     return (*fmt == ','? ++fmt: fmt);
 }
@@ -1363,6 +1405,9 @@ Format_Next(char *fmt)
 static int
 Format_StringLength(char *fmt)
 {
+    /*
+     *  Returns the length in bytes of the format string.
+     */
     int len;
     for (len=0; *fmt != '\0'; fmt=Format_Next(fmt), len++) ;
     return len;
@@ -1371,6 +1416,10 @@ Format_StringLength(char *fmt)
 static char *
 Format_FromObject(PyObject *data, char *fmt)
 {
+    /*
+     *  Recursively scans a (nested) Python sequence and constructs
+     *  an appropriate format string.
+     */
     PyObject *obj;
     char str[100];
     int j, size=0, type=0;
@@ -1425,6 +1474,9 @@ Format_FromObject(PyObject *data, char *fmt)
 
 static Item *
 item_FromFormat(char endian, char *format) {
+    /*
+     *  Return an array of Item structs given a format string.
+     */
     Item *new;
     char *fmt;
     int j, n_item=0;
@@ -1455,6 +1507,9 @@ item_FromFormat(char endian, char *format) {
 static Item *
 item_FromItem(Item *i1, char endian)
 {
+    /*
+     *  Return an Item type from Item data (ie. a copy)
+     */
     Item *new;
     int j;
     
@@ -1478,6 +1533,9 @@ item_FromItem(Item *i1, char endian)
 static Item *
 item_FromItemAndDimen(Item *i1, Dimen *d1, char endian)
 {
+    /*
+     *  Return an Item type from Item and Dimen data.
+     */
     Item *new;
     int j, k, leng=0, start=d1[1].start, stop=d1[1].stop, step=d1[1].step;
 
@@ -1504,6 +1562,9 @@ item_FromItemAndDimen(Item *i1, Dimen *d1, char endian)
 static PyObject *
 item_asformat(Dimen *d1, char endian, Item *i1)
 {
+    /*
+     *  Create a string representation of an Item type.
+     */
     PyObject *format;
     int j, start=d1[1].start, stop=d1[1].stop, step=d1[1].step;
     char str[80];
@@ -1532,6 +1593,9 @@ item_asformat(Dimen *d1, char endian, Item *i1)
 static void
 print_dimensions(Dimen *dimen)
 {
+    /*
+     *  This function is only for debug purposes.
+     */
     int j;
     for (j=0; j <= dimen[0].leng; j++)
         printf("  %2d: %2d %2d %2d, %2d %d %d\n", j,
@@ -1567,7 +1631,7 @@ static int
 dimen_length(Dimen *d1, int k)
 {
     /*  
-     *  Return the length of a dimension slice.
+     *  Return the length of dimension k.
      */
     int leng=0, j, start=d1[k].start, stop=d1[k].stop, step=d1[k].step;
     for (j=start; step < 0? j > stop: j < stop; j+=step)
@@ -1578,6 +1642,9 @@ dimen_length(Dimen *d1, int k)
 static int
 set_index(Dimen *dimen, int k, int ndx)
 {
+    /*
+     *  Set the index of dimension k.
+     */
     if (ndx < 0 || ndx >= dimen_length(dimen, k)) {
         PyErr_SetString(PyExc_IndexError, "record index out of range");
         return -1;
@@ -1592,6 +1659,9 @@ set_index(Dimen *dimen, int k, int ndx)
 static int
 set_seq_slice(Dimen *dimen, int k, int min, int max)
 {
+    /*
+     *  Set the min and max data of dimension k
+     */
     int leng = dimen[k].stop;
     min = min < 0 ? 0: (min > leng ? leng: min);
     max = max < 0 ? 0: (max > leng ? leng: max);
@@ -1605,7 +1675,8 @@ static int
 set_map_slice(Dimen *dimen, int k, PyObject *item)
 {
     /*
-     *  Set a dimension's indices from a Python object
+     *  Set slice data (min, max, step) of dimension k from a
+     *  slice object.
      */
     PySliceObject *slice;
     int ndx;
@@ -1635,7 +1706,7 @@ static int
 set_indices(Dimen *dimen, PyObject *key)
 {
     /*
-     *  
+     *  Set slice data (min, max, step) for all dimensions.
      */
     int j, k, *dim;
 
@@ -1852,6 +1923,10 @@ static int
 cast_record(int dim1, Dimen *d1, Item *i1, char *p1,
             int dim2, Dimen *d2, Item *i2, char *p2)
 {
+    /*
+     *  Recursively descend the Record array and coerce the data of
+     *  one record type into another record type.
+     */
     int j1, j2;
 
     while((dim1 > 1) && (d1[dim1].flag == 0)) {
@@ -1887,6 +1962,9 @@ cast_record(int dim1, Dimen *d1, Item *i1, char *p1,
 
 static PyObject *
 get_record(int dim, Dimen *d1, Item *i1, char *p1) {
+    /*
+     *  Convert a Record to a Python sequence.
+     */
     PyObject *obj;
     int start=d1[dim].start, stop=d1[dim].stop, step=d1[dim].step;
     int j, k, leng, size=d1[dim].size;
@@ -1917,6 +1995,9 @@ get_record(int dim, Dimen *d1, Item *i1, char *p1) {
 
 static int
 set_record(int dim, Dimen *d1, Item *i1, char *p1, PyObject *obj) {
+    /*
+     *  Convert a Python sequence to a Record.
+     */
     int start=d1[dim].start, stop=d1[dim].stop, step=d1[dim].step;
     int j, k, size=d1[dim].size, result=0;
 
@@ -2165,7 +2246,7 @@ static PyObject *
 record_tostring(RecordObject *this, PyObject *args, PyObject *opts)
 {
     /*
-     *  Return data as a string
+     *  Return data as a string object
      */
     char *keys[]={"endian", 0};
     PyObject *new;
@@ -2235,6 +2316,7 @@ record_getattr(RecordObject *this, char *name)
     PyObject *ret=0;
     int j, *dim, leng;
 
+    /*  shape attribute  */
     if (strcmp(name, "shape") == 0) {
         dim = get_valid_dimens(this->dimn);
         IF_NOT(ret = PyTuple_New(dim[0]))
@@ -2245,6 +2327,7 @@ record_getattr(RecordObject *this, char *name)
         }
         Py_Free(dim);
     }
+    /*  format attribute  */
     else if (strcmp(name, "format") == 0) {
         ret = item_asformat(this->dimn, this->endn, this->item);
     }
@@ -2257,11 +2340,15 @@ record_getattr(RecordObject *this, char *name)
 static int
 record_setattr(RecordObject *this, char *name, PyObject *obj)
 {
+    /*
+     *  Set a record attribute
+     */
     char *format, *fmt, endian;
     Item *item=0;
     Dimen *dimen=0;
     int  *dims=0, j, n_dimn;
 
+    /*  shape attribute  */
     if (strcmp(name, "shape") == 0) {
         IF_NOT(PyTuple_Check(obj)) {
             PyErr_SetString(PyExc_ValueError, "expecting tuple type");
@@ -2287,6 +2374,7 @@ record_setattr(RecordObject *this, char *name, PyObject *obj)
         Py_Free(this->dimn);
         this->dimn = dimen;
     }
+    /*  format attribute  */
     else if (strcmp(name, "format") == 0) {
         IF_NOT(PyString_Check(obj)) {
             PyErr_SetString(PyExc_ValueError, "expecting string type");
@@ -2328,6 +2416,10 @@ record_setattr(RecordObject *this, char *name, PyObject *obj)
 static PyObject *
 record_repr(RecordObject *this)
 {
+    /*
+     *  Return a representation the record type, ie. a string that
+     *  can be eval-ed.
+     */
     PyObject *new, *obj;
 
     new = PyString_FromString("record(");
@@ -2500,6 +2592,14 @@ record_setseqslice(RecordObject *this, int min, int max, PyObject *obj)
     return -1;
 }
 
+/*
+ *  Function table for Python sequence behavior.
+ *
+ *  This table is mainly used to handle x[i:j], x[i:j] = y, and 
+ *  len(x) semantics.  Mapping behavior handles the remaining
+ *  Python semantics.
+ */
+
 static PySequenceMethods record_as_sequence = {
     (inquiry)         record_length,          /* seq_length    "len(x)"   */
     0,/*(binaryfunc)record_concat,*/          /* seq_concat    "x + y"    */
@@ -2589,6 +2689,10 @@ record_setmapitem(RecordObject *this, PyObject *key, PyObject *obj)
     return -1;
 }
 
+/*
+ *  Function table for Python mapping behavior.
+ */
+
 static PyMappingMethods record_as_mapping = {
     (inquiry)record_length,            /* mp_length    "len(x)"   */
     (binaryfunc)record_getmapitem,     /* mp_get_item  "x[k]"     */
@@ -2627,6 +2731,11 @@ PyTypeObject Record_Type = {
 static PyObject *
 record_fromstring(PyObject *this, PyObject *args, PyObject *opts)
 {
+    /*
+     *  Create a record object from a string object and optional
+     *  item count and format.  This implies that the length of
+     *  the string can be greater than the record data buffer.
+     */
     char *keys[]={"data", "count", "format", 0};
     PyObject *data=0; int count=-1; char *format=0;
     Dimen *dimen=0; Item *item=0;
@@ -2685,6 +2794,10 @@ record_fromstring(PyObject *this, PyObject *args, PyObject *opts)
     return 0;
 }
 
+/*
+ *  Record methods
+ */
+
 static PyMethodDef record_init_methods[] =
 {
     {"record",     (PyCFunction)record_new,        METH_VARARGS|METH_KEYWORDS,
@@ -2697,6 +2810,10 @@ static PyMethodDef record_init_methods[] =
 };
 
 void initrecord() {
+    /*
+     *  Initialize the record module and define its methods and 
+     *  attributes.
+     */
     PyObject *m, *d;
     
     m = Py_InitModule("record", record_init_methods);
