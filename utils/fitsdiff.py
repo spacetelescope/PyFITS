@@ -79,7 +79,7 @@
 
 # This version needs python 2.2 and numarray 0.6, or later.
 # Developed by Science Software Group, STScI, USA.
-__version__ = "Version 1.2 (20 August, 2003), \xa9 AURA"
+__version__ = "Version 1.3 (22 July, 2004)"
 
 import sys, types
 import pyfits
@@ -156,14 +156,15 @@ def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', field_ex
         # First, get the dimensions of the data
         dim = compare_dim(im1[i], im2[i])
 
-        if (dim != None and maxdiff > 0):
+        _maxdiff = max(0, maxdiff)
+        if dim != None:
 
             # if the extension is tables
             if xtension in ('BINTABLE', 'TABLE'):
                 if field_excl_list != ['*']:
-                    compare_table(im1[i], im2[i], delta, maxdiff, dim, xtension, field_excl_list)
+                    compare_table(im1[i], im2[i], delta, _maxdiff, dim, xtension, field_excl_list)
             else:
-                compare_img(im1[i], im2[i], delta, maxdiff, dim)
+                compare_img(im1[i], im2[i], delta, _maxdiff, dim)
 
     # if there is no difference
     if nodiff:
