@@ -30,7 +30,7 @@ import numarray.strings as chararray
 import numarray.records as rec
 import numarray.memmap as Memmap
 
-__version__ = '0.8.1 (Oct 06, 2003)'
+__version__ = '0.8.2 (Jan 08, 2004)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -324,7 +324,6 @@ class Card(_Verify):
     #  form of which is expected to be simple, e.g. "%d / %s".  The
     #  use of the '%' character should be used with caution, since it
     #  is used as the escape character as in a printf statement.
-
     __format_RE= re.compile(
         r'(?:(?P<valfmt> *'+__format+r' *)|'
         r'(?P<cpxfmt> *\('+__format+r' *, *'+__format+r' *\) *))'
@@ -332,12 +331,10 @@ class Card(_Verify):
         r'(?P<comfmt>'+__format+r'[ -~]*)?)?$')
 
     #  A list of commentary keywords.  Note that their length is 8.
-
-    __comment_keys = ['        ', 'COMMENT ', 'HISTORY ']
+    __comment_keys = ['        ', 'COMMENT ', 'HISTORY ', 'CONTINUE']
 
     #  A list of mandatory keywords, whose syntax must be in fixed-
     #  format.
-
     __mandatory_keys = ['SIMPLE  ', 'EXTEND  ', 'BITPIX  ',
                         'PCOUNT  ', 'GCOUNT  ']
 
@@ -804,12 +801,9 @@ class Header(_Verify):
             else:
                 _comment = self.ascard[j].comment
             self.ascard[j] = Card(key, value, _comment)
-        elif before and self.has_key(before):
-            self.ascard.insert(self.ascard.index_of(before),
-                                Card(key, value, comment))
-        elif after and self.has_key(after):
-            self.ascard.insert(self.ascard.index_of(after)+1,
-                                Card(key, value, comment))
+        elif before != None or after != None:
+            _card = Card(key, value, comment)
+            self.ascard._pos_insert(_card, before=before, after=after)
         else:
             self.ascard.append(Card(key, value, comment))
 
@@ -827,6 +821,18 @@ class Header(_Verify):
         """Add a blank card."""
         self._add_commentary(' ', value, before=before, after=after)
 
+    def _add_continue(self, value, comment='', ampersand=0, before=None, after=None):
+        """Add a CONTINUE card."""
+        # formatthe string value
+        if ampersand:
+            value += "&"
+        str = "  " + Card('')._formatter(value)
+        if comment.strip() != '':
+            str += " / " + comment
+        self._add_commentary('continue', str, before=before, after=after)
+
+    add_continue = _add_continue
+
     def _add_commentary(self, key, value, before=None, after=None):
         """Add a commentary card.
 
@@ -836,10 +842,8 @@ class Header(_Verify):
         """
 
         new_card = Card(key, value)
-        if before and self.has_key(before):
-            self.ascard.insert(self.ascard.index_of(before), new_card)
-        elif after and self.has_key(after):
-            self.ascard.insert(self.ascard.index_of(after)+1, new_card)
+        if before != None or after != None:
+            self.ascard._pos_insert(new_card, before=before, after=after)
         else:
             if key[0] == ' ':
                 self.ascard.append(new_card)
@@ -974,6 +978,20 @@ class CardList(UserList.UserList):
         else:
             raise SyntaxError, "%s is not a Card" % str(card)
 
+    def _pos_insert(self, card, before, after, useblanks=1):
+        """Insert a Card to the location specified by before or after."""
+
+        """The argument `before' takes precedence over `after' if both
+           specified.  They can be either a keyword name or index.
+        """
+
+        if before != None:
+            loc = self.index_of(before)
+            self.insert(loc, card, useblanks=useblanks)
+        elif after != None:
+            loc = self.index_of(after)
+            self.insert(loc+1, card, useblanks=useblanks)
+
     def insert(self, pos, card, useblanks=1):
         """Insert a Card to the CardList."""
 
@@ -985,10 +1003,10 @@ class CardList(UserList.UserList):
 
         if isinstance (card, Card):
             if (self._blanks > 0) and useblanks and pos < len(self):
-                self.data.insert(pos,card)
+                self.data.insert(pos, card)
                 del self.data[-1]
             else:
-                self.data.insert(pos,card)
+                self.data.insert(pos, card)
 
             self.count_blanks()
             self._mod = 1
@@ -1105,6 +1123,18 @@ class ValidHDU(AllHDU, _Verify):
         else:
             _data = None
         return self.__class__(data=_data, header=self.header.copy())
+
+    def writeto(self, name, output_verify=None):
+        """Write the HDU to a new file.  This is a convenience method
+           to provide a user easier output interface if only one HDU
+           needs to be written to a file.
+        """
+
+        if isinstance(self, ExtensionHDU):
+            hdulist = HDUList([PrimaryHDU(), self])
+        elif isinstance(self, PrimaryHDU):
+            hdulist = HDUList([self])
+        hdulist.writeto(name, output_verify)
 
     def _verify(self, option='warn'):
         _err = _ErrList([], unit='Card')
@@ -1715,8 +1745,16 @@ class Column:
            except format can be optional.
         """
 
-        if format == None:
-            raise ValueError, "Must specify format"
+        # check format
+        try:
+            # legit FITS format?
+            tmp = convert_format(format)
+        except:
+            try:
+                # legit RecArray format?
+                format = convert_format(format, reverse=1)
+            except:
+                raise ValueError, "Illegal or empty format `%s`." % format
 
         # any of the input argument (except array) can be a Card or just
         # a number/string
@@ -2253,6 +2291,7 @@ class TableBaseHDU(ExtensionHDU):
         """TableBaseHDU verify method."""
         _err = ExtensionHDU._verify(self, option=option)
         self.req_cards('NAXIS', None, 'val == 2', 2, option, _err)
+        self.req_cards('BITPIX', None, 'val == 8', 8, option, _err)
         self.req_cards('TFIELDS', '== 7', isInt+" and val >= 0 and val <= 999", 0, option, _err)
         tfields = self.header['TFIELDS']
         for i in range(tfields):
@@ -2447,13 +2486,15 @@ class _File:
         _size = 0
         if hdu.data is not None:
 
-            # if image, need to deal with bzero/bscale and byteorder
+            # if image, need to deal with byte order
             if isinstance(hdu, ImageBaseHDU):
 
 
                 if hdu.data._byteorder != 'big':
                     hdu.data.byteswap()
-                    hdu.data._byteorder = 'big'
+                    _byteorder = 'little'
+                else:
+                    _byteorder = 'big'
 
             # Binary table byteswap
             elif isinstance(hdu, BinTableHDU):
@@ -2481,6 +2522,11 @@ class _File:
 
         # flush, to make sure the content is written
         self.__file.flush()
+
+        # unswap the data for image
+        if hdu.data is not None and isinstance(hdu, ImageBaseHDU):
+            if _byteorder == 'little':
+                hdu.data.byteswap()
 
         # return both the location and the size of the data area
         return loc, _size+padLength(_size)
@@ -2860,7 +2906,7 @@ def open(name, mode="copyonwrite", memmap=0, output_verify="exception"):
 
 __credits__="""
 
-Copyright (C) 2003 Association of Universities for Research in Astronomy (AURA)
+Copyright (C) 2004 Association of Universities for Research in Astronomy (AURA)
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
