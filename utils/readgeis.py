@@ -53,7 +53,7 @@
 """
 
 # Developed by Science Software Branch, STScI, USA.
-__version__ = "Version 1.3 (02 May, 2003), \xa9 AURA"
+__version__ = "Version 1.4 (12 May, 2003), \xa9 AURA"
 
 import os, sys, string
 import pyfits
@@ -209,11 +209,9 @@ def readgeis(input):
 
     hdulist = pyfits.HDUList([pyfits.PrimaryHDU(header=phdr, data=None)])
 
-    # Use copy on write since in UInt16 case the data will be scaled.
-    if _uint16:
-        dat = memmap.open(data_file, mode='c')
-    else:
-        dat = memmap.open(data_file, mode='r')
+    # Use copy-on-write for all data types since byteswap may be needed
+    # in some platforms.
+    dat = memmap.open(data_file, mode='c')
     hdulist.mmobject = dat
 
     loc = 0
