@@ -11,7 +11,7 @@ import re, string, struct, types
 import UserList
 import Numeric, record
 
-version = '0.3.1'
+version = '0.3.2 (Jun 27, 2000)'			### 0.32
 
 #   Utility Functions
 
@@ -144,8 +144,7 @@ class Card:
                 if   valu.group('bool'):
                     value = Boolean(valu.group('bool'))
                 elif valu.group('strg'):
-                    value = string.rstrip(re.sub("''", "'", \
-                                                 valu.group('strg')[1:-1]))
+                    value = re.sub("''", "'", valu.group('strg')[1:-1]) ### 0.32
                 elif valu.group('numr'):
                     value = _eval(valu.group('numr'))
                 elif valu.group('cplx'):
@@ -320,7 +319,7 @@ class Header(UserList.UserList):
     
     def update(self, key, value, comment=None, before=None, after=None):
         if self.has_key(key):
-            j = self.index_of[key]
+            j = self.index_of(key)			### 0.32
             self[j].value = value
             if comment:
                 self[j].comment = comment
@@ -410,7 +409,7 @@ class Array:
                 scale = Numeric.array(self.header.get('BSCALE', 1), code)
                 self.data = Numeric.fromstring(blok, code)
                 if Numeric.LittleEndian:
-                    self.data.byteswapped()
+                    self.data = self.data.byteswapped() 	### 0.32
                 if self.autoscale:
                     self.data = scale*self.data + zero
                 self.data.shape = self.shape()
@@ -504,7 +503,7 @@ class ImageHDU(Array):
     
     def verify(self):
         req_kw = [
-            ('XTENSION', "val == 'IMAGE'"),
+            ('XTENSION', "val == 'IMAGE   '"),			### 0.32
             ('BITPIX',   "val in [8, 16, 32, -32, -64]"),
             ('NAXIS',    "val >= 0")]
         for j in range(self.header['NAXIS']):
@@ -565,11 +564,11 @@ class GroupsHDU(Array):
         for kw in nec_kw:
             if not hdr.has_key[kw[0]]:
                 raise "Required keyword not found:\n'%s'"%\
-                      hdr[hdr.index_of[kw[0]]]
+                      hdr[hdr.index_of(kw[0])]		### 0.32
             val = hdr[kw[0]]
             if not eval(kw[1]):
                 raise "Invalid keyword type or value:\n'%s'"%\
-                      hdr[hdr.index_of[kw[0]]]
+                      hdr[hdr.index_of(kw[0])]		### 0.32
 
 
 class Field:
@@ -703,18 +702,18 @@ class BinaryField:
             key = 'TFORM'+str(j+1)
             if not hdr.has_key[kw]:
                 raise "Required keyword not found:\n'%s'"%\
-                      hdr[hdr.index_of[key]]
+                      hdr[hdr.index_of(key)]		### 0.32
             val = hdr[key]
             if not type(val) == types.StringType:
                 raise "Invalid keyword type or value:\n'%s'"%\
-                      hdr[hdr.index_of[key]]
+                      hdr[hdr.index_of(key)]		### 0.32
             for kw in res_kw:
                 key = kw[0]+str(j+1)
                 if hdr.has_key(key):
                     val = hdr[key]
                     if not eval(kw[1]):
                         raise "Invalid keyword type or value:\n'%s'"%\
-                              hdr[hdr.index_of[key]]
+                              hdr[hdr.index_of(key)]	### 0.32
         
         
     #def __repr__(self):
@@ -836,8 +835,8 @@ class TableHDU(Table):
     
     def __init__(self, data=None, cards=None, name=None):
         Table.__init__(self, data, cards, name)
-        if self.header[0].value != 'TABLE':
-            self.header[0].value   = 'TABLE'
+        if self.header[0].value != 'TABLE   ':			### 0.32
+            self.header[0].value   = 'TABLE   '			### 0.32
             self.header[0].comment = 'ASCII table extension'
         self.recdCode = ASCIIField.recdCode
         self.fitsCode = ASCIIField.fitsCode
@@ -852,7 +851,7 @@ class TableHDU(Table):
                 code, width, prec = fmt.group('code', 'width', 'prec')
             else:
                 raise ValueError, valu
-            size = bcol-strlen-1+eval(width)
+            size = eval(width)+1			### 0.32
             strfmt = strfmt + 's'+str(size) + ','
             strlen = strlen + size
         else:
@@ -948,7 +947,7 @@ class BinTableHDU(Table):
     def format(self):
         format = ''
         for j in range(self.header['TFIELDS']):
-            valu = self.header['TFORM'+str(j+1)]
+            valu = string.rstrip(self.header['TFORM'+str(j+1)])	### 0.32
             code, size = self.recdCode[valu[-1:]], 1
             if valu[:-1]:
                 size = eval(valu[:-1])
@@ -1100,9 +1099,9 @@ class FITS(UserList.UserList):
             else:
                 raise IOError, "non-standard primary header"
         elif header[0].key == 'XTENSION':
-            if   header[0].value == 'TABLE':
+            if   header[0].value == 'TABLE   ':			### 0.32
                 hdu = TableHDU(cards=header)
-            elif header[0].value == 'IMAGE':
+            elif header[0].value == 'IMAGE   ':			### 0.32
                 hdu = ImageHDU(cards=header)
             elif header[0].value == 'BINTABLE':
                 hdu = BinTableHDU(cards=header)
