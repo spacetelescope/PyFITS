@@ -11,7 +11,6 @@ standard, see the NASA/Science Office of Standards and Technology
 publication, NOST 100-2.0.
 
 """
-
 """
                 But men at whiles are sober
                   And think by fits and starts.
