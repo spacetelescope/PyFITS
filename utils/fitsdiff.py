@@ -33,6 +33,11 @@
                         If want to exclude all keywords, use "*", make sure to
                         have double or single quotes around the asterisk.
                         default = None
+                -f  (list of column names)
+                        a list of fields (i.e. columns) not to be compared.
+                        If want to exclude all keywords, use "*", make sure to
+                        have double or single quotes around the asterisk.
+                        default = None
                 -n  (non-negative integer)
                         max number of different data (image pixel or table
                         element) to report per extension,
@@ -73,7 +78,7 @@
 
 # This version needs pyfits version 0.6 (or later), and numarray.
 # Developed by Science Software Group, STScI, USA.
-__version__ = "Version 1.0 (18 June, 2002), \xa9 AURA"
+__version__ = "Version 1.1 (23 September, 2002), \xa9 AURA"
 
 import sys, string, types
 import pyfits
@@ -81,7 +86,7 @@ import numarray as num
 import chararray
 import time ####
 
-def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', maxdiff=10, delta=0., neglect_blanks=1, output=None):
+def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', field_excl_list='', maxdiff=10, delta=0., neglect_blanks=1, output=None):
 
     global nodiff
 
@@ -98,6 +103,7 @@ def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', maxdiff=
     # Parse lists of excluded keyword values and/or keyword comments.
     value_excl_list = list_parse(value_excl_list)
     comment_excl_list = list_parse(comment_excl_list)
+    field_excl_list = list_parse(field_excl_list)
 
     # print out heading and parameter values
     print "\n fitsdiff: ", __version__
@@ -105,6 +111,7 @@ def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', maxdiff=
     print " Keyword(s) not to be compared: ", value_excl_list
     print " Keyword(s) whose comments not to be compared: ", \
             comment_excl_list
+    print " Column(s) not to be compared: ", field_excl_list
     print " Maximum number of different pixels to be reported: ", maxdiff
     print " Data comparison level: ", delta
 
@@ -153,8 +160,8 @@ def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', maxdiff=
 
             # if the extension is tables
             if xtension in ('BINTABLE', 'TABLE'):
-                compare_table(im1[i], im2[i], delta, \
-                                maxdiff, dim, xtension)
+                if field_excl_list != ['*']:
+                    compare_table(im1[i], im2[i], delta, maxdiff, dim, xtension, field_excl_list)
             else:
                 compare_img(im1[i], im2[i], delta, maxdiff, dim)
 
@@ -491,7 +498,7 @@ def compare_dim (im1, im2):
     return dim1
 
 #-------------------------------------------------------------------------------
-def compare_table (img1, img2, delta, maxdiff, dim, xtension):
+def compare_table (img1, img2, delta, maxdiff, dim, xtension, field_excl_list):
 
     """Compare data in FITS tables"""
 
@@ -512,6 +519,12 @@ def compare_table (img1, img2, delta, maxdiff, dim, xtension):
         if field1 != field2:
             print "Different data type at column %d: file1 is %s, file2 is %s" % (col, field1, field2)
             continue
+
+        name1 = img1.data.names[col].upper()
+        name2 = img2.data.names[col].upper()
+        if name1 in field_excl_list or name2 in field_excl_list:
+            continue
+
         found = diff_num (img1.data.field(col), img2.data.field(col), delta)
 
         _ndiff = found[0].getshape()[0]
@@ -645,7 +658,7 @@ if __name__ == "__main__":
     import getopt
 
     try:
-        optlist, args = getopt.getopt(sys.argv[1:], 'c:k:n:d:o:bh')
+        optlist, args = getopt.getopt(sys.argv[1:], 'c:k:f:n:d:o:bh')
     except getopt.error, e:
         print str(e)
         print __doc__
@@ -655,6 +668,7 @@ if __name__ == "__main__":
     help = 0
     comment_excl_list = ''
     value_excl_list = ''
+    field_excl_list = ''
     maxdiff = 10
     delta = 0.
     output = None
@@ -666,6 +680,8 @@ if __name__ == "__main__":
             comment_excl_list = value
         elif opt == "-k":
             value_excl_list = value
+        elif opt == "-f":
+            field_excl_list = value
         elif opt == "-n":
             maxdiff = eval(value)
         elif opt == "-d":
@@ -689,7 +705,7 @@ if __name__ == "__main__":
             (list1, list2) = parse_path (args[0], args[1])
             npairs = min (len(list1), len(list2))
             for i in range(npairs):
-                fitsdiff(list1[i], list2[i], comment_excl_list, value_excl_list, maxdiff, delta, neglect_blanks, output)
+                fitsdiff(list1[i], list2[i], comment_excl_list, value_excl_list, field_excl_list, maxdiff, delta, neglect_blanks, output)
 
         else:
             print "Needs pair(s) of input files.  Use -h for help"
