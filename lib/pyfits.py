@@ -31,7 +31,7 @@ import numarray.records as rec
 import numarray.memmap as Memmap
 from string import maketrans
 
-__version__ = '0.9.1 (June 09, 2004)'
+__version__ = '0.9.3 (June 30, 2004)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -1420,6 +1420,169 @@ class ValidHDU(AllHDU, _Verify):
         return _err
 
 
+class _TempHDU(ValidHDU):
+    """Temporary HDU, used when the file is first opened. This is to
+       speed up the open.  Any header will not be initialized till the
+       HDU is accessed.
+    """
+
+    def _getname(self):
+        """Get the extname and extver from the header."""
+
+        re_extname = re.compile(r"EXTNAME\s*=\s*'([ -&(-~]*)'")
+        re_extver = re.compile(r"EXTVER\s*=\s*(\d+)")
+
+        mo = re_extname.search(self._raw)
+        if mo:
+            name = mo.group(1).rstrip()
+        else:
+            name = ''
+
+        mo = re_extver.search(self._raw)
+        if mo:
+            extver = int(mo.group(1))
+        else:
+            extver = 1
+
+        return name, extver
+
+    def _getsize(self, block):
+        """Get the size from the first block of the HDU."""
+
+        re_simple = re.compile(r'SIMPLE  =\s*')
+        re_bitpix = re.compile(r'BITPIX  =\s*(-?\d+)')
+        re_naxis = re.compile(r'NAXIS   =\s*(\d+)')
+        re_naxisn = re.compile(r'NAXIS(\d)  =\s*(\d+)')
+        re_gcount = re.compile(r'GCOUNT  =\s*(-?\d+)')
+        re_pcount = re.compile(r'PCOUNT  =\s*(-?\d+)')
+        re_groups = re.compile(r'GROUPS  =\s*(T)')
+
+        simple = re_simple.search(block[:80])
+        mo = re_bitpix.search(block)
+        if mo:
+            bitpix = int(mo.group(1))
+        else:
+            raise ValueError("BITPIX not found where expected")
+
+        mo = re_gcount.search(block)
+        if mo:
+            gcount = int(mo.group(1))
+        else:
+            gcount = 1
+
+        mo = re_pcount.search(block)
+        if mo:
+            pcount = int(mo.group(1))
+        else:
+            pcount = 0
+
+        mo = re_groups.search(block)
+        if mo and simple:
+            groups = 1
+        else:
+            groups = 0
+
+        mo = re_naxis.search(block)
+        if mo:
+            naxis = int(mo.group(1))
+            pos = mo.end(0)
+        else:
+            raise ValueError("NAXIS not found where expected")
+
+        if naxis == 0:
+            datasize = 0
+        else:
+            dims = [0]*naxis
+            for i in range(naxis):
+                mo = re_naxisn.search(block, pos)
+                pos = mo.end(0)
+                dims[int(mo.group(1))-1] = int(mo.group(2))
+            datasize = reduce(operator.mul, dims[groups:])
+        size = abs(bitpix) * gcount * (pcount + datasize) / 8
+
+        if simple and not groups:
+            name = 'PRIMARY'
+        else:
+            name = ''
+
+        return size, name
+
+    def setupHDU(self):
+        """Read one FITS HDU, data portions are not actually read here, but
+           the beginning locations are computed.
+        """
+
+        _cardList = []
+        _keyList = []
+
+        blocks = self._raw
+        if (len(blocks) % blockLen) != 0:
+            raise IOError, 'Header size is not multiple of %d: %d' % (blockLen, len(blocks))
+        elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
+            raise IOError, 'Block does not begin with SIMPLE or XTENSION'
+
+        for i in range(0, len(blocks), Card.length):
+            _card = Card('').fromstring(blocks[i:i+Card.length])
+            _key = _card.key
+
+            if _key == 'END':
+                break
+            else:
+                _cardList.append(_card)
+                _keyList.append(_key)
+
+        # Deal with CONTINUE cards
+        # if a long string has CONTINUE cards, the "Card" is considered
+        # to be more than one 80-char "physical" cards.
+        _max = _keyList.count('CONTINUE')
+        _start = 0
+        for i in range(_max):
+            _where = _keyList[_start:].index('CONTINUE') + _start
+            for nc in range(1, _max+1):
+                if _where+nc >= len(_keyList):
+                    break
+                if _cardList[_where+nc]._cardimage[:10].upper() != 'CONTINUE  ':
+                    break
+
+            # combine contiguous CONTINUE cards with its parent card
+            if nc > 0:
+                _longstring = _cardList[_where-1]._cardimage
+                for c in _cardList[_where:_where+nc]:
+                    _longstring += c._cardimage
+                _cardList[_where-1] = _Card_with_continue().fromstring(_longstring)
+                del _cardList[_where:_where+nc]
+                del _keyList[_where:_where+nc]
+                _start = _where
+
+            # if not the real CONTINUE card, skip to the next card to search
+            # to avoid starting at the same CONTINUE card
+            else:
+                _start = _where + 1
+            if _keyList[_start:].count('CONTINUE') == 0:
+                break
+
+        # construct the Header object, using the cards.
+        try:
+            header = Header(CardList(_cardList, keylist=_keyList))
+            hdu = header._hdutype(data=DELAYED, header=header)
+
+            # pass these attributes
+            hdu._file = self._file
+            hdu._hdrLoc = self._hdrLoc
+            hdu._datLoc = self._datLoc
+            hdu._datSpan = self._datSpan
+            hdu._ffile = self._ffile
+            hdu.name = self.name
+            hdu._extver = self._extver
+            hdu._new = 0
+            hdu.header._mod = 0
+            hdu.header.ascard._mod = 0
+        except:
+            pass
+
+        return hdu
+
+
 class ExtensionHDU(ValidHDU):
     """An extension HDU class.
 
@@ -1621,6 +1784,8 @@ class ImageBaseHDU(ValidHDU):
     def __init__(self, data=None, header=None):
         self._file, self._datLoc = None, None
         if header is not None:
+            if not isinstance(header, Header):
+                raise ValueError, "header must be a Header object"
 
             # Make a "copy" (not just a view) of the input header, since it
             # may get modified.  The data is still a "view" (for now)
@@ -1982,6 +2147,10 @@ for key in fits2rec.keys():
     rec2fits[fits2rec[key]]=key
 
 
+class _FormatX(str):
+    """For X format in binary tables."""
+    pass
+
 # move the following up once numarray supports complex data types (XXX)
 
 # TFORM regular expression
@@ -2018,11 +2187,19 @@ def convert_format(input_format, reverse=0):
                 if repeat != 1:
                     _repeat = `repeat`
                 output_format = _repeat+fits2rec[dtype]
+
+        elif dtype == 'X':
+            nbytes = ((repeat-1) / 8) + 1
+            # use an array, even if it is only ONE u1 (i.e. use tuple always)
+            output_format = _FormatX(`(nbytes,)`+'u1')
+            output_format._nx = repeat
         else:
             raise ValueError, "Illegal format %s" % fmt
     else:
         if dtype == 'a':
             output_format = option+rec2fits[dtype]
+        elif isinstance(dtype, _FormatX):
+            print 'X format'
         elif dtype+option in rec2fits.keys():                    # record format
             _repeat = ''
             if repeat != 1:
@@ -2078,6 +2255,44 @@ def get_index(nameList, key):
         raise NameError, "Illegal key '%s'." % `key`
 
     return indx
+
+def _unwrapx(input, output, nx):
+    """Unwrap the X format column into a Boolean array.
+
+       input:  input Uint8 array of shape (s, nbytes)
+       output: output Boolean array of shape (s, nx)
+       nx:     number of bits
+    """
+
+    pow2 = [128, 64, 32, 16, 8, 4, 2, 1]
+    nbytes = ((nx-1) / 8) + 1
+    for i in range(nbytes):
+        _min = i*8
+        _max = min((i+1)*8, nx)
+        for j in range(_min, _max):
+            num.bitwise_and(input[...,i], pow2[j-i*8], output[...,j])
+
+def _wrapx(input, output, nx):
+    """Wrap the X format column Boolean array into an UInt8 array.
+
+       input:  input Boolean array of shape (s, nx)
+       output: output Uint8 array of shape (s, nbytes)
+       nx:     number of bits
+    """
+
+    output[...] = 0 # reset the output
+    nbytes = ((nx-1) / 8) + 1
+    unused = nbytes*8 - nx
+    for i in range(nbytes):
+        _min = i*8
+        _max = min((i+1)*8, nx)
+        for j in range(_min, _max):
+            if j != _min:
+                num.lshift(output[...,i], 1, output[...,i])
+            num.add(output[...,i], input[...,j], output[...,i])
+
+    # shift the unused bits
+    num.lshift(output[...,i], unused, output[...,i])
 
 
 class Column:
@@ -2348,7 +2563,11 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
         if fill:
             n = 0
         if n > 0:
-            hdu.data._parent.field(i)[:n] = tmp._arrays[i][:n]
+            if isinstance(tmp.formats[i], _FormatX):
+                _wrapx(tmp._arrays[i][:n], hdu.data._parent.field(i)[:n], tmp.formats[i]._nx)
+            else:
+                hdu.data._parent.field(i)[:n] = tmp._arrays[i][:n]
+
         if n < nrows:
             if isinstance(hdu.data._parent.field(i), num.NumArray):
                 hdu.data._parent.field(i)[n:] = 0
@@ -2424,6 +2643,14 @@ class FITS_rec(rec.RecArray):
         indx = get_index(self._coldefs.names, key)
 
         if (self._convert[indx] is None):
+            # for X format
+            if isinstance(self._coldefs.formats[indx], _FormatX):
+                _nx = self._coldefs.formats[indx]._nx
+                dummy = num.zeros(self._parent.shape+(_nx,), type=num.Bool)
+                _unwrapx(self._parent.field(indx), dummy, _nx)
+                self._convert[indx] = dummy
+                return self._convert[indx]
+
             (_str, _bool, _number, _scale, _zero, bscale, bzero) = self._get_scale_factors(indx)
 
             if _str:
@@ -2466,6 +2693,10 @@ class FITS_rec(rec.RecArray):
 
         for indx in range(self._nfields):
             if (self._convert[indx] is not None):
+                if isinstance(self._coldefs.formats[indx], _FormatX):
+                    _wrapx(self._convert[indx], self._parent.field(indx), self._coldefs.formats[indx]._nx)
+                    continue
+
                 (_str, _bool, _number, _scale, _zero, bscale, bzero) = self._get_scale_factors(indx)
 
                 # conversion for both ASCII and binary tables
@@ -2623,7 +2854,10 @@ class TableBaseHDU(ExtensionHDU):
                 if val != '':
                     keyword = keyNames[commonNames.index(cname)]+`i+1`
                     if cname == 'format':
-                        val = convert_format(val, reverse=1)
+                        if isinstance(val, _FormatX):
+                            val = `val._nx` + 'X'
+                        else:
+                            val = convert_format(val, reverse=1)
                     #_update(keyword, val)
                     _append(Card(keyword, val))
 
@@ -2745,20 +2979,17 @@ class _File:
     def getfile(self):
         return self.__file
 
-    def _readblock(self, cardList, keyList, firstblock=0):
-        """Read one block of header, and put each card into a list of cards.
+    def _readheader(self, cardList, keyList, blocks):
+        """Read blocks of header, and put each card into a list of cards.
            Will deal with CONTINUE cards in a later stage as CONTINUE cards
            may span across blocks.
         """
-        block = self.__file.read(blockLen)
-        if len(block) == 0:
-            raise EOFError
-        elif len(block) != blockLen:
+        if len(block) != blockLen:
             raise IOError, 'Block length is not %d: %d' % (blockLen, len(block))
-        elif firstblock and (block[:8] not in ['SIMPLE  ', 'XTENSION']):
+        elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
             raise IOError, 'Block does not begin with SIMPLE or XTENSION'
 
-        for i in range(0, blockLen, Card.length):
+        for i in range(0, len(blockLen), Card.length):
             _card = Card('').fromstring(block[i:i+Card.length])
             _key = _card.key
 
@@ -2767,76 +2998,53 @@ class _File:
             if _key == 'END':
                 break
 
-    def readHDU(self):
-        """Read one FITS HDU, data portions are not actually read here, but
-           the beginning locations are computed.
-        """
+    def _readHDU(self):
+        """Read the skeleton structure of the HDU."""
 
+        end_RE = re.compile('END'+' '*77)
         _hdrLoc = self.__file.tell()
-        _cardList = []
-        _keyList = []
 
         # Read the first header block.
-        self._readblock(_cardList, _keyList, firstblock=1)
+        block = self.__file.read(blockLen)
+        if block == '':
+            raise EOFError
+
+        hdu = _TempHDU()
+        _size, hdu.name = hdu._getsize(block)
+        hdu._raw = ''
 
         # continue reading header blocks until END card is reached
-        while _keyList[-1] != 'END':
-            self._readblock(_cardList, _keyList, firstblock=0)
-        else:
-            del _cardList[-1]
-            del _keyList[-1]
+        while 1:
 
-        # Deal with CONTINUE cards
-        # if a long string has CONTINUE cards, the "Card" is considered
-        # to be more than one 80-char "physical" cards.
-        _max = _keyList.count('CONTINUE')
-        _start = 0
-        for i in range(_max):
-            _where = _keyList[_start:].index('CONTINUE') + _start
-            for nc in range(1, _max+1):
-                if _where+nc >= len(_keyList):
+            # find the END card
+            mo = end_RE.search(block)
+            if mo is None:
+                hdu._raw += block
+                block = self.__file.read(blockLen)
+                if block == '':
                     break
-                if _cardList[_where+nc]._cardimage[:10].upper() != 'CONTINUE  ':
-                    break
-
-            # combine contiguous CONTINUE cards with its parent card
-            if nc > 0:
-                _longstring = _cardList[_where-1]._cardimage
-                for c in _cardList[_where:_where+nc]:
-                    _longstring += c._cardimage
-                _cardList[_where-1] = _Card_with_continue().fromstring(_longstring)
-                del _cardList[_where:_where+nc]
-                del _keyList[_where:_where+nc]
-                _start = _where
-
-            # if not the real CONTINUE card, skip to the next card to search
-            # to avoid starting at the same CONTINUE card
             else:
-                _start = _where + 1
-            if _keyList[_start:].count('CONTINUE') == 0:
                 break
+        hdu._raw += block
 
-        # construct the Header object, using the cards.
-        try:
-            header = Header(CardList(_cardList, keylist=_keyList))
-            hdu = header._hdutype(data=DELAYED, header=header)
+        # get extname and extver
+        if hdu.name == '':
+            hdu.name, hdu._extver = hdu._getname()
+        elif hdu.name == 'PRIMARY':
+            hdu._extver = 1
 
-            hdu._file = self.__file
-            hdu._hdrLoc = _hdrLoc                # beginning of the header area
-            hdu._datLoc = self.__file.tell()     # beginning of the data area
+        hdu._file = self.__file
+        hdu._hdrLoc = _hdrLoc                # beginning of the header area
+        hdu._datLoc = self.__file.tell()     # beginning of the data area
 
-            # data area size, including padding
-            hdu._datSpan = hdu.size() + padLength(hdu.size())
-            hdu._new = 0
-            self.__file.seek(hdu._datSpan, 1)
-            if self.__file.tell() > self._size:
-                print 'Warning: File size is smaller than specified data size.  File may have been truncated.'
+        # data area size, including padding
+        hdu._datSpan = _size + padLength(_size)
+        hdu._new = 0
+        self.__file.seek(hdu._datSpan, 1)
+        if self.__file.tell() > self._size:
+            print 'Warning: File size is smaller than specified data size.  File may have been truncated.'
 
-            hdu._ffile = self
-
-
-        except:
-            pass
+        hdu._ffile = self
 
         return hdu
 
@@ -2950,6 +3158,9 @@ class HDUList(UserList.UserList, _Verify):
     def __getitem__(self, key):
         """Get an HDU from the HDUList, indexed by number or name."""
         key = self.index_of(key)
+        if isinstance(self.data[key], _TempHDU):
+            self.data[key] = self.data[key].setupHDU()
+
         return self.data[key]
 
     def __setitem__(self, key, hdu):
@@ -3036,7 +3247,7 @@ class HDUList(UserList.UserList, _Verify):
         for j in range(len(self.data)):
             _name = self.data[j].name
             if isinstance(_name, types.StringType):
-                _name = (self.data[j].name.strip()).upper()
+                _name = _name.strip().upper()
             if _name == _key:
 
                 # if only specify extname, can only have one extension with
@@ -3047,7 +3258,7 @@ class HDUList(UserList.UserList, _Verify):
                 else:
 
                     # if the keyword EXTVER does not exist, default it to 1
-                    _extver = self.data[j].header.get('EXTVER', 1)
+                    _extver = self.data[j]._extver
                     if _ver == _extver:
                         found = j
                         nfound += 1
@@ -3068,7 +3279,7 @@ class HDUList(UserList.UserList, _Verify):
     def update_tbhdu(self):
         """Update all table HDU's for scaled fields."""
         for hdu in self:
-            if isinstance(hdu, TableBaseHDU):
+            if isinstance(hdu, TableBaseHDU) and hdu.data is not None:
                 hdu.data._scale_back()
 
     def flush(self, verbose=0):
@@ -3260,7 +3471,7 @@ class HDUList(UserList.UserList, _Verify):
                   "      Cards   Dimensions   Format\n" % _name
 
         for j in range(len(self)):
-            results = results + "%-3d  %s\n"%(j, self.data[j]._summary())
+            results = results + "%-3d  %s\n"%(j, self[j]._summary())
         results = results[:-1]
         print results
 
@@ -3275,7 +3486,7 @@ def open(name, mode="copyonwrite", memmap=0, output_verify="exception"):
     # read all HDU's
     while 1:
         try:
-            hduList.append(ffo.readHDU())
+            hduList.append(ffo._readHDU())
         except EOFError:
             break
         except IOError:
@@ -3285,10 +3496,6 @@ def open(name, mode="copyonwrite", memmap=0, output_verify="exception"):
     # CardList needs its own _mod attribute since it has methods to change
     # the content of header without being able to pass it to the header object
     hduList._resize = 0
-    for hdu in hduList:
-        hdu.header._mod = 0
-        hdu.header.ascard._mod = 0
-        hdu._new = 0
 
     return hduList
 
