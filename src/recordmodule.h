@@ -33,9 +33,9 @@ enum Item_Types {
  *  pointers.
  */
 
-typedef void (*ItemCastFunc) Py_PROTO((void *, char *, void *, char *));
-typedef PyObject * (*ItemGetFunc) Py_PROTO((void *, char *));
-typedef int (*ItemSetFunc) Py_PROTO((void *, char *, PyObject *));
+typedef void (*ItemCastFunc)(void *, char *, void *, char *);
+typedef PyObject * (*ItemGetFunc)(void *, char *);
+typedef int (*ItemSetFunc)(void *, char *, PyObject *);
 
 /* Item descriptor structure */
 
@@ -92,7 +92,7 @@ extern DL_IMPORT(PyTypeObject) Record_Type;
 
 /*
  *  Function prototypes for (an intented) Recordmodule API.
-/*
+/ *
 
 extern int Format_Name Py_PROTO((char *, char *));
 extern int Format_Length Py_PROTO((char *));
