@@ -53,7 +53,7 @@
                         keywords and column values) are significant, i.e.
                         'ABC   ' and 'ABC' mean different things if this
                         swithch is set.
-                -o
+                -o  (output file name)
                         output file name where the result goes
                 -h
                         print the help (this text)
@@ -78,7 +78,7 @@
 
 # This version needs pyfits version 0.6 (or later), and numarray.
 # Developed by Science Software Group, STScI, USA.
-__version__ = "Version 1.1.1 (22 November, 2002), \xa9 AURA"
+__version__ = "Version 1.1.2 (07 March, 2003), \xa9 AURA"
 
 import sys, string, types
 import pyfits
@@ -124,7 +124,7 @@ def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', field_ex
     # compare numbers of extensions
     nexten1, nexten2 = len(im1), len(im2)
     if nexten1 != nexten2:
-        raise "Different no. of extensions: file1 has %d, file2 has %d" % (nexten1, nexten2)
+        raise "Different no. of HDU's: file1 has %d, file2 has %d" % (nexten1, nexten2)
 
     # compare extension header and data
     for i in range(nexten1):
