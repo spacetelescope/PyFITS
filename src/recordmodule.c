@@ -5,7 +5,15 @@
 #include <stdio.h>
 #include <string.h>
 #include "Python.h"
+
+#ifdef MS_WIN32
+#undef DL_IMPORT
+#define DL_IMPORT(RTYPE) __declspec(dllexport) RTYPE
+#endif
+
 #include "recordmodule.h"
+
+#define VERSION "0.1"
 
 #define IF_NOT(expr) if (!(expr))
 
@@ -1425,7 +1433,7 @@ Format_FromObject(PyObject *data, char *fmt)
     int j, size=0, type=0;
 
     IF_NOT(fmt) {
-        IF_NOT(fmt = PyMem_Malloc(1024))
+        IF_NOT(fmt = (char *)PyMem_Malloc(1024))
             return 0;
     }
     if (PyTuple_Check(data)) {
@@ -1513,7 +1521,8 @@ PyList_Reverse_v20(PyObject *v)
 */
 
 static Item *
-item_FromFormat(char endian, char *format) {
+item_FromFormat(char endian, char *format)
+{
     /*
      *  Return an array of Item structs given a format string.
      */
@@ -2158,10 +2167,13 @@ record_new(PyObject *this, PyObject *args, PyObject *opts)
             goto error; /*  memory error or format error  */
         PyMem_Free(fmt);
     }
-    
+    if (PyList_Reverse(shape)) {
+        PyErr_BadInternalCall();
+        goto error;
+    }
 #ifdef PyVer20
 	PyList_Reverse_v20(shape);
-#elif
+#else
 	PyList_Reverse(shape);
 #endif
     PyList_SetItem(shape, 0, PyInt_FromLong(item[0].leng));
@@ -2748,7 +2760,7 @@ static PyMappingMethods record_as_mapping = {
 
 PyTypeObject Record_Type = {
     /* definition */
-    PyObject_HEAD_INIT(&PyType_Type)
+    PyObject_HEAD_INIT(0)
     0,                                 /* ob_size */
     "record",                          /* tp_name */
     sizeof(RecordObject),              /* tp_size */
@@ -2860,12 +2872,13 @@ void initrecord(void) {
      *  attributes.
      */
     PyObject *m, *d;
-    
+
+    Record_Type.ob_type = &PyType_Type;
     m = Py_InitModule("record", record_init_methods);
     d = PyModule_GetDict(m);
 
     IF_NOT(RecordError = PyErr_NewException("record.error", 0, 0))
         return;
     PyDict_SetItemString(d, "error", RecordError);
+    PyDict_SetItemString(d, "__version__", PyString_FromString(VERSION));
 }
-
