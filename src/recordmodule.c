@@ -2167,15 +2167,19 @@ record_new(PyObject *this, PyObject *args, PyObject *opts)
             goto error; /*  memory error or format error  */
         PyMem_Free(fmt);
     }
-    if (PyList_Reverse(shape)) {
+/*    if (PyList_Reverse(shape)) {
         PyErr_BadInternalCall();
         goto error;
     }
+*/
 #ifdef PyVer20
-	PyList_Reverse_v20(shape);
+	if (PyList_Reverse_v20(shape)){
 #else
-	PyList_Reverse(shape);
+	if (PyList_Reverse(shape)){
 #endif
+        PyErr_BadInternalCall();
+        goto error;    
+    }
     PyList_SetItem(shape, 0, PyInt_FromLong(item[0].leng));
     size = item[0].size;
     for (j = 1; j < n_dimn; j++)
