@@ -82,6 +82,14 @@ typedef struct {
     PyObject *data;          /* data buffer */
 } RecordObject;
 
+extern DL_IMPORT(PyTypeObject) Record_Type;
+
+/*
+ *  Macro definitions for checking Python extension types.
+ */
+
+#define Record_Check(op) ((op)->ob_type == &Record_Type)
+
 /*
  *  Function prototypes for (an intented) Recordmodule API.
 /*
