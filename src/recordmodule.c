@@ -1464,6 +1464,46 @@ Format_FromObject(PyObject *data, char *fmt)
     }
     return fmt;
 }
+
+/* 
+*	List utility function to support Python 2.0.
+* 	This code was produced an an official patch to Python 2.0
+*	by G. vanRossum and extracted from the CVS archive on SourceForge.
+*	This code will be built into Python 2.1 and was not necessary for
+*	Python 1.5.2 or earlier.
+* 	Revision added by: WJH 15 Feb 2001
+*	
+*/
+static void
+_listreverse20(PyListObject *self)
+{
+	register PyObject **p, **q;
+	register PyObject *tmp;
+	
+	if (self->ob_size > 1) {
+		for (p = self->ob_item, q = self->ob_item + self->ob_size - 1;
+		     p < q;
+		     p++, q--)
+		{
+			tmp = *p;
+			*p = *q;
+			*q = tmp;
+		}
+	}
+}
+
+
+int
+PyList_Reverse_v20(PyObject *v)
+{
+	if (v == NULL || !PyList_Check(v)) {
+		PyErr_BadInternalCall();
+		return -1;
+	}
+	_listreverse20((PyListObject *)v);
+	return 0;
+}
+
 /*
  *        RECORD OBJECT
  */
@@ -2118,7 +2158,12 @@ record_new(PyObject *this, PyObject *args, PyObject *opts)
             goto error; /*  memory error or format error  */
         PyMem_Free(fmt);
     }
-    PyList_Reverse(shape);
+    
+#ifdef PyVer20
+	PyList_Reverse_v20(shape);
+#elif
+	PyList_Reverse(shape);
+#endif
     PyList_SetItem(shape, 0, PyInt_FromLong(item[0].leng));
     size = item[0].size;
     for (j = 1; j < n_dimn; j++)
