@@ -35,7 +35,7 @@
                         default = None
                 -f  (list of column names)
                         a list of fields (i.e. columns) not to be compared.
-                        If want to exclude all keywords, use "*", make sure to
+                        If want to exclude all columns, use "*", make sure to
                         have double or single quotes around the asterisk.
                         default = None
                 -n  (non-negative integer)
@@ -78,7 +78,7 @@
 
 # This version needs pyfits version 0.6 (or later), and numarray.
 # Developed by Science Software Group, STScI, USA.
-__version__ = "Version 1.1 (23 September, 2002), \xa9 AURA"
+__version__ = "Version 1.1.1 (22 November, 2002), \xa9 AURA"
 
 import sys, string, types
 import pyfits
@@ -510,7 +510,16 @@ def compare_table (img1, img2, delta, maxdiff, dim, xtension, field_excl_list):
     ncol2 = img2.header['TFIELDS']
     if ncol1 != ncol2:
         print "Different no. of columns: file1 has %d, file2 has %d" % (ncol1, ncol2)
+        nodiff = 0
     ncol = min(ncol1, ncol2)
+
+    # check for None data
+    if img1.data is None or img2.data is None:
+        if img1.data is None and img2.data is None:
+            return
+        else:
+            print "One file has no data and the other does."
+            nodiff = 0
 
     # compare the tables column by column
     for col in range(ncol):
