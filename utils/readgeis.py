@@ -54,7 +54,7 @@
 
 # Developed by Science Software Branch, STScI, USA.
 # This version needs Python 2.2/numarray 0.6/records 2.0
-__version__ = "Version 1.7 (28 April, 2004), \xa9 AURA"
+__version__ = "1.7 (28 April, 2004), \xa9 AURA"
 
 import os, sys, string
 import pyfits

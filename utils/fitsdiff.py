@@ -79,7 +79,7 @@
 
 # This version needs python 2.2 and numarray 0.6, or later.
 # Developed by Science Software Group, STScI, USA.
-__version__ = "Version 1.3 (22 July, 2004)"
+__version__ = "1.3 (22 July, 2004)"
 
 import sys, types
 import pyfits
