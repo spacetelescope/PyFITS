@@ -53,7 +53,7 @@
 """
 
 # Developed by Science Software Branch, STScI, USA.
-__version__ = "Version 1.2.1 (10 March, 2003), \xa9 AURA"
+__version__ = "Version 1.3 (02 May, 2003), \xa9 AURA"
 
 import os, sys, string
 import pyfits
@@ -117,9 +117,6 @@ def readgeis(input):
     # open input file
     im = open(input)
 
-    # Use copy on write since in UInt16 case the data will be scaled.
-    dat = memmap.open(data_file, mode='c')
-
     # Generate the primary HDU
     cards = []
     while 1:
@@ -130,6 +127,7 @@ def readgeis(input):
         cards.append(pyfits.Card('').fromstring(line))
 
     phdr = pyfits.Header(pyfits.CardList(cards))
+    im.close()
 
     _naxis0 = phdr.get('NAXIS', 0)
     _naxis = [phdr['NAXIS'+`j`] for j in range(1, _naxis0+1)]
@@ -210,10 +208,18 @@ def readgeis(input):
     phdr.update(key='NEXTEND', value=gcount, comment="Number of standard extensions")
 
     hdulist = pyfits.HDUList([pyfits.PrimaryHDU(header=phdr, data=None)])
+
+    # Use copy on write since in UInt16 case the data will be scaled.
+    if _uint16:
+        dat = memmap.open(data_file, mode='c')
+    else:
+        dat = memmap.open(data_file, mode='r')
+    hdulist.mmobject = dat
+
     loc = 0
     for k in range(gcount):
         ext_dat = numarray.array(dat[loc:loc+data_size], type=_code, shape=_shape)
-        if (_uint16):
+        if _uint16:
             ext_dat += _bzero
         ext_hdu = pyfits.ImageHDU(data=ext_dat)
 
@@ -321,6 +327,7 @@ if __name__ == "__main__":
                 hdulist = readgeis(list1[i])
                 stsci2(hdulist, list2[i])
                 hdulist.writeto(list2[i])
+                hdulist.close()
                 print "%s -> %s" % (list1[i], list2[i])
             except:
                 print "Conversion fails for %s." % list1[i]
