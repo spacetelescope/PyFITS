@@ -24,11 +24,11 @@ publication, NOST 100-2.0.
 import re, string, types, os, tempfile, exceptions, copy
 import __builtin__, sys, UserList
 import numarray as num
-import chararray
+import ndarray, chararray
 import recarray as rec
 import memmap as Memmap
 
-__version__ = '0.7.7 (January 9, 2003)'
+__version__ = '0.7.7.1 (January 30, 2003)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -1470,7 +1470,7 @@ class ImageBaseHDU(ValidHDU):
             del self.header['BSCALE']
 
         if self.data._type != _type:
-            self.data = num.array(num.round(self.data), type=_type)
+            self.data = num.array(num.around(self.data), type=_type) #0.7.7.1
 
 
 class PrimaryHDU(ImageBaseHDU):
@@ -1927,6 +1927,23 @@ class FITS_rec(rec.RecArray):
         self.__setstate__(input.__getstate__())
         self._parent = input
         self._convert = [None]*self._nfields
+
+    # synchronize the sliced FITS_rec and its ._parent
+    def __getitem__(self, key):
+        tmp = rec.RecArray.__getitem__(self, key)
+
+        if type(key) == types.SliceType:
+            out = FITS_rec(tmp)
+            out._parent = rec.RecArray.__getitem__(self._parent, key)
+
+            # no need to slice ._convert, the new instance will reinitialize to
+            # None and will recalculate on the fly when used.
+            return out
+
+        # if not a slice, do this because Record has no __getstate__.
+        # also more efficient.
+        else:
+            return tmp
 
     def field(self, key):
         """A view of a Column's data as an array."""
