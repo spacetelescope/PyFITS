@@ -9,26 +9,16 @@
 
 """
 
-import re, string, struct, types
-import UserList
-import Numeric, record
+import re, string, types, sys
+import UserList, Numeric
+import record
 
-version = '0.3.4 (Dec 27, 2000)'
+version = '0.4 (Feb 28, 2001)'
 
 #   Utility Functions
 
 def padLength(stringLen):
     return (FITS.blockLen - stringLen%FITS.blockLen)%FITS.blockLen
-
-
-def tableSize(axes):
-    if len(axes) > 0:
-        size = 1
-        for j in range(len(axes)):
-            size = size*axes[j]
-    else:
-        size = 0
-    return size
 
 __octalRegex = re.compile(r'([+-]?)0+([1-9][0-9]*)')
 
@@ -91,6 +81,7 @@ class Card:
         r'(?P<comm_field>'
         r'(?P<sepr>/ *)'
         r'(?P<comm>[!-~][ -~]*)?)?')
+
     __format = r'%[-+0 #]*\d*(?:\.\d*)?[csdiufEG]'
     __format_RE= re.compile(
         r'(?P<valfmt> *'+__format+r' *)'\
@@ -103,7 +94,7 @@ class Card:
         """Create an 80 character record from the key, value, and comment"""
         
         #  check keyword for type, length, and invalid characters
-        key = string.upper(string.strip(key)) ### 0.34
+        key = string.upper(string.strip(key))
         if type(key) != types.StringType:
             raise ValueError, "keyword is not StringType '%s'"%key
         if len(key) > 8:
@@ -153,7 +144,7 @@ class Card:
                 if   valu.group('bool'):
                     value = Boolean(valu.group('bool'))
                 elif valu.group('strg'):
-                    value = re.sub("''", "'", valu.group('strg')[1:-1]) ### 0.32
+                    value = re.sub("''", "'", valu.group('strg')[1:-1])
                 elif valu.group('numr'):
                     value = _eval(valu.group('numr'))
                 elif valu.group('cplx'):
@@ -184,7 +175,7 @@ class Card:
                     (self.__card[8:10] == '= ' and \
                      not value in Card.__comment_keys)):
                 raise ValueError, 'Card and value keywords are not compatible'
-            card = "%-8s" % value + self.__card[8:]
+            card = "%-8s" % string.upper(value) + self.__card[8:]
         elif attr == 'value':
             if key in Card.__comment_keys:
                 card = '%-8s%-72s' % (key, '%-72s' % value[:72])
@@ -275,48 +266,62 @@ class Card:
         return res
 
 
-class Header(UserList.UserList):
+class Header:						
+
+    """A FITS header wrapper"""
+
+    def __init__(self, cards=None):
+        self.ascard = CardList(cards)
+
+    def __getitem__ (self, key):
+        """Get a header keyword value."""
+
+        return self.ascard[key].value
+
+    def __setitem__ (self, key, value):
+        """Set a header keyword value."""
+
+        self.ascard[key].value = value
+
+
+class CardList(UserList.UserList):
 
     """A FITS card list"""
     
     def __init__(self, cards=None):
-        "Initialize the card list in the Header."
+        "Initialize the card list of the header."
 
         UserList.UserList.__init__(self, cards)
     
     def __getitem__(self, key):
-        "Get a card from the Header.\n"\
-        "Note: a keyword returns a value, and an index a card."
+        """Get a card from the CardList."""
 
         if type(key) == types.StringType:
-            key = string.upper(string.strip(key))		### 0.34
-            #####return self.data[self.index_of(key)].value
-            return self.data[self.index_of(key)] 		### 0.34
-        else:
-            return self.data[key]
+            key = self.index_of(key)
+        return self.data[key]
     
     def __setitem__(self, key, value):
-        "Set a card in the Header."
+        "Set a card in the CardList."
 
-        if isinstance (value, Card):				### 0.34
+        if isinstance (value, Card):
             if type(key) == types.StringType:
-                key = string.upper(string.strip(key))		### 0.34
-                self.data[self.index_of(key)] = value		### 0.34
+                key = string.upper(string.strip(key))
+                self.data[self.index_of(key)] = value
             else:
                 self.data[key] = value
         else:
-            raise SyntaxError, "%s is not a Card" % str(value) 	### 0.34
+            raise SyntaxError, "%s is not a Card" % str(value)
     
     def __delitem__(self, key):
-        """Delete a card from the Header."""
+        """Delete a card from the CardList."""
 
         if type(key) == types.StringType:
-            key = string.upper(string.strip(key))		# ver0.3.3.1
+            key = string.upper(string.strip(key))
             key = self.index_of(key)
         del self.data[key]
     
     def keys(self):
-        """Return a list of all keywords from the Header."""
+        """Return a list of all keywords from the CardList."""
 
         keys = []
         for card in self.data:
@@ -324,7 +329,7 @@ class Header(UserList.UserList):
         return keys
     
     def items(self):
-        """Return a list of all keyword-value pairs from the Header."""
+        """Return a list of all keyword-value pairs from the CardList."""
 
         cards = []
         for card in self.data:
@@ -332,9 +337,9 @@ class Header(UserList.UserList):
         return cards
     
     def has_key(self, key):
-        """Test for a keyword in the Header."""
+        """Test for a keyword in the CardList."""
 
-        key = string.upper(key)		### 0.34
+        key = string.upper(key)
         for card in self.data:
             if card.key == key:
                 return 1
@@ -342,12 +347,12 @@ class Header(UserList.UserList):
             return 0
     
     def get(self, key, default=None):
-        """Get a keyword value from the Header.
+        """Get a keyword value from the CardList.
         If no keyword is found, return the default value.
 
         """
 
-        key = string.upper(key)		### 0.34
+        key = string.upper(key)
         for card in self.data:
             if card.key == key:
                 return card.value
@@ -356,7 +361,7 @@ class Header(UserList.UserList):
     
     def update(self, key, value, comment=None, before=None, after=None):
         if self.has_key(key):
-            j = self.index_of(key)			### 0.32
+            j = self.index_of(key)
             self[j].value = value
             if comment:
                 self[j].comment = comment
@@ -368,9 +373,9 @@ class Header(UserList.UserList):
             self.append(Card(key, value, comment))
     
     def index_of(self, key):
-        """Get the index of a keyword in the Header."""
+        """Get the index of a keyword in the CardList."""
 
-        key = string.upper(key)		### 0.34
+        key = string.upper(string.strip(key))
         for j in range(len(self.data)):
             if self.data[j].key == key:
                 return j
@@ -378,7 +383,7 @@ class Header(UserList.UserList):
             raise KeyError, key
     
     def copy(self):
-        return Header(self.data[:])
+        return CardList(self.data[:])
     
     def __repr__(self):
         """Format a list of cards into a string"""
@@ -420,26 +425,26 @@ class ImageBaseHDU:
                  Card('NAXIS',          0, 'number of array dimensions')])
         
         if type(data) == Numeric.arraytype:
-            self.header['BITPIX'].value = ImageBaseHDU.ImgCode[data.typecode()] ### 0.34
+            self.header['BITPIX'] = ImageBaseHDU.ImgCode[data.typecode()]
             axes = list(data.shape)
             axes.reverse()
-            self.header['NAXIS'].value  = len(axes) ### 0.34
+            self.header['NAXIS'] = len(axes)
             for j in range(len(axes)):
-                self.header['NAXIS'+str(j+1)].value = axes[j] ### 0.34
+                self.header['NAXIS'+`j+1`] = axes[j]
             self.data = data
         elif type(data) == types.NoneType:
             pass
         else:
             raise ValueError, "incorrect array type"
         self.name = name
-        self.zero = self.header.get('BZERO', 0)			### 0.34
-        self.scale = self.header.get('BSCALE', 1)		### 0.34
-	self.autoscale = (self.zero != 0) or (self.scale != 1)	### 0.34
+        self.zero = self.header.ascard.get('BZERO', 0)
+        self.scale = self.header.ascard.get('BSCALE', 1)
+	self.autoscale = (self.zero != 0) or (self.scale != 1)
     
     def __getattr__(self, attr):
         if attr == 'data':
             self.__dict__[attr] = None
-            if self.header['NAXIS'].value > 0: 			### 0.34
+            if self.header['NAXIS'] > 0:
                 self._file.seek(self._data)
                 size = self.size()
                 blok = self._file.read(size)
@@ -450,62 +455,63 @@ class ImageBaseHDU:
 
                 #  To preserve the type of self.data during autoscaling,
                 #  make zero and scale 0-dim Numeric arrays.
-                code = ImageBaseHDU.NumCode[self.header['BITPIX'].value] ### 0.34
+                code = ImageBaseHDU.NumCode[self.header['BITPIX']]
                 self.data = Numeric.fromstring(blok, code)
                 if Numeric.LittleEndian:
-                    self.data = self.data.byteswapped() 	### 0.32
+                    self.data = self.data.byteswapped()
                 if self.autoscale:
                     zero = Numeric.array(self.zero, code)
                     scale = Numeric.array(self.scale, code)
                     self.data = scale*self.data + zero
                 self.data.shape = self.shape()
-        try:							### 0.34
+        try:
             return self.__dict__[attr]
         except KeyError:
             raise AttributeError(attr)
-    
+
     def shape(self):
-        naxis = self.header['NAXIS'].value ### 0.34
+        naxis = self.header['NAXIS']
         axes = naxis*[0]
         for j in range(naxis):
-            axes[j] = self.header['NAXIS'+str(j+1)].value ### 0.34
+            axes[j] = self.header['NAXIS'+`j+1`]
         axes.reverse()
         return tuple(axes)
     
     def size(self):
-        size, naxis = 0, self.header['NAXIS'].value ### 0.34
+        size, naxis = 0, self.header['NAXIS']
         if naxis > 0:
             size = 1
             for j in range(naxis):
-                size = size*self.header['NAXIS'+str(j+1)].value ### 0.34
-            size = (abs(self.header['BITPIX'].value)/8)* \
-                   self.header.get('GCOUNT', 1)* \
-                   (self.header.get('PCOUNT', 0) + size) ### 0.34
+                size = size*self.header['NAXIS'+`j+1`]
+            size = (abs(self.header['BITPIX'])/8)* \
+                   self.header.ascard.get('GCOUNT', 1)* \
+                   (self.header.ascard.get('PCOUNT', 0) + size)
         return size
     
     def summary(self):
         clas  = str(self.__class__)
         type  = clas[string.rfind(clas, '.')+1:]
-        if self.data:
+        if self.data != None:
             shape, format = self.data.shape, self.data.typecode()
         else:
             shape, format = (), ''
+        print shape
         return "%-10s  %-11s  %5d  %-12s  %s"%\
-               (self.name, type, len(self.header), shape, format)
+               (self.name, type, len(self.header.ascard), shape, format)
     
     def verify(self):
         req_kw = [
             ('SIMPLE',   "val == FITS.TRUE or val == FITS.FALSE"),
             ('BITPIX',   "val in [8, 16, 32, -32, -64]"),
             ('NAXIS',    "val >= 0")]
-        for j in range(self.header['NAXIS'].value): ### 0.34
-            req_kw.append(('NAXIS'+str(j+1), "val >= 0"))
+        for j in range(self.header['NAXIS']):
+            req_kw.append(('NAXIS'+`j+1`, "val >= 0"))
         for j in range(len(req_kw)):
-            key, val = self.header[j].key, self.header[j].value
+            key, val = self.header.ascard[j].key, self.header[j]
             if not key == req_kw[j][0]:
-                raise "Invalid keyword ordering:\n'%s'"%self.header[j]
+                raise "Invalid keyword ordering:\n'%s'" % self.header.ascard[j]
             if not eval(req_kw[j][1]):
-                raise "Invalid keyword type or value:\n'%s'"%self.header[j]
+                raise "Invalid keyword type or value:\n'%s'" % self.header.ascard[j]
 
 
 class PrimaryHDU(ImageBaseHDU):
@@ -519,7 +525,7 @@ class PrimaryHDU(ImageBaseHDU):
             Data = self.data.copy()
         else:
             Data = None
-        return PrimaryHDU(Data, self.header.copy())
+        return PrimaryHDU(Data, self.header.ascard.copy())
 
 
 class ImageHDU(ImageBaseHDU):
@@ -529,8 +535,8 @@ class ImageHDU(ImageBaseHDU):
         ImageBaseHDU.__init__(self, data, cards, name)
 
         #  set extension name
-        if not name and self.header.has_key('EXTNAME'):
-            name = self.header['EXTNAME'].value ### 0.34
+        if not name and self.header.ascard.has_key('EXTNAME'):
+            name = self.header['EXTNAME']
         self.name = name
     
     def __setattr__(self, attr, value):
@@ -539,35 +545,35 @@ class ImageHDU(ImageBaseHDU):
         if attr == 'name' and value:
             if type(value) != types.StringType:
                 raise TypeError, 'bad value type'
-            if self.header.has_key('EXTNAME'):
-                self.header['EXTNAME'].value = value ### 0.34
+            if self.header.ascard.has_key('EXTNAME'):
+                self.header['EXTNAME'] = value
             else:
-                self.header.append(Card('EXTNAME', value, 'extension name'))
+                self.header.ascard.append(Card('EXTNAME', value, 'extension name'))
         self.__dict__[attr] = value
     
     def copy(self):
-        if self.data:
+        if self.data != None:
             Data = self.data.copy()
         else:
             Data = None
-        return ImageHDU(Data, self.header.copy())
+        return ImageHDU(Data, self.header.ascard.copy())
     
     def verify(self):
         req_kw = [
-            ('XTENSION', "val[:5] == 'IMAGE'"),			### ver0.3.3.1
+            ('XTENSION', "val[:5] == 'IMAGE'"),
             ('BITPIX',   "val in [8, 16, 32, -32, -64]"),
             ('NAXIS',    "val >= 0")]
-        for j in range(self.header['NAXIS'].value): ### 0.34
-            req_kw.append(('NAXIS'+str(j+1), "val >= 0"))
+        for j in range(self.header['NAXIS']):
+            req_kw.append(('NAXIS'+`j+1`, "val >= 0"))
         req_kw = req_kw + [
             ('PCOUNT',   "val == 0"),
             ('GCOUNT',   "val == 1")]
         for j in range(len(req_kw)):
-            key, val = self.header[j].key, self.header[j].value
+            key, val = self.header.ascard[j].key, self.header[j]
             if not key == req_kw[j][0]:
-                raise "Invalid keyword ordering:\n'%s'"%self.header[j]
+                raise "Invalid keyword ordering:\n'%s'" % self.header.ascard[j]
             if not eval(req_kw[j][1]):
-                raise "Invalid keyword type or value:\n'%s'"%self.header[j]
+                raise "Invalid keyword type or value:\n'%s'" % self.header.ascard[j]
 
 
 class GroupsHDU(ImageBaseHDU):
@@ -577,14 +583,16 @@ class GroupsHDU(ImageBaseHDU):
         ImageBaseHDU.__init__(self, data, cards, 'PRIMARY')
     
     def size(self):
-        size, naxis = 0, self.header['NAXIS'].value ### 0.34
+        size, naxis = 0, self.header['NAXIS']
         if naxis > 0:
-            size = self.header['NAXIS1'].value ### 0.34
+            size = self.header['NAXIS1']
+
+            # for random group image, NAXIS1 should be 0 , dimension in each 
+            # axix is in NAXIS(n-1)
             for j in range(1, naxis):
-                size = size*self.header['NAXIS'+str(j+1)].value ### 0.34
-            size = (abs(self.header['BITPIX'].value)/8) * \
-                    self.header['GCOUNT'].value * \
-                    (self.header['PCOUNT'].value + size) ### 0.34
+                size = size*self.header['NAXIS'+`j+1`]
+            size = (abs(self.header['BITPIX'])/8) * self.header['GCOUNT'] * \
+                   (self.header['PCOUNT'] + size)
         return size
     
     def copy(self):
@@ -592,7 +600,7 @@ class GroupsHDU(ImageBaseHDU):
             Data = self.data.copy()
         else:
             Data = None
-        return GroupsHDU(Data, self.header.copy())
+        return GroupsHDU(Data, self.header.ascard.copy())
     
     def verify(self):
         hdr = self.header
@@ -602,27 +610,18 @@ class GroupsHDU(ImageBaseHDU):
             ('NAXIS',    "val >= 0"),
             ('NAXIS1',   "val == 0")]
         for j in range(1, hdr['NAXIS']+1):
-            req_kw.append(('NAXIS'+str(j+1), "val >= 0"))
-        for j in range(len(req_kw)):
-            key, val = hdr[j].key, hdr[j].value
-            if not key == req_kw[j][0]:
-                raise "Required keyword not found:\n'%s'"%hdr[j]
-            if not eval(req_kw[j][1]):
-                raise "Invalid keyword type or value:\n'%s'"%hdr[j]
-
-        nec_kw = [
+            req_kw.append(('NAXIS'+`j+1`, "val >= 0"))
+        req_kw = req_kw + [
             ('GROUPS',   "val == FITS.TRUE"),
             ('PCOUNT',   "val >= 0"),
             ('GCOUNT',   "val >= 0")]
 
-        for kw in nec_kw:
-            if not hdr.has_key[kw[0]]:
-                raise "Required keyword not found:\n'%s'"%\
-                      hdr[hdr.index_of(kw[0])]		### 0.32
-            val = hdr[kw[0]]
-            if not eval(kw[1]):
-                raise "Invalid keyword type or value:\n'%s'"%\
-                      hdr[hdr.index_of(kw[0])]		### 0.32
+        for j in range(len(req_kw)):
+            key, val = hdr.ascard[j].key, hdr[j]
+            if not key == req_kw[j][0]:
+                raise "Required keyword not found:\n'%s'" % hdr.ascard[j]
+            if not eval(req_kw[j][1]):
+                raise "Invalid keyword type or value:\n'%s'" % hdr.ascard[j]
 
 
 class Field:
@@ -658,7 +657,7 @@ class Field:
     def __repr__(self):
         """Create a list of field cards for display"""
 
-        cards = Header()
+        cards = CardList()
         n = str(self.column+1)
         if self.name:         
             cards.append(Card('TTYPE'+n, self.name, 'label of field'))
@@ -706,7 +705,7 @@ class ASCIIField:
     def __repr__(self):
         """Create a list of field cards for display"""
 
-        cards = Header()
+        cards = CardList()
         n = str(self.__column+1)
 	cards.append(Card('TBCOL'+n, self.__start, ''))
         cards.append(Card('TFORM'+n, ASCIIField.code[self.__code], \
@@ -768,27 +767,27 @@ class BinaryField:
             ('TDIM',  "type(val) == types.StringType")]
 
         for j in hdr['TFIELDS']:
-            key = 'TFORM'+str(j+1)
+            key = 'TFORM'+`j+1`
             if not hdr.has_key[kw]:
                 raise "Required keyword not found:\n'%s'"%\
-                      hdr[hdr.index_of(key)]		### 0.32
+                      hdr[hdr.index_of(key)]
             val = hdr[key]
             if not type(val) == types.StringType:
                 raise "Invalid keyword type or value:\n'%s'"%\
-                      hdr[hdr.index_of(key)]		### 0.32
+                      hdr[hdr.index_of(key)]
 
             for kw in res_kw:
-                key = kw[0]+str(j+1)
+                key = kw[0]+`j+1`
                 if hdr.has_key(key):
                     val = hdr[key]
                     if not eval(kw[1]):
                         raise "Invalid keyword type or value:\n'%s'"%\
-                              hdr[hdr.index_of(key)]	### 0.32
+                              hdr[hdr.index_of(key)]
         
         
     #def __repr__(self):
     #    "Create a list of field cards for display"
-    #    cards = Header()
+    #    cards = CardList()
     #    n = str(self.__column+1)
     #    cards.append(Card('TFORM'+n, BinaryField.code[self.__code], \
     #                      'data type of field: %s' % \
@@ -808,8 +807,8 @@ class Table:
     """FITS data table class
 
       Attributes:
-       header:  type of table
-       data:  shape of table
+       header:  the header part
+       data:  the data part
     
       Class data:
       _file:  file associated with table          (None)
@@ -833,9 +832,8 @@ class Table:
                  Card('TFIELDS',        0, 'number of table fields')])
         
         if type(data) == type(record.record((1,))):
-            #self.header['NAXIS1'] = data.formatsize
-            self.header['NAXIS1'].value = len(data[0].tostring()) ### 0.34
-            self.header['NAXIS2'].value = data.shape[0] ### 0.34
+            self.header['NAXIS1'] = len(data[0].tostring())
+            self.header['NAXIS2'] = data.shape[0]
             self.data = data
         elif type(data) == types.NoneType:
             pass
@@ -843,8 +841,8 @@ class Table:
             raise TypeError, "incorrect data attribute type"
 
         #  set extension name
-        if not name and self.header.has_key('EXTNAME'):
-            name = self.header['EXTNAME'].value ### 0.34
+        if not name and self.header.ascard.has_key('EXTNAME'):
+            name = self.header['EXTNAME']
         self.name = name
 	self.autoscale = 1
     
@@ -858,12 +856,12 @@ class Table:
                     raise EOFError
                 elif len(blok) != size:
                     raise IOError
-                rows = self.header['NAXIS2'].value ### 0.34
-                data = record.fromstring(blok, rows, self.format())
+                rows = self.header['NAXIS2']
+                data = record.fromstring(blok, rows, self.format()) 
             else:
                 data = None
             self.__dict__[attr] = data
-        try:							### 0.34
+        try:
             return self.__dict__[attr]
         except KeyError:
             raise AttributeError(attr)
@@ -874,24 +872,24 @@ class Table:
         if attr == 'name' and value:
             if type(value) != types.StringType:
                 raise TypeError, 'bad value type'
-            if self.header.has_key('EXTNAME'):
-                self.header['EXTNAME'].value = value ### 0.34
+            if self.header.ascard.has_key('EXTNAME'):
+                self.header['EXTNAME'] = value
             else:
-                self.header.append(Card('EXTNAME', value, 'extension name'))
+                self.header.ascard.append(Card('EXTNAME', value, 'extension name'))
         self.__dict__[attr] = value
     
     def shape(self):
-        return (self.header['NAXIS2'].value, self.header['NAXIS1'].value) ### 0.34
+        return (self.header['NAXIS2'], self.header['NAXIS1'])
     
     def size(self):
-        size, naxis = 0, self.header['NAXIS'].value ### 0.34
+        size, naxis = 0, self.header['NAXIS']
         if naxis > 0:
             size = 1
             for j in range(naxis):
-                size = size*self.header['NAXIS'+str(j+1)].value ### 0.34
-            size = (abs(self.header['BITPIX'].value)/8)* \
-                   self.header.get('GCOUNT', 1)* \
-                   (self.header.get('PCOUNT', 0) + size) ### 0.34
+                size = size*self.header['NAXIS'+`j+1`]
+            size = (abs(self.header['BITPIX'])/8) * \
+                   self.header.ascard.get('GCOUNT', 1) * \
+                   (self.header.ascard.get('PCOUNT', 0) + size)
         return size
     
     def summary(self):
@@ -902,7 +900,7 @@ class Table:
         else:
             shape, format = (), ''
         return "%-10s  %-11s  %5d  %-12s  %s"%\
-               (self.name, type, len(self.header), shape, format)
+               (self.name, type, len(self.header.ascard), shape, format)
 
 
 class TableHDU(Table):
@@ -912,23 +910,23 @@ class TableHDU(Table):
     
     def __init__(self, data=None, cards=None, name=None):
         Table.__init__(self, data, cards, name)
-        if self.header[0].value != 'TABLE   ':			### 0.32
-            self.header[0].value   = 'TABLE   '			### 0.32
-            self.header[0].comment = 'ASCII table extension'
+        if string.rstrip(self.header[0]) != 'TABLE':
+            self.header[0] = 'TABLE   '
+            self.header.ascard[0].comment = 'ASCII table extension'
         self.recdCode = ASCIIField.recdCode
         self.fitsCode = ASCIIField.fitsCode
     
     def format(self):
         strfmt, strlen = '', 0
-        for j in range(self.header['TFIELDS'].value): ### 0.34
-            bcol = self.header['TBCOL'+str(j+1)].value ### 0.34
-            valu = self.header['TFORM'+str(j+1)].value ### 0.34
+        for j in range(self.header['TFIELDS']):
+            bcol = self.header['TBCOL'+`j+1`]
+            valu = self.header['TFORM'+`j+1`]
             fmt  = self.__format_RE.match(valu)
             if fmt:
                 code, width, prec = fmt.group('code', 'width', 'prec')
             else:
                 raise ValueError, valu
-            size = eval(width)+1			### 0.32
+            size = eval(width)+1
             strfmt = strfmt + 's'+str(size) + ','
             strlen = strlen + size
         else:
@@ -940,7 +938,7 @@ class TableHDU(Table):
             Data = self.data.copy()
         else:
             Data = None
-        return TableHDU(Data, self.header.copy())
+        return TableHDU(Data, self.header.ascard.copy())
     
     def verify(self):
         req_kw = [
@@ -954,11 +952,11 @@ class TableHDU(Table):
             ('TFIELDS',  "0 <= val <= 999")]
 
         for j in range(len(req_kw)):
-            key, val = self.header[j].key, self.header[j].value
+            key, val = self.header.ascard[j].key, self.header[j]
             if not key == req_kw[j][0]:
-                raise "Invalid keyword ordering:\n'%s'"%self.header[j]
+                raise "Invalid keyword ordering:\n'%s'" % self.header.ascard[j]
             if not eval(req_kw[j][1]):
-                raise "Invalid keyword type or value:\n'%s'"%self.header[j]
+                raise "Invalid keyword type or value:\n'%s'" % self.header[j]
 
 
 class BinTableHDU(Table):
@@ -978,9 +976,9 @@ class BinTableHDU(Table):
     def __init__(self, data=None, cards=None, fields=None, name=None):
         Table.__init__(self, data, cards, name)
         hdr = self.header
-        if hdr[0].value != 'BINTABLE':
-            hdr[0].value   = 'BINTABLE'
-            hdr[0].comment = 'binary table extension'
+        if hdr[0] != 'BINTABLE':
+            hdr[0] = 'BINTABLE'
+            hdr.ascard[0].comment = 'binary table extension'
         self.recdCode = BinaryField.recdCode
         self.fitsCode = BinaryField.fitsCode
 
@@ -989,7 +987,7 @@ class BinTableHDU(Table):
             hdr['TFIELDS'] = len(format)
             for j in range(hdr['TFIELDS']):
                 val, com = self.fitsType(format[j])
-                hdr.update('TFORM'+str(j+1), val, com, after='TFORM'+str(j))
+                hdr.update('TFORM'+`j+1`, val, com, after='TFORM'+`j`)
 
         if fields:
             for field in fields:
@@ -1015,9 +1013,11 @@ class BinTableHDU(Table):
         #        self.__field[hdr['TTYPE'+n]] = j
     
     def __getitem__(self, key):
+        """ return a field (column) as a (record) array """
+
         if type(key) == types.StringType:
-            for j in range(hdr['TFIELDS']):
-                if hdr.has_key('TTYPE'+str(j+1)):
+            for j in range(self.header['TFIELDS']):
+                if self.header.ascard.has_key('TTYPE'+`j+1`):
                     key = j
                     break
             else:
@@ -1026,8 +1026,8 @@ class BinTableHDU(Table):
     
     def format(self):
         format = ''
-        for j in range(self.header['TFIELDS'].value):		### 0.34
-            valu = string.rstrip(self.header['TFORM'+str(j+1)].value)	### 0.34
+        for j in range(self.header['TFIELDS']):
+            valu = string.rstrip(self.header['TFORM'+`j+1`])
             code, size = self.recdCode[valu[-1:]], 1
             if valu[:-1]:
                 size = eval(valu[:-1])
@@ -1052,7 +1052,7 @@ class BinTableHDU(Table):
             Data = self.data.copy()
         else:
             Data = None
-        return BinTableHDU(Data, self.header.copy())
+        return BinTableHDU(Data, self.header.ascard.copy())
     
     def verify(self):
         req_kw = [
@@ -1066,11 +1066,11 @@ class BinTableHDU(Table):
             ('TFIELDS',  "0 <= val <= 999")]
 
         for j in range(len(req_kw)):
-            key, val = self.header[j].key, self.header[j].value
+            key, val = self.header.ascard[j].key, self.header[j]
             if not key == req_kw[j][0]:
-                raise "Invalid keyword ordering:\n'%s'"%self.header[j]
+                raise "Invalid keyword ordering:\n'%s'"%self.header.ascard[j]
             if not eval(req_kw[j][1]):
-                raise "Invalid keyword type or value:\n'%s'"%self.header[j]
+                raise "Invalid keyword type or value:\n'%s'"%self.header.ascard[j]
         # BinaryField.verify()
 
 
@@ -1148,7 +1148,7 @@ class FITS(UserList.UserList):
         else:
             raise KeyError, key
     
-    def __blockio(self):
+    def __readblock(self):
         block = self.__file.read(FITS.blockLen)
         if len(block) == 0:
             raise EOFError
@@ -1162,29 +1162,31 @@ class FITS(UserList.UserList):
                 break
         return cards
     
+
     def __read(self):
-        """Read a FITS HDU"""
-        header = cards = Header(self.__blockio())
-        while not 'END' in cards.keys():
-            cards  = Header(self.__blockio())
-            header = header + cards
+        """ Read one FITS HDU, data portions are not actually read here, but the
+		beginning locations are computed """
+
+        kards = CardList(self.__readblock())
+        while not 'END' in kards.keys():
+            kards = kards + CardList(self.__readblock())
         else:
-            del header[-1]
-        if   header[0].key == 'SIMPLE':
-            if   'GROUPS' in header.keys() and header['GROUPS'].value == FITS.TRUE: ### 0.34
-                hdu = GroupsHDU(cards=header)
-            elif header[0].value == FITS.TRUE:
-                hdu = PrimaryHDU(cards=header)
+            del kards[-1]
+        if kards[0].key == 'SIMPLE':
+            if 'GROUPS' in kards.keys() and kards['GROUPS'].value == FITS.TRUE:
+                hdu = GroupsHDU(cards=kards)
+            elif kards[0].value == FITS.TRUE:
+                hdu = PrimaryHDU(cards=kards)
             else:
                 raise IOError, "non-standard primary header"
-        elif header[0].key == 'XTENSION':
-            xtension = string.rstrip(header[0].value)		### ver0.3.3.1
+        elif kards[0].key == 'XTENSION':
+            xtension = string.rstrip(kards[0].value)
             if xtension == 'TABLE':
-                hdu = TableHDU(cards=header)
+                hdu = TableHDU(cards=kards)
             elif xtension == 'IMAGE':
-                hdu = ImageHDU(cards=header)
+                hdu = ImageHDU(cards=kards)
             elif xtension == 'BINTABLE':
-                hdu = BinTableHDU(cards=header)
+                hdu = BinTableHDU(cards=kards)
             else:
                 raise IOError, "non-standard extension: %s" % xtension
         else:
@@ -1192,21 +1194,21 @@ class FITS(UserList.UserList):
                   " or 'XTENSION' keyword"
 
         hdu._file = self.__file
-        hdu._data = self.__file.tell()
+        hdu._data = self.__file.tell()	# locate the beginning of the data area
         self.__file.seek(hdu.size()+padLength(hdu.size()), 1)
         hdu.verify()
         return hdu
     
     def __write(self, hdu):
         """Write FITS HDUs"""
-        block = str(hdu.header) + str(Card('END'))
+        block = str(hdu.header.ascard) + str(Card('END'))
         block = block + padLength(len(block))*' '
 
         if len(block)%FITS.blockLen != 0:
             raise IOError
         self.__file.write(block)
 
-        if hdu.data:
+        if hdu.data != None:
             block = hdu.data.tostring()
             if len(block) > 0:
                 block = block + padLength(len(block))*'\0'
@@ -1224,17 +1226,21 @@ class FITS(UserList.UserList):
 
 if __name__ == '__main__':
 
-    import os
+    print "\n---start a little internal testing..."
+    print "\n---open '%s' read-only..." % sys.argv[1]
+    fd = FITS(sys.argv[1])
 
-    for file in os.listdir('.'):
-        if file[-4:] == 'fits':
-            try:
-                fits = FITS(file)
-                print fits.info()
-            except:
-                print file
-                continue
-            #fits.close()
+    print "\n---print the file's information..."
+    print fd.info()
+
+    print "\n---print out the second card of the primary header..."
+    print fd[0].header.ascard[1]
+    
+    print "\n---print out the value of NAXIS of the 1st extension header..."
+    print fd[1].header['naxis']
+    
+    print "\n---close the file..."
+    del fd
 
 # Local Variables:
 # py-indent-offset: 4
