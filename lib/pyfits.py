@@ -31,7 +31,7 @@ import numarray.records as rec
 import numarray.memmap as Memmap
 from string import maketrans
 
-__version__ = '0.9 (April 19, 2004)'
+__version__ = '0.9.1 (June 09, 2004)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -488,7 +488,9 @@ class Card(_Verify):
 
         # longstring case (CONTINUE card)
         else:
-            if isinstance(self.value, str):
+            # try not to use CONTINUE if the string value can fit in one line.
+            # Instead, just truncate the comment
+            if isinstance(self.value, str) and len(valStr) > (Card.length-10):
                 self.__class__ = _Card_with_continue
                 output = self._breakup_strings()
             else:
@@ -984,7 +986,7 @@ class Header:
 
         if self.has_key(key):
             j = self.ascard.index_of(key)
-            if comment:
+            if comment is not None:
                 _comment = comment
             else:
                 _comment = self.ascard[j].comment
@@ -2727,6 +2729,8 @@ class _File:
 
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
+            self.__file.seek(0, 2)
+            self._size = self.__file.tell()
             self.__file.seek(0)
 
     def __getattr__(self, attr):
@@ -2789,7 +2793,7 @@ class _File:
         _start = 0
         for i in range(_max):
             _where = _keyList[_start:].index('CONTINUE') + _start
-            for nc in range(_max):
+            for nc in range(1, _max+1):
                 if _where+nc >= len(_keyList):
                     break
                 if _cardList[_where+nc]._cardimage[:10].upper() != 'CONTINUE  ':
@@ -2825,6 +2829,8 @@ class _File:
             hdu._datSpan = hdu.size() + padLength(hdu.size())
             hdu._new = 0
             self.__file.seek(hdu._datSpan, 1)
+            if self.__file.tell() > self._size:
+                print 'Warning: File size is smaller than specified data size.  File may have been truncated.'
 
             hdu._ffile = self
 

@@ -51,6 +51,10 @@ ABC     = (1.234537743788784E+88, 6.324767364763747E-15)
 >>> print c
 card is too long, comment is truncated.
 ABC     =                    9 / abcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeab
+>>> c=pyfits.Card('abc', 'a'*68, 'abcdefg')
+>>> c
+card is too long, comment is truncated.
+ABC     = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
 # the constrctor will filter out illegal data structures...
 >>> c=pyfits.Card("abc", value=(2,3))
