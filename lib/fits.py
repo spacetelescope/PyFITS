@@ -1,4 +1,4 @@
-#!/usr/bin/env python1.5
+#!/usr/bin/env python2.0
 
 """  A module for reading and writing Flexible Image Transport System
   (FITS) files.  This file format was endorsed by the International
@@ -89,7 +89,8 @@ class Card:
         r'(?P<cplx>\( *(?P<real>'+__numr+') *, *(?P<imag>'+__numr+') *\))'
         r') *)'
         r'(?P<comm_field>'
-        r'(?P<sepr>/ *)(?P<comm>[ -~]*)?)?')
+        r'(?P<sepr>/ *)'
+        r'(?P<comm>[!-~][ -~]*)?)?')
     __format = r'%[-+0 #]*\d*(?:\.\d*)?[csdiufEG]'
     __format_RE= re.compile(
         r'(?P<valfmt> *'+__format+r' *)'\
@@ -651,7 +652,7 @@ class Field:
             if cards.has_key('TNULL'+n): self.null = cards['TNULL'+n]
             if cards.has_key('TSCAL'+n): self.scale= cards['TSCAL'+n]
             if cards.has_key('TZERO'+n): self.zero = cards['TZERO'+n]
-        if data:
+        if data == None:
             self.code = string.split(data.format[1:], ',')[col]
     
     def __repr__(self):
@@ -699,7 +700,7 @@ class ASCIIField:
             if cards.has_key('TSCAL'+n): self.__scale= cards['TSCAL'+n]
             if cards.has_key('TZERO'+n): self.__zero = cards['TZERO'+n]
             if cards.has_key('TNULL'+n): self.__null = cards['TNULL'+n]
-        if data:
+        if data == None:
             self.__code = string.split(data.format[1:], ',')[col]
     
     def __repr__(self):
