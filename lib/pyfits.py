@@ -30,7 +30,7 @@ import numarray.strings as chararray
 import numarray.records as rec
 import numarray.memmap as Memmap
 
-__version__ = '0.8.0 (Aug 19, 2003)'
+__version__ = '0.8.1 (Oct 06, 2003)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -2469,6 +2469,7 @@ class _File:
 
                 # In case the FITS_rec was created in a LittleEndian machine
                 hdu.data._byteorder = 'big'
+                hdu.data._parent._byteorder = 'big'
             output = hdu.data
 
             output.tofile(self.__file)
@@ -2521,6 +2522,16 @@ class HDUList(UserList.UserList, _Verify):
     def __setitem__(self, key, hdu):
         """Set an HDU to the HDUList, indexed by number or name."""
         key = self.index_of(key)
+        if isinstance(hdu, (types.SliceType, types.ListType)):
+            if isinstance(key, types.IntType):
+                raise ValueError, "An element in the HDUList must be an HDU."
+            for item in hdu:
+                if not isinstance(item, AllHDU):
+                    raise ValueError, "%s is not an HDU." % item
+        else:
+            if not isinstance(hdu, AllHDU):
+                raise ValueError, "%s is not an HDU." % hdu
+
         self.data[key] = hdu
         self._resize = 1
 
@@ -2575,7 +2586,7 @@ class HDUList(UserList.UserList, _Verify):
            integer, a string, or a tuple of (string, integer).
         """
 
-        if isinstance(key, types.IntType):
+        if isinstance(key, types.IntType) or isinstance(key, types.SliceType):
             return key
         elif isinstance(key, types.TupleType):
             _key = key[0]
