@@ -55,12 +55,14 @@ import __builtin__, sys, UserList
 import numarray as num
 import chararray
 import recarray as rec
+import memmap as Memmap
 
-__version__ = '0.7.3 (July 12, 2002)'
+__version__ = '0.7.5 (August 16, 2002)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
 python_mode = {'readonly':'rb', 'update':'rb+', 'append':'ab+'}  # open modes
+memmap_mode = {'readonly':'r', 'update':'r+'}
 
 TAB = "   "
 DELAYED = "delayed"     # used for lazy instanciation of data
@@ -1287,6 +1289,10 @@ class ImageBaseHDU(ValidHDU):
         self.update_header()
         self._bitpix = self.header['BITPIX']
 
+        # delete the keywords BSCALE and BZERO
+        del self.header['BSCALE']
+        del self.header['BZERO']
+
     def update_header(self):
         """Update the header keywords to agree with the data.
 
@@ -1326,6 +1332,8 @@ class ImageBaseHDU(ValidHDU):
                 pass
 
     def __getattr__(self, attr):
+        """Get an ImageBaseHDU attribute: .data."""
+
         if attr == 'data':
             self.__dict__[attr] = None
             if self.header['NAXIS'] > 0:
@@ -1334,14 +1342,25 @@ class ImageBaseHDU(ValidHDU):
 
                 _bitpix = self.header['BITPIX']
                 code = ImageBaseHDU.NumCode[self.header['BITPIX']]
-                raw_data = num.fromfile(self._file, type=code, shape=dims)
+
+                if self._ffile.memmap:
+                    _mmap = self._ffile._mm[self._datLoc:self._datLoc+self._datSpan]
+                    raw_data = num.array(_mmap, type=code, shape=dims)
+                else:
+                    raw_data = num.fromfile(self._file, type=code, shape=dims)
+
                 raw_data._byteorder = 'big'
 
                 if (self._bzero != 0 or self._bscale != 1):
                     if _bitpix > 0:  # scale integers to Float32
                         self.data = num.array(raw_data, type=num.Float32)
-                    #elif self.memmap: (XXX wait for the memmap)
-                        #self.data = raw_data.copy()
+                    else:  # floating point cases
+                        if self._ffile.memmap:
+                            self.data = raw_data.copy()
+                        # if not memmap, use the space already in memory
+                        else:
+                            self.data = raw_data
+
                     if self._bscale != 1:
                         self.data *= self._bscale
                     if self._bzero != 0:
@@ -1350,6 +1369,7 @@ class ImageBaseHDU(ValidHDU):
                     # delete the keywords BSCALE and BZERO after scaling
                     del self.header['BSCALE']
                     del self.header['BZERO']
+                    self.header['BITPIX'] = ImageBaseHDU.ImgCode[self.data.type()]
                 else:
                     self.data = raw_data
         try:
@@ -1829,25 +1849,28 @@ class ColDefs:
         #new_format = convert_format(new_format)
         #self.change_attrib(col_name, 'format', new_format)
 
-def get_tbdata(data_source, col_def=None):
-    """ Get the table data from data_source, using column definitions in
-        col_def.
+def _get_tbdata(hdu):
+    """ Get the table data from input (a _File object), using column
+        definitions in col_def.
     """
-    #if col_def == None:
-        #(xxx)_data = rec.array(data_source)
 
-    # if the column definition is from a Table (header)
-    if isinstance(col_def, ColDefs):
-        tmp = col_def
-        _data = rec.array(data_source, formats=tmp.formats, names=tmp.names, shape=tmp._shape)
-        if isinstance(data_source, types.FileType):
-            _data._byteorder = 'big'
 
-        # pass the attributes
-        for attr in ['formats', 'names']:
-            setattr(_data, attr, getattr(tmp, attr))
-        for i in range(tmp._nfields):
-            tmp._arrays[i] = _data.field(i)
+    tmp = hdu.columns
+
+    if hdu._ffile.memmap:
+        _mmap = hdu._ffile._mm[hdu._datLoc:hdu._datLoc+hdu._datSpan]
+        _data = rec.RecArray(_mmap, formats=tmp.formats, names=tmp.names, shape=tmp._shape)
+    else:
+        _data = rec.array(hdu._file, formats=tmp.formats, names=tmp.names, shape=tmp._shape)
+
+    if isinstance(hdu._ffile, _File):
+        _data._byteorder = 'big'
+
+    # pass the attributes
+    for attr in ['formats', 'names']:
+        setattr(_data, attr, getattr(tmp, attr))
+    for i in range(tmp._nfields):
+        tmp._arrays[i] = _data.field(i)
 
     return FITS_rec(_data)
 
@@ -1956,7 +1979,11 @@ class FITS_rec(rec.RecArray):
             if _number and (_scale or _zero):
 
                 # only do the scaling the first time and store it in _convert
-                self._convert[indx] = dummy*bscale+bzero
+                self._convert[indx] = num.array(dummy, type=num.Float32)
+                if _scale:
+                    self._convert[indx] *= bscale
+                if _zero:
+                    self._convert[indx] += bzero
             elif _bool:
                 self._convert[indx] = num.equal(dummy, ord('T'))
             else:
@@ -2012,7 +2039,7 @@ class TableBaseHDU(ExtensionHDU):
             size = self.size()
             if size:
                 self._file.seek(self._datLoc)
-                data = get_tbdata(self._file, self.columns)
+                data = _get_tbdata(self)
                 data._coldefs = self.columns
             else:
                 data = None
@@ -2199,14 +2226,23 @@ class _File:
         self.name = name
         self.mode = mode
         self.memmap = memmap
-        if memmap:
-            raise "Memory mapping is not implemented yet."
+
+        if memmap and mode != 'readonly':
+            raise "Memory mapping is not implemented for mode `%s` yet." % mode
         else:
             self.__file = __builtin__.open(name, python_mode[mode])
 
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
             self.__file.seek(0)
+
+    def __getattr__(self, attr):
+        if attr == '_mm':
+            self.__dict__[attr] = Memmap.open(self.name, mode=memmap_mode[self.mode])
+        try:
+            return self.__dict__[attr]
+        except KeyError:
+            raise AttributeError(attr)
 
     def getfile(self):
         return self.__file
@@ -2255,6 +2291,9 @@ class _File:
             hdu._datSpan = hdu.size() + padLength(hdu.size())
             hdu._new = 0
             self.__file.seek(hdu._datSpan, 1)
+
+            hdu._ffile = self
+
 
         except:
             pass
