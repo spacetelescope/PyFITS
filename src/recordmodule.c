@@ -1425,7 +1425,7 @@ Format_FromObject(PyObject *data, char *fmt)
     int j, size=0, type=0;
 
     IF_NOT(fmt) {
-        IF_NOT(fmt = Py_Malloc(1024))
+        IF_NOT(fmt = PyMem_Malloc(1024))
             return 0;
     }
     if (PyTuple_Check(data)) {
@@ -1459,7 +1459,7 @@ Format_FromObject(PyObject *data, char *fmt)
     else {
         PyErr_SetString(RecordError, "cannot create format string from data");
         if (fmt)
-            Py_Free(fmt);
+            PyMem_Free(fmt);
         return 0;
     }
     return fmt;
@@ -1483,7 +1483,7 @@ item_FromFormat(char endian, char *format) {
 
     IF_NOT(n_item = Format_StringLength(format))
         return 0; /* format error */
-    IF_NOT(new = Py_Malloc(sizeof(Item)*(n_item+1)))
+    IF_NOT(new = PyMem_Malloc(sizeof(Item)*(n_item+1)))
         return 0;
     new[0].leng = n_item;
     new[0].size  = 0;
@@ -1493,7 +1493,7 @@ item_FromFormat(char endian, char *format) {
         fmt = skip_space(fmt);
         IF_NOT(fmt = format_type_and_size(fmt, &new[j].type, &new[j].size)) {
             PyErr_SetString(RecordError, "bad format type");
-            Py_Free(new);
+            PyMem_Free(new);
             return 0;
         }
         new[j].cast = descr_table[new[j].type]->cast;
@@ -1513,7 +1513,7 @@ item_FromItem(Item *i1, char endian)
     Item *new;
     int j;
     
-    IF_NOT(new = Py_Malloc(sizeof(Item)*(i1[0].leng+1)))
+    IF_NOT(new = PyMem_Malloc(sizeof(Item)*(i1[0].leng+1)))
         return 0;
     new[0].leng = i1[0].leng;
     new[0].size = 0;
@@ -1542,7 +1542,7 @@ item_FromItemAndDimen(Item *i1, Dimen *d1, char endian)
     leng = 0;
     for (j=start; step < 0? j > stop: j < stop; j+=step)
         leng++;
-    IF_NOT(new = Py_Malloc(sizeof(Item)*(leng+1)))
+    IF_NOT(new = PyMem_Malloc(sizeof(Item)*(leng+1)))
         return 0;
     new[0].leng = leng;
     new[0].size = 0;
@@ -1618,7 +1618,7 @@ get_valid_dimens(Dimen *d1)
     for (j=1; j <= d1[0].leng; j++)
         if (d1[j].flag)
             leng++;
-    IF_NOT(dims = Py_Malloc(sizeof(int)*(leng+1)))
+    IF_NOT(dims = PyMem_Malloc(sizeof(int)*(leng+1)))
         return 0;
     dims[0] = leng;
     for (j=k=1; j<=d1[0].leng || k<=leng; j++)
@@ -1719,7 +1719,7 @@ set_indices(Dimen *dimen, PyObject *key)
         for (j=0, k=dim[0]; j < PyTuple_Size(key); j++, k--)
             if (set_map_slice(dimen, dim[k], PyTuple_GetItem(key, j)))
                 return -1;
-        Py_Free(dim);
+        PyMem_Free(dim);
     }
     else {
         if (set_map_slice(dimen, dimen[0].stop, key))
@@ -1730,7 +1730,7 @@ set_indices(Dimen *dimen, PyObject *key)
         dimen[0].stop = dim[dim[0]];
     else
         dimen[0].stop = dimen[0].flag = 0;
-    Py_Free(dim);
+    PyMem_Free(dim);
     return 0;
 }
 
@@ -1742,7 +1742,7 @@ dimen_fromshape(int *shape, int itemsize)
      */
     Dimen *new; int j;
 
-    IF_NOT(new = Py_Malloc(sizeof(Dimen)*(shape[0]+1)))
+    IF_NOT(new = PyMem_Malloc(sizeof(Dimen)*(shape[0]+1)))
         return 0;
     for (j=0; j <= shape[0]; j++) {
         new[j].start = 0;
@@ -1773,7 +1773,7 @@ dimen_FromCopy(Dimen *d1, int itemsize)
         if (d1[j].flag)
             n_dimn++;
     }
-    IF_NOT(new = Py_Malloc(sizeof(Dimen)*(n_dimn+1)))
+    IF_NOT(new = PyMem_Malloc(sizeof(Dimen)*(n_dimn+1)))
         return 0;
     for (j=0, k=0; j <= n_dimn; j++, k++) {
         if (j == 0)
@@ -1807,7 +1807,7 @@ dimen_FromClone(Dimen *d1)
     Dimen *new;
     int j;
 
-    IF_NOT(new = Py_Malloc(sizeof(Dimen)*(d1[0].leng+1)))
+    IF_NOT(new = PyMem_Malloc(sizeof(Dimen)*(d1[0].leng+1)))
         return 0;
     for (j=0; j < d1[0].leng+1; j++) {
         new[j].start = d1[j].start;
@@ -1910,12 +1910,12 @@ compare_record(Dimen *d1, Item *i1, Dimen *d2, Item *i2)
             goto error;
         }
     }
-    Py_Free(dim1);
-    Py_Free(dim2);
+    PyMem_Free(dim1);
+    PyMem_Free(dim2);
     return 1;
  error:
-    if (dim1) Py_Free(dim1);
-    if (dim2) Py_Free(dim2);
+    if (dim1) PyMem_Free(dim1);
+    if (dim2) PyMem_Free(dim2);
     return 0;
 }
 
@@ -2091,7 +2091,7 @@ record_new(PyObject *this, PyObject *args, PyObject *opts)
         endian = NAT;
         tuple = PyList_GetItem(shape, n_dimn-1);
         n_item = PyTuple_Size(tuple);
-        IF_NOT(fmt = Py_Malloc(20*sizeof(char)*n_item))
+        IF_NOT(fmt = PyMem_Malloc(20*sizeof(char)*n_item))
             goto error;
         for (j=0; j < 20*sizeof(char)*n_item; j++)
             fmt[j] = '\0';
@@ -2116,7 +2116,7 @@ record_new(PyObject *this, PyObject *args, PyObject *opts)
         }
         IF_NOT(item = item_FromFormat(endian, fmt))
             goto error; /*  memory error or format error  */
-        Py_Free(fmt);
+        PyMem_Free(fmt);
     }
     PyList_Reverse(shape);
     PyList_SetItem(shape, 0, PyInt_FromLong(item[0].leng));
@@ -2128,7 +2128,7 @@ record_new(PyObject *this, PyObject *args, PyObject *opts)
         goto error;
     }
     /*  create dimen list  */
-    IF_NOT(dims = Py_Malloc(sizeof(int)*(n_dimn+1)))
+    IF_NOT(dims = PyMem_Malloc(sizeof(int)*(n_dimn+1)))
         goto error;
     for (j=0; j <= n_dimn; j++)
         dims[j] = j == 0? n_dimn: PyInt_AsLong(PyList_GetItem(shape, j-1));
@@ -2136,7 +2136,7 @@ record_new(PyObject *this, PyObject *args, PyObject *opts)
         goto error;
     dimen[1].leng = item[0].leng;
     Py_DECREF(shape);
-    Py_Free(dims);
+    PyMem_Free(dims);
 #ifdef DEBUG
     print_dimensions(dimen);
 #endif
@@ -2151,10 +2151,10 @@ record_new(PyObject *this, PyObject *args, PyObject *opts)
         goto error;
     return new;
  error:
-    if (new) Py_DECREF(new);
-    if (buffer) Py_Free(buffer);
-    if (dimen) Py_Free(dimen);
-    if (item)  Py_Free(item);
+    if (new) {Py_DECREF(new);}
+    if (buffer) PyMem_Free(buffer);
+    if (dimen) PyMem_Free(dimen);
+    if (item)  PyMem_Free(item);
     return 0;
 }
 
@@ -2170,9 +2170,9 @@ record_dealloc(RecordObject *this)
     else {
         printf("recordarray data ptr is null\n");
     }
-    Py_Free(this->dimn);
-    Py_Free(this->item);
-    Py_Free(this);
+    PyMem_Free(this->dimn);
+    PyMem_Free(this->item);
+    PyMem_Free(this);
 }
 
 static PyObject *
@@ -2236,9 +2236,9 @@ record_copy(RecordObject *this, PyObject *args, PyObject *opts)
     Py_DECREF(buffer);
     return new;
  error:
-    if (buffer) Py_Free(buffer);
-    if (dimen)  Py_Free(dimen);
-    if (item)   Py_Free(item);
+    if (buffer) PyMem_Free(buffer);
+    if (dimen)  PyMem_Free(dimen);
+    if (item)   PyMem_Free(item);
     return 0;
 }
 
@@ -2283,16 +2283,16 @@ record_tostring(RecordObject *this, PyObject *args, PyObject *opts)
     if (cast_record(dimen[0].leng, dimen, item, pntr,
                     this->dimn[0].leng, this->dimn, this->item, this->pntr))
         goto error;
-    Py_Free(dimen);
-    Py_Free(shape);
-    Py_Free(dims);
-    Py_Free(item);
+    PyMem_Free(dimen);
+    PyMem_Free(shape);
+    PyMem_Free(dims);
+    PyMem_Free(item);
     return new;
  error:
-    if (dimen) Py_Free(dimen);
-    if (shape) Py_Free(shape);
-    if (dims)  Py_Free(dims);
-    if (item)  Py_Free(item);
+    if (dimen) PyMem_Free(dimen);
+    if (shape) PyMem_Free(shape);
+    if (dims)  PyMem_Free(dims);
+    if (item)  PyMem_Free(item);
     return 0;
 }
 
@@ -2325,7 +2325,7 @@ record_getattr(RecordObject *this, char *name)
             leng = dimen_length(this->dimn, dim[dim[0]-j]);
             PyTuple_SetItem(ret, j, PyInt_FromLong(leng));
         }
-        Py_Free(dim);
+        PyMem_Free(dim);
     }
     /*  format attribute  */
     else if (strcmp(name, "format") == 0) {
@@ -2355,7 +2355,7 @@ record_setattr(RecordObject *this, char *name, PyObject *obj)
             goto error;
         }
         n_dimn = PyTuple_Size(obj);
-        IF_NOT(dims = Py_Malloc(sizeof(int)*(n_dimn+1)))
+        IF_NOT(dims = PyMem_Malloc(sizeof(int)*(n_dimn+1)))
             goto error;
         for (j=0; j <= n_dimn; j++) {
             dims[j] = j == 0? n_dimn:
@@ -2370,8 +2370,8 @@ record_setattr(RecordObject *this, char *name, PyObject *obj)
             PyErr_SetString(RecordError, "array shapes not equal");
             goto error;
         }
-        Py_Free(dims);
-        Py_Free(this->dimn);
+        PyMem_Free(dims);
+        PyMem_Free(this->dimn);
         this->dimn = dimen;
     }
     /*  format attribute  */
@@ -2398,7 +2398,7 @@ record_setattr(RecordObject *this, char *name, PyObject *obj)
             }
             this->dimn[1].stop = this->dimn[1].leng = item[0].leng;
         }
-        Py_Free(this->item);
+        PyMem_Free(this->item);
         this->item = item;
     }
     else {
@@ -2407,9 +2407,9 @@ record_setattr(RecordObject *this, char *name, PyObject *obj)
     }
     return 0;
  error:
-    if (dims) Py_Free(dims);
-    if (dimen) Py_Free(dimen);
-    if (item) Py_Free(item);
+    if (dims) PyMem_Free(dims);
+    if (dimen) PyMem_Free(dimen);
+    if (item) PyMem_Free(item);
     return -1;
 }
 
@@ -2470,11 +2470,11 @@ record_getseqitem(RecordObject *this, int ndx)
     }
     else { /* return a scalar object */
         obj = get_record(dimen[0].leng, dimen, this->item, this->pntr);
-        Py_Free(dimen);
+        PyMem_Free(dimen);
     }
     return obj;
  error:
-    if (dimen) Py_Free(dimen);
+    if (dimen) PyMem_Free(dimen);
     return 0;
 }
 
@@ -2502,11 +2502,11 @@ record_getseqslice(RecordObject *this, int min, int max)
     }
     else { /* return a scalar object */
         obj = get_record(dimen[0].leng, dimen, this->item, this->pntr);
-        Py_Free(dimen);
+        PyMem_Free(dimen);
     }
     return obj;
  error:
-    if (dimen) Py_Free(dimen);
+    if (dimen) PyMem_Free(dimen);
     return 0;
 }
 
@@ -2545,10 +2545,10 @@ record_setseqitem(RecordObject *this, int ndx, PyObject *obj)
         if (set_record(dimen[0].leng, dimen, this->item, this->pntr, obj))
             goto error;
     }
-    Py_Free(dimen);
+    PyMem_Free(dimen);
     return 0;
  error:
-    if (dimen) Py_Free(dimen);
+    if (dimen) PyMem_Free(dimen);
     return -1;
 }
 
@@ -2585,10 +2585,10 @@ record_setseqslice(RecordObject *this, int min, int max, PyObject *obj)
         if (set_record(dimen[0].leng, dimen, this->item, this->pntr, obj))
             goto error;
     }
-    Py_Free(dimen);
+    PyMem_Free(dimen);
     return 0;
  error:
-    if (dimen) Py_Free(dimen);
+    if (dimen) PyMem_Free(dimen);
     return -1;
 }
 
@@ -2640,11 +2640,11 @@ record_getmapitem(RecordObject *this, PyObject *key)
     }
     else { /* return a scalar object */
         obj = get_record(dimen[0].leng, dimen, this->item, this->pntr);
-        Py_Free(dimen);
+        PyMem_Free(dimen);
     }
     return obj;
  error:
-    if (dimen) Py_Free(dimen);
+    if (dimen) PyMem_Free(dimen);
     return 0;
 }
 
@@ -2682,10 +2682,10 @@ record_setmapitem(RecordObject *this, PyObject *key, PyObject *obj)
         if (set_record(dimen[0].leng, dimen, this->item, this->pntr, obj))
             goto error;
     }
-    Py_Free(dimen);
+    PyMem_Free(dimen);
     return 0;
  error:
-    if (dimen) Py_Free(dimen);
+    if (dimen) PyMem_Free(dimen);
     return -1;
 }
 
@@ -2789,8 +2789,8 @@ record_fromstring(PyObject *this, PyObject *args, PyObject *opts)
     pntr = PyString_AsString(data);
     return (PyObject *)new_record(dimen, item, endian, pntr, data);
  error:
-    if (dimen) Py_Free(dimen);
-    if (item) Py_Free(item);
+    if (dimen) PyMem_Free(dimen);
+    if (item) PyMem_Free(item);
     return 0;
 }
 
@@ -2809,7 +2809,7 @@ static PyMethodDef record_init_methods[] =
     {0,            0}                             /* sentinel */
 };
 
-void initrecord() {
+void initrecord(void) {
     /*
      *  Initialize the record module and define its methods and 
      *  attributes.
