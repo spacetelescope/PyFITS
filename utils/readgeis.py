@@ -53,13 +53,14 @@
 """
 
 # Developed by Science Software Branch, STScI, USA.
-__version__ = "Version 1.5 (20 May, 2003), \xa9 AURA"
+# This version needs Python 2.2/numarray 0.6/records 2.0
+__version__ = "Version 1.6 (20 August, 2003), \xa9 AURA"
 
 import os, sys, string
 import pyfits
 import numarray
-import recarray
-import memmap
+import numarray.records as recarray
+import numarray.memmap as memmap
 
 def stsci(hdulist):
     """For STScI GEIS files, need to do extra steps."""
@@ -166,7 +167,7 @@ def readgeis(input):
         if dtype == 'REAL*4':
             floats.append(i)
         if _type[:2] == 'CH':
-            fmt = _bytes + 'a'
+            fmt = 'a' + _bytes
         else:
             fmt = geis_fmt[_type] + _bytes
         formats += fmt + ','
