@@ -53,7 +53,7 @@
 """
 
 # Developed by Science Software Branch, STScI, USA.
-__version__ = "Version 1.4 (12 May, 2003), \xa9 AURA"
+__version__ = "Version 1.5 (20 May, 2003), \xa9 AURA"
 
 import os, sys, string
 import pyfits
@@ -106,7 +106,7 @@ def readgeis(input):
     data_file = input[:-1]+'d'
 
     _os = sys.platform
-    if _os[:5] == 'linux' or _os[:5] == 'sunos' or _os[:3] == 'osf':
+    if _os[:5] == 'linux' or _os[:5] == 'sunos' or _os[:3] == 'osf' or _os[:6] == 'darwin':
         bytes_per_line = cardLen+1
     else:
         raise "Platform %s is not supported (yet)." % _os
