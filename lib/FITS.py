@@ -11,7 +11,7 @@ import re, string, struct, types
 import UserList
 import Numeric, record
 
-version = '0.3.2 (Jun 27, 2000)'			### 0.32
+version = '0.3.3 (Aug 29, 2000)'
 
 #   Utility Functions
 
