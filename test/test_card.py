@@ -1,4 +1,3 @@
-
 import unittest, fits
 
 KeywordRegexSuite = unittest.TestSuite
@@ -6,7 +5,7 @@ KeywordRegexSuite = unittest.TestSuite
 class KeywordRegexCase(unittest.TestCase):
     def setUp(self):
         self.keyre = fits.Card._Card__keywd_RE
-    
+
     def testNotUpperCase(self):
         self.failIf(self.keyre.match("a-z     "))
 
@@ -119,7 +118,7 @@ class FormatRegexCase(unittest.TestCase):
 
     def setUp(self):
         self.fmtre = fits.Card._Card__format_RE
-        
+
     def testBadValueFormat(self):
         self.failIf(self.fmtre.match("    s  / %s "))
 
@@ -149,45 +148,42 @@ class InitCase(unittest.TestCase):
 
     #  Test keyword values
     def testBadKey1(self):
-        self.failUnlessRaises(fits.FITS_SevereError, fits.Card, 1)
+        self.failUnlessRaises(TypeError, fits.Card, 1)
 
     def testBadKey2(self):
-        self.failUnlessRaises(fits.FITS_SevereError, fits.Card, "keyword__")
+        self.failUnlessRaises(ValueError, fits.Card, "keyword__")
 
     def testBadKey3(self):
-        self.failUnlessRaises(fits.FITS_SevereError, fits.Card, "keyword!")
+        self.failUnlessRaises(ValueError, fits.Card, "keyword!")
 
     def testGoodKey(self):
         self.failUnless(str(fits.Card("keyword   ")) == "%-80s"%"KEYWORD =")
 
     #  Test for bad values
     def testBadValueString(self):
-        self.failUnlessRaises(
-            fits.FITS_SevereError, fits.Card, "VALUE  ", "bad\tstring")
+        self.failUnlessRaises(ValueError, fits.Card, "VALUE  ",
+                              "bad\tstring")
 
     def testBadComment(self):
-        self.failUnlessRaises(
-            fits.FITS_SevereError, fits.Card, "VALUE  ", 1, 2)
+        self.failUnlessRaises(TypeError, fits.Card, "VALUE  ", 1, 2)
 
     def testBadCommentString(self):
-        self.failUnlessRaises(
-            fits.FITS_SevereError, fits.Card, "VALUE  ", 1, "bad\tstring")
+        self.failUnlessRaises(ValueError, fits.Card, "VALUE  ", 1,
+                              "bad\tstring")
 
     def testBadComment1(self):
-        self.failUnlessRaises(
-            fits.FITS_SevereError, fits.Card, "COMMENT", comment="a comment")
+        self.failUnlessRaises(AttributeError, fits.Card, "COMMENT",
+                              comment="a comment")
 
     def testBadEND(self):
-        self.failUnlessRaises(
-            fits.FITS_SevereError, fits.Card, "END    ", "an END card")
+        self.failUnlessRaises(AttributeError, fits.Card, "END    ",
+                              "an END card")
 
     def testBadComment2(self):
-        self.failUnlessRaises(
-            fits.FITS_SevereError, fits.Card, "COMMENT", 1)
+        self.failUnlessRaises(TypeError, fits.Card, "COMMENT", 1)
 
     def testCommentString(self):
-        self.failUnlessRaises(
-            fits.FITS_SevereError, fits.Card, "COMMENT", 73*"-")
+        self.failUnlessRaises(ValueError, fits.Card, "COMMENT", 73*"-")
 
     #  Test commentary cards
     def testLowerCaseEND(self):
@@ -203,12 +199,12 @@ class InitCase(unittest.TestCase):
         self.failUnless(str(fits.Card("       ",72*"-")) == "        "+72*"-")
 
     def testBadFormat1(self):
-        self.failUnlessRaises(
-            fits.FITS_SevereError, fits.Card, "VALUE  ", 1, format="d")
+        self.failUnlessRaises(ValueError, fits.Card, "VALUE  ", 1,
+                              format="d")
 
     def testBadFormat2(self):
-        self.failUnlessRaises(
-            fits.FITS_SevereError, fits.Card, "VALUE  ", 1, format=" / %s")
+        self.failUnlessRaises(ValueError, fits.Card, "VALUE  ", 1,
+                              format=" / %s")
 
     def testNumberFormat1(self):
         self.failUnless(str(fits.Card("VALUE  ", 1, format="%d")) \
@@ -236,8 +232,8 @@ class InitCase(unittest.TestCase):
 
     #  Check for fixed-format mandatory keywords
     def testMandatoryFormat1(self):
-        self.failUnless(str(fits.Card("SIMPLE", fits.FITS.TRUE, "comment")) \
-                        == "%-8s= %20s / %-47s" % ("SIMPLE", fits.FITS.TRUE,
+        self.failUnless(str(fits.Card("SIMPLE", fits.TRUE, "comment")) \
+                        == "%-8s= %20s / %-47s" % ("SIMPLE", fits.TRUE,
                                                    "comment"))
 
     def testMandatoryFormat2(self):
@@ -250,16 +246,16 @@ class InitCase(unittest.TestCase):
                                                     "comment"))
 
     def testMandatoryFormat4(self):
-        self.failUnlessRaises(fits.FITS_SevereError, fits.Card,
+        self.failUnlessRaises(ValueError, fits.Card,
                               "SIMPLE", "T", "comment", "%-20s / %s")
 
     def testMandatoryFormat5(self):
-        self.failUnlessRaises(fits.FITS_SevereError, fits.Card,
-                              "NAXIS99", 100, "comment", "%-d / %s")
+        self.failUnlessRaises(ValueError, fits.Card, "NAXIS99", 100,
+                              "comment", "%-d / %s")
 
     def testMandatoryFormat6(self):
-        self.failUnlessRaises(fits.FITS_SevereError, fits.Card,
-                              "XTENSION", "IMAGE", "comment", "%20s / %s")
+        self.failUnlessRaises(ValueError, fits.Card, "XTENSION", "IMAGE",
+                              "comment", "%20s / %s")
 
 
 class GetAttrCase(unittest.TestCase):
@@ -276,24 +272,23 @@ class GetAttrCase(unittest.TestCase):
         self.failUnless(fits.Card("COMMENT", 72*"-").value == 72*"-")
 
     def testBooleanValAttr(self):
-        self.failUnless(fits.Card("BOOLEAN", fits.FITS.TRUE).value \
-                        == fits.FITS.TRUE)
+        self.failUnless(fits.Card("BOOLEAN", fits.TRUE).value == fits.TRUE)
 
     def testStringValAttr(self):
         self.failUnless(fits.Card("STRING ", "O'Hara").value == "O'Hara")
 
     def testIntegerValAttr(self):
-        self.failUnless(fits.Card("v").fromstring("INTEGER = %-70s" % \
-                                                  "-00100").value == -100)
+        self.failUnless(fits.Card().fromstring("INTEGER = %-70s" % \
+                                               "-00100").value == -100)
 
     def testFloatValAttr(self):
         self.failUnless(
-            fits.Card("v").fromstring(
-            "REAL    = %-70s" % "-001.0E2").value == -100.0)
+            fits.Card().fromstring("REAL    = %-70s" % \
+                                   "-001.0E2").value == -100.0)
 
     def testComplexValAttr(self):
         self.failUnless(
-            fits.Card("v").fromstring(
+            fits.Card().fromstring(
             "COMPLEX = (%8s, %8s)%-50s" % (
             "-001.0E2", "-002.0E2", " ")).value == -100.0-200.0j)
 
@@ -301,7 +296,7 @@ class GetAttrCase(unittest.TestCase):
         self.failUnless(fits.Card("NONE   ").value == None)
 
     def testNonBooleanValAttr(self):
-        self.failUnlessRaises(fits.FITS_SevereError, fits.Card(
+        self.failUnlessRaises(ValueError, fits.Card(
             "NONBOOL", fits.Boolean("N")).__getattr__, "value")
 
     #  Check comment attribute
@@ -324,51 +319,51 @@ class SetAttrCase(unittest.TestCase):
 
     #  Check END card
     def testEND1(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("END").__setattr__, "key", "END")
 
     def testEND2(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("END").__setattr__, "value", 1)
 
     def testEND3(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("END").__setattr__, "comment",
                               "a comment")
 
     #  Check key attribute
     def testBadKey1(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(TypeError,
                               fits.Card("VALUE  ", 1,
                                         "a comment").__setattr__, "key", 1)
 
     def testLongKey(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("VALUE  ", 1, "a comment").__setattr__,
                               "key", "LONGKEYWORD")
 
     def testBadKey2(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("VALUE  ", 1, "a comment").__setattr__,
                               "key", "BAD KEYWD")
 
     def testBadValueKey1(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("VALUE  ", 1, "a comment").__setattr__,
                               "key", "COMMENT")
 
     def testBadValueKey2(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("VALUE  ", 1, "a comment").__setattr__,
                               "key", "END")
 
     def testBadCommentKey1(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("COMMENT", "a comment").__setattr__,
                               "key", "VALUE  ")
 
     def testBadCommentKey2(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("COMMENT", "a comment").__setattr__,
                               "key", "END")
 
@@ -382,17 +377,17 @@ class SetAttrCase(unittest.TestCase):
 
     #  Check value attribute
     def testBadStringValue(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("VALUE  ", "a string").__setattr__,
                               "value", "bad\tstring")
 
     def testBadCommentValue1(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(ValueError,
                               fits.Card("COMMENT", "a string").__setattr__,
                               "value", "bad\tstring")
 
     def testBadCommentValue2(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
+        self.failUnlessRaises(TypeError,
                               fits.Card("COMMENT", "a comment").__setattr__,
                               "value", 1)
 
@@ -435,28 +430,26 @@ class SetAttrCase(unittest.TestCase):
 class FromstringCase(unittest.TestCase):
 
     def setUp(self):
-        self.card = fits.Card("")
+        self.card = fits.Card()
 
     #  Test card length
     def testShortCardLength(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
-                              self.card.fromstring, 81*" ")
+        self.failUnlessRaises(ValueError, self.card.fromstring, 81*" ")
 
     def testLongCardLength(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
-                              self.card.fromstring, 79*" ")
+        self.failUnlessRaises(ValueError, self.card.fromstring, 79*" ")
 
     def testCardLength(self):
         self.failUnless(str(self.card.fromstring(80*" ") == 80*" "))
 
     #  Check keyword syntax
     def testEmbeddedSpaceKey(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
-                              self.card.fromstring, "COM MENT"+72*".")
+        self.failUnlessRaises(ValueError, self.card.fromstring,
+                              "COM MENT"+72*".")
 
     def testLowerCaseKey(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
-                              self.card.fromstring, "a-z0-9_-"+72*".")
+        self.failUnlessRaises(ValueError, self.card.fromstring,
+                              "a-z0-9_-"+72*".")
 
     def testGoodKey(self):
         self.failUnless(str(self.card.fromstring("A-Z0-9_-"+72*".")) \
@@ -464,8 +457,8 @@ class FromstringCase(unittest.TestCase):
 
     #  Check for END card
     def testBadENDCard(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
-                              self.card.fromstring, "END     "+72*".")
+        self.failUnlessRaises(ValueError, self.card.fromstring,
+                              "END     "+72*".")
 
     def testGoodENDCard(self):
         self.failUnless(str(self.card.fromstring("END     "+72*" ")) \
@@ -478,7 +471,7 @@ class FromstringCase(unittest.TestCase):
 
     def testBooleanValue(self):
         self.failUnless(self.card.fromstring("BOOLEAN = %30s"%"T"+40*" "))
-        
+
     def testIntegerValue(self):
         self.failUnless(self.card.fromstring("INTEGER = %30d"%1  +40*" "))
 
@@ -507,19 +500,19 @@ class FromstringCase(unittest.TestCase):
             self.card.fromstring("COMFIELD= %30d / %-37s"%(1, "a comment")))
 
     def testBadBoolean(self):
-        self.failUnlessRaises(fits.FITS_SevereError, self.card.fromstring,
+        self.failUnlessRaises(ValueError, self.card.fromstring,
                               "BOOLEAN = %30s" % "N" + 40*" ")
 
     def testBadString1(self):
-        self.failUnlessRaises(fits.FITS_SevereError, self.card.fromstring,
+        self.failUnlessRaises(ValueError, self.card.fromstring,
                               "STRING  = %30s" % "\"a'string\""+40*" ")
 
     def testBadString2(self):
-        self.failUnlessRaises(fits.FITS_SevereError, self.card.fromstring,
+        self.failUnlessRaises(ValueError, self.card.fromstring,
                               "STRING  = %30s" % "'a\tstring '"+40*" ")
 
     def testLowerCaseE(self):
-        self.failUnlessRaises(fits.FITS_SevereError, self.card.fromstring,
+        self.failUnlessRaises(ValueError, self.card.fromstring,
                               "REAL    = %30g" % -1.1e-9+40*" ")
 
     #  Check for fixed-format mandatory keywords
@@ -533,16 +526,16 @@ class FromstringCase(unittest.TestCase):
         self.failUnless(self.card.fromstring("XTENSION= %-70s"% "'IMAGE   '"))
 
     def testMandatoryFormat4(self):
-        self.failUnlessRaises(fits.FITS_SevereError, self.card.fromstring,
+        self.failUnlessRaises(ValueError, self.card.fromstring,
                               "SIMPLE  = %-20s" % "T" + 50*" ")
 
     def testMandatoryFormat5(self):
-        self.failUnlessRaises(fits.FITS_SevereError, self.card.fromstring,
+        self.failUnlessRaises(ValueError, self.card.fromstring,
                               "NAXIS99 = %-20d" % 100 + 50*" ")
 
     def testMandatoryFormat6(self):
-        self.failUnlessRaises(fits.FITS_SevereError, self.card.fromstring,
-                             "XTENSION=   %-20s"%"'IMAGE   '")
+        self.failUnlessRaises(ValueError, self.card.fromstring,
+                              "XTENSION=   %-20s"%"'IMAGE   '")
 
     #  Check for comment card
     def testCommentCard(self):
@@ -561,7 +554,7 @@ class FromstringCase(unittest.TestCase):
         self.failUnless(self.card.fromstring("VALUE   =="+70*"."))
 
     def testBadCommentCard(self):
-        self.failUnlessRaises(fits.FITS_SevereError, self.card.fromstring,
+        self.failUnlessRaises(ValueError, self.card.fromstring,
                               "COMMENT =\t"+70*".")
 
 
@@ -571,7 +564,7 @@ class FormatterCase(unittest.TestCase):
         self.card = fits.Card("")
 
     def testBooleanFormat(self):
-        self.failUnless(self.card._Card__formatter(fits.FITS.TRUE) == "T")
+        self.failUnless(self.card._Card__formatter(fits.TRUE) == "T")
 
     def testStringFormat(self):
         self.failUnless(self.card._Card__formatter("string") == "'string  '")
@@ -594,8 +587,7 @@ class FormatterCase(unittest.TestCase):
         self.failUnless(self.card._Card__formatter(None) == "")
 
     def testLongString(self):
-        self.failUnlessRaises(fits.FITS_SevereError,
-                              self.card._Card__formatter, 70*"-")
+        self.failUnlessRaises(ValueError, self.card._Card__formatter, 70*"-")
 
     def testInvalidType(self):
         self.failUnlessRaises(TypeError, self.card._Card__formatter, [])
@@ -603,4 +595,3 @@ class FormatterCase(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
