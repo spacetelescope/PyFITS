@@ -23,9 +23,16 @@
 >>> c4=pyfits.Column(name='t1', format='I', array=tt[1].data.field(0))
 >>> c5=pyfits.Column(name='t2', format='C', array=num.array([3+3j,4+4j,5+5j]))
 
+# Note that X format must be two-D array
+>>> c6=pyfits.Column(name='t3', format='X', array=num.array([[0],[1]]))
+>>> c7=pyfits.Column(name='t4', format='J', array=num.array([101,102,103]))
+
+# if there are more flags than needed, they will be truncated
+>>> c8=pyfits.Column(name='t5', format='11X', array=num.array([[1,1,0,1,0,1,1,1,0,0,1,1],[0,1,1,1,1,0,0,0,0,1,0,0],[1,1,1,0,0,1,1,1,1,1,1,1]]))
+
 # second, create a column-definitions object for all columns in a table
 
->>> x=pyfits.ColDefs([c1,c2,c3,c4,c5])
+>>> x=pyfits.ColDefs([c1,c2,c3,c4,c5,c6,c7,c8])
 
 # create a new binary table HDU object by using the new_table function
 # Note that the data array for each field has different length, the new
@@ -48,12 +55,12 @@ RecArray[
 # one row like this:
 
 >>> print tbhdu.data[1]
-('def', 12.0, 4, 2, (4+4j))
+('def', 12.0, 4, 2, (4+4j), array([1], type=Bool), 102, array([0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0], type=Bool))
 
 # and a column like this:
 
 >>> print tbhdu.data.field('abc')
-['abc', 'def', 'xx']
+['abc' 'def' 'xx']
 
 # An alternative way to create a column-definitions object is from an
 # existing table.
@@ -63,6 +70,11 @@ RecArray[
 >>> fout = pyfits.HDUList(pyfits.PrimaryHDU())
 >>> fout.append(tbhdu)
 >>> fout.writeto('tableout1.fits')
+
+>>> f2 = pyfits.open('tableout1.fits')
+>>> temp = f2[1].data.field(7)
+>>> print temp[0]
+[1 1 0 1 0 1 1 1 0 0 1]
 
 # An alternative way to create an output table FITS file:
 # fout2=pyfits.open('tableout2.fits','append')
