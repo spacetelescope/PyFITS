@@ -56,7 +56,7 @@ import numarray as num
 import chararray
 import recarray as rec
 
-__version__ = '0.7.2 (June 19, 2002)'
+__version__ = '0.7.3 (July 12, 2002)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -229,7 +229,6 @@ class _Verify:
             return
 
         x = str(self._verify(_option)).rstrip()
-        self._verifytext = x
         if _option in ['fix', 'silentfix'] and string.find(x, 'Unfixable') != -1:
             raise VerifyError, '\n'+x
         if (_option != "silentfix") and x:
@@ -514,7 +513,9 @@ class Card(_Verify):
                 if valu == None:
                     raise FITS_SevereError, 'comment of old card has '\
                           'invalid syntax'
-                comment = valu.group('comm').rstrip()
+                comment = valu.group('comm')
+                if isinstance(comment, types.StringType):
+                    comment = comment.rstrip()
             else:
                 # !!! Could also raise a exception. !!!
                 comment = None
@@ -849,13 +850,14 @@ class Header(_Verify):
         elif after and self.has_key(after):
             self.ascard.insert(self.ascard.index_of(after)+1, new_card)
         else:
-            _last = None
-            if key[0] != ' ':
-                _last = self.ascard.index_of(key, backward=1)
-            if _last is not None:
-                self.ascard.insert(_last+1, new_card)
-            else:
+            if key[0] == ' ':
                 self.ascard.append(new_card)
+            else:
+                try:
+                    _last = self.ascard.index_of(key, backward=1)
+                    self.ascard.insert(_last+1, new_card)
+                except:
+                    self.ascard.append(new_card)
 
         self._mod = 1
 
@@ -1274,9 +1276,8 @@ class ImageBaseHDU(ValidHDU):
                  Card('BITPIX',         8, 'array data type'),
                  Card('NAXIS',          0, 'number of array dimensions')]))
 
-        self.zero = self.header.get('BZERO', 0)
-        self.scale = self.header.get('BSCALE', 1)
-        self.autoscale = (self.zero != 0) or (self.scale != 1)
+        self._bzero = self.header.get('BZERO', 0)
+        self._bscale = self.header.get('BSCALE', 1)
 
         if (data is DELAYED): return
 
@@ -1284,6 +1285,7 @@ class ImageBaseHDU(ValidHDU):
 
         # update the header
         self.update_header()
+        self._bitpix = self.header['BITPIX']
 
     def update_header(self):
         """Update the header keywords to agree with the data.
@@ -1330,15 +1332,26 @@ class ImageBaseHDU(ValidHDU):
                 self._file.seek(self._datLoc)
                 dims = self.dimShape()
 
-                #  To preserve the type of self.data during autoscaling,
-                #  make zero and scale 0-dim numarray arrays.
+                _bitpix = self.header['BITPIX']
                 code = ImageBaseHDU.NumCode[self.header['BITPIX']]
-                self.data = num.fromfile(self._file, type=code, shape=dims)
-                self.data._byteorder = 'big'
-                if self.autoscale:
-                    zero = num.array([self.zero], type=code)
-                    scale = num.array([self.scale], type=code)
-                    self.data = scale*self.data + zero
+                raw_data = num.fromfile(self._file, type=code, shape=dims)
+                raw_data._byteorder = 'big'
+
+                if (self._bzero != 0 or self._bscale != 1):
+                    if _bitpix > 0:  # scale integers to Float32
+                        self.data = num.array(raw_data, type=num.Float32)
+                    #elif self.memmap: (XXX wait for the memmap)
+                        #self.data = raw_data.copy()
+                    if self._bscale != 1:
+                        self.data *= self._bscale
+                    if self._bzero != 0:
+                        self.data += self._bzero
+
+                    # delete the keywords BSCALE and BZERO after scaling
+                    del self.header['BSCALE']
+                    del self.header['BZERO']
+                else:
+                    self.data = raw_data
         try:
             return self.__dict__[attr]
         except KeyError:
@@ -1380,6 +1393,85 @@ class ImageBaseHDU(ValidHDU):
 
         return "%-10s  %-11s  %5d  %-12s  %s" % \
                (self.name, type, len(self.header.ascard), _shape, _format)
+
+    def scale(self, type=None, option="old", bscale=1, bzero=0):
+        """Scale image data by using BSCALE/BZERO.
+
+           Call to this method will scale self.data and update the keywords
+           of BSCALE and BZERO in self.header.  This method should only be
+           used right before writing to the output file, as the data will be
+           scaled and is therefore not very usable after the call.
+
+           Arguments:
+
+           type: destination data type, use numarray attribute format,
+                 (e.g. 'UInt8', 'Int16', 'Float32' etc.).  If is None, use the
+                 current data type.
+
+           option: how to scale the data: if "old", use the original BSCAL
+                 and BZERO values when the data was read/created. If
+                 "minmax", use the minimum and maximum of the data to scale.
+                 The option will be overwritten by any user specified
+                 bscale/bzero values.
+
+           bscale/bzero:  user specified BSCALE and BZERO values.
+        """
+
+        if self.data is None:
+            return
+
+        # Determine the destination (numarray) data type
+        if type is None:
+            _type = self.NumCode[self._bitpix]
+        else:
+            _type = getattr(num, type)
+
+        # Determine how to scale the data
+        # bscale and bzero takes priority
+        if (bscale != 1 or bzero !=0):
+            _scale = bscale
+            _zero = bzero
+        else:
+            if option == 'old':
+                _scale = self._bscale
+                _zero = self._bzero
+            elif option == 'minmax':
+                if isinstance(_type, num.FloatingType):
+                    _scale = 1
+                    _zero = 0
+                else:
+
+                    # flat the shape temporarily to save memory
+                    dims = self.data.getshape()
+                    self.data.setshape(self.data.nelements())
+                    min = num.minimum.reduce(self.data)
+                    max = num.maximum.reduce(self.data)
+                    self.data.setshape(dims)
+
+                    if (_type.bytes == 1):  # UInt8 case
+                        _zero = min
+                        _scale = (max - min) / (2.**8 - 1)
+                    else:
+                        _zero = (max + min) / 2.
+
+                        # throw away -2^N
+                        _scale = (max - min) / (2.**(8*_type.bytes) - 2)
+
+        # Scaling
+        if _zero != 0:
+            self.data -= _zero
+            self.header.update('BZERO', _zero)
+        else:
+            del self.header['BZERO']
+
+        if _scale != 1:
+            self.data /= _scale
+            self.header.update('BSCALE', _scale)
+        else:
+            del self.header['BSCALE']
+
+        if self.data._type != _type:
+            self.data = num.array(num.round(self.data), type=_type)
 
 
 class PrimaryHDU(ImageBaseHDU):
@@ -1827,7 +1919,7 @@ class FITS_rec(rec.RecArray):
         self._convert = [None]*self._nfields
 
     def field(self, key):
-        indx = rec.index_of(self._names, key)
+        indx = rec.index_of(self._coldefs.names, key)
 
         if (self._convert[indx] is None):
             if self._coldefs._tbtype == 'BinTableHDU':
@@ -1843,7 +1935,7 @@ class FITS_rec(rec.RecArray):
             _zero = bzero not in ['', None, 0]
 
             if _str:
-                return self._parent.field(key)
+                return self._parent.field(indx)
 
             # ASCII table, convert strings to numbers
             if self._coldefs._tbtype == 'TableHDU':
@@ -2158,8 +2250,11 @@ class _File:
             hdu._file = self.__file
             hdu._hdrLoc = _hdrLoc                # beginning of the header area
             hdu._datLoc = self.__file.tell()     # beginning of the data area
+
+            # data area size, incling padding
+            hdu._datSpan = hdu.size() + padLength(hdu.size())
             hdu._new = 0
-            self.__file.seek(hdu.size()+padLength(hdu.size()), 1)
+            self.__file.seek(hdu._datSpan, 1)
 
         except:
             pass
@@ -2172,7 +2267,7 @@ class _File:
 
         if isinstance(hdu, ImageBaseHDU):
             hdu.update_header()
-        return self.writeHDUheader(hdu), self.writeHDUdata(hdu)
+        return (self.writeHDUheader(hdu),) + self.writeHDUdata(hdu)
 
     def writeHDUheader(self, hdu):
         """Write FITS HDU header part."""
@@ -2195,18 +2290,12 @@ class _File:
 
         self.__file.flush()
         loc = self.__file.tell()
+        _size = 0
         if hdu.data is not None:
 
             # if image, need to deal with bzero/bscale and byteorder
             if isinstance(hdu, ImageBaseHDU):
-                hdu.zero = hdu.header.get('BZERO', 0)
-                hdu.scale = hdu.header.get('BSCALE', 1)
-                hdu.autoscale = (hdu.zero != 0) or (hdu.scale != 1)
-                if hdu.autoscale:
-                    code = ImageBaseHDU.NumCode[hdu.header['BITPIX']]
-                    zero = num.array([hdu.zero], type=code)
-                    scale = num.array([hdu.scale], type=code)
-                    hdu.data = (hdu.data - zero) / scale
+
 
                 if hdu.data._byteorder != 'big':
                     hdu.data.byteswap()
@@ -2226,9 +2315,10 @@ class _File:
 
                 # In case the FITS_rec was created in a LittleEndian machine
                 hdu.data._byteorder = 'big'
+            output = hdu.data
 
-            hdu.data.tofile(self.__file)
-            _size = hdu.data.nelements() * hdu.data._itemsize
+            output.tofile(self.__file)
+            _size = output.nelements() * output._itemsize
 
             # pad the FITS data block
             if _size > 0:
@@ -2236,7 +2326,9 @@ class _File:
 
         # flush, to make sure the content is written
         self.__file.flush()
-        return loc
+
+        # return both the location and the size of the data area
+        return loc, _size+padLength(_size)
 
     def close(self):
         """ close the 'physical' FITS file"""
@@ -2395,12 +2487,29 @@ class HDUList(UserList.UserList, _Verify):
             if not self._resize:
 
                 # determine if any of the HDU is resized
-                # only do the header for now (XXX)
-                cardsPerBlock = blockLen / Card.length
                 for hdu in self:
-                    blocks = len(hdu.header.ascard)/cardsPerBlock + 1
-                    if (blocks*blockLen) != (hdu._datLoc-hdu._hdrLoc):
+
+                    # Header:
+                    # Add 1 to .ascard to include the END card
+                    _bytes = (len(hdu.header.ascard)+1) * Card.length
+                    _bytes = _bytes + padLength(_bytes)
+                    if _bytes != (hdu._datLoc-hdu._hdrLoc):
                         self._resize = 1
+                        if verbose:
+                            print "One or more header is resized."
+                        break
+
+                    # Data:
+                    if 'data' not in dir(hdu):
+                        continue
+                    if hdu.data is None:
+                        continue
+                    _bytes = hdu.data._itemsize*hdu.data.nelements()
+                    _bytes = _bytes + padLength(_bytes)
+                    if _bytes != hdu._datSpan:
+                        self._resize = 1
+                        if verbose:
+                            print "One or more data area is resized."
                         break
 
             # if the HDUList is resized, need to write it to a tmp file,
@@ -2413,7 +2522,7 @@ class HDUList(UserList.UserList, _Verify):
                 if (verbose): print "open a temp file", _name
 
                 for hdu in self:
-                    (hdu._hdrLoc, hdu._datLoc) = _hduList.__file.writeHDU(hdu)
+                    (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = _hduList.__file.writeHDU(hdu)
                 _hduList.__file.close()
                 self.__file.close()
                 os.remove(self.__file.name)
