@@ -56,7 +56,7 @@ import numarray as num
 import chararray
 import recarray as rec
 
-version = '0.7.0 (May 8, 2002)'
+__version__ = '0.7.0.1 (May 9, 2002)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -1279,14 +1279,25 @@ class ImageBaseHDU(ValidHDU):
 
         if (data is DELAYED): return
 
+        self.data = data
+
+        # update the header
+        self.update_header()
+
+    def update_header(self):
+        """Update the header keywords to agree with the data.
+
+           Does not work for GroupHDU.  Need a separate method.
+        """
+
         old_naxis = self.header['NAXIS']
 
-        if isinstance(data, num.NumArray):
-            self.header['BITPIX'] = ImageBaseHDU.ImgCode[data.type()]
-            axes = list(data.getshape())
+        if isinstance(self.data, num.NumArray):
+            self.header['BITPIX'] = ImageBaseHDU.ImgCode[self.data.type()]
+            axes = list(self.data.getshape())
             axes.reverse()
 
-        elif type(data) == types.NoneType:
+        elif self.data is None:
             axes = []
         else:
             raise ValueError, "incorrect array type"
@@ -1294,13 +1305,15 @@ class ImageBaseHDU(ValidHDU):
         self.header['NAXIS'] = len(axes)
 
         # add NAXISi if it does not exist
-        #for j in range(len(axes)):
-            #try:
-                #self.header['NAXIS'+`j+1`] = axes[j]
-            #except:
-                #if (j == 0): after = 'naxis'
-                #else : after = 'naxis'+`j`
-                #self.header.update('naxis'+`j+1`, axes[j], after = after)
+        for j in range(len(axes)):
+            try:
+                self.header['NAXIS'+`j+1`] = axes[j]
+            except:
+                if (j == 0):
+                    _after = 'naxis'
+                else :
+                    _after = 'naxis'+`j`
+                self.header.update('naxis'+`j+1`, axes[j], after = _after)
 
         # delete extra NAXISi's
         for j in range(len(axes)+1, old_naxis+1):
@@ -1308,7 +1321,6 @@ class ImageBaseHDU(ValidHDU):
                 del self.header.ascard['NAXIS'+`j`]
             except KeyError:
                 pass
-        self.data = data
 
     def __getattr__(self, attr):
         if attr == 'data':
@@ -2143,6 +2155,8 @@ class _File:
         """Write *one* FITS HDU.  Must seek to the correct location before
            calling this method."""
 
+        if isinstance(hdu, ImageBaseHDU):
+            hdu.update_header()
         return self.writeHDUheader(hdu), self.writeHDUdata(hdu)
 
     def writeHDUheader(self, hdu):
