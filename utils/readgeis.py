@@ -54,7 +54,7 @@
 
 # Developed by Science Software Branch, STScI, USA.
 # This version needs Python 2.2/numarray 0.6/records 2.0
-__version__ = "Version 1.6 (20 August, 2003), \xa9 AURA"
+__version__ = "Version 1.7 (28 April, 2004), \xa9 AURA"
 
 import os, sys, string
 import pyfits
@@ -232,10 +232,12 @@ def readgeis(input):
                     val = pyfits.TRUE
                 else:
                     val = pyfits.FALSE
-            _format = None
             if i in floats:
-                _format = '%20.7G / %s'
-            _card = pyfits.Card(key=key[i-1], value=val, comment=comm[i-1], format = _format)
+                # use fromstring, format in Card is deprecated in pyfits 0.9
+                _str = '%-8s= %20.7G / %s' % (key[i-1], val, comm[i-1])
+                _card = pyfits.Card("").fromstring(_str)
+            else:
+                _card = pyfits.Card(key=key[i-1], value=val, comment=comm[i-1])
             ext_hdu.header.ascard.append(_card)
 
         # deal with bscale/bzero
