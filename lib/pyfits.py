@@ -28,7 +28,7 @@ import numarray.objects as objects
 import numarray.memmap as Memmap
 from string import maketrans
 
-__version__ = '0.9.8 (March 31, 2005)'
+__version__ = '0.9.8.1 (March 31, 2005)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -1644,6 +1644,7 @@ class _ExtensionHDU(_ValidHDU):
         if attr == 'name' and value:
             if not isinstance(value, str):
                 raise TypeError, 'bad value type'
+            value = value.upper()
             if self.header.has_key('EXTNAME'):
                 self.header['EXTNAME'] = value
             else:
@@ -3898,6 +3899,9 @@ class HDUList(list, _Verify):
                 raise "Element %d in the HDUList input is not an HDU." % hdus.index(hdu)
         list.__init__(self, hdus)
 
+    def __iter__(self):
+        return [self[i] for i in range(len(self))].__iter__()
+
     def __getitem__(self, key):
         """Get an HDU from the HDUList, indexed by number or name."""
         key = self.index_of(key)
@@ -3906,6 +3910,11 @@ class HDUList(list, _Verify):
             super(HDUList, self).__setitem__(key, _item.setupHDU())
 
         return super(HDUList, self).__getitem__(key)
+
+    def __getslice__(self, start, end):
+        _hdus = super(HDUList, self).__getslice__(start,end)
+        result = HDUList(_hdus)
+        return result
 
     def __setitem__(self, key, hdu):
         """Set an HDU to the HDUList, indexed by number or name."""
@@ -4310,6 +4319,8 @@ def _getext(filename, mode, *ext1, **ext2):
         elif 'ext' in keys:
             if n_ext2 == 1:
                 ext = ext2['ext']
+            elif n_ext2 == 2 and 'extver' in keys:
+                ext = ext2['ext'], ext2['extver']
             else:
                 raise KeyError, 'Redundant/conflicting keyword argument(s): %s' % ext2
         else:
@@ -4362,18 +4373,18 @@ def getval(filename, key, *ext, **extkeys):
     _hdr = getheader(filename, *ext, **extkeys)
     return _hdr[key]
 
-def _makehdu(data, hdr):
-    hdu=hdr._hdutype(data=data, header=hdr)
+def _makehdu(data, header):
+    hdu=header._hdutype(data=data, header=header)
     return hdu
 
-def writeto(filename, data, hdr):
-    """Create a new file using the input data/hdr."""
-    hdu=_makehdu(data, hdr)
+def writeto(filename, data, header):
+    """Create a new file using the input data/header."""
+    hdu=_makehdu(data, header)
     hdu.writeto(filename)
 
-def append(filename, data, hdr):
-    """Append the hdr/data if filename exists, create if not."""
-    hdu=_makehdu(data, hdr)
+def append(filename, data, header):
+    """Append the header/data if filename exists, create if not."""
+    hdu=_makehdu(data, header)
     try:
         hdu.writeto(filename)
     except:
@@ -4381,9 +4392,9 @@ def append(filename, data, hdr):
         f.append(hdu)
         f.close()
 
-def update(filename, data, hdr, *ext, **extkeys):
-    """Update the specified extension with the input data/hdr."""
-    new_hdu=_makehdu(data, hdr)
+def update(filename, data, header, *ext, **extkeys):
+    """Update the specified extension with the input data/header."""
+    new_hdu=_makehdu(data, header)
     hdulist, _ext = _getext(filename, 'update', *ext, **extkeys)
     hdulist[_ext] = new_hdu
     hdulist.close()
