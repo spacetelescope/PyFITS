@@ -8,7 +8,14 @@
                 readgeis.py [options] GEISname FITSname
 
                 GEISname is the input GEIS file in GEIS format, and FITSname
-                is the output file in FITS format.
+                is the output file in FITS format. GEISname can be a
+                directory name.  In this case, it will try to use all *.??h
+                files as input file names.
+
+                If FITSname is omitted or is a directory name, this task will
+                try to construct the output names from the input names, i.e.:
+
+                abc.xyh will have an output name of abc_xyf.fits
 
                 Option:
 
@@ -22,17 +29,31 @@
                 this command will convert the input GEIS file test1.hhh to
                 a FITS file test1.fits.
 
-        If used in Pythons script, a user can, e. g.:
+                If used in Pythons script, a user can, e. g.:
 
                 import readgeis
                 hdulist = readgeis.readgeis(GEISFileName)
                 (do whatever with hdulist)
                 hdulist.writeto(FITSFileName)
 
+
+                readgeis.py .
+
+                this will convert all *.??h files in the current directory
+                to FITS files (of corresponding names) and write them in the
+                current directory.
+
+                readgeis.py "u*" "*"
+
+                this will convert all u*.??h files in the current directory
+                to FITS files (of corresponding names) and write them in the
+                current directory.  Note that when using wild cards, it is
+                necessary to put them in quotes.
+
 """
 
 # Developed by Science Software Branch, STScI, USA.
-__version__ = "Version 1.1 (04 March, 2003), \xa9 AURA"
+__version__ = "Version 1.2 (07 March, 2003), \xa9 AURA"
 
 import sys, string
 import pyfits
@@ -78,9 +99,6 @@ def readgeis(input):
     global dat
     cardLen = pyfits.Card.length
 
-    # print out heading and parameter values
-    print "\n readgeis: ", __version__
-
     # input file(s) must be of the form *.??h and *.??d
     if input[-1] != 'h' or input[-4] != '.':
         raise "Illegal input GEIS file name %s" % input
@@ -88,10 +106,10 @@ def readgeis(input):
     data_file = input[:-1]+'d'
 
     _os = sys.platform
-    if _os[:5] == 'linux' or _os[:5] == 'sunos':
+    if _os[:5] == 'linux' or _os[:5] == 'sunos' or _os[:3] == 'osf':
         bytes_per_line = cardLen+1
     else:
-        raise "Platform %s is supported (yet)." % _os
+        raise "Platform %s is not supported (yet)." % _os
 
     geis_fmt = {'REAL':'f', 'INTEGER':'i', 'LOGICAL':'i'}
     end_card = 'END'+' '* (cardLen-3)
@@ -226,6 +244,45 @@ def readgeis(input):
     return hdulist
 
 #-------------------------------------------------------------------------------
+def parse_path(f1, f2):
+
+    """Parse two input arguments and return two lists of file names"""
+
+    import glob, os
+
+    # if second argument is missing or is a wild card, point it
+    # to the current directory
+    f2 = f2.strip()
+    if f2 == '' or f2 == '*':
+        f2 = './'
+
+    # if the first argument is a directory, use all GEIS files
+    if os.path.isdir(f1):
+        f1 = os.path.join(f1, '*.??h')
+    list1 = glob.glob(f1)
+    list1 = filter(lambda name: name[-1] == 'h' and name[-4] == '.', list1)
+
+    # if the second argument is a directory, use file names in the
+    # first argument to construct file names, i.e.
+    # abc.xyh will be converted to abc_xyf.fits
+    if os.path.isdir(f2):
+        list2 = []
+        for file in list1:
+            name = os.path.split(file)[-1]
+            fitsname = name[:-4] + '_' + name[-3:-1] + 'f.fits'
+            list2.append(os.path.join(f2, fitsname))
+    else:
+        list2 = glob.glob(f2)
+
+    if (list1 == [] or list2 == []):
+        str = ""
+        if (list1 == []): str += "Input files `%s` not usable/available. " % f1
+        if (list2 == []): str += "Input files `%s` not usable/available. " % f2
+        raise IOError, str
+    else:
+        return list1, list2
+
+#-------------------------------------------------------------------------------
 # special initialization when this is the main program
 
 if __name__ == "__main__":
@@ -233,7 +290,7 @@ if __name__ == "__main__":
     import getopt
 
     try:
-        optlist, args = getopt.getopt(sys.argv[1:], 'o:bh')
+        optlist, args = getopt.getopt(sys.argv[1:], 'h')
     except getopt.error, e:
         print str(e)
         print __doc__
@@ -251,9 +308,15 @@ if __name__ == "__main__":
         print __doc__
         print "\t", __version__
     else:
-        if len(args) == 2:
-            hdulist = readgeis(args[0])
-            stsci2(hdulist, args[1])
-            hdulist.writeto(args[1])
-        else:
-            print "Needs pair(s) of input files.  Use -h for help"
+        if len(args) == 1:
+            args.append('')
+        list1, list2 = parse_path (args[0], args[1])
+        npairs = min (len(list1), len(list2))
+        for i in range(npairs):
+            try:
+                hdulist = readgeis(list1[i])
+                stsci2(hdulist, list2[i])
+                hdulist.writeto(list2[i])
+                print "%s -> %s" % (list1[i], list2[i])
+            except:
+                break
