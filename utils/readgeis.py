@@ -32,7 +32,7 @@
 """
 
 # Developed by Science Software Branch, STScI, USA.
-__version__ = "Version 1.0 (03 March, 2003), \xa9 AURA"
+__version__ = "Version 1.1 (04 March, 2003), \xa9 AURA"
 
 import sys, string
 import pyfits
@@ -93,7 +93,7 @@ def readgeis(input):
     else:
         raise "Platform %s is supported (yet)." % _os
 
-    geis_fmt = {'CHARACTER':'a', 'REAL':'f', 'INTEGER':'i', 'LOGICAL':'i'}
+    geis_fmt = {'REAL':'f', 'INTEGER':'i', 'LOGICAL':'i'}
     end_card = 'END'+' '* (cardLen-3)
 
     # open input file
@@ -149,8 +149,8 @@ def readgeis(input):
             bools.append(i)
         if dtype == 'REAL*4':
             floats.append(i)
-        if _type == 'CHARACTER':
-            fmt = _bytes + geis_fmt[_type]
+        if _type[:2] == 'CH':
+            fmt = _bytes + 'a'
         else:
             fmt = geis_fmt[_type] + _bytes
         formats += fmt + ','
