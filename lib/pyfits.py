@@ -28,12 +28,12 @@ import chararray
 import recarray as rec
 import memmap as Memmap
 
-__version__ = '0.7.6 (November 22, 2002)'
+__version__ = '0.7.7 (January 9, 2003)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
-python_mode = {'readonly':'rb', 'update':'rb+', 'append':'ab+'}  # open modes
-memmap_mode = {'readonly':'r', 'update':'r+'}
+python_mode = {'readonly':'rb', 'copyonwrite':'rb', 'update':'rb+', 'append':'ab+'}  # open modes
+memmap_mode = {'readonly':'r', 'copyonwrite':'c', 'update':'r+'}
 
 TAB = "   "
 DELAYED = "delayed"     # used for lazy instantiation of data
@@ -262,7 +262,7 @@ class Card(_Verify):
 
     #  This regex checks for a number sub-string, either an integer
     #  or a float in fixed or scientific notation.
-    _numr = r'[+-]?(\.\d+|\d+(\.\d*)?)([DE][+-]?\d+)?'
+    _numr = r'[+-]?(\.\d+|\d+(\.\d*)?)([deDE][+-]?\d+)?'
 
     #  This regex checks for a valid value/comment string.  The
     #  valu_field group will always return a match for a valid value
@@ -311,7 +311,7 @@ class Card(_Verify):
     #  Python might evaluate them as octal values.
 
     _number_RE = re.compile(
-        r'(?P<sign>[+-])?0*(?P<digt>(\.\d+|\d+(\.\d*)?)([DE][+-]?\d+)?)')
+        r'(?P<sign>[+-])?0*(?P<digt>(\.\d+|\d+(\.\d*)?)([deDE][+-]?\d+)?)')
 
     #  This regex checks for a valid printf-style formatting sub-string.
     __format = r'%[-+0 #]*\d*(?:\.\d*)?[csdiufEG]'
@@ -2054,10 +2054,12 @@ class TableBaseHDU(ExtensionHDU):
         if 'data' in dir(self):
             if self.data is None:
                 _shape, _format = (), ''
+                _nrows = 0
             else:
                 _nrows = len(self.data)
-                _ncols = len(self.data._coldefs.formats)
-                _format = self.data._coldefs.formats
+
+            _ncols = len(self.columns.formats)
+            _format = self.columns.formats
 
         # if data is not touched yet, use header info.
         else:
@@ -2198,14 +2200,14 @@ class BinTableHDU(TableBaseHDU):
 class _File:
     """A file I/O class"""
 
-    def __init__(self, name, mode='readonly', memmap=0):
+    def __init__(self, name, mode='copyonwrite', memmap=0):
         if mode not in python_mode.keys():
             raise "Mode '%s' not recognized" % mode
         self.name = name
         self.mode = mode
         self.memmap = memmap
 
-        if memmap and mode != 'readonly':
+        if memmap and mode not in ['readonly', 'copyonwrite']:
             raise "Memory mapping is not implemented for mode `%s` yet." % mode
         else:
             self.__file = __builtin__.open(name, python_mode[mode])
@@ -2673,7 +2675,7 @@ class HDUList(UserList.UserList, _Verify):
         print results
 
 
-def open(name, mode="readonly", memmap=0, output_verify="exception"):
+def open(name, mode="copyonwrite", memmap=0, output_verify="exception"):
     """Factory function to open a FITS file and return an HDUList object."""
 
     # instantiate a FITS file object (ffo)
