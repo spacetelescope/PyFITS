@@ -28,7 +28,7 @@ import numarray.objects as objects
 import numarray.memmap as Memmap
 from string import maketrans
 
-__version__ = '0.9.8.1 (March 31, 2005)'
+__version__ = '0.9.8.2 (April 07, 2005)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
@@ -303,7 +303,7 @@ class Card(_Verify):
                 if not isinstance(self.value, str):
                     raise ValueError, 'Value in a commentary card must be a string'
         else:
-            self.__dict__['_cardimage'] = ''
+            self.__dict__['_cardimage'] = ' '*80
 
     def __repr__(self):
         return self._cardimage
@@ -1075,7 +1075,7 @@ class Header:
 
             _naxis = self['NAXIS']
             if issubclass(self._hdutype, _TableBaseHDU):
-                _naxis1 = self['NAXIS1']
+                _tfields = self['TFIELDS']
 
             del self['NAXIS']
             for i in range(_naxis):
@@ -1096,16 +1096,16 @@ class Header:
             if issubclass(self._hdutype, _TableBaseHDU):
                 del self['TFIELDS']
                 for name in ['TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE', 'TUNIT']:
-                    for i in range(_naxis1):
+                    for i in range(_tfields):
                         del self[name+`i+1`]
 
             if issubclass(self._hdutype, BinTableHDU):
                 for name in ['TDISP', 'TDIM', 'THEAP']:
-                    for i in range(_naxis1):
+                    for i in range(_tfields):
                         del self[name+`i+1`]
 
             if issubclass(self._hdutype == TableHDU):
-                for i in range(_naxis1):
+                for i in range(_tfields):
                     del self['TBCOL'+`i+1`]
 
         except:
@@ -1187,15 +1187,16 @@ class CardList(list):
         """
 
         if isinstance (card, Card):
-            if (self._blanks > 0) and useblanks:
-                _pos = len(self) - self._blanks
-                self[_pos] = card   # no need to call count_blanks and set _mod,
-                                    # since __setitem__ does it already.
-            else:
-                super(CardList, self).append(card)
-                self._keylist.append(card.key)  # update the keylist
-                self.count_blanks()
-                self._mod = 1
+            for i in range(len(self)-1, -1, -1): # look for the last non-commentary card
+                if self[i].key not in Card._commentaryKeys:
+                    break
+
+            super(CardList, self).insert(i+1, card)
+            self._keylist.insert(i+1, card.key)  # update the keylist
+            if useblanks:
+                self._use_blanks(card._ncards())
+            self.count_blanks()
+            self._mod = 1
         else:
             raise SyntaxError, "%s is not a Card" % str(card)
 
@@ -1232,13 +1233,18 @@ class CardList(list):
             super(CardList, self).insert(pos, card)
             self._keylist.insert(pos, card.key)  # update the keylist
             self.count_blanks()
-            if (self._blanks > 0) and useblanks and pos < len(self):
-                del self[-1]
+            if useblanks:
+                self._use_blanks(card._ncards())
 
             self.count_blanks()
             self._mod = 1
         else:
             raise SyntaxError, "%s is not a Card" % str(card)
+
+    def _use_blanks(self, how_many):
+        if self._blanks > 0:
+            for i in range(min(self._blanks, how_many)):
+                del self[-1] # it also delete the keylist item
 
     def keys(self):
         """Return a list of all keywords from the CardList."""
@@ -1360,20 +1366,21 @@ class _ValidHDU(_AllHDU, _Verify):
             _data = None
         return self.__class__(data=_data, header=self.header.copy())
 
-    def writeto(self, name, output_verify='exception'):
+    def writeto(self, name, output_verify='exception', clobber=False):
         """Write the HDU to a new file.  This is a convenience method
            to provide a user easier output interface if only one HDU
            needs to be written to a file.
 
            name:  output FITS file name to be written to.
            output_verify:  output verification option, default='exception'.
+           clobber:  Overwrite the output file if exists, default = False.
         """
 
         if isinstance(self, _ExtensionHDU):
             hdulist = HDUList([PrimaryHDU(), self])
         elif isinstance(self, PrimaryHDU):
             hdulist = HDUList([self])
-        hdulist.writeto(name, output_verify)
+        hdulist.writeto(name, output_verify, clobber=clobber)
 
     def _verify(self, option='warn'):
         _err = _ErrList([], unit='Card')
@@ -1853,11 +1860,13 @@ class _ImageBaseHDU(_ValidHDU):
                 c0,
                 Card('BITPIX',    8, 'array data type'),
                 Card('NAXIS',     0, 'number of array dimensions'),
-                Card('PCOUNT',    0, 'number of parameters'),
-                Card('GCOUNT',    1, 'number of groups')
                 ])
             if isinstance(self, GroupsHDU):
-                _list.insert(3, Card('GROUPS', TRUE, 'has groups'))
+                _list.append(Card('GROUPS', TRUE, 'has groups'))
+
+            if isinstance(self, (_ExtensionHDU, GroupsHDU)):
+                _list.append(Card('PCOUNT',    0, 'number of parameters'))
+                _list.append(Card('GCOUNT',    1, 'number of groups'))
 
             if header is not None:
                 hcopy = header.copy()
@@ -2805,14 +2814,11 @@ class ColDefs(object):
 
     def add_col(self, column):
         """Append (the definition of) one Column."""
-        self._nfields += 1
 
         # append the column attributes to the attribute lists
         for cname in commonNames:
             attr = getattr(self, cname+'s')
             val = getattr(column, cname)
-            if cname == 'format':
-                val = convert_format(val)
             if val != None:
                 attr.append(val)
             else:
@@ -3918,9 +3924,9 @@ class HDUList(list, _Verify):
 
     def __setitem__(self, key, hdu):
         """Set an HDU to the HDUList, indexed by number or name."""
-        key = self.index_of(key)
+        _key = self.index_of(key)
         if isinstance(hdu, (slice, list)):
-            if isinstance(key, int):
+            if isinstance(_key, int):
                 raise ValueError, "An element in the HDUList must be an HDU."
             for item in hdu:
                 if not isinstance(item, _AllHDU):
@@ -3929,7 +3935,10 @@ class HDUList(list, _Verify):
             if not isinstance(hdu, _AllHDU):
                 raise ValueError, "%s is not an HDU." % hdu
 
-        super(HDUList, self).__setitem__(key, hdu)
+        try:
+            super(HDUList, self).__setitem__(_key, hdu)
+        except IndexError:
+            raise IndexError, 'Extension %s is out of bound or not found.' % key
         self._resize = 1
 
     def __delitem__(self, key):
@@ -3977,6 +3986,10 @@ class HDUList(list, _Verify):
             self._resize = 1
         else:
             raise "HDUList can only append an HDU"
+
+        # make sure the EXTEND keyword is in primary HDU if there is extension
+        if len(self) > 1:
+            self.update_extend()
 
     def index_of(self, key):
         """Get the index of an HDU from the HDUList.  The key can be an
@@ -4180,11 +4193,12 @@ class HDUList(list, _Verify):
                 n = hdr['naxis']
                 hdr.update('extend', TRUE, after='naxis'+`n`)
 
-    def writeto(self, name, output_verify='exception'):
+    def writeto(self, name, output_verify='exception', clobber=False):
         """Write the HDUList to a new file.
 
            name:  output FITS file name to be written to.
            output_verify:  output verification option, default = 'exception'.
+           clobber:  Overwrite the output file if exists, default = False.
         """
 
         if (len(self) == 0):
@@ -4198,19 +4212,22 @@ class HDUList(list, _Verify):
             output_verify == 'exception'
         self.verify(option=output_verify)
 
-        # the output file must not already exist
+        # check if the output file already exists
         if os.path.exists(name):
-            raise IOError, "File '%s' already exist." % name
-        else:
+            if clobber:
+                print "Overwrite existing file '%s'." % name
+                os.remove(name)
+            else:
+                raise IOError, "File '%s' already exist." % name
 
-            # make sure the EXTEND keyword is there if there is extension
-            if len(self) > 1:
-                self.update_extend()
+        # make sure the EXTEND keyword is there if there is extension
+        if len(self) > 1:
+            self.update_extend()
 
-            hduList = open(name, mode="append")
-            for hdu in self:
-                hduList.__file.writeHDU(hdu)
-            hduList.close(output_verify=output_verify)
+        hduList = open(name, mode="append")
+        for hdu in self:
+            hduList.__file.writeHDU(hdu)
+        hduList.close(output_verify=output_verify)
 
     def close(self, output_verify='exception', verbose=0):
         """Close the associated FITS file and memmap object, if any.
@@ -4335,7 +4352,39 @@ def _getext(filename, mode, *ext1, **ext2):
     return hdulist, ext
 
 def getheader(filename, *ext, **extkeys):
-    """Get the header of the specified extension of filename."""
+    """Get the header of the specified extension of filename.
+
+       Input arguments:
+
+       filename: input FITS file name
+
+       The rest ofthe arguments are for extension specification.  They are
+       flexible and is best illustrated by examples:
+
+       # the default extension (=0) i.e. primary HDU
+       >>> getheader('in.fits')
+       >>> getheader('in.fits', 0)    # the primary HDU
+       >>> getheader('in.fits', 2)    # the second extension
+
+       # the HDU with EXTNAME='sci' (if there is only 1)
+       >>> getheader('in.fits', 'sci')
+
+       # the HDU with EXTNAME='sci' and EXTVER=2
+       >>> getheader('in.fits', 'sci', 2)
+       >>> getheader('in.fits', ('sci', 2))   # same
+
+       >>> getheader('in.fits', ext=2)          # the second extension
+
+       # the 'sci' extension, if there is only 1
+       >>> getheader('in.fits', extname='sci')
+
+       # the HDU with EXTNAME='sci' and EXTVER=2
+       >>> getheader('in.fits', extname='sci', extver=2)
+
+       # ambiguous specifications will raise an exception, DON"T DO IT!!
+       >>> getheader('in.fits', ext=('sci',1), extname='err', extver=2)
+    """
+
     hdulist, _ext = _getext(filename, 'readonly', *ext, **extkeys)
     hdu = hdulist[_ext]
     hdr = hdu.header
@@ -4344,8 +4393,18 @@ def getheader(filename, *ext, **extkeys):
 
 def getdata(filename, *ext, **extkeys):
     """Get the data of the specified extension of filename.
-       If header is set to True, this function will return (data, header).
+
+       Input arguments:
+
+       filename: input FITS file name
+
+       The rest of the arguments are for extension specification.
+       See getheader for explanations/examples.
+
+       If the optional key 'header' is set to True, this function will
+       return (data, header).
     """
+
     if 'header' in extkeys:
         _gethdr = extkeys['header']
         del extkeys['header']
@@ -4369,38 +4428,128 @@ def getdata(filename, *ext, **extkeys):
         return _data
 
 def getval(filename, key, *ext, **extkeys):
-    """Get a header keyword's value."""
+    """Return a header keyword's value.
+
+       Input arguments:
+
+       filename: input FITS file name
+       key: keyword name
+
+       The rest of the arguments are for extension specification.
+       See getheader for explanations/examples.
+    """
+
     _hdr = getheader(filename, *ext, **extkeys)
     return _hdr[key]
 
 def _makehdu(data, header):
-    hdu=header._hdutype(data=data, header=header)
+    if header is None:
+        if isinstance(data, num.NumArray):
+            hdu = ImageHDU(data)
+        elif isinstance(data, FITS_rec):
+            hdu = BinTableHDU(data)
+        else:
+            raise KeyError, 'data must be numarray or table data.'
+    else:
+        hdu=header._hdutype(data=data, header=header)
     return hdu
 
-def writeto(filename, data, header):
-    """Create a new file using the input data/header."""
-    hdu=_makehdu(data, header)
-    hdu.writeto(filename)
+def writeto(filename, data, header=None, **keys):
+    """Create a new file using the input data/header.
 
-def append(filename, data, header):
-    """Append the header/data if filename exists, create if not."""
+       Input arguments:
+
+       filename: name of the new FITS file to write to
+       data: data in the new file
+       header: the header associated with 'data', if None, will be
+               an image HDU header if data is numarray, and binary table
+               HDU header if data is from a table.
+               This argument is optional and can be specified with or
+               without the key.
+       clobber: optional key, if True and if filename already exists, it
+               will overwrite the file.  Default is False.
+    """
+
+    if header is None:
+        if 'header' in keys:
+            header = keys['header']
     hdu=_makehdu(data, header)
-    try:
-        hdu.writeto(filename)
-    except:
+    if not isinstance(hdu, PrimaryHDU):
+        hdu = PrimaryHDU(data, header=header)
+    clobber = keys.get('clobber', False)
+    hdu.writeto(filename, clobber=clobber)
+
+def append(filename, data, header=None):
+    """Append the header/data if filename exists, create if not.
+
+       Input arguments:
+
+       filename: name of the file to append to
+       data: the new data used for appending
+       header: the header associated with 'data', if None, will be
+               an image HDU header if data is numarray, and binary table
+               HDU header if data is from a table.
+    """
+
+    if not os.path.exists(filename):
+        writeto(filename, data, header)
+    else:
+        hdu=_makehdu(data, header)
+        if isinstance(hdu, PrimaryHDU):
+            hdu = ImageHDU(data, header)
         f = open(filename, mode='update')
         f.append(hdu)
         f.close()
 
-def update(filename, data, header, *ext, **extkeys):
-    """Update the specified extension with the input data/header."""
+def update(filename, data, *ext, **extkeys):
+    """Update the specified extension with the input data/header.
+
+       Input arguments:
+
+       filename: name of the file to be updated
+       data: the new data used for updating
+
+       The rest of the arguments are flexible:
+       the 3rd argument can be the header associated with the data.
+       If the 3rd argument is not a header, it (and other positional
+       arguments) are assumed to be the extension specification(s).
+       Header and extension specs can also be keyword arguments.
+       For example:
+
+       >>> update(file, dat, hdr, 'sci')  # update the 'sci' extension
+       >>> update(file, dat, 3)  # update the 3rd extension
+       >>> update(file, dat, hdr, 3)  # update the 3rd extension
+       >>> update(file, dat, 'sci', 2)  # update the 2nd SCI extension
+       >>> update(file, dat, 3, header=hdr)  # update the 3rd extension
+       >>> update(file, dat, header=hdr, ext=5)  # update the 5th extension
+    """
+
+    # parse the arguments
+    header = None
+    if len(ext) > 0:
+        if isinstance(ext[0], Header):
+            header = ext[0]
+            ext = ext[1:]
+        elif not isinstance(ext[0], (int, long, str, tuple)):
+            raise KeyError, 'Input argument has wrong data type.'
+
+    if 'header' in extkeys:
+        header = extkeys['header']
+        del extkeys['header']
+
     new_hdu=_makehdu(data, header)
     hdulist, _ext = _getext(filename, 'update', *ext, **extkeys)
     hdulist[_ext] = new_hdu
     hdulist.close()
 
 def info(filename):
-    """Get the file info."""
+    """Get the file info.
+
+       Input argument:
+
+       filename: input FITS file name
+    """
+
     f = open(filename)
     text = f.info()
     f.close()
