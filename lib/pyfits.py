@@ -4,6 +4,7 @@
 """
 A module for reading and writing FITS files and manipulating their contents.
 
+
 A module for reading and writing Flexible Image Transport System
 (FITS) files.  This file format was endorsed by the International
 Astronomical Union in 1999 and mandated by NASA as the standard format
