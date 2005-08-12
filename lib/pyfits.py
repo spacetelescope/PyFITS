@@ -12,9 +12,9 @@ publication, NOST 100-2.0.
 
 """
 """
-	Do you mean: "Profits"?
+        Do you mean: "Profits"?
 
-		- Google Search, when asked for "PyFITS"
+                - Google Search, when asked for "PyFITS"
 """
 
 import re, os, tempfile, exceptions
@@ -36,8 +36,8 @@ python_mode = {'readonly':'rb', 'copyonwrite':'rb', 'update':'rb+', 'append':'ab
 memmap_mode = {'readonly':'r', 'copyonwrite':'c', 'update':'r+'}
 
 TAB = "   "
-DELAYED = "delayed"	# used for lazy instantiation of data
-ASCIITNULL = 0		# value for ASCII table cell with value = TNULL
+DELAYED = "delayed"        # used for lazy instantiation of data
+ASCIITNULL = 0                # value for ASCII table cell with value = TNULL
                         # this can be reset by user.
 isInt = "isinstance(val, (int, long))"
 
@@ -163,12 +163,12 @@ def _pad(input):
     """Pad balnk space to the input string to be multiple of 80."""
     _len = len(input)
     if _len == Card.length:
-	return input
+        return input
     elif _len > Card.length:
         strlen = _len % Card.length
-	if strlen == 0:
-	    return input
-	else:
+        if strlen == 0:
+            return input
+        else:
             return input + ' ' * (Card.length-strlen)
 
     # minimum length is 80
@@ -194,8 +194,8 @@ _eval = eval
 class Delayed:
     """Delayed file-reading data."""
     def __init__(self, hdu=None, field=None):
-	self.hdu = hdu
-	self.field = field
+        self.hdu = hdu
+        self.field = field
 
 # translation table for floating value string
 fix_table = maketrans('de', 'DE')
@@ -283,27 +283,27 @@ class Card(_Verify):
     _commentaryKeys = ['', 'COMMENT', 'HISTORY']
 
     def __init__(self, key='', value='', comment=''):
-	"""Construct a card from key, value, and (optionally) comment.  
-	   Any specifed arguments, except defaults, must be compliant to 
+        """Construct a card from key, value, and (optionally) comment.  
+           Any specifed arguments, except defaults, must be compliant to 
            FITS standard.
 
-	   key: keyword name, default=''.
-	   value: keyword value, default=''.
-	   comment: comment, default=''.
-	"""
+           key: keyword name, default=''.
+           value: keyword value, default=''.
+           comment: comment, default=''.
+        """
 
-	if key != '' or value != '' or comment != '':
+        if key != '' or value != '' or comment != '':
             self._setkey(key)
-	    self._setvalue(value)
+            self._setvalue(value)
             self._setcomment(comment)
 
-	    # for commentary cards, value can only be strings and there 
-	    # is no comment
-	    if self.key in Card._commentaryKeys:
-		if not isinstance(self.value, str):
-		    raise ValueError, 'Value in a commentary card must be a string'
-	else:
-	    self.__dict__['_cardimage'] = ' '*80
+            # for commentary cards, value can only be strings and there 
+            # is no comment
+            if self.key in Card._commentaryKeys:
+                if not isinstance(self.value, str):
+                    raise ValueError, 'Value in a commentary card must be a string'
+        else:
+            self.__dict__['_cardimage'] = ' '*80
 
     def __repr__(self):
         return self._cardimage
@@ -323,27 +323,27 @@ class Card(_Verify):
         return getattr(self, name)
 
     def _setkey(self, val):
-	"""Set the key attribute, surrogate for the __setattr__ key case."""
+        """Set the key attribute, surrogate for the __setattr__ key case."""
 
         if isinstance(val, str):
-	    val = val.strip()
-	    if len(val) <= 8:
-	        val = val.upper()
-	        if val == 'END':
-		    raise ValueError, "keyword 'END' not allowed"
-		self._checkKey(val)
-	    else:
-		if val[:8].upper() == 'HIERARCH':
-		    val = val[8:].strip()
-		    self.__class__ = _Hierarch
-		else:
-		    raise ValueError, 'keyword name %s is too long (> 8), use HIERARCH.' % val
-	else:
-	    raise ValueError, 'keyword name %s is not a string' % val
+            val = val.strip()
+            if len(val) <= 8:
+                val = val.upper()
+                if val == 'END':
+                    raise ValueError, "keyword 'END' not allowed"
+                self._checkKey(val)
+            else:
+                if val[:8].upper() == 'HIERARCH':
+                    val = val[8:].strip()
+                    self.__class__ = _Hierarch
+                else:
+                    raise ValueError, 'keyword name %s is too long (> 8), use HIERARCH.' % val
+        else:
+            raise ValueError, 'keyword name %s is not a string' % val
         self.__dict__['key'] = val
 
     def _setvalue(self, val):
-	"""Set the value attribute."""
+        """Set the value attribute."""
 
         if isinstance(val, (str, int, long, float, complex, bool, Undefined)):
             if isinstance(val, str):
@@ -354,12 +354,12 @@ class Card(_Verify):
         self.__dict__['value'] = val
 
     def _setcomment(self, val):
-	"""Set the comment attribute."""
+        """Set the comment attribute."""
 
         if isinstance(val,str):
             self._checkText(val)
         else:
-	    if val is not None:
+            if val is not None:
                 raise ValueError, 'comment %s is not a string' % val
         self.__dict__['comment'] = val
 
@@ -373,22 +373,22 @@ class Card(_Verify):
         else:
             raise AttributeError, name
 
-	# When an attribute (value or comment) is changed, will reconstructe 
-	# the card image.
+        # When an attribute (value or comment) is changed, will reconstructe 
+        # the card image.
         self._ascardimage()
 
     def ascardimage(self, option='silentfix'):
         """Generate a (new) card image from the attributes: key, value, 
            and comment, or from raw string.
 
-	   option: verification option, default=silentfix.
+           option: verification option, default=silentfix.
         """
 
-	# Only if the card image already exist (to avoid infinite loop), 
+        # Only if the card image already exist (to avoid infinite loop), 
         # fix it first.
-	if self.__dict__.has_key('_cardimage'):
-	    self._check(option)
-	self._ascardimage()
+        if self.__dict__.has_key('_cardimage'):
+            self._check(option)
+        self._ascardimage()
         return self.__dict__['_cardimage']
 
     def _ascardimage(self):
@@ -398,9 +398,9 @@ class Card(_Verify):
 
         # keyword string
         if self.__dict__.has_key('key') or self.__dict__.has_key('_cardimage'):
-	    if isinstance(self, _Hierarch):
-		keyStr = 'HIERARCH %s ' % self.key
-	    else:
+            if isinstance(self, _Hierarch):
+                keyStr = 'HIERARCH %s ' % self.key
+            else:
                 keyStr = '%-8s' % self.key
         else:
             keyStr = ' '*8    
@@ -408,20 +408,20 @@ class Card(_Verify):
         # value string
 
         # check if both value and _cardimage attributes are missing, 
-	# to avoid infinite loops
+        # to avoid infinite loops
         if not (self.__dict__.has_key('value') or self.__dict__.has_key('_cardimage')):
             valStr = ''
 
         # string value should occupies at least 8 columns, unless it is 
-	# a null string
+        # a null string
         elif isinstance(self.value, str):
-	    if self.value == '':
-		valStr = "''"
-	    else:
-	        _expValStr = self.value.replace("'","''")
+            if self.value == '':
+                valStr = "''"
+            else:
+                _expValStr = self.value.replace("'","''")
                 valStr = "'%-8s'" % _expValStr
                 valStr = '%-20s' % valStr
-	# must be before int checking since bool is also int
+        # must be before int checking since bool is also int
         elif isinstance(self.value , bool):
             valStr = '%20s' % `self.value`[0]
         elif isinstance(self.value , (int, long)):
@@ -429,30 +429,30 @@ class Card(_Verify):
 
         # XXX need to consider platform dependence of the format (e.g. E-009 vs. E-09)
         elif isinstance(self.value, float):
-	    if self._valueModified:
+            if self._valueModified:
                 valStr = '%20s' % _floatFormat(self.value)
-	    else:
+            else:
                 valStr = '%20s' % self._valuestring
         elif isinstance(self.value, complex):
-	    if self._valueModified:
+            if self._valueModified:
                 _tmp = '(' + _floatFormat(self.value.real) + ', ' + _floatFormat(self.value.imag) + ')'
                 valStr = '%20s' % _tmp
-	    else:
+            else:
                 valStr = '%20s' % self._valuestring
         elif isinstance(self.value, Undefined):
             valStr = ''
 
-	# conserve space for HIERARCH cards
-	if isinstance(self, _Hierarch):
-	    valStr = valStr.strip()
+        # conserve space for HIERARCH cards
+        if isinstance(self, _Hierarch):
+            valStr = valStr.strip()
 
         # comment string
         if keyStr.strip() in Card._commentaryKeys:  # do NOT use self.key
             commentStr = ''
         elif self.__dict__.has_key('comment') or self.__dict__.has_key('_cardimage'):
-	    if self.comment in [None, '']:
+            if self.comment in [None, '']:
                 commentStr = ''
-	    else:
+            else:
                 commentStr = ' / ' + self.comment
         else:
             commentStr = ''
@@ -461,75 +461,75 @@ class Card(_Verify):
         eqStr = '= '
         if keyStr.strip() in Card._commentaryKeys:  # not using self.key
             eqStr = ''
-	    if self.__dict__.has_key('value'):
-	        valStr = str(self.value)
+            if self.__dict__.has_key('value'):
+                valStr = str(self.value)
 
         # put all parts together
         output = keyStr + eqStr + valStr + commentStr
 
-	# need this in case card-with-continue's value is shortened
-	if not isinstance(self, _Hierarch):
-	    self.__class__ = Card
-	else:
-	    # does not support CONTINUE for HIERARCH
-	    if len(keyStr + eqStr + valStr) > Card.length:
-	        raise ValueError, "The keyword %s with its value is too long." % self.key
+        # need this in case card-with-continue's value is shortened
+        if not isinstance(self, _Hierarch):
+            self.__class__ = Card
+        else:
+            # does not support CONTINUE for HIERARCH
+            if len(keyStr + eqStr + valStr) > Card.length:
+                raise ValueError, "The keyword %s with its value is too long." % self.key
         if len(output) <= Card.length:
             output = "%-80s" % output
 
-	# longstring case (CONTINUE card)
-	else:
+        # longstring case (CONTINUE card)
+        else:
             # try not to use CONTINUE if the string value can fit in one line.  
-	    # Instead, just truncate the comment
-	    if isinstance(self.value, str) and len(valStr) > (Card.length-10):
-		self.__class__ = _Card_with_continue
-		output = self._breakup_strings()
-	    else:
-		print 'card is too long, comment is truncated.'
-		output = output[:Card.length]
+            # Instead, just truncate the comment
+            if isinstance(self.value, str) and len(valStr) > (Card.length-10):
+                self.__class__ = _Card_with_continue
+                output = self._breakup_strings()
+            else:
+                print 'card is too long, comment is truncated.'
+                output = output[:Card.length]
 
         self.__dict__['_cardimage'] = output
 
     def _checkText(self, val):
-	"""Verify val to be printable ASCII text."""
+        """Verify val to be printable ASCII text."""
 
         if Card._comment_FSC_RE.match(val) is None:
-	    self.__dict__['_err_text'] = 'Unprintable string %s' % repr(val)
-	    self.__dict__['_fixable'] = 0
-	    raise ValueError, self._err_text
+            self.__dict__['_err_text'] = 'Unprintable string %s' % repr(val)
+            self.__dict__['_fixable'] = 0
+            raise ValueError, self._err_text
 
     def _checkKey(self, val):
-	"""Verify the keyword to be FITS standard."""
+        """Verify the keyword to be FITS standard."""
 
-	# use repr (not str) in case of control character
+        # use repr (not str) in case of control character
         if Card._keywd_FSC_RE.match(val) is None:
-	    self.__dict__['_err_text'] = 'Illegal keyword name %s' % repr(val)
-	    self.__dict__['_fixable'] = 0
-	    raise ValueError, self._err_text
+            self.__dict__['_err_text'] = 'Illegal keyword name %s' % repr(val)
+            self.__dict__['_fixable'] = 0
+            raise ValueError, self._err_text
 
     def _extractKey(self):
-	"""Returns the keyword name parsed from the card image."""
+        """Returns the keyword name parsed from the card image."""
         head = self._getKeyString()
-	if isinstance(self, _Hierarch):
+        if isinstance(self, _Hierarch):
             self.__dict__['key'] = head.strip()
-	else:
+        else:
             self.__dict__['key'] = head.strip().upper()
         
     def _extractValueComment(self, name):
         """Exatrct the keyword value or comment from the card image."""
 
-	# for commentary cards, no need to parse further
-	if self.key in Card._commentaryKeys:
+        # for commentary cards, no need to parse further
+        if self.key in Card._commentaryKeys:
             self.__dict__['value'] = self._cardimage[8:].rstrip()
             self.__dict__['comment'] = ''
-	    return
+            return
 
         valu = self._check(option='parse')
 
-	if name == 'value':
-	    if valu is None:
-	        raise ValueError, "Unparsable card, fix it first with .verify('fix')."
-	    if valu.group('bool') != None:
+        if name == 'value':
+            if valu is None:
+                raise ValueError, "Unparsable card, fix it first with .verify('fix')."
+            if valu.group('bool') != None:
                 _val = valu.group('bool')=='T'
             elif valu.group('strg') != None:
                 _val = re.sub("''", "'", valu.group('strg'))
@@ -561,14 +561,14 @@ class Card(_Verify):
                 _val = UNDEFINED
 
             self.__dict__['value'] = _val
-	    if '_valuestring' not in self.__dict__:
-		self.__dict__['_valuestring'] = valu.group('valu')
-	    if '_valueModified' not in self.__dict__:
-		self.__dict__['_valueModified'] = 0
+            if '_valuestring' not in self.__dict__:
+                self.__dict__['_valuestring'] = valu.group('valu')
+            if '_valueModified' not in self.__dict__:
+                self.__dict__['_valueModified'] = 0
 
-	elif name == 'comment':
+        elif name == 'comment':
             self.__dict__['comment'] = ''
-	    if valu is not None:
+            if valu is not None:
                 _comm = valu.group('comm')
                 if isinstance(_comm, str):
                     self.__dict__['comment'] = _comm.rstrip()
@@ -576,10 +576,10 @@ class Card(_Verify):
     def _fixValue(self, input):
         """Fix the card image for fixable non-standard compliance."""
 
-	_valStr = None
+        _valStr = None
 
-	# for the unparsable case
-	if input is None:
+        # for the unparsable case
+        if input is None:
             _tmp = self._getValueCommentString()
             try:
                 slashLoc = _tmp.index("/")
@@ -587,7 +587,7 @@ class Card(_Verify):
                 self.__dict__['comment'] = _tmp[slashLoc+1:].strip()
             except:
                 self.__dict__['value'] = _tmp.strip()
-	    
+            
         elif input.group('numr') != None:
             numr = Card._number_NFSC_RE.match(input.group('numr'))
             _valStr = numr.group('digt').translate(fix_table, ' ')
@@ -604,143 +604,143 @@ class Card(_Verify):
             _imagStr = imag.group('digt').translate(fix_table, ' ')
             if imag.group('sign') is not None:
                 _imagStr = imag.group('sign') + _imagStr
-	    _valStr = '(' + _realStr + ', ' + _imagStr + ')'
+            _valStr = '(' + _realStr + ', ' + _imagStr + ')'
 
         self.__dict__['_valuestring'] = _valStr
-	self._ascardimage()
+        self._ascardimage()
 
     def _locateEq(self):
         """Locate the equal sign in the card image before column 10 and 
-	   return its location.  It returns None if equal sign is not present, 
-	   or it is a commentary card.
-	"""
+           return its location.  It returns None if equal sign is not present, 
+           or it is a commentary card.
+        """
 
-	# no equal sign for commentary cards (i.e. part of the string value)
-	_key = self._cardimage[:8].strip().upper() 
+        # no equal sign for commentary cards (i.e. part of the string value)
+        _key = self._cardimage[:8].strip().upper() 
         if _key in Card._commentaryKeys:
-	    eqLoc = None
-	else:
-	    if _key == 'HIERARCH':
-		_limit = Card.length
-	    else:
-		_limit = 10
+            eqLoc = None
+        else:
+            if _key == 'HIERARCH':
+                _limit = Card.length
+            else:
+                _limit = 10
             try:
                 eqLoc = self._cardimage[:_limit].index("=")
             except:
                 eqLoc = None
-	return eqLoc
+        return eqLoc
 
     def _getKeyString(self):
         """Locate the equal sign in the card image and return the string 
-	   before the equal sign.  If there is no equal sign, return the 
-	   string before column 9.
-	"""
+           before the equal sign.  If there is no equal sign, return the 
+           string before column 9.
+        """
 
-	eqLoc = self._locateEq()
-	if eqLoc is None:
-	    eqLoc = 8
-	_start = 0
-	if self._cardimage[:8].upper() == 'HIERARCH':
-	    _start = 8
-	    self.__class__ = _Hierarch
-	return self._cardimage[_start:eqLoc]
+        eqLoc = self._locateEq()
+        if eqLoc is None:
+            eqLoc = 8
+        _start = 0
+        if self._cardimage[:8].upper() == 'HIERARCH':
+            _start = 8
+            self.__class__ = _Hierarch
+        return self._cardimage[_start:eqLoc]
 
     def _getValueCommentString(self):
         """Locate the equal sign in the card image and return the string 
-	   after the equal sign.  If there is no equal sign, return the 
-	   string after column 8.
-	"""
+           after the equal sign.  If there is no equal sign, return the 
+           string after column 8.
+        """
 
-	eqLoc = self._locateEq()
-	if eqLoc is None:
-	    eqLoc = 7
-	return self._cardimage[eqLoc+1:]
+        eqLoc = self._locateEq()
+        if eqLoc is None:
+            eqLoc = 7
+        return self._cardimage[eqLoc+1:]
 
     def _check(self, option='ignore'):
         """Verify the card image with the specified option. """
 
-	self.__dict__['_err_text'] = ''
-	self.__dict__['_fix_text'] = ''
-	self.__dict__['_fixable'] = 1
+        self.__dict__['_err_text'] = ''
+        self.__dict__['_fix_text'] = ''
+        self.__dict__['_fixable'] = 1
 
         if option == 'ignore':
             return
         elif option == 'parse':
 
-	    # check the value only, no need to check key and comment for 'parse'
+            # check the value only, no need to check key and comment for 'parse'
             result = Card._value_NFSC_RE.match(self._getValueCommentString())
 
-	    # if not parsable (i.e. everything else) result = None
+            # if not parsable (i.e. everything else) result = None
             return result
         else:
 
-	    # verify the equal sign position
-	    if self.key not in Card._commentaryKeys and self._cardimage.find('=') != 8:
-		if option in ['exception', 'warn']:
-		    self.__dict__['_err_text'] = 'Card image is not FITS standard (equal sign not at column 8).'
-		    raise ValueError, self._err_text, '\n%s' % self._cardimage
-	        elif option in ['fix', 'silentfix']:
-		    result = self._check('parse')
-        	    self._fixValue(result)
-		    if option == 'fix':
-		        self.__dict__['_fix_text'] = 'Fixed card to be FITS standard.: %s' % self.key
-		
-	    # verify the key, it is never fixable
-	    # always fix silently the case where "=" is before column 9, 
-	    # since there is no way to communicate back to the _keylist.
-	    self._checkKey(self.key)
+            # verify the equal sign position
+            if self.key not in Card._commentaryKeys and self._cardimage.find('=') != 8:
+                if option in ['exception', 'warn']:
+                    self.__dict__['_err_text'] = 'Card image is not FITS standard (equal sign not at column 8).'
+                    raise ValueError, self._err_text, '\n%s' % self._cardimage
+                elif option in ['fix', 'silentfix']:
+                    result = self._check('parse')
+                    self._fixValue(result)
+                    if option == 'fix':
+                        self.__dict__['_fix_text'] = 'Fixed card to be FITS standard.: %s' % self.key
+                
+            # verify the key, it is never fixable
+            # always fix silently the case where "=" is before column 9, 
+            # since there is no way to communicate back to the _keylist.
+            self._checkKey(self.key)
 
-	    # verify the value, it may be fixable
-	    result = Card._value_FSC_RE.match(self._getValueCommentString())
+            # verify the value, it may be fixable
+            result = Card._value_FSC_RE.match(self._getValueCommentString())
             if result is not None or self.key in Card._commentaryKeys:
                 return result
             else:
-		if option in ['fix', 'silentfix']:
-		    result = self._check('parse')
-		    self._fixValue(result)
-		    if option == 'fix':
-			self.__dict__['_fix_text'] = 'Fixed card to be FITS standard.: %s' % self.key
-		else:
-		    self.__dict__['_err_text'] = 'Card image is not FITS standard (unparsable value string).'
-		    raise ValueError, self._err_text + '\n%s' % self._cardimage
+                if option in ['fix', 'silentfix']:
+                    result = self._check('parse')
+                    self._fixValue(result)
+                    if option == 'fix':
+                        self.__dict__['_fix_text'] = 'Fixed card to be FITS standard.: %s' % self.key
+                else:
+                    self.__dict__['_err_text'] = 'Card image is not FITS standard (unparsable value string).'
+                    raise ValueError, self._err_text + '\n%s' % self._cardimage
 
-	    # verify the comment (string), it is never fixable
+            # verify the comment (string), it is never fixable
             if result is not None:
-		_str = result.group('comm')
-		if _str is not None:
-	            self._checkText(_str)
+                _str = result.group('comm')
+                if _str is not None:
+                    self._checkText(_str)
 
     def fromstring(self, input):
-	"""Construct a Card object from a (raw) string. It will pad the 
-	   string if it is not the length of a card image (80 columns).  
-	   If the card image is longer than 80, assume it contains CONTINUE 
-	   card(s).
-	"""
+        """Construct a Card object from a (raw) string. It will pad the 
+           string if it is not the length of a card image (80 columns).  
+           If the card image is longer than 80, assume it contains CONTINUE 
+           card(s).
+        """
 
-	self.__dict__['_cardimage'] = _pad(input)
+        self.__dict__['_cardimage'] = _pad(input)
 
-	if self._cardimage[:8].upper() == 'HIERARCH':
-	    self.__class__ = _Hierarch
-	# for card image longer than 80, assume it contains CONTINUE card(s).
-	elif len(self._cardimage) > Card.length:
-	    self.__class__ = _Card_with_continue
+        if self._cardimage[:8].upper() == 'HIERARCH':
+            self.__class__ = _Hierarch
+        # for card image longer than 80, assume it contains CONTINUE card(s).
+        elif len(self._cardimage) > Card.length:
+            self.__class__ = _Card_with_continue
 
-	# remove the key/value/comment attributes, some of them may not exist
+        # remove the key/value/comment attributes, some of them may not exist
         for name in ['key', 'value', 'comment', '_valueModified']:
-	    if self.__dict__.has_key(name):
-	        delattr(self, name)
+            if self.__dict__.has_key(name):
+                delattr(self, name)
         return self
 
     def _ncards(self):
-	return len(self._cardimage) / Card.length
+        return len(self._cardimage) / Card.length
 
     def _verify(self, option='warn'):
         """Card class verification method."""
         _err = _ErrList([])
-	try:
-	    self._check(option)
-	except:
-	    pass
+        try:
+            self._check(option)
+        except:
+            pass
         _err.append(self.run_option(option, err_text=self._err_text, fix_text=self._fix_text, fixable=self._fixable))
 
         return _err
@@ -764,119 +764,119 @@ class _Card_with_continue(Card):
     def __str__(self):
         """Format a list of cards into a printable string."""
 
-	kard = self._cardimage
+        kard = self._cardimage
         output = ''
-	for i in range(len(kard)/80):
-	    output += kard[i*80:(i+1)*80] + '\n'
+        for i in range(len(kard)/80):
+            output += kard[i*80:(i+1)*80] + '\n'
         return output[:-1]
 
     def _extractValueComment(self, name):
         """Exatrct the keyword value or comment from the card image."""
 
-	longstring = ''
+        longstring = ''
 
-	ncards = self._ncards()
-	for i in range(ncards):
-	    # take each 80-char card as a regular card and use its methods.
-	    _card = Card().fromstring(self._cardimage[i*80:(i+1)*80])
-	    if i > 0 and _card.key != 'CONTINUE':
+        ncards = self._ncards()
+        for i in range(ncards):
+            # take each 80-char card as a regular card and use its methods.
+            _card = Card().fromstring(self._cardimage[i*80:(i+1)*80])
+            if i > 0 and _card.key != 'CONTINUE':
                 raise ValueError, 'Long card image must have CONTINUE cards after the first card.'
-	    if not isinstance(_card.value, str):
+            if not isinstance(_card.value, str):
                 raise ValueError, 'Cards with CONTINUE must have string value.'
-		
+                
 
 
-	    if name == 'value':
+            if name == 'value':
                 _val = re.sub("''", "'", _card.value).rstrip()
 
- 		# drop the ending "&"
-		if _val[-1] == '&':
-		    _val = _val[:-1]
-		longstring = longstring + _val
+                 # drop the ending "&"
+                if _val[-1] == '&':
+                    _val = _val[:-1]
+                longstring = longstring + _val
 
-	    elif name == 'comment':
+            elif name == 'comment':
                 _comm = _card.comment
-		if isinstance(_comm, str) and _comm != '':
-		    longstring = longstring + _comm.rstrip() + ' '
+                if isinstance(_comm, str) and _comm != '':
+                    longstring = longstring + _comm.rstrip() + ' '
 
             self.__dict__[name] = longstring.rstrip()
 
     def _breakup_strings(self):
         """Break up long string value/comment into CONTINUE cards.
-	   This is a primitive implementation, it will put the value 
-	   string in one block and the comment string in another.  
-	   Also, it does not break at the blank space between words.  
-	   So it may not look pretty.
-	"""
+           This is a primitive implementation, it will put the value 
+           string in one block and the comment string in another.  
+           Also, it does not break at the blank space between words.  
+           So it may not look pretty.
+        """
 
         val_len = 67
-	comm_len = 64
-    	output = ''
+        comm_len = 64
+            output = ''
 
-	# do the value string
-	valfmt = "'%-s&'"
-    	val = self.value.replace("'", "''")
+        # do the value string
+        valfmt = "'%-s&'"
+            val = self.value.replace("'", "''")
         val_list = self._words_group(val, val_len)
-    	for i in range(len(val_list)):
+            for i in range(len(val_list)):
             if i == 0:
                 headstr = "%-8s= " % self.key
-	    else:
-	        headstr = "CONTINUE  "
+            else:
+                headstr = "CONTINUE  "
             valstr = valfmt % val_list[i]
-	    output = output + '%-80s' % (headstr + valstr)
+            output = output + '%-80s' % (headstr + valstr)
 
-	# do the comment string
-	if self.comment is None:
-	    comm = ''
-	else:
-	    comm = self.comment
-	commfmt = "%-s"
-	if not comm == '':
-    	    nlines = len(comm) / comm_len + 1
+        # do the comment string
+        if self.comment is None:
+            comm = ''
+        else:
+            comm = self.comment
+        commfmt = "%-s"
+        if not comm == '':
+                nlines = len(comm) / comm_len + 1
             comm_list = self._words_group(comm, comm_len)
-    	    for i in comm_list:
+                for i in comm_list:
                 commstr = "CONTINUE  '&' / " + commfmt % i
-	        output = output + '%-80s' % commstr
+                output = output + '%-80s' % commstr
 
         return output
 
     def _words_group(self, input, strlen):
-	"""Split a long string into parts where each part is no longer than 
+        """Split a long string into parts where each part is no longer than 
            strlen and no word is cut into two pieces.  But if there is one 
-	   single word which is longer than strlen, then it will be split in 
-	   the middle of the word.
-	"""
+           single word which is longer than strlen, then it will be split in 
+           the middle of the word.
+        """
 
-	list = []
-	_nblanks = input.count(' ')
-	nmax = max(_nblanks, len(input)/strlen+1)
-	arr = chararray.array(input+' ', itemsize=1)
+        list = []
+        _nblanks = input.count(' ')
+        nmax = max(_nblanks, len(input)/strlen+1)
+        arr = chararray.array(input+' ', itemsize=1)
 
-	# locations of the blanks
-	blank_loc = num.nonzero(arr == ' ')[0]
-	offset = 0
-	xoffset = 0
-	for i in range(nmax):
-	    try:
-	        loc = num.nonzero(blank_loc >= strlen+offset)[0][0]
+        # locations of the blanks
+        blank_loc = num.nonzero(arr == ' ')[0]
+        offset = 0
+        xoffset = 0
+        for i in range(nmax):
+            try:
+                loc = num.nonzero(blank_loc >= strlen+offset)[0][0]
                 offset = blank_loc[loc-1] + 1
-		if loc == 0:
-		    offset = -1
-	    except:
-		offset = len(input)
+                if loc == 0:
+                    offset = -1
+            except:
+                offset = len(input)
 
-	    # check for one word longer than strlen, break in the middle
-	    if offset <= xoffset:
-		offset = xoffset + strlen
+            # check for one word longer than strlen, break in the middle
+            if offset <= xoffset:
+                offset = xoffset + strlen
 
-	    # collect the pieces in a list
+            # collect the pieces in a list
             tmp = input[xoffset:offset]
             list.append(tmp)
-	    if len(input) == offset:
-		break
-	    xoffset = offset
-	
-	return list
+            if len(input) == offset:
+                break
+            xoffset = offset
+        
+        return list
 
 
 class Header:
@@ -885,8 +885,8 @@ class Header:
     def __init__(self, cards=[]):
         """Construct a Header from a CardList.
 
-	   cards: A list of Cards, default=[].
-	"""
+           cards: A list of Cards, default=[].
+        """
 
         # decide which kind of header it belongs to
         try:
@@ -958,52 +958,52 @@ class Header:
 
     def has_key(self, key):
         """Check for existence of a keyword. Returns 1 if found, otherwise, 0.
-	
-	   key: keyword name. If given an index, always returns 0.
-	"""
+        
+           key: keyword name. If given an index, always returns 0.
+        """
 
         try:
             key = key.strip().upper()
-	    if key[:8] == 'HIERARCH':
-	        key = key[8:].strip()
+            if key[:8] == 'HIERARCH':
+                key = key[8:].strip()
             _index = self.ascard._keylist.index(key) 
-	    return 1
+            return 1
         except:
             return 0
 
     def rename_key(self, oldkey, newkey, force=0):
         """Rename a card's keyword in the header. 
 
-	   oldkey: old keyword, can be a name or index.
-	   newkey: new keyword, must be a string.
-	   force: if new key name already exist, force to have duplicate name.
-	"""
+           oldkey: old keyword, can be a name or index.
+           newkey: new keyword, must be a string.
+           force: if new key name already exist, force to have duplicate name.
+        """
 
-	oldkey = oldkey.strip().upper()
-	newkey = newkey.strip().upper()
-	if newkey == 'CONTINUE':
-	    raise ValueError, 'Can not rename to CONTINUE'
-	if newkey in Card._commentaryKeys or oldkey in Card._commentaryKeys:
-	    if not (newkey in Card._commentaryKeys and oldkey in Card._commentaryKeys):
-	        raise ValueError, 'Regular and commentary keys can not be renamed to each other.'
-	elif (force == 0) and (newkey in self.ascard._keylist):
-	    raise ValueError, 'Intended keyword %s already exists in header.' % newkey
-	_index = self.ascard.index_of(oldkey)
-	self.ascard[_index].__dict__['key']=newkey
-	self.ascard[_index].ascardimage()
+        oldkey = oldkey.strip().upper()
+        newkey = newkey.strip().upper()
+        if newkey == 'CONTINUE':
+            raise ValueError, 'Can not rename to CONTINUE'
+        if newkey in Card._commentaryKeys or oldkey in Card._commentaryKeys:
+            if not (newkey in Card._commentaryKeys and oldkey in Card._commentaryKeys):
+                raise ValueError, 'Regular and commentary keys can not be renamed to each other.'
+        elif (force == 0) and (newkey in self.ascard._keylist):
+            raise ValueError, 'Intended keyword %s already exists in header.' % newkey
+        _index = self.ascard.index_of(oldkey)
+        self.ascard[_index].__dict__['key']=newkey
+        self.ascard[_index].ascardimage()
         self.ascard._keylist[_index] = newkey
 
     def get(self, key, default=None):
         """Get a keyword value from the CardList.
            If no keyword is found, return the default value.
 
-	   key: keyword name or index
-	   default: if no keyword is found, the value to be returned.
+           key: keyword name or index
+           default: if no keyword is found, the value to be returned.
         """
 
-	try:
-	    return self[key]
-	except:
+        try:
+            return self[key]
+        except:
             return default
 
     def update(self, key, value, comment=None, before=None, after=None):
@@ -1019,10 +1019,10 @@ class Header:
         value:    keyword value (to be used for updating)
         comment:  keyword comment (to be used for updating), default=None.
         before:   name of the keyword, or index of the Card before which 
-		  the new card will be placed.  The argument `before' takes 
-		  precedence over `after' if both specified. default=None.  
+                  the new card will be placed.  The argument `before' takes 
+                  precedence over `after' if both specified. default=None.  
         after:    name of the keyword, or index of the Card  after which 
-		  the new card will be placed. default=None.
+                  the new card will be placed. default=None.
         """
 
         if self.has_key(key):
@@ -1043,46 +1043,46 @@ class Header:
     def add_history(self, value, before=None, after=None):
         """Add a HISTORY card.
 
-	   value: History text to be added.
-	   before: [same as in update()]
-	   after: [same as in update()]
-	"""
+           value: History text to be added.
+           before: [same as in update()]
+           after: [same as in update()]
+        """
         self._add_commentary('history', value, before=before, after=after)
 
     def add_comment(self, value, before=None, after=None):
         """Add a COMMENT card.
 
-	   value: Comment text to be added.
-	   before: [same as in update()]
-	   after: [same as in update()]
-	"""
+           value: Comment text to be added.
+           before: [same as in update()]
+           after: [same as in update()]
+        """
         self._add_commentary('comment', value, before=before, after=after)
 
     def add_blank(self, value='', before=None, after=None):
         """Add a blank card.
 
-	   value: Text to be added.
-	   before: [same as in update()]
-	   after: [same as in update()]
-	"""
+           value: Text to be added.
+           before: [same as in update()]
+           after: [same as in update()]
+        """
         self._add_commentary(' ', value, before=before, after=after)
 
     def get_history(self):
-	"""Get all histories as a list of string texts."""
-	output = []
-	for _card in self.ascardlist():
-	    if _card.key == 'HISTORY':
-		output.append(_card.value)
-	return output
-	
+        """Get all histories as a list of string texts."""
+        output = []
+        for _card in self.ascardlist():
+            if _card.key == 'HISTORY':
+                output.append(_card.value)
+        return output
+        
     def get_comment(self):
-	"""Get all comments as a list of string texts."""
-	output = []
-	for _card in self.ascardlist():
-	    if _card.key == 'COMMENT':
-		output.append(_card.value)
-	return output
-	
+        """Get all comments as a list of string texts."""
+        output = []
+        for _card in self.ascardlist():
+            if _card.key == 'COMMENT':
+                output.append(_card.value)
+        return output
+        
 
 
     def _add_commentary(self, key, value, before=None, after=None):
@@ -1098,7 +1098,7 @@ class Header:
             self.ascard._pos_insert(new_card, before=before, after=after)
         else:
             if key[0] == ' ':
-	        useblanks = new_card._cardimage != ' '*80
+                useblanks = new_card._cardimage != ' '*80
                 self.ascard.append(new_card, useblanks=useblanks, bottom=1)
             else:
                 try:
@@ -1176,20 +1176,21 @@ class CardList(list):
     def __init__(self, cards=[], keylist=None):
         """Construct the CardList object from a list of Cards.
 
-	   cards: A list of Cards, default=[].
-	"""
+           cards: A list of Cards, default=[].
+        """
 
         list.__init__(self, cards)
-	self._cards = cards
+        self._cards = cards
 
-	# if the key list is not supplied (as in reading in the FITS file),
-	# it will be constructed from the card list.
-	if keylist is None:
-	    self._keylist = [k.upper() for k in self.keys()]
-	else:
-	    self._keylist = keylist
+        # if the key list is not supplied (as in reading in the FITS file),
+        # it will be constructed from the card list.
+        if keylist is None:
+            self._keylist = [k.upper() for k in self.keys()]
+        else:
+            self._keylist = keylist
 
         # find out how many blank cards are *directly* before the END card
+        self._blanks = 0
         self.count_blanks()
 
     def __getitem__(self, key):
@@ -1210,7 +1211,7 @@ class CardList(list):
             # only set if the value is different from the old one
             if str(self[_key]) != str(value):
                 super(CardList, self).__setitem__(_key, value)
-		self._keylist[_key] = value.key.upper()
+                self._keylist[_key] = value.key.upper()
                 self.count_blanks()
                 self._mod = 1
         else:
@@ -1220,7 +1221,7 @@ class CardList(list):
         """Delete a Card from the CardList."""
         _key = self.index_of(key)
         super(CardList, self).__delitem__(_key)
-	del self._keylist[_key]  # update the keylist
+        del self._keylist[_key]  # update the keylist
         self.count_blanks()
         self._mod = 1
 
@@ -1234,31 +1235,31 @@ class CardList(list):
     def append(self, card, useblanks=1, bottom=0):
         """Append a Card to the CardList.
 
-	   card: The Card to be appended.
-	   useblanks: Use any *extra* blank cards? default=1.
+           card: The Card to be appended.
+           useblanks: Use any *extra* blank cards? default=1.
                       If useblanks != 0, and if there are blank cards directly 
                       before END, it will use this space first, instead of 
-		      appending after these blank cards, so the total space 
-		      will not increase (default).  When useblanks == 0, the 
-		      card will be appended at the end, even if there are 
-		      blank cards in front of END.
-	   bottom: If =0 (default) the card will be appended after the last 
-		      non-commentary card.  If =1, the card will be appended 
-		      after the last non-blank card.
+                      appending after these blank cards, so the total space 
+                      will not increase (default).  When useblanks == 0, the 
+                      card will be appended at the end, even if there are 
+                      blank cards in front of END.
+           bottom: If =0 (default) the card will be appended after the last 
+                      non-commentary card.  If =1, the card will be appended 
+                      after the last non-blank card.
         """
 
         if isinstance (card, Card):
-	    nc = len(self) - self._blanks
-	    i = nc - 1
-	    if not bottom:
-	        for i in range(nc-1, -1, -1): # locate last non-commentary card
-		    if self[i].key not in Card._commentaryKeys:
-		        break
-		
-	    super(CardList, self).insert(i+1, card)
-	    self._keylist.insert(i+1, card.key.upper())
-	    if useblanks:
-	        self._use_blanks(card._ncards())
+            nc = len(self) - self._blanks
+            i = nc - 1
+            if not bottom:
+                for i in range(nc-1, -1, -1): # locate last non-commentary card
+                    if self[i].key not in Card._commentaryKeys:
+                        break
+                
+            super(CardList, self).insert(i+1, card)
+            self._keylist.insert(i+1, card.key.upper())
+            if useblanks:
+                self._use_blanks(card._ncards())
             self.count_blanks()
             self._mod = 1
         else:
@@ -1281,24 +1282,24 @@ class CardList(list):
     def insert(self, pos, card, useblanks=1):
         """Insert a Card to the CardList.
 
-	   pos: The position (index, keyword name will not be allowed) to 
-		insert. The new card will be inserted before it.
-	   card: The Card to be inserted.
-	   useblanks: Use any *extra* blank cards? default=1.
+           pos: The position (index, keyword name will not be allowed) to 
+                insert. The new card will be inserted before it.
+           card: The Card to be inserted.
+           useblanks: Use any *extra* blank cards? default=1.
                       If useblanks != 0, and if there are blank cards directly 
                       before END, it will use this space first, instead of 
-		      appending after these blank cards, so the total space 
-		      will not increase (default).  When useblanks == 0, the 
-		      card will be appended at the end, even if there are 
-		      blank cards in front of END.
+                      appending after these blank cards, so the total space 
+                      will not increase (default).  When useblanks == 0, the 
+                      card will be appended at the end, even if there are 
+                      blank cards in front of END.
         """
 
         if isinstance (card, Card):
             super(CardList, self).insert(pos, card)
-	    self._keylist.insert(pos, card.key)  # update the keylist
+            self._keylist.insert(pos, card.key)  # update the keylist
             self.count_blanks()
-	    if useblanks:
-	        self._use_blanks(card._ncards())
+            if useblanks:
+                self._use_blanks(card._ncards())
 
             self.count_blanks()
             self._mod = 1
@@ -1307,39 +1308,39 @@ class CardList(list):
 
     def _use_blanks(self, how_many):
         if self._blanks > 0:
-	    for i in range(min(self._blanks, how_many)):
+            for i in range(min(self._blanks, how_many)):
                 del self[-1] # it also delete the keylist item
 
     def keys(self):
         """Return a list of all keywords from the CardList."""
 
-	return map(lambda x: getattr(x,'key'), self)
+        return map(lambda x: getattr(x,'key'), self)
 
     def index_of(self, key, backward=0):
         """Get the index of a keyword in the CardList.
 
            key: the keyword name (a string) or the index (an integer).
            backward: search the index from the END, i.e. backward? default=0.  
-		     If backward = 1, search from the end.
+                     If backward = 1, search from the end.
         """
 
-	if isinstance(key, (int, long)):
+        if isinstance(key, (int, long)):
             return key
         elif isinstance(key, str):
             _key = key.strip().upper()
-	    if _key[:8] == 'HIERARCH':
-	        _key = _key[8:].strip()
-	    _keylist = self._keylist
+            if _key[:8] == 'HIERARCH':
+                _key = _key[8:].strip()
+            _keylist = self._keylist
             if backward:
-	        _keylist = self._keylist[:]  # make a copy
+                _keylist = self._keylist[:]  # make a copy
                 _keylist.reverse()
-	    try:
-		_indx = _keylist.index(_key)
+            try:
+                _indx = _keylist.index(_key)
                 if backward:
-		    _indx = len(_keylist) - _indx - 1
-		return _indx
-	    except:
-            	raise KeyError, 'Keyword %s not found.' % `key`
+                    _indx = len(_keylist) - _indx - 1
+                return _indx
+            except:
+                    raise KeyError, 'Keyword %s not found.' % `key`
         else:
             raise KeyError, 'Illegal key data type %s' % type(key)
 
@@ -1364,7 +1365,7 @@ class CardList(list):
 
         output = ''
         for card in self:
-	    output += str(card) + '\n'
+            output += str(card) + '\n'
         return output[:-1]
 
 
@@ -1437,9 +1438,9 @@ class _ValidHDU(_AllHDU, _Verify):
            to provide a user easier output interface if only one HDU 
            needs to be written to a file.
 
-	   name:  output FITS file name to be written to.
-	   output_verify:  output verification option, default='exception'.
-	   clobber:  Overwrite the output file if exists, default = False.
+           name:  output FITS file name to be written to.
+           output_verify:  output verification option, default='exception'.
+           clobber:  Overwrite the output file if exists, default = False.
         """
 
         if isinstance(self, _ExtensionHDU):
@@ -1542,10 +1543,10 @@ class _TempHDU(_ValidHDU):
     """
 
     def _getname(self):
-	"""Get the extname and extver from the header."""
+        """Get the extname and extver from the header."""
 
-	re_extname = re.compile(r"EXTNAME\s*=\s*'([ -&(-~]*)'")
-	re_extver = re.compile(r"EXTVER\s*=\s*(\d+)")
+        re_extname = re.compile(r"EXTNAME\s*=\s*'([ -&(-~]*)'")
+        re_extver = re.compile(r"EXTVER\s*=\s*(\d+)")
 
         mo = re_extname.search(self._raw)
         if mo:
@@ -1559,18 +1560,18 @@ class _TempHDU(_ValidHDU):
         else:
             extver = 1
 
-	return name, extver
+        return name, extver
 
     def _getsize(self, block):
-	"""Get the size from the first block of the HDU."""
+        """Get the size from the first block of the HDU."""
 
-	re_simple = re.compile(r'SIMPLE  =\s*')
-	re_bitpix = re.compile(r'BITPIX  =\s*(-?\d+)')
-	re_naxis = re.compile(r'NAXIS   =\s*(\d+)')
-	re_naxisn = re.compile(r'NAXIS(\d)  =\s*(\d+)')
-	re_gcount = re.compile(r'GCOUNT  =\s*(-?\d+)')
-	re_pcount = re.compile(r'PCOUNT  =\s*(-?\d+)')
-	re_groups = re.compile(r'GROUPS  =\s*(T)')
+        re_simple = re.compile(r'SIMPLE  =\s*')
+        re_bitpix = re.compile(r'BITPIX  =\s*(-?\d+)')
+        re_naxis = re.compile(r'NAXIS   =\s*(\d+)')
+        re_naxisn = re.compile(r'NAXIS(\d)  =\s*(\d+)')
+        re_gcount = re.compile(r'GCOUNT  =\s*(-?\d+)')
+        re_pcount = re.compile(r'PCOUNT  =\s*(-?\d+)')
+        re_groups = re.compile(r'GROUPS  =\s*(T)')
 
         simple = re_simple.search(block[:80])
         mo = re_bitpix.search(block)
@@ -1603,34 +1604,34 @@ class _TempHDU(_ValidHDU):
             pos = mo.end(0)
         else:
             raise ValueError("NAXIS not found where expected")
-	
-	if naxis == 0:
-	    datasize = 0
-	else:
-	    dims = [0]*naxis
+        
+        if naxis == 0:
+            datasize = 0
+        else:
+            dims = [0]*naxis
             for i in range(naxis):
                 mo = re_naxisn.search(block, pos)
                 pos = mo.end(0)
                 dims[int(mo.group(1))-1] = int(mo.group(2))
-	    datasize = reduce(operator.mul, dims[groups:])
-	size = abs(bitpix) * gcount * (pcount + datasize) / 8
+            datasize = reduce(operator.mul, dims[groups:])
+        size = abs(bitpix) * gcount * (pcount + datasize) / 8
 
-	if simple and not groups:
-	    name = 'PRIMARY'
-	else:
-	    name = ''
+        if simple and not groups:
+            name = 'PRIMARY'
+        else:
+            name = ''
 
-	return size, name
+        return size, name
 
     def setupHDU(self):
         """Read one FITS HDU, data portions are not actually read here, but
            the beginning locations are computed.
         """
 
-	_cardList = []
-	_keyList = []
+        _cardList = []
+        _keyList = []
 
-	blocks = self._raw
+        blocks = self._raw
         if (len(blocks) % blockLen) != 0:
             raise IOError, 'Header size is not multiple of %d: %d' % (blockLen, len(blocks))
         elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
@@ -1638,50 +1639,50 @@ class _TempHDU(_ValidHDU):
 
         for i in range(0, len(blocks), Card.length):
             _card = Card('').fromstring(blocks[i:i+Card.length])
-	    _key = _card.key
+            _key = _card.key
 
             if _key == 'END':
                 break
-	    else:
-	        _cardList.append(_card)
-	        _keyList.append(_key)
+            else:
+                _cardList.append(_card)
+                _keyList.append(_key)
 
-	# Deal with CONTINUE cards
-	# if a long string has CONTINUE cards, the "Card" is considered 
-	# to be more than one 80-char "physical" cards.
-	_max = _keyList.count('CONTINUE')
-	_start = 0
-	for i in range(_max):
-	    _where = _keyList[_start:].index('CONTINUE') + _start
-	    for nc in range(1, _max+1):
-		if _where+nc >= len(_keyList):
-		    break
-		if _cardList[_where+nc]._cardimage[:10].upper() != 'CONTINUE  ':
-		    break
+        # Deal with CONTINUE cards
+        # if a long string has CONTINUE cards, the "Card" is considered 
+        # to be more than one 80-char "physical" cards.
+        _max = _keyList.count('CONTINUE')
+        _start = 0
+        for i in range(_max):
+            _where = _keyList[_start:].index('CONTINUE') + _start
+            for nc in range(1, _max+1):
+                if _where+nc >= len(_keyList):
+                    break
+                if _cardList[_where+nc]._cardimage[:10].upper() != 'CONTINUE  ':
+                    break
 
-	    # combine contiguous CONTINUE cards with its parent card
-	    if nc > 0:
-		_longstring = _cardList[_where-1]._cardimage
-		for c in _cardList[_where:_where+nc]:
-		    _longstring += c._cardimage
-		_cardList[_where-1] = _Card_with_continue().fromstring(_longstring)
-		del _cardList[_where:_where+nc]
-		del _keyList[_where:_where+nc]
-		_start = _where
+            # combine contiguous CONTINUE cards with its parent card
+            if nc > 0:
+                _longstring = _cardList[_where-1]._cardimage
+                for c in _cardList[_where:_where+nc]:
+                    _longstring += c._cardimage
+                _cardList[_where-1] = _Card_with_continue().fromstring(_longstring)
+                del _cardList[_where:_where+nc]
+                del _keyList[_where:_where+nc]
+                _start = _where
 
-	    # if not the real CONTINUE card, skip to the next card to search 
-	    # to avoid starting at the same CONTINUE card
-	    else:
-		_start = _where + 1
-	    if _keyList[_start:].count('CONTINUE') == 0:
-		break
+            # if not the real CONTINUE card, skip to the next card to search 
+            # to avoid starting at the same CONTINUE card
+            else:
+                _start = _where + 1
+            if _keyList[_start:].count('CONTINUE') == 0:
+                break
 
-	# construct the Header object, using the cards.
+        # construct the Header object, using the cards.
         try:
             header = Header(CardList(_cardList, keylist=_keyList))
             hdu = header._hdutype(data=DELAYED, header=header)
 
-	    # pass these attributes
+            # pass these attributes
             hdu._file = self._file
             hdu._hdrLoc = self._hdrLoc
             hdu._datLoc = self._datLoc
@@ -1695,7 +1696,7 @@ class _TempHDU(_ValidHDU):
         except:
             pass
 
-	return hdu
+        return hdu
 
 
 class _ExtensionHDU(_ValidHDU):
@@ -1717,7 +1718,7 @@ class _ExtensionHDU(_ValidHDU):
         if attr == 'name' and value:
             if not isinstance(value, str):
                 raise TypeError, 'bad value type'
-	    value = value.upper()
+            value = value.upper()
             if self.header.has_key('EXTNAME'):
                 self.header['EXTNAME'] = value
             else:
@@ -1738,73 +1739,73 @@ class _ExtensionHDU(_ValidHDU):
 # 0.8.8
 def _iswholeline(indx, naxis):
     if isinstance(indx, (int, long)):
-	if indx >= 0 and indx < naxis:
-	    if naxis > 1:
-		return _SinglePoint(1, indx)
-	    elif naxis == 1:
-		return _OnePointAxis(1, 0)
-	else:
-	    raise IndexError, 'Index %s out of range.' % indx 
+        if indx >= 0 and indx < naxis:
+            if naxis > 1:
+                return _SinglePoint(1, indx)
+            elif naxis == 1:
+                return _OnePointAxis(1, 0)
+        else:
+            raise IndexError, 'Index %s out of range.' % indx 
     elif isinstance(indx, slice):
-	indx = _normalize_slice(indx, naxis)
-	if (indx.start == 0) and (indx.stop == naxis) and (indx.step == 1):
-	    return _WholeLine(naxis, 0)
-	else:
-	    if indx.step == 1:
-		return _LineSlice(indx.stop-indx.start, indx.start)
-	    else:
-		return _SteppedSlice((indx.stop-indx.start)/indx.step, indx.start)
+        indx = _normalize_slice(indx, naxis)
+        if (indx.start == 0) and (indx.stop == naxis) and (indx.step == 1):
+            return _WholeLine(naxis, 0)
+        else:
+            if indx.step == 1:
+                return _LineSlice(indx.stop-indx.start, indx.start)
+            else:
+                return _SteppedSlice((indx.stop-indx.start)/indx.step, indx.start)
     else:
-	raise IndexError, 'Illegal index %s' % indx
+        raise IndexError, 'Illegal index %s' % indx
 
 
 def _normalize_slice(input, naxis):
     """Set the slice's start/stop in the regular range."""
 
     def _normalize(indx, npts):
-	if indx < -npts:
-	    indx = 0
-	elif indx < 0:
-	    indx += npts
-	elif indx > npts:
-	    indx = npts
-	return indx
+        if indx < -npts:
+            indx = 0
+        elif indx < 0:
+            indx += npts
+        elif indx > npts:
+            indx = npts
+        return indx
 
     _start = input.start
     if _start is None:
-	_start = 0
+        _start = 0
     elif isinstance(_start, (int, long)):
-	_start = _normalize(_start, naxis)
+        _start = _normalize(_start, naxis)
     else:
-	raise IndexError, 'Illegal slice %s, start must be integer.' % input
+        raise IndexError, 'Illegal slice %s, start must be integer.' % input
 
     _stop = input.stop
     if _stop is None:
-	_stop = naxis
+        _stop = naxis
     elif isinstance(_stop, (int, long)):
-	_stop = _normalize(_stop, naxis)
+        _stop = _normalize(_stop, naxis)
     else:
-	raise IndexError, 'Illegal slice %s, stop must be integer.' % input
+        raise IndexError, 'Illegal slice %s, stop must be integer.' % input
 
     if _stop < _start:
-	raise IndexError, 'Illegal slice %s, stop < start.' % input
+        raise IndexError, 'Illegal slice %s, stop < start.' % input
 
     _step = input.step
     if _step is None:
-	_step = 1
+        _step = 1
     elif isinstance(_step, (int, long)):
-	if _step <= 0:
-	    raise IndexError, 'Illegal slice %s, step must be positive.' % input
+        if _step <= 0:
+            raise IndexError, 'Illegal slice %s, step must be positive.' % input
     else:
-	raise IndexError, 'Illegal slice %s, step must be integer.' % input
+        raise IndexError, 'Illegal slice %s, step must be integer.' % input
 
     return slice(_start, _stop, _step)
 
 
 class _KeyType:
     def __init__(self, npts, offset):
-	self.npts = npts
-	self.offset = offset
+        self.npts = npts
+        self.offset = offset
 
 
 class _WholeLine(_KeyType):
@@ -1831,57 +1832,57 @@ class Section:
     """Image section."""
 
     def __init__(self, hdu):
-	self.hdu = hdu
+        self.hdu = hdu
 
     def __getitem__(self, key):
-	dims = []
-	if not isinstance(key, tuple):
-	    key = (key,)
-	naxis = self.hdu.header['NAXIS']
-	if naxis < len(key):
-	    raise IndexError, 'too many indices.'
-	elif naxis > len(key):
-	    key = key + (slice(None),) * (naxis-len(key))
+        dims = []
+        if not isinstance(key, tuple):
+            key = (key,)
+        naxis = self.hdu.header['NAXIS']
+        if naxis < len(key):
+            raise IndexError, 'too many indices.'
+        elif naxis > len(key):
+            key = key + (slice(None),) * (naxis-len(key))
 
-	offset = 0
-	for i in range(naxis):
-	    _naxis = self.hdu.header['NAXIS'+`naxis-i`]
-	    indx = _iswholeline(key[i], _naxis)
-	    offset = offset * _naxis + indx.offset
+        offset = 0
+        for i in range(naxis):
+            _naxis = self.hdu.header['NAXIS'+`naxis-i`]
+            indx = _iswholeline(key[i], _naxis)
+            offset = offset * _naxis + indx.offset
 
-	    # all elements after the first WholeLine must be WholeLine or 
-	    # OnePointAxis
-	    if isinstance(indx, (_WholeLine, _LineSlice)):
-	        dims.append(indx.npts)
-		break
-	    elif isinstance(indx, _SteppedSlice):
-		raise IndexError, 'Subsection data must be contiguous.'
+            # all elements after the first WholeLine must be WholeLine or 
+            # OnePointAxis
+            if isinstance(indx, (_WholeLine, _LineSlice)):
+                dims.append(indx.npts)
+                break
+            elif isinstance(indx, _SteppedSlice):
+                raise IndexError, 'Subsection data must be contiguous.'
 
-	for j in range(i+1,naxis):
-	    _naxis = self.hdu.header['NAXIS'+`naxis-j`]
-	    indx = _iswholeline(key[j], _naxis)
-	    dims.append(indx.npts)
-	    if not isinstance(indx, _WholeLine):
-		raise IndexError, 'Subsection data is not contiguous.'
+        for j in range(i+1,naxis):
+            _naxis = self.hdu.header['NAXIS'+`naxis-j`]
+            indx = _iswholeline(key[j], _naxis)
+            dims.append(indx.npts)
+            if not isinstance(indx, _WholeLine):
+                raise IndexError, 'Subsection data is not contiguous.'
 
-	    # the offset needs to multiply the length of all remaining axes
-	    else:
-		offset *= _naxis
+            # the offset needs to multiply the length of all remaining axes
+            else:
+                offset *= _naxis
 
-	if dims == []:
-	    dims = [1]
-	npt = 1
-	for n in dims:
-	    npt *= n
+        if dims == []:
+            dims = [1]
+        npt = 1
+        for n in dims:
+            npt *= n
 
-	# Now, get the data (does not include bscale/bzero for now XXX)
+        # Now, get the data (does not include bscale/bzero for now XXX)
         _bitpix = self.hdu.header['BITPIX']
         code = _ImageBaseHDU.NumCode[_bitpix]
         self.hdu._file.seek(self.hdu._datLoc+offset*abs(_bitpix)/8)
         raw_data = num.fromfile(self.hdu._file, type=code, shape=dims)
-	raw_data._byteorder = 'big'
-	return raw_data
-	    
+        raw_data._byteorder = 'big'
+        return raw_data
+            
 
 class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class."""
@@ -1901,14 +1902,14 @@ class _ImageBaseHDU(_ValidHDU):
         self._file, self._datLoc = None, None
 
         if header is not None:
-	    if not isinstance(header, Header):
+            if not isinstance(header, Header):
                 raise ValueError, "header must be a Header object"
 
 
-	if data is DELAYED:
-	
-	    # this should never happen
-	    if header is None:
+        if data is DELAYED:
+        
+            # this should never happen
+            if header is None:
                 raise ValueError, "No header to setup HDU."
 
             # if the file is read the first time, no need to copy, and keep it unchanged
@@ -1916,28 +1917,28 @@ class _ImageBaseHDU(_ValidHDU):
                 self.header = header
         else:
 
-	    # construct a list of cards of minimal header
-	    if isinstance(self, _ExtensionHDU):
-	        c0 = Card('XTENSION', 'IMAGE', 'Image extension')
-	    else:
-	        c0 = Card('SIMPLE', TRUE, 'conforms to FITS standard')
+            # construct a list of cards of minimal header
+            if isinstance(self, _ExtensionHDU):
+                c0 = Card('XTENSION', 'IMAGE', 'Image extension')
+            else:
+                c0 = Card('SIMPLE', TRUE, 'conforms to FITS standard')
 
             _list = CardList([
-		c0,
+                c0,
                 Card('BITPIX',    8, 'array data type'),
                 Card('NAXIS',     0, 'number of array dimensions'),
-		])
-	    if isinstance(self, GroupsHDU):
-	        _list.append(Card('GROUPS', TRUE, 'has groups'))
+                ])
+            if isinstance(self, GroupsHDU):
+                _list.append(Card('GROUPS', TRUE, 'has groups'))
 
-	    if isinstance(self, (_ExtensionHDU, GroupsHDU)):
+            if isinstance(self, (_ExtensionHDU, GroupsHDU)):
                 _list.append(Card('PCOUNT',    0, 'number of parameters'))
                 _list.append(Card('GCOUNT',    1, 'number of groups'))
 
-	    if header is not None:
-	        hcopy = header.copy()
-		hcopy._strip()
-	        _list.extend(hcopy.ascardlist())
+            if header is not None:
+                hcopy = header.copy()
+                hcopy._strip()
+                _list.extend(hcopy.ascardlist())
 
             self.header = Header(_list)
 
@@ -1965,7 +1966,7 @@ class _ImageBaseHDU(_ValidHDU):
             self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.data.type()]
             axes = list(self.data.data.getshape())[1:] 
             axes.reverse()
-	    axes = [0] + axes
+            axes = [0] + axes
 
         elif isinstance(self.data, num.NumArray):
             self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.type()]
@@ -2001,32 +2002,32 @@ class _ImageBaseHDU(_ValidHDU):
             self.header.update('GROUPS', TRUE, after='NAXIS'+`len(axes)`)
             self.header.update('PCOUNT', len(self.data.parnames), after='GROUPS')
             self.header.update('GCOUNT', len(self.data), after='PCOUNT')
-	    npars = len(self.data.parnames)
-	    (_scale, _zero)  = self.data._get_scale_factors(npars)[3:5]
-	    if _scale:
+            npars = len(self.data.parnames)
+            (_scale, _zero)  = self.data._get_scale_factors(npars)[3:5]
+            if _scale:
                 self.header.update('BSCALE', self.data._coldefs.bscales[npars])
-	    if _zero:
+            if _zero:
                 self.header.update('BZERO', self.data._coldefs.bzeros[npars])
-	    for i in range(npars):
-		self.header.update('PTYPE'+`i+1`, self.data.parnames[i])
-		(_scale, _zero)  = self.data._get_scale_factors(i)[3:5]
-		if _scale:
-		    self.header.update('PSCAL'+`i+1`, self.data._coldefs.bscales[i])
-		if _zero:
-		    self.header.update('PZERO'+`i+1`, self.data._coldefs.bzeros[i])
+            for i in range(npars):
+                self.header.update('PTYPE'+`i+1`, self.data.parnames[i])
+                (_scale, _zero)  = self.data._get_scale_factors(i)[3:5]
+                if _scale:
+                    self.header.update('PSCAL'+`i+1`, self.data._coldefs.bscales[i])
+                if _zero:
+                    self.header.update('PZERO'+`i+1`, self.data._coldefs.bzeros[i])
 
     def __getattr__(self, attr):
         """Get the data attribute."""
-	if attr == 'section':
-	    return Section(self)
+        if attr == 'section':
+            return Section(self)
         elif attr == 'data':
             self.__dict__[attr] = None
             if self.header['NAXIS'] > 0:
                 _bitpix = self.header['BITPIX']
                 self._file.seek(self._datLoc)
-		if isinstance(self, GroupsHDU):
-		    dims = self.size()*8/abs(_bitpix)
-		else:
+                if isinstance(self, GroupsHDU):
+                    dims = self.size()*8/abs(_bitpix)
+                else:
                     dims = self._dimShape() 
 
 
@@ -2088,10 +2089,10 @@ class _ImageBaseHDU(_ValidHDU):
 
                 # the shape will be in the order of NAXIS's which is the
                 # reverse of the numarray shape
-		if isinstance(self, GroupsHDU):
+                if isinstance(self, GroupsHDU):
                     _shape = list(self.data.data.getshape())[1:]
                     _format = `self.data._parent.field(0).type()`
-		else:
+                else:
                     _shape = list(self.data.getshape())
                     _format = `self.data.type()`
                 _shape.reverse()
@@ -2102,15 +2103,15 @@ class _ImageBaseHDU(_ValidHDU):
         else:
             _shape = ()
             for j in range(self.header['NAXIS']):
-		if isinstance(self, GroupsHDU) and j == 0:
-		    continue
+                if isinstance(self, GroupsHDU) and j == 0:
+                    continue
                 _shape += (self.header['NAXIS'+`j+1`],)
             _format = self.NumCode[self.header['BITPIX']]
 
-	if isinstance(self, GroupsHDU):
-	    _gcount = '   %d Groups  %d Parameters' % (self.header['GCOUNT'], self.header['PCOUNT'])
-	else:
-	    _gcount = ''
+        if isinstance(self, GroupsHDU):
+            _gcount = '   %d Groups  %d Parameters' % (self.header['GCOUNT'], self.header['PCOUNT'])
+        else:
+            _gcount = ''
         return "%-10s  %-11s  %5d  %-12s  %s%s" % \
             (self.name, type, len(self.header.ascard), _shape, _format, _gcount)
 
@@ -2195,12 +2196,12 @@ class PrimaryHDU(_ImageBaseHDU):
     """FITS primary HDU class."""
 
     def __init__(self, data=None, header=None):
-	"""Construct a primary HDU.
+        """Construct a primary HDU.
 
-	   data: the data in the HDU, default=None.
-	   header: the header to be used (as a template), default=None.
-		   If header=None, a minimal Header will be provided.
-	"""
+           data: the data in the HDU, default=None.
+           header: the header to be used (as a template), default=None.
+                   If header=None, a minimal Header will be provided.
+        """
 
         _ImageBaseHDU.__init__(self, data=data, header=header)
         self.name = 'PRIMARY'
@@ -2217,14 +2218,14 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
     """FITS image extension HDU class."""
 
     def __init__(self, data=None, header=None, name=None):
-	"""Construct an image HDU.
+        """Construct an image HDU.
 
-	   data: the data in the HDU, default=None.
-	   header: the header to be used (as a template), default=None.
-		   If header=None, a minimal Header will be provided.
-	   name: The name of the HDU, will be the value of the keywod EXTNAME, 
-		 default=None.
-	"""
+           data: the data in the HDU, default=None.
+           header: the header to be used (as a template), default=None.
+                   If header=None, a minimal Header will be provided.
+           name: The name of the HDU, will be the value of the keywod EXTNAME, 
+                 default=None.
+        """
 
         # no need to run _ExtensionHDU.__init__ since it is not doing anything.
         _ImageBaseHDU.__init__(self, data=data, header=header)
@@ -2267,8 +2268,8 @@ class GroupsHDU(PrimaryHDU):
 
     def __getattr__(self, attr):
         """Get the 'data' or 'columns' attribute.  The data of random group
-	   FITS file will be like a binary table's data.
-  	"""
+           FITS file will be like a binary table's data.
+          """
 
         if attr == 'data': # same code as in _TableBaseHDU
             size = self.size()
@@ -2282,21 +2283,21 @@ class GroupsHDU(PrimaryHDU):
             self.__dict__[attr] = data
 
         elif attr == 'columns':
-	    _cols = []
-	    _pnames = []
-	    _pcount = self.header['PCOUNT']
-	    _format = GroupsHDU._dict[self.header['BITPIX']]
-	    for i in range(self.header['PCOUNT']):
-		_bscale = self.header.get('PSCAL'+`i+1`, 1)
-		_bzero = self.header.get('PZERO'+`i+1`, 0)
-		_pnames.append(self.header['PTYPE'+`i+1`].lower())
-		_cols.append(Column(name='c'+`i+1`, format = _format, bscale = _bscale, bzero = _bzero))
-	    data_shape = self._dimShape()[:-1]
-	    dat_format = `int(num.array(data_shape).sum())` + _format
+            _cols = []
+            _pnames = []
+            _pcount = self.header['PCOUNT']
+            _format = GroupsHDU._dict[self.header['BITPIX']]
+            for i in range(self.header['PCOUNT']):
+                _bscale = self.header.get('PSCAL'+`i+1`, 1)
+                _bzero = self.header.get('PZERO'+`i+1`, 0)
+                _pnames.append(self.header['PTYPE'+`i+1`].lower())
+                _cols.append(Column(name='c'+`i+1`, format = _format, bscale = _bscale, bzero = _bzero))
+            data_shape = self._dimShape()[:-1]
+            dat_format = `int(num.array(data_shape).sum())` + _format
 
-	    _bscale = self.header.get('BSCALE', 1)
-	    _bzero = self.header.get('BZERO', 0)
-	    _cols.append(Column(name='data', format = dat_format, bscale = _bscale, bzero = _bzero))
+            _bscale = self.header.get('BSCALE', 1)
+            _bzero = self.header.get('BZERO', 0)
+            _cols.append(Column(name='data', format = dat_format, bscale = _bscale, bzero = _bzero))
             _coldefs = ColDefs(_cols)
             _coldefs._shape = self.header['GCOUNT']
             _coldefs._dat_format = fits2rec[_format]
@@ -2406,11 +2407,11 @@ def convert_format(input_format, reverse=0):
         if dtype in fits2rec.keys():                            # FITS format
             if dtype == 'A':
                 output_format = fits2rec[dtype]+`repeat`
-		# to accomodate both the ASCII table and binary table column 
-		# format spec, i.e. A7 in ASCII table is the same as 7A in 
-		# binary table, so both will produce 'a7'.
-		if fmt.lstrip()[0] == 'A' and option != '':
-		    output_format = fits2rec[dtype]+`int(option)` # make sure option is integer
+                # to accomodate both the ASCII table and binary table column 
+                # format spec, i.e. A7 in ASCII table is the same as 7A in 
+                # binary table, so both will produce 'a7'.
+                if fmt.lstrip()[0] == 'A' and option != '':
+                    output_format = fits2rec[dtype]+`int(option)` # make sure option is integer
             else:
                 _repeat = ''
                 if repeat != 1:
@@ -2418,7 +2419,7 @@ def convert_format(input_format, reverse=0):
                 output_format = _repeat+fits2rec[dtype]
 
         elif dtype == 'X':
-	    nbytes = ((repeat-1) / 8) + 1
+            nbytes = ((repeat-1) / 8) + 1
             # use an array, even if it is only ONE u1 (i.e. use tuple always)
             output_format = _FormatX(`(nbytes,)`+'u1')
             output_format._nx = repeat
@@ -2434,7 +2435,7 @@ def convert_format(input_format, reverse=0):
         if dtype == 'a':
             output_format = option+rec2fits[dtype]
         elif isinstance(dtype, _FormatX):
-	    print 'X format'
+            print 'X format'
         elif dtype+option in rec2fits.keys():                    # record format
             _repeat = ''
             if repeat != 1:
@@ -2454,13 +2455,13 @@ def convert_ASCII_format(input_format):
     # Parse the TFORM value into data type and width.
     try:
         (dtype, width) = _re.match(input_format.strip()).groups()
-	dtype = ascii2rec[dtype]
-	if width == '':
-	    width = None
-	else:
-	    width = eval(width)
+        dtype = ascii2rec[dtype]
+        if width == '':
+            width = None
+        else:
+            width = eval(width)
     except:
-	raise ValueError, 'Illegal format `%s` for ASCII table.' % input_format
+        raise ValueError, 'Illegal format `%s` for ASCII table.' % input_format
 
     return (dtype, width)
 
@@ -2523,7 +2524,7 @@ def _unwrapx(input, output, nx):
         _min = i*8
         _max = min((i+1)*8, nx)
         for j in range(_min, _max):
-    	    num.bitwise_and(input[...,i], pow2[j-i*8], output[...,j])
+                num.bitwise_and(input[...,i], pow2[j-i*8], output[...,j])
 
 def _wrapx(input, output, nx):
     """Wrap the X format column Boolean array into an UInt8 array.  
@@ -2540,9 +2541,9 @@ def _wrapx(input, output, nx):
         _min = i*8
         _max = min((i+1)*8, nx)
         for j in range(_min, _max):
-	    if j != _min:
-    	        num.lshift(output[...,i], 1, output[...,i])
-    	    num.add(output[...,i], input[...,j], output[...,i])
+            if j != _min:
+                    num.lshift(output[...,i], 1, output[...,i])
+                num.add(output[...,i], input[...,j], output[...,i])
 
     # shift the unused bits
     num.lshift(output[...,i], unused, output[...,i])
@@ -2565,19 +2566,19 @@ def _makep(input, desp_output, dtype):
     data_output._dtype = dtype
 
     if dtype == 'a':
-	_nbytes = 1
+        _nbytes = 1
     else:
-    	_nbytes = num.getType(dtype).bytes
+            _nbytes = num.getType(dtype).bytes
 
     for i in range(len(input)):
-	if dtype == 'a':
-	    data_output[i] = chararray.array(input[i], itemsize=1)
-	else:
-	    data_output[i] = num.array(input[i], type=dtype)
+        if dtype == 'a':
+            data_output[i] = chararray.array(input[i], itemsize=1)
+        else:
+            data_output[i] = num.array(input[i], type=dtype)
 
-	desp_output[i,0] = len(data_output[i])
-	desp_output[i,1] = _offset
-	_offset += len(data_output[i]) * _nbytes
+        desp_output[i,0] = len(data_output[i])
+        desp_output[i,1] = _offset
+        _offset += len(data_output[i]) * _nbytes
 
     return data_output
 
@@ -2585,29 +2586,29 @@ def _makep(input, desp_output, dtype):
 class _VLF(objects.ObjectArray):
     """variable length field object."""
     def __init__(self, input):
-	"""
-	    input: a sequence of variable-sized elements.
-	"""
+        """
+            input: a sequence of variable-sized elements.
+        """
 
-	objects.ObjectArray.__init__(self, input)
-	self._max = 0
+        objects.ObjectArray.__init__(self, input)
+        self._max = 0
 
     def __setitem__(self, key, value):
-	"""To make sure the new item has consistent data type to avoid 
+        """To make sure the new item has consistent data type to avoid 
            misalignment.
-	"""
+        """
 
-	if isinstance(value, num.NumArray) and value.type() == self._dtype:
-	    pass
-	elif isinstance(value, chararray.CharArray) and value.itemsize() == 1:
-	    pass
-	elif self._dtype == 'a':
-	    value = chararray.array(value, itemsize=1)
-	else:
-	    value = num.array(value, type=self._dtype)
-	objects.ObjectArray.__setitem__(self, key, value)
-	self._max = max(self._max, len(value))
-	
+        if isinstance(value, num.NumArray) and value.type() == self._dtype:
+            pass
+        elif isinstance(value, chararray.CharArray) and value.itemsize() == 1:
+            pass
+        elif self._dtype == 'a':
+            value = chararray.array(value, itemsize=1)
+        else:
+            value = num.array(value, type=self._dtype)
+        objects.ObjectArray.__setitem__(self, key, value)
+        self._max = max(self._max, len(value))
+        
 
 class Column:
     """Column class which contains the definition of one column, e.g.
@@ -2620,16 +2621,16 @@ class Column:
         """Construct a Column by specifying attributes.  All attributes 
            except format can be optional.
 
-	   name:   column name, corresponding to TTYPE keyword
-	   format: column format, corresponding to TFORM keyword
-	   unit:   column unit, corresponding to TUNIT keyword
-	   null:   null value, corresponding to TNULL keyword
-	   bscale: bscale value, corresponding to TSCAL keyword
-	   bzero:  bzero value, corresponding to TZERO keyword
-	   disp:   display format, corresponding to TDISP keyword
-	   start:  column starting position (ASCII table only), 
-		   corresponding to TBCOL keyword
-	   dim:    column dimension corresponding to TDIM keyword
+           name:   column name, corresponding to TTYPE keyword
+           format: column format, corresponding to TFORM keyword
+           unit:   column unit, corresponding to TUNIT keyword
+           null:   null value, corresponding to TNULL keyword
+           bscale: bscale value, corresponding to TSCAL keyword
+           bzero:  bzero value, corresponding to TZERO keyword
+           disp:   display format, corresponding to TDISP keyword
+           start:  column starting position (ASCII table only), 
+                   corresponding to TBCOL keyword
+           dim:    column dimension corresponding to TDIM keyword
         """
 
         # any of the input argument (except array) can be a Card or just
@@ -2644,8 +2645,8 @@ class Column:
                 setattr(self, cname, value)
 
         # if the column data is not NDarray, make it to be one, i.e.
-	# input arrays can be just list or tuple, not required to be NDArray
-	if format is not None:
+        # input arrays can be just list or tuple, not required to be NDArray
+        if format is not None:
             # check format
             try:
 
@@ -2654,59 +2655,59 @@ class Column:
             except:
                 try:
                     # legit RecArray format?
-		    recfmt = format
+                    recfmt = format
                     format = convert_format(recfmt, reverse=1)
                 except:
-		    raise ValueError, "Illegal format `%s`." % format
+                    raise ValueError, "Illegal format `%s`." % format
 
-	    self.format = format
+            self.format = format
 
-	    # does not include Object array because there is no guarantee 
-	    # the elements in the object array are consistent.
-	    if not isinstance(array, (num.NumArray, chararray.CharArray, Delayed)):
-		try: # try to convert to a numarray first
-		    array = num.array(array)
-		except: 
-		    try: # then try to conver it to a strings array
-		        array = chararray.array(array, itemsize=eval(recfmt[1:]))
+            # does not include Object array because there is no guarantee 
+            # the elements in the object array are consistent.
+            if not isinstance(array, (num.NumArray, chararray.CharArray, Delayed)):
+                try: # try to convert to a numarray first
+                    array = num.array(array)
+                except: 
+                    try: # then try to conver it to a strings array
+                        array = chararray.array(array, itemsize=eval(recfmt[1:]))
 
-		    # then try variable length array
-		    except:
-			if isinstance(recfmt, _FormatP):
-			    try:
-				_func = lambda x: num.array(x, type=recfmt._dtype)
-				array = _VLF(map(_func, array))
-			    except:
-				try:
-				    # this handles ['abc'] and [['a','b','c']] 
-				    # equally, beautiful!
-				    _func = lambda x: chararray.array(x, itemsize=1)
-				    array = _VLF(map(_func, array))
-				except:
-				    raise ValueError, "Inconsistent input data array: %s" % array
-			    array._dtype = recfmt._dtype
-			else:
-			    raise ValueError, "Data is inconsistent with the format `%s`." % format
+                    # then try variable length array
+                    except:
+                        if isinstance(recfmt, _FormatP):
+                            try:
+                                _func = lambda x: num.array(x, type=recfmt._dtype)
+                                array = _VLF(map(_func, array))
+                            except:
+                                try:
+                                    # this handles ['abc'] and [['a','b','c']] 
+                                    # equally, beautiful!
+                                    _func = lambda x: chararray.array(x, itemsize=1)
+                                    array = _VLF(map(_func, array))
+                                except:
+                                    raise ValueError, "Inconsistent input data array: %s" % array
+                            array._dtype = recfmt._dtype
+                        else:
+                            raise ValueError, "Data is inconsistent with the format `%s`." % format
 
-	else:
+        else:
             raise ValueError, "Must specify format to construct Column"
-	
-	# scale the array back to storage values if there is bscale/bzero
-	if isinstance(array, num.NumArray):
+        
+        # scale the array back to storage values if there is bscale/bzero
+        if isinstance(array, num.NumArray):
 
-	    # boolean needs to be scaled too
-	    if recfmt == booltype:
-		_out = num.zeros(array.shape, type=recfmt)
-	        num.where(array==0, ord('F'), ord('T'), _out)
-		array = _out
-		
-	    # make a copy if scaled, so as not to corrupt the original array
+            # boolean needs to be scaled too
+            if recfmt == booltype:
+                _out = num.zeros(array.shape, type=recfmt)
+                num.where(array==0, ord('F'), ord('T'), _out)
+                array = _out
+                
+            # make a copy if scaled, so as not to corrupt the original array
             if bzero not in ['', None, 0] or bscale not in ['', None, 1]:
-		array = array.copy()
+                array = array.copy()
                 if bzero not in ['', None, 0]:
-		    array += -bzero
+                    array += -bzero
                 if bscale not in ['', None, 1]:
-		    array /= bscale
+                    array /= bscale
         self.array = array
 
     def __repr__(self):
@@ -2718,9 +2719,9 @@ class Column:
         return text[:-1]
 
     def copy(self):
-	tmp = Column(format='I') # just use a throw-away format
-	tmp.__dict__=self.__dict__.copy()
-	return tmp
+        tmp = Column(format='I') # just use a throw-away format
+        tmp.__dict__=self.__dict__.copy()
+        return tmp
 
 
 class ColDefs(object):
@@ -2735,11 +2736,11 @@ class ColDefs(object):
            tbtype: which table HDU, 'BinTableHDU' (default) or 
                    'TableHDU' (text table).
         """
-	ascii_fmt = {'A':'A1', 'I':'I10', 'E':'E14.6', 'F':'F16.7', 'D':'D24.16'}
+        ascii_fmt = {'A':'A1', 'I':'I10', 'E':'E14.6', 'F':'F16.7', 'D':'D24.16'}
         self._tbtype = tbtype
 
         if isinstance(input, ColDefs):
-	    self.data = [col.copy() for col in input.data]
+            self.data = [col.copy() for col in input.data]
 
         # if the input is a list of Columns
         elif isinstance(input, (list, tuple)):
@@ -2748,61 +2749,61 @@ class ColDefs(object):
             for col in input:
                 if not isinstance(col, Column):
                     raise "Element %d in the ColDefs input is not a Column." % input.index(col)
-	    self.data = [col.copy() for col in input]
+            self.data = [col.copy() for col in input]
 
-	    # if the format of an ASCII column has no width, add one
+            # if the format of an ASCII column has no width, add one
             if tbtype == 'TableHDU':
-		for i in range(len(self)):	
-		    (type, width) = convert_ASCII_format(self.data[i].format)
-		    if width is None:
-			self.data[i].format = ascii_fmt[self.data[i].format[0]]
+                for i in range(len(self)):        
+                    (type, width) = convert_ASCII_format(self.data[i].format)
+                    if width is None:
+                        self.data[i].format = ascii_fmt[self.data[i].format[0]]
 
 
         elif isinstance(input, _TableBaseHDU):
-	    hdr = input.header
+            hdr = input.header
             _nfields = hdr['TFIELDS']
             self._width = hdr['NAXIS1']
             self._shape = hdr['NAXIS2']
 
             # go through header keywords to pick out column definition keywords
-	    dict = [{} for i in range(_nfields)] # definition dictionaries for each field
+            dict = [{} for i in range(_nfields)] # definition dictionaries for each field
             for _card in hdr.ascardlist():
                 _key = tdef_re.match(_card.key)
                 try: 
-		    keyword = _key.group('label')
+                    keyword = _key.group('label')
                 except: 
-		    continue               # skip if there is no match
+                    continue               # skip if there is no match
                 if (keyword in keyNames):
                     col = eval(_key.group('num'))
                     if col <= _nfields and col > 0:
                         cname = commonNames[keyNames.index(keyword)]
                         dict[col-1][cname] = _card.value
 
-	    # data reading will be delayed
-	    for col in range(_nfields):
-		dict[col]['array'] = Delayed(input, col)
+            # data reading will be delayed
+            for col in range(_nfields):
+                dict[col]['array'] = Delayed(input, col)
 
-	    # now build the columns
-	    tmp = [Column(**attrs) for attrs in dict]
+            # now build the columns
+            tmp = [Column(**attrs) for attrs in dict]
             self.data = tmp
         else:
             raise TypeError, "input to ColDefs must be a table HDU or a list of Columns"
 
     def __getattr__(self, name):
         """Populate the attributes."""
-	
-	cname = name[:-1]
-	if cname in commonNames:
-	    attr = [''] * len(self)
+        
+        cname = name[:-1]
+        if cname in commonNames:
+            attr = [''] * len(self)
             for i in range(len(self)):
                 val = getattr(self[i], cname)
                 if val != None:
                     attr[i] = val
-	elif name == '_arrays':
-	    attr = [col.array for col in self.data]
-	elif name == '_recformats':
+        elif name == '_arrays':
+            attr = [col.array for col in self.data]
+        elif name == '_recformats':
             if self._tbtype == 'BinTableHDU':
-	        attr = [convert_format(fmt) for fmt in self.formats]
+                attr = [convert_format(fmt) for fmt in self.formats]
             elif self._tbtype == 'TableHDU':
                 self._Formats = self.formats
                 if len(self) == 1:
@@ -2811,84 +2812,84 @@ class ColDefs(object):
                     dummy = map(lambda x, y: x-y, self.starts[1:], [1]+self.starts[1:-1])
                 dummy.append(self._width-self.starts[-1]+1)
                 attr = map(lambda y: 'a'+`y`, dummy)
-	elif name == 'spans':
+        elif name == 'spans':
 
-	    # make sure to consider the case that the starting column of 
-	    # a field may not be the column right after the last field
+            # make sure to consider the case that the starting column of 
+            # a field may not be the column right after the last field
             if self._tbtype == 'TableHDU':
-		last_end = 0
-		attr = [0] * len(self)
+                last_end = 0
+                attr = [0] * len(self)
                 for i in range(len(self)):
-		    (_format, _width) = convert_ASCII_format(self.formats[i])
-		    if self.starts[i] is '':
-		        self.starts[i] = last_end + 1
-		    _end = self.starts[i] + _width - 1
-		    attr[i] = _end - last_end
-		    last_end = _end
-		self._width = _end
-	else:
-	    raise KeyError, 'Attribute %s not defined.' % name
+                    (_format, _width) = convert_ASCII_format(self.formats[i])
+                    if self.starts[i] is '':
+                        self.starts[i] = last_end + 1
+                    _end = self.starts[i] + _width - 1
+                    attr[i] = _end - last_end
+                    last_end = _end
+                self._width = _end
+        else:
+            raise KeyError, 'Attribute %s not defined.' % name
 
         self.__dict__[name] = attr
         return self.__dict__[name]
-	
+        
 
-	"""
-		# make sure to consider the case that the starting column of 
-		# a field may not be the column right after the last field
+        """
+                # make sure to consider the case that the starting column of 
+                # a field may not be the column right after the last field
                 elif tbtype == 'TableHDU':
-		    (_format, _width) = convert_ASCII_format(self.formats[i])
-		    if self.starts[i] is '':
-			self.starts[i] = last_end + 1
-		    _end = self.starts[i] + _width - 1
-		    self.spans[i] = _end - last_end
-		    last_end = _end
-		    self._Formats = self.formats
+                    (_format, _width) = convert_ASCII_format(self.formats[i])
+                    if self.starts[i] is '':
+                        self.starts[i] = last_end + 1
+                    _end = self.starts[i] + _width - 1
+                    self.spans[i] = _end - last_end
+                    last_end = _end
+                    self._Formats = self.formats
 
                 self._arrays[i] = input[i].array
-	"""
+        """
 
     def __getitem__(self, key):
-	x = self.data[key]
+        x = self.data[key]
         if isinstance(key, (int, long)):
             return x
         else:
             return ColDefs(x)
 
     def __len__(self):
-	return len(self.data)
+        return len(self.data)
 
     def __repr__(self):
-	return 'ColDefs'+ `tuple(self.data)`
+        return 'ColDefs'+ `tuple(self.data)`
 
     def __coerce__(self, other):
-	pass 	# needed for __add__
+        pass         # needed for __add__
 
     def __add__(self, other, option='left'):
-	if isinstance(other, Column):
-	    b = [other]
-	elif isinstance(other, ColDefs):
-	    b = list(other.data)
-	else:
-	    raise TypeError, 'Wrong type of input'
-	if option == 'left':
-	    tmp = list(self.data) + b
-	else:
-	    tmp = b + list(self.data)
-	return ColDefs(tmp)
+        if isinstance(other, Column):
+            b = [other]
+        elif isinstance(other, ColDefs):
+            b = list(other.data)
+        else:
+            raise TypeError, 'Wrong type of input'
+        if option == 'left':
+            tmp = list(self.data) + b
+        else:
+            tmp = b + list(self.data)
+        return ColDefs(tmp)
 
     def __radd__(self, other):
-	return self.__add__(other, 'right')
+        return self.__add__(other, 'right')
 
     def __sub__(self, other):
-	if not isinstance(other, (list, tuple)):
-	    other = [other]
-	_other = [get_index(self.names, key) for key in other]
-	indx=range(len(self))
-	for x in _other:
-	    indx.remove(x)
-	tmp = [self[i] for i in indx]
-	return ColDefs(tmp)
+        if not isinstance(other, (list, tuple)):
+            other = [other]
+        _other = [get_index(self.names, key) for key in other]
+        indx=range(len(self))
+        for x in _other:
+            indx.remove(x)
+        tmp = [self[i] for i in indx]
+        return ColDefs(tmp)
 
     def _setup(self):
         """ Initialize all attributes to be a list of null strings."""
@@ -2899,8 +2900,8 @@ class ColDefs(object):
     def add_col(self, column):
         """Append one Column to the column definition."""
 
-	return self+column
-	
+        return self+column
+        
 
     def del_col(self, col_name):
         """Delete (the definition of) one Column."""
@@ -2920,9 +2921,9 @@ class ColDefs(object):
 
     def change_name(self, col_name, new_name):
         """Change a Column's name."""
-	if new_name != col_name and new_name in self.names:
-	    raise ValueError, 'New name %s already exists.' % new_name
-	else:
+        if new_name != col_name and new_name in self.names:
+            raise ValueError, 'New name %s already exists.' % new_name
+        else:
             self.change_attrib(col_name, 'name', new_name)
 
     def change_unit(self, col_name, new_unit):
@@ -2962,10 +2963,10 @@ def _get_tbdata(hdu):
         """ Get the table data from input (an HDU object)."""
 
         tmp = hdu.columns
-	# get the right shape for the data part of the random group, 
-	# since binary table does not support ND yet
-	if isinstance(hdu, GroupsHDU):
-	    tmp._recformats[-1] = `hdu._dimShape()[:-1]` + tmp._dat_format
+        # get the right shape for the data part of the random group, 
+        # since binary table does not support ND yet
+        if isinstance(hdu, GroupsHDU):
+            tmp._recformats[-1] = `hdu._dimShape()[:-1]` + tmp._dat_format
 
         if hdu._ffile.memmap:
             _mmap = hdu._ffile._mm[hdu._datLoc:hdu._datLoc+hdu._datSpan]
@@ -2976,12 +2977,12 @@ def _get_tbdata(hdu):
         if isinstance(hdu._ffile, _File):
             _data._byteorder = 'big'
 
-	# pass datLoc, for P format
-	_data._heapoffset = hdu._theap + hdu._datLoc
-	_data._file = hdu._file
-	_tbsize = hdu.header['NAXIS1']*hdu.header['NAXIS2']
+        # pass datLoc, for P format
+        _data._heapoffset = hdu._theap + hdu._datLoc
+        _data._file = hdu._file
+        _tbsize = hdu.header['NAXIS1']*hdu.header['NAXIS2']
         _data._gap = hdu._theap - _tbsize
-	# comment out to avoid circular reference of _pcount
+        # comment out to avoid circular reference of _pcount
 
         # pass the attributes
         for attr in ['formats', 'names']:
@@ -3008,10 +3009,10 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
     hdu = eval(tbtype)(header=header)
 
     if isinstance(input, ColDefs):
-	if input._tbtype == tbtype:
+        if input._tbtype == tbtype:
             tmp = hdu.columns = input
-	else:
-	    raise ValueError, 'column definitions have a different table type'
+        else:
+            raise ValueError, 'column definitions have a different table type'
     elif isinstance(input, FITS_rec): # input is a FITS_rec
         tmp = hdu.columns = input._coldefs
     else:                 # input is a list of Columns
@@ -3019,9 +3020,9 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
 
     # read the delayed data
     for i in range(len(tmp)):
-	_arr = tmp._arrays[i]
-	if isinstance(_arr, Delayed):
-	    tmp._arrays[i] = _arr.hdu.data._parent.field(_arr.field)
+        _arr = tmp._arrays[i]
+        if isinstance(_arr, Delayed):
+            tmp._arrays[i] = _arr.hdu.data._parent.field(_arr.field)
 
     # use the largest column shape as the shape of the record
     if nrows == 0:
@@ -3034,11 +3035,11 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
                 nrows = dim
 
     if tbtype == 'TableHDU':
-	_formats = ''
-	_itemsize = 0
-	for i in range(len(tmp)):
-	    _formats += 'a%d,' % tmp.spans[i]
-	    _itemsize += tmp.spans[i]
+        _formats = ''
+        _itemsize = 0
+        for i in range(len(tmp)):
+            _formats += 'a%d,' % tmp.spans[i]
+            _itemsize += tmp.spans[i]
         hdu.data = FITS_rec(rec.array(' '*_itemsize*nrows, formats=_formats[:-1], names=tmp.names, shape=nrows))
 
     else:
@@ -3057,41 +3058,41 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
         if fill:
             n = 0
 
-	(_scale, _zero, bscale, bzero) = hdu.data._get_scale_factors(i)[3:]
+        (_scale, _zero, bscale, bzero) = hdu.data._get_scale_factors(i)[3:]
 
         if n > 0:
-	    if isinstance(tmp._recformats[i], _FormatX):
+            if isinstance(tmp._recformats[i], _FormatX):
                 if tmp._arrays[i][:n].shape[-1] == tmp._recformats[i]._nx:
                     _wrapx(tmp._arrays[i][:n], hdu.data._parent.field(i)[:n], tmp._recformats[i]._nx)
                 else: # from a table parent data, just pass it
                     hdu.data._parent.field(i)[:n] = tmp._arrays[i][:n]
-	    elif isinstance(tmp._recformats[i], _FormatP):
-		hdu.data._convert[i] = _makep(tmp._arrays[i][:n], hdu.data._parent.field(i)[:n], tmp._recformats[i]._dtype)
-	    else:
-    		if tbtype == 'TableHDU':
+            elif isinstance(tmp._recformats[i], _FormatP):
+                hdu.data._convert[i] = _makep(tmp._arrays[i][:n], hdu.data._parent.field(i)[:n], tmp._recformats[i]._dtype)
+            else:
+                    if tbtype == 'TableHDU':
 
-	    	    # string no need to convert,
-	    	    if isinstance(tmp._arrays[i], chararray.CharArray):
-	        	hdu.data._parent.field(i)[:n] = tmp._arrays[i][:n]
-	    	    else:
-	        	hdu.data._convert[i] = num.zeros(nrows, type=tmp._arrays[i].type())
-			if _scale or _zero:
-	        	    _arr = tmp._arrays[i].copy()
-			else:
-	        	    _arr = tmp._arrays[i]
-			if _scale:
-			    _arr *= bscale
-			if _zero:
-			    _arr += bzero
-	        	hdu.data._convert[i][:n] = _arr
-		else:
+                        # string no need to convert,
+                        if isinstance(tmp._arrays[i], chararray.CharArray):
+                        hdu.data._parent.field(i)[:n] = tmp._arrays[i][:n]
+                        else:
+                        hdu.data._convert[i] = num.zeros(nrows, type=tmp._arrays[i].type())
+                        if _scale or _zero:
+                            _arr = tmp._arrays[i].copy()
+                        else:
+                            _arr = tmp._arrays[i]
+                        if _scale:
+                            _arr *= bscale
+                        if _zero:
+                            _arr += bzero
+                        hdu.data._convert[i][:n] = _arr
+                else:
                    hdu.data._parent.field(i)[:n] = tmp._arrays[i][:n]
 
         if n < nrows:
-    	    if tbtype == 'BinTableHDU':
+                if tbtype == 'BinTableHDU':
                 if isinstance(hdu.data._parent.field(i), num.NumArray):
 
-		    # make the scaled data = 0, not the stored data
+                    # make the scaled data = 0, not the stored data
                     hdu.data._parent.field(i)[n:] = -bzero/bscale
                 else:
                     hdu.data._parent.field(i)[n:] = ''
@@ -3111,21 +3112,21 @@ class FITS_rec(rec.RecArray):
         # input should be a record array
         self.__setstate__(input.__getstate__())
 
-	# _parent is the original (storage) array, 
-	# _convert is the scaled (physical) array.
+        # _parent is the original (storage) array, 
+        # _convert is the scaled (physical) array.
         self._parent = input
         self._convert = [None]*self._nfields
 
     def _clone(self, shape):
-	"""Overload this to make mask array indexing work properly."""
+        """Overload this to make mask array indexing work properly."""
         hdu = new_table(self._coldefs, nrows=shape[0])
-	return hdu.data
-	
+        return hdu.data
+        
     def __repr__(self):
-	tmp = rec.RecArray.__repr__(self)
-	loc = tmp.rfind('\nnames=')
-	tmp = tmp[:loc+7] + `self._coldefs.names` + ')'
-	return tmp
+        tmp = rec.RecArray.__repr__(self)
+        loc = tmp.rfind('\nnames=')
+        tmp = tmp[:loc+7] + `self._coldefs.names` + ')'
+        return tmp
 
     # synchronize the sliced FITS_rec and its ._parent
     def __getitem__(self, key):
@@ -3169,11 +3170,11 @@ class FITS_rec(rec.RecArray):
         bzero = self._coldefs.bzeros[indx]
         _scale = bscale not in ['', None, 1]
         _zero = bzero not in ['', None, 0]
-	# ensure bscale/bzero are numbers
-	if not _scale:
-	    bscale = 1
-	if not _zero:
-	    bzero = 0
+        # ensure bscale/bzero are numbers
+        if not _scale:
+            bscale = 1
+        if not _zero:
+            bzero = 0
 
         return (_str, _bool, _number, _scale, _zero, bscale, bzero)
 
@@ -3182,40 +3183,40 @@ class FITS_rec(rec.RecArray):
         indx = get_index(self._coldefs.names, key)
 
         if (self._convert[indx] is None):
-	    # for X format
-	    if isinstance(self._coldefs._recformats[indx], _FormatX):
-	  	_nx = self._coldefs._recformats[indx]._nx
+            # for X format
+            if isinstance(self._coldefs._recformats[indx], _FormatX):
+                  _nx = self._coldefs._recformats[indx]._nx
                 dummy = num.zeros(self._parent.shape+(_nx,), type=num.Bool)
-		_unwrapx(self._parent.field(indx), dummy, _nx)
-		self._convert[indx] = dummy
+                _unwrapx(self._parent.field(indx), dummy, _nx)
+                self._convert[indx] = dummy
                 return self._convert[indx]
 
             (_str, _bool, _number, _scale, _zero, bscale, bzero) = self._get_scale_factors(indx)
 
-	    # for P format
-	    if isinstance(self._coldefs._recformats[indx], _FormatP):
+            # for P format
+            if isinstance(self._coldefs._recformats[indx], _FormatP):
                 dummy = _VLF([None]*len(self._parent))
-		dummy._dtype = self._coldefs._recformats[indx]._dtype
-		for i in range(len(self._parent)):
-		    _offset = self._parent.field(indx)[i,1] + self._heapoffset
-		    self._file.seek(_offset)
-		    if self._coldefs._recformats[indx]._dtype is 'a':
-			dummy[i] = chararray.array(self._file, itemsize=self._parent.field(indx)[i,0], shape=1)
-		    else:
-		        dummy[i] = num.array(self._file, type=self._coldefs._recformats[indx]._dtype, shape=self._parent.field(indx)[i,0])
-		        dummy[i]._byteorder = 'big'
+                dummy._dtype = self._coldefs._recformats[indx]._dtype
+                for i in range(len(self._parent)):
+                    _offset = self._parent.field(indx)[i,1] + self._heapoffset
+                    self._file.seek(_offset)
+                    if self._coldefs._recformats[indx]._dtype is 'a':
+                        dummy[i] = chararray.array(self._file, itemsize=self._parent.field(indx)[i,0], shape=1)
+                    else:
+                        dummy[i] = num.array(self._file, type=self._coldefs._recformats[indx]._dtype, shape=self._parent.field(indx)[i,0])
+                        dummy[i]._byteorder = 'big'
 
-		# scale by TSCAL and TZERO
-		if _scale or _zero:
-		    for i in range(len(self._parent)):
-		        dummy[i][:] = dummy[i]*bscale+bzero
+                # scale by TSCAL and TZERO
+                if _scale or _zero:
+                    for i in range(len(self._parent)):
+                        dummy[i][:] = dummy[i]*bscale+bzero
 
-		# Boolean (logical) column
-		if self._coldefs._recformats[indx]._dtype is booltype:
-		    for i in range(len(self._parent)):
-		        dummy[i] = num.equal(dummy[i], ord('T'))
+                # Boolean (logical) column
+                if self._coldefs._recformats[indx]._dtype is booltype:
+                    for i in range(len(self._parent)):
+                        dummy[i] = num.equal(dummy[i], ord('T'))
 
-		self._convert[indx] = dummy
+                self._convert[indx] = dummy
                 return self._convert[indx]
 
             if _str:
@@ -3256,36 +3257,36 @@ class FITS_rec(rec.RecArray):
     def _scale_back(self):
         """Update the parent array, using the (latest) scaled array."""
 
-	_dict = {'A':'s', 'I':'d', 'F':'f', 'E':'E', 'D':'E'}
-	# calculate the starting point and width of each field for ASCII table
-	if self._coldefs._tbtype == 'TableHDU':
-	    _loc = [1]
-	    _width = []
-	    for i in range(self._nfields):
-		_loc.append(_loc[-1]+self._parent.field(i).itemsize())
-		_width.append(convert_ASCII_format(self._coldefs._Formats[i])[1])
+        _dict = {'A':'s', 'I':'d', 'F':'f', 'E':'E', 'D':'E'}
+        # calculate the starting point and width of each field for ASCII table
+        if self._coldefs._tbtype == 'TableHDU':
+            _loc = [1]
+            _width = []
+            for i in range(self._nfields):
+                _loc.append(_loc[-1]+self._parent.field(i).itemsize())
+                _width.append(convert_ASCII_format(self._coldefs._Formats[i])[1])
 
         self._heapsize = 0
         for indx in range(self._nfields):
             if (self._convert[indx] is not None):
-		if isinstance(self._coldefs._recformats[indx], _FormatX):
-		    _wrapx(self._convert[indx], self._parent.field(indx), self._coldefs._recformats[indx]._nx)
-		    continue
+                if isinstance(self._coldefs._recformats[indx], _FormatX):
+                    _wrapx(self._convert[indx], self._parent.field(indx), self._coldefs._recformats[indx]._nx)
+                    continue
 
                 (_str, _bool, _number, _scale, _zero, bscale, bzero) = self._get_scale_factors(indx)
 
-		# add the location offset of the heap area for each 
-		# variable length column
-	    	if isinstance(self._coldefs._recformats[indx], _FormatP):
-		    desc = self._parent.field(indx)
-		    desc[:] = 0 # reset
-		    _npts = map(len, self._convert[indx])
-		    desc[:len(_npts),0] = _npts
-		    _dtype = num.getType(self._coldefs._recformats[indx]._dtype)
-		    desc[1:,1] = num.add.accumulate(desc[:-1,0])*_dtype.bytes
+                # add the location offset of the heap area for each 
+                # variable length column
+                    if isinstance(self._coldefs._recformats[indx], _FormatP):
+                    desc = self._parent.field(indx)
+                    desc[:] = 0 # reset
+                    _npts = map(len, self._convert[indx])
+                    desc[:len(_npts),0] = _npts
+                    _dtype = num.getType(self._coldefs._recformats[indx]._dtype)
+                    desc[1:,1] = num.add.accumulate(desc[:-1,0])*_dtype.bytes
 
-		    desc[:,1][:] += self._heapsize
-		    self._heapsize += desc[:,0].sum()*_dtype.bytes
+                    desc[:,1][:] += self._heapsize
+                    self._heapsize += desc[:,0].sum()*_dtype.bytes
 
                 # conversion for both ASCII and binary tables
                 if _number or _str: 
@@ -3297,34 +3298,34 @@ class FITS_rec(rec.RecArray):
                             dummy /= bscale
                     elif self._coldefs._tbtype == 'TableHDU':
                         dummy = self._convert[indx]
-		    else:
-			continue
+                    else:
+                        continue
 
                     # ASCII table, convert numbers to strings
                     if self._coldefs._tbtype == 'TableHDU':
-			_format = self._coldefs._Formats[indx].strip()
-			_lead = self._coldefs.starts[indx] - _loc[indx]
-			if _lead < 0:
-			    raise ValueError, "column `%s` starting point overlaps to the previous column" % indx+1
-			_trail = _loc[indx+1] - _width[indx] - self._coldefs.starts[indx]
-			if _trail < 0:
-			    raise ValueError, "column `%s` ending point overlaps to the next column" % indx+1
-			if 'A' in _format:  
-			    _pc = '%-'
-			else:
-			    _pc = '%'
-			_fmt = ' '*_lead + _pc + _format[1:] + _dict[_format[0]] + ' '*_trail
+                        _format = self._coldefs._Formats[indx].strip()
+                        _lead = self._coldefs.starts[indx] - _loc[indx]
+                        if _lead < 0:
+                            raise ValueError, "column `%s` starting point overlaps to the previous column" % indx+1
+                        _trail = _loc[indx+1] - _width[indx] - self._coldefs.starts[indx]
+                        if _trail < 0:
+                            raise ValueError, "column `%s` ending point overlaps to the next column" % indx+1
+                        if 'A' in _format:  
+                            _pc = '%-'
+                        else:
+                            _pc = '%'
+                        _fmt = ' '*_lead + _pc + _format[1:] + _dict[_format[0]] + ' '*_trail
 
-    			# not using numarray.strings's num2char because the 
-			# result is not allowed to expand (as C/Python does).
-    			for i in range(len(dummy)):
-			    x = _fmt % dummy[i]
-			    if len(x) > (_loc[indx+1]-_loc[indx]):
-	    			raise ValueError, "number `%s` does not fit into the output's itemsize of %s" % (x, _width[indx])
-			    else:
-	    			self._parent.field(indx)[i] = x
-			if 'D' in _format:  
-			    self._parent.field(indx).sub('E', 'D')
+                            # not using numarray.strings's num2char because the 
+                        # result is not allowed to expand (as C/Python does).
+                            for i in range(len(dummy)):
+                            x = _fmt % dummy[i]
+                            if len(x) > (_loc[indx+1]-_loc[indx]):
+                                    raise ValueError, "number `%s` does not fit into the output's itemsize of %s" % (x, _width[indx])
+                            else:
+                                    self._parent.field(indx)[i] = x
+                        if 'D' in _format:  
+                            self._parent.field(indx).sub('E', 'D')
 
 
                     # binary table
@@ -3337,87 +3338,87 @@ class FITS_rec(rec.RecArray):
 
                 # ASCII table does not have Boolean type
                 elif _bool:
-		    self._parent.field(indx)[:] = num.choose(self._convert[indx], (ord('F'),ord('T')))
+                    self._parent.field(indx)[:] = num.choose(self._convert[indx], (ord('F'),ord('T')))
 
 
 class GroupData(FITS_rec):
     """Random groupd data object."""
 
     def __init__(self, input=None, bitpix=None, pardata=None, parnames=[], 
-		 bscale=None, bzero=None, parbscales=None, parbzeros=None):
-	"""input: input data, either the group data itself (a numarray) or
-	 	  a record array (FITS_rec) which will contain both group 
-		  parameter info and the data.  The rest of the arguments are
-	  	  used only for the first case.
-	   bitpix: data type as expressed in FITS BITPIX value 
-		  (8, 16, 32, 64, -32, or -64)
-	   
-	   pardata: parameter data, as a list of (numeric) arrays.
+                 bscale=None, bzero=None, parbscales=None, parbzeros=None):
+        """input: input data, either the group data itself (a numarray) or
+                   a record array (FITS_rec) which will contain both group 
+                  parameter info and the data.  The rest of the arguments are
+                    used only for the first case.
+           bitpix: data type as expressed in FITS BITPIX value 
+                  (8, 16, 32, 64, -32, or -64)
+           
+           pardata: parameter data, as a list of (numeric) arrays.
 
-	   parnames: list of parameter names.
+           parnames: list of parameter names.
 
-	   bscale: BSCALE of the data
+           bscale: BSCALE of the data
 
-	   bzero: BZERO of the data
+           bzero: BZERO of the data
 
-	   parbscales: list of bscales for the parameters
+           parbscales: list of bscales for the parameters
 
-	   parbzeros: list of bzeros for the parameters
-	"""
+           parbzeros: list of bzeros for the parameters
+        """
 
-	if isinstance(input, num.NumArray):
-	    _formats = ''
-	    _cols = []
-	    if pardata is None:
-		npars = 0
-	    else:
-	        npars = len(pardata)
+        if isinstance(input, num.NumArray):
+            _formats = ''
+            _cols = []
+            if pardata is None:
+                npars = 0
+            else:
+                npars = len(pardata)
 
-	    if parbscales is None:
-		parbscales = [None]*npars
-	    if parbzeros is None:
-		parbzeros = [None]*npars
+            if parbscales is None:
+                parbscales = [None]*npars
+            if parbzeros is None:
+                parbzeros = [None]*npars
 
-	    if bitpix is None:
-		bitpix = _ImageBaseHDU.ImgCode[input.type()]
-	    fits_fmt = GroupsHDU._dict[bitpix] # -32 -> 'E'
-	    _fmt = fits2rec[fits_fmt] # 'E' -> 'f4'
-	    _formats = (_fmt+',') * npars 
-	    data_fmt = '%s%s' % (`input.shape[1:]`, _fmt)
-	    _formats += data_fmt
-	    gcount = input.shape[0]
-	    for i in range(npars):
-		_cols.append(Column(name='c'+`i+1`, format = fits_fmt, bscale = parbscales[i], bzero = parbzeros[i]))
-	    _cols.append(Column(name='data', format = fits_fmt, bscale = bscale, bzero = bzero))
+            if bitpix is None:
+                bitpix = _ImageBaseHDU.ImgCode[input.type()]
+            fits_fmt = GroupsHDU._dict[bitpix] # -32 -> 'E'
+            _fmt = fits2rec[fits_fmt] # 'E' -> 'f4'
+            _formats = (_fmt+',') * npars 
+            data_fmt = '%s%s' % (`input.shape[1:]`, _fmt)
+            _formats += data_fmt
+            gcount = input.shape[0]
+            for i in range(npars):
+                _cols.append(Column(name='c'+`i+1`, format = fits_fmt, bscale = parbscales[i], bzero = parbzeros[i]))
+            _cols.append(Column(name='data', format = fits_fmt, bscale = bscale, bzero = bzero))
             self._coldefs = ColDefs(_cols)
-	    self.parnames = [i.lower() for i in parnames]
+            self.parnames = [i.lower() for i in parnames]
             tmp = FITS_rec(rec.array(None, formats=_formats, shape=gcount, names= self._coldefs.names))
-	    self.__setstate__(tmp.__getstate__())
-	    for i in range(npars):
-		(_scale, _zero)  = self._get_scale_factors(i)[3:5]
-		if _scale or _zero:
-	            self._convert[i] = pardata[i]
-		else:
-	            self._parent.field(i)[:] = pardata[i]
-	    (_scale, _zero)  = self._get_scale_factors(npars)[3:5]
-	    if _scale or _zero:
-	        self._convert[npars] = input
-	    else:
-	        self._parent.field(npars)[:] = input
-	else:
-	    self.__setstate__(input.__getstate__())
+            self.__setstate__(tmp.__getstate__())
+            for i in range(npars):
+                (_scale, _zero)  = self._get_scale_factors(i)[3:5]
+                if _scale or _zero:
+                    self._convert[i] = pardata[i]
+                else:
+                    self._parent.field(i)[:] = pardata[i]
+            (_scale, _zero)  = self._get_scale_factors(npars)[3:5]
+            if _scale or _zero:
+                self._convert[npars] = input
+            else:
+                self._parent.field(npars)[:] = input
+        else:
+            self.__setstate__(input.__getstate__())
 
     def __getattr__(self, attr):
         if attr == 'data':
             self.__dict__[attr] = self.field('data')
-	elif attr == '_unique':
-	    _unique = {}
-	    for i in range(len(self.parnames)):
-		_name = self.parnames[i]
-	        if _name in _unique:
-		    _unique[_name].append(i)
-	        else:
-		    _unique[_name] = [i]
+        elif attr == '_unique':
+            _unique = {}
+            for i in range(len(self.parnames)):
+                _name = self.parnames[i]
+                if _name in _unique:
+                    _unique[_name].append(i)
+                else:
+                    _unique[_name] = [i]
             self.__dict__[attr] = _unique
         try:
             return self.__dict__[attr]
@@ -3425,41 +3426,41 @@ class GroupData(FITS_rec):
             raise AttributeError(attr)
 
     def par(self, parName):
-	"""Get the group parameter values."""
+        """Get the group parameter values."""
 
         if isinstance(parName, (int, long)):
-	    result = self.field(parName)
-	else:
-	    indx = self._unique[parName.lower()]
-	    if len(indx) == 1:
-	        result = self.field(indx[0])
+            result = self.field(parName)
+        else:
+            indx = self._unique[parName.lower()]
+            if len(indx) == 1:
+                result = self.field(indx[0])
 
-	    # if more than one group parameter have the same name
-	    else:
-		result = self.field(indx[0]).astype('f8')
-		for i in indx[1:]:
-		    result += self.field(i)
+            # if more than one group parameter have the same name
+            else:
+                result = self.field(indx[0]).astype('f8')
+                for i in indx[1:]:
+                    result += self.field(i)
 
-	return result
+        return result
 
     def setpar(self, parName, value):
-	"""Set the group parameter values."""
+        """Set the group parameter values."""
 
         if isinstance(parName, (int, long)):
-	    self.field(parName)[:] = value
-	else:
-	    indx = self._unique[parName]
-	    if len(indx) == 1:
-	        self.field(indx[0])[:] = value
+            self.field(parName)[:] = value
+        else:
+            indx = self._unique[parName]
+            if len(indx) == 1:
+                self.field(indx[0])[:] = value
 
-	    # if more than one group parameter have the same name, the 
-	    # value must be a list (or tuple) containing arrays
-	    else:
-		if isinstance(value, (list, tuple)) and len(indx) == len(value):
-		    for i in range(len(indx)):
-	        	self.field(indx[i])[:] = value[i]
-		else:
-		    raise ValueError, "parameter value must be a sequence with %d arrays/numbers." % len(indx)
+            # if more than one group parameter have the same name, the 
+            # value must be a list (or tuple) containing arrays
+            else:
+                if isinstance(value, (list, tuple)) and len(indx) == len(value):
+                    for i in range(len(indx)):
+                        self.field(indx[i])[:] = value[i]
+                else:
+                    raise ValueError, "parameter value must be a sequence with %d arrays/numbers." % len(indx)
 
     def _getitem(self, offset):
         row = (offset - self._byteoffset) / self._strides[0]
@@ -3470,7 +3471,7 @@ class _Group(rec.Record):
     """One group of the random group data."""
 
     def __init__(self, input, row=0):
-	rec.Record.__init__(self, input, row)
+        rec.Record.__init__(self, input, row)
 
     def par(self, fieldName):
         """Get the group parameter value."""
@@ -3480,7 +3481,7 @@ class _Group(rec.Record):
     def setpar(self, fieldName, value):
         """Set the group parameter value."""
 
-	self.array[self.row:self.row+1].setpar(fieldName, value)
+        self.array[self.row:self.row+1].setpar(fieldName, value)
 
 
 class _TableBaseHDU(_ExtensionHDU):
@@ -3490,7 +3491,7 @@ class _TableBaseHDU(_ExtensionHDU):
         """
             header: header to be used
             data: data to be used
-	    name: name to be populated in EXTNAME keyword
+            name: name to be populated in EXTNAME keyword
         """
 
         if header is not None:
@@ -3518,7 +3519,7 @@ class _TableBaseHDU(_ExtensionHDU):
                 Card('PCOUNT',         0, 'number of group parameters'),
                 Card('GCOUNT',         1, 'number of groups'),
                 Card('TFIELDS',        0, 'number of table fields')
-		])
+                ])
 
             if header is not None:
 
@@ -3536,8 +3537,8 @@ class _TableBaseHDU(_ExtensionHDU):
                 self.header['NAXIS2'] = data._shape[0]
                 self.header['TFIELDS'] = data._nfields
                 self.data = data
-		self.columns = data._coldefs
-		self.update()
+                self.columns = data._coldefs
+                self.update()
             elif data is None:
                 pass
             else:
@@ -3640,14 +3641,14 @@ class _TableBaseHDU(_ExtensionHDU):
                 if val != '':
                     keyword = keyNames[commonNames.index(cname)]+`i+1`
                     if cname == 'format' and isinstance(self, BinTableHDU):
-			val = _cols._recformats[i]
-		  	if isinstance(val, _FormatX):
-			    val = `val._nx` + 'X'
-		  	elif isinstance(val, _FormatP):
-			    VLdata = self.data.field(i)
-			    VLdata._max = max(map(len, VLdata))
-			    val = 'P' + convert_format(val._dtype, reverse=1) + '(%d)' %  VLdata._max
-			else:
+                        val = _cols._recformats[i]
+                          if isinstance(val, _FormatX):
+                            val = `val._nx` + 'X'
+                          elif isinstance(val, _FormatP):
+                            VLdata = self.data.field(i)
+                            VLdata._max = max(map(len, VLdata))
+                            val = 'P' + convert_format(val._dtype, reverse=1) + '(%d)' %  VLdata._max
+                        else:
                             val = convert_format(val, reverse=1)
                     #_update(keyword, val)
                     _append(Card(keyword, val))
@@ -3753,8 +3754,8 @@ class _File:
 
             # For 'ab+' mode, the pointer is at the end after the open in 
             # Linux, but is at the beginning in Solaris.
-	    self.__file.seek(0, 2)
-	    self._size = self.__file.tell()
+            self.__file.seek(0, 2)
+            self._size = self.__file.tell()
             self.__file.seek(0)
 
     def __getattr__(self, attr):
@@ -3770,10 +3771,10 @@ class _File:
         return self.__file
 
     def _readheader(self, cardList, keyList, blocks): 
-	"""Read blocks of header, and put each card into a list of cards.
-	   Will deal with CONTINUE cards in a later stage as CONTINUE cards 
-	   may span across blocks.
-	"""
+        """Read blocks of header, and put each card into a list of cards.
+           Will deal with CONTINUE cards in a later stage as CONTINUE cards 
+           may span across blocks.
+        """
         if len(block) != blockLen:
             raise IOError, 'Block length is not %d: %d' % (blockLen, len(block))
         elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
@@ -3781,48 +3782,48 @@ class _File:
 
         for i in range(0, len(blockLen), Card.length):
             _card = Card('').fromstring(block[i:i+Card.length])
-	    _key = _card.key
+            _key = _card.key
 
-	    cardList.append(_card)
-	    keyList.append(_key)
+            cardList.append(_card)
+            keyList.append(_key)
             if _key == 'END':
                 break
 
     def _readHDU(self):
-	"""Read the skeleton structure of the HDU."""
+        """Read the skeleton structure of the HDU."""
 
-	end_RE = re.compile('END'+' '*77)
+        end_RE = re.compile('END'+' '*77)
         _hdrLoc = self.__file.tell()
 
-	# Read the first header block.
+        # Read the first header block.
         block = self.__file.read(blockLen)
         if block == '':
             raise EOFError
 
         hdu = _TempHDU()
-	hdu._raw = ''
+        hdu._raw = ''
 
-	# continue reading header blocks until END card is reached
+        # continue reading header blocks until END card is reached
         while 1:
 
-	    # find the END card
-	    mo = end_RE.search(block)
-	    if mo is None:
-		hdu._raw += block
+            # find the END card
+            mo = end_RE.search(block)
+            if mo is None:
+                hdu._raw += block
                 block = self.__file.read(blockLen)
-		if block == '':
-		    break
-	    else:
-		break
-	hdu._raw += block
+                if block == '':
+                    break
+            else:
+                break
+        hdu._raw += block
 
-	_size, hdu.name = hdu._getsize(hdu._raw)
+        _size, hdu.name = hdu._getsize(hdu._raw)
 
-	# get extname and extver
-	if hdu.name == '':
-	    hdu.name, hdu._extver = hdu._getname()
-	elif hdu.name == 'PRIMARY':
-	    hdu._extver = 1
+        # get extname and extver
+        if hdu.name == '':
+            hdu.name, hdu._extver = hdu._getname()
+        elif hdu.name == 'PRIMARY':
+            hdu._extver = 1
 
         hdu._file = self.__file
         hdu._hdrLoc = _hdrLoc                # beginning of the header area
@@ -3832,8 +3833,8 @@ class _File:
         hdu._datSpan = _size + padLength(_size) 
         hdu._new = 0 
         self.__file.seek(hdu._datSpan, 1)
-	if self.__file.tell() > self._size:
-	    print 'Warning: File size is smaller than specified data size.  File may have been truncated.'
+        if self.__file.tell() > self._size:
+            print 'Warning: File size is smaller than specified data size.  File may have been truncated.'
 
         hdu._ffile = self
                 
@@ -3887,19 +3888,19 @@ class _File:
                     for i in range(hdu.data._nfields):
                         coldata = hdu.data.field(i)
                         coldata2 = hdu.data._parent.field(i)
-	
+        
                         if not isinstance(coldata, chararray.CharArray):
 
                             # only swap unswapped
-			    # deal with var length table
+                            # deal with var length table
                             if isinstance(coldata, _VLF):
-				for i in coldata:
-                        	    if not isinstance(i, chararray.CharArray):
+                                for i in coldata:
+                                    if not isinstance(i, chararray.CharArray):
                                         if i._type.bytes > 1:
                                             if i._byteorder != 'big':
                                                 i.byteswap()
                                                 i._byteorder = 'big'
-			    else:
+                            else:
                                 if coldata._type.bytes > 1:
                                     if coldata._byteorder != 'big':
                                         coldata.byteswap()
@@ -3907,8 +3908,8 @@ class _File:
 
                             if coldata2._type.bytes > 1:
 
-				# do the _parent too, otherwise the _parent 
-				# of a scaled column may have wrong byteorder
+                                # do the _parent too, otherwise the _parent 
+                                # of a scaled column may have wrong byteorder
                                 if coldata2._byteorder != 'big':
                                     coldata2.byteswap()
                                     coldata2._byteorder = 'big'
@@ -3922,22 +3923,22 @@ class _File:
             output.tofile(self.__file)
             _size = output.nelements() * output._itemsize
 
-	    # write out the heap of variable length array columns
-	    # this has to be done after the "regular" data is written (above)
-	    _where = self.__file.tell()
+            # write out the heap of variable length array columns
+            # this has to be done after the "regular" data is written (above)
+            _where = self.__file.tell()
             if isinstance(hdu, BinTableHDU):
                 self.__file.write(hdu.data._gap*'\0')
 
                 for i in range(hdu.data._nfields):
-	    	    if isinstance(hdu.data._coldefs._recformats[i], _FormatP):
-			for j in range(len(hdu.data.field(i))):
-                    	    coldata = hdu.data.field(i)[j]
-			    if len(coldata) > 0:
-			        coldata.tofile(self.__file)
+                        if isinstance(hdu.data._coldefs._recformats[i], _FormatP):
+                        for j in range(len(hdu.data.field(i))):
+                                coldata = hdu.data.field(i)[j]
+                            if len(coldata) > 0:
+                                coldata.tofile(self.__file)
 
-		_shift = self.__file.tell() - _where
-	        hdu.data._heapsize = _shift - hdu.data._gap
-		_size = _size + _shift
+                _shift = self.__file.tell() - _where
+                hdu.data._heapsize = _shift - hdu.data._gap
+                _size = _size + _shift
 
             # pad the FITS data block
             if _size > 0:
@@ -3967,10 +3968,10 @@ class HDUList(list, _Verify):
     def __init__(self, hdus=[], file=None):
         """Construct a HDUList object.  
 
-	   hdus: Input, can be a list of HDU's or a single HDU. Default = None,
+           hdus: Input, can be a list of HDU's or a single HDU. Default = None,
                  i.e. an empty HDUList.
-	   file: The opened physical file associated with the HDUList. 
-	   	 Default = None.
+           file: The opened physical file associated with the HDUList. 
+                    Default = None.
         """
         self.__file = file
         if hdus is None:
@@ -3988,13 +3989,13 @@ class HDUList(list, _Verify):
         list.__init__(self, hdus)
 
     def __iter__(self):
-	return [self[i] for i in range(len(self))].__iter__()
+        return [self[i] for i in range(len(self))].__iter__()
 
     def __getitem__(self, key):
         """Get an HDU from the HDUList, indexed by number or name."""
         key = self.index_of(key)
         _item = super(HDUList, self).__getitem__(key)
-	if isinstance(_item, _TempHDU):
+        if isinstance(_item, _TempHDU):
             super(HDUList, self).__setitem__(key, _item.setupHDU())
 
         return super(HDUList, self).__getitem__(key)
@@ -4008,19 +4009,19 @@ class HDUList(list, _Verify):
         """Set an HDU to the HDUList, indexed by number or name."""
         _key = self.index_of(key)
         if isinstance(hdu, (slice, list)):
- 	    if isinstance(_key, int):
-		raise ValueError, "An element in the HDUList must be an HDU."
+             if isinstance(_key, int):
+                raise ValueError, "An element in the HDUList must be an HDU."
             for item in hdu:
- 		if not isinstance(item, _AllHDU):
-		    raise ValueError, "%s is not an HDU." % item
-	else:
- 	    if not isinstance(hdu, _AllHDU):
-		raise ValueError, "%s is not an HDU." % hdu
+                 if not isinstance(item, _AllHDU):
+                    raise ValueError, "%s is not an HDU." % item
+        else:
+             if not isinstance(hdu, _AllHDU):
+                raise ValueError, "%s is not an HDU." % hdu
 
-	try: 
+        try: 
             super(HDUList, self).__setitem__(_key, hdu)
-	except IndexError:
-	    raise IndexError, 'Extension %s is out of bound or not found.' % key
+        except IndexError:
+            raise IndexError, 'Extension %s is out of bound or not found.' % key
         self._resize = 1
 
     def __delitem__(self, key):
@@ -4040,7 +4041,7 @@ class HDUList(list, _Verify):
         _err = _ErrList([], unit='HDU')
 
         # the first (0th) element must be a primary HDU
-	if len(self) > 0 and (not isinstance(self[0], PrimaryHDU)):
+        if len(self) > 0 and (not isinstance(self[0], PrimaryHDU)):
             err_text = "HDUList's 0th element is not a primary HDU."
             fix_text = 'Fixed by inserting one as 0th HDU.'
             fix = "self.insert(0, PrimaryHDU())"
@@ -4056,7 +4057,7 @@ class HDUList(list, _Verify):
 
             else:
                 _result = self[i]._verify(option)
-		if _result:
+                if _result:
                     _err.append(_result)
         return _err
 
@@ -4133,36 +4134,36 @@ class HDUList(list, _Verify):
                     hdu.data._scale_back()
                 if isinstance(hdu, _TableBaseHDU) and hdu.data is not None:
 
-		    # check TFIELDS and NAXIS2
-		    hdu.header['TFIELDS'] = hdu.data._nfields
-		    hdu.header['NAXIS2'] = hdu.data.shape[0]
+                    # check TFIELDS and NAXIS2
+                    hdu.header['TFIELDS'] = hdu.data._nfields
+                    hdu.header['NAXIS2'] = hdu.data.shape[0]
 
-		    # calculate PCOUNT, for variable length tables
-        	    _tbsize = hdu.header['NAXIS1']*hdu.header['NAXIS2']
-        	    _heapstart = hdu.header.get('THEAP', _tbsize)
-        	    hdu.data._gap = _heapstart - _tbsize
-		    _pcount = hdu.data._heapsize + hdu.data._gap
-		    if _pcount > 0:
-			hdu.header['PCOUNT'] = _pcount
+                    # calculate PCOUNT, for variable length tables
+                    _tbsize = hdu.header['NAXIS1']*hdu.header['NAXIS2']
+                    _heapstart = hdu.header.get('THEAP', _tbsize)
+                    hdu.data._gap = _heapstart - _tbsize
+                    _pcount = hdu.data._heapsize + hdu.data._gap
+                    if _pcount > 0:
+                        hdu.header['PCOUNT'] = _pcount
 
-	            # update TFORM for variable length columns
-		    for i in range(hdu.data._nfields):
-		        if isinstance(hdu.data._coldefs.formats[i], _FormatP):
-			    key = hdu.header['TFORM'+`i+1`]
-			    hdu.header['TFORM'+`i+1`] = key[:key.find('(')+1] + `hdu.data.field(i)._max` + ')'
-			    
+                    # update TFORM for variable length columns
+                    for i in range(hdu.data._nfields):
+                        if isinstance(hdu.data._coldefs.formats[i], _FormatP):
+                            key = hdu.header['TFORM'+`i+1`]
+                            hdu.header['TFORM'+`i+1`] = key[:key.find('(')+1] + `hdu.data.field(i)._max` + ')'
+                            
 
     def flush(self, output_verify='exception', verbose=0):
         """Force a write of the HDUList back to the file (for append and
            update modes only).
 
-	   output_verify:  output verification option, default = 'exception'.
-	   verbose: print out verbose messages? default = 0.
+           output_verify:  output verification option, default = 'exception'.
+           verbose: print out verbose messages? default = 0.
         """
 
         if self.__file.mode not in ('append', 'update'):
             print "flush for '%s' mode is not supported." % self.__file.mode
-	    return
+            return
 
         self.update_tbhdu()
         self.verify(option=output_verify)
@@ -4188,7 +4189,7 @@ class HDUList(list, _Verify):
 
                     # Header:
                     # Add 1 to .ascard to include the END card
-		    _nch80 = reduce(operator.add, map(Card._ncards, hdu.header.ascard))
+                    _nch80 = reduce(operator.add, map(Card._ncards, hdu.header.ascard))
                     _bytes = (_nch80+1) * Card.length
                     _bytes = _bytes + padLength(_bytes)
                     if _bytes != (hdu._datLoc-hdu._hdrLoc):
@@ -4282,10 +4283,10 @@ class HDUList(list, _Verify):
     def writeto(self, name, output_verify='exception', clobber=False):
         """Write the HDUList to a new file.
 
-	   name:  output FITS file name to be written to.
-	   output_verify:  output verification option, default = 'exception'.
-	   clobber:  Overwrite the output file if exists, default = False.
-	"""
+           name:  output FITS file name to be written to.
+           output_verify:  output verification option, default = 'exception'.
+           clobber:  Overwrite the output file if exists, default = False.
+        """
 
         if (len(self) == 0):
             print "There is nothing to write."
@@ -4300,10 +4301,10 @@ class HDUList(list, _Verify):
 
         # check if the output file already exists
         if os.path.exists(name):
-	    if clobber:
-		print "Overwrite existing file '%s'." % name
-		os.remove(name)
-	    else:
+            if clobber:
+                print "Overwrite existing file '%s'." % name
+                os.remove(name)
+            else:
                 raise IOError, "File '%s' already exist." % name
 
         # make sure the EXTEND keyword is there if there is extension
@@ -4318,27 +4319,27 @@ class HDUList(list, _Verify):
     def close(self, output_verify='exception', verbose=0):
         """Close the associated FITS file and memmap object, if any.
 
-	   output_verify:  output verification option, default = 'exception'.
-	   verbose: print out verbose messages? default = 0.
+           output_verify:  output verification option, default = 'exception'.
+           verbose: print out verbose messages? default = 0.
 
            This simply calls the close method of the _File class.  It has this 
            two-tier calls because _File has ts own private attribute __file.
         """
 
         if self.__file != None:
-	    if self.__file.memmap == 1:
-	        self.mmobject = self.__file._mm
+            if self.__file.memmap == 1:
+                self.mmobject = self.__file._mm
             if self.__file.mode in ['append', 'update']:
                 self.flush(output_verify=output_verify, verbose=verbose)
             self.__file.close()
 
-	# close the memmap object, it is designed to use an independent 
-	# attribute of mmobject so if the HDUList object is created from files 
-	# other than FITS, the close() call can also close the mm object.
-	try:
-	    self.mmobject.close()
-	except:
-	    pass
+        # close the memmap object, it is designed to use an independent 
+        # attribute of mmobject so if the HDUList object is created from files 
+        # other than FITS, the close() call can also close the mm object.
+        try:
+            self.mmobject.close()
+        except:
+            pass
 
     def info(self):
         """Summarize the info of the HDU's in this HDUList."""
@@ -4357,7 +4358,7 @@ class HDUList(list, _Verify):
 
 def open(name, mode="copyonwrite", memmap=0):
     """Factory function to open a FITS file and return an HDUList object.
-	
+        
        name: Name of the FITS file to be opened.
        mode: Open mode, 'readonly' (default), 'update', or 'append'.
        memmap: Is memmory mapping to be used? default=0.
@@ -4373,10 +4374,10 @@ def open(name, mode="copyonwrite", memmap=0):
             hduList.append(ffo._readHDU())
         except EOFError:
             break
-	# check in the case there is extra space after the last HDU or corrupted HDU
-	except ValueError:
-	    print 'Warning:  Required keywords missing when trying to read HDU #%d.\n    There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList)+1)
-	    break
+        # check in the case there is extra space after the last HDU or corrupted HDU
+        except ValueError:
+            print 'Warning:  Required keywords missing when trying to read HDU #%d.\n    There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList)+1)
+            break
 
     # initialize/reset attributes to be used in "update/append" mode
     # CardList needs its own _mod attribute since it has methods to change
@@ -4390,266 +4391,266 @@ fitsopen = open
 # Convenience functions
 
 class _Zero(int):
-	def __init__(self):
-	    self = 0
+        def __init__(self):
+            self = 0
 
 def _getext(filename, mode, *ext1, **ext2):
-	"""Open the input file, return the HDUList and the extension."""
-	hdulist = open(filename, mode=mode)
-	n_ext1 = len(ext1)
-	n_ext2 = len(ext2)
-	keys = ext2.keys()
+        """Open the input file, return the HDUList and the extension."""
+        hdulist = open(filename, mode=mode)
+        n_ext1 = len(ext1)
+        n_ext2 = len(ext2)
+        keys = ext2.keys()
 
-	# parse the extension spec
-	if n_ext1 > 2:
-	    raise ValueError, "too many positional arguments"
-	elif n_ext1 == 1:
-	    if n_ext2 == 0:
-	        ext = ext1[0]
-	    else:
-		if isinstance(ext1[0], (int, tuple)):
-		    raise KeyError, 'Redundant/conflicting keyword argument(s): %s' % ext2
-		if isinstance(ext1[0], str):
-		    if n_ext2 == 1 and 'extver' in keys:
-			ext = ext1[0], ext2['extver']
-		    raise KeyError, 'Redundant/conflicting keyword argument(s): %s' % ext2
-	elif n_ext1 == 2:
-	    if n_ext2 == 0:
-	        ext = ext1
-	    else:
-		raise KeyError, 'Redundant/conflicting keyword argument(s): %s' % ext2
-	elif n_ext1 == 0:
-	    if n_ext2 == 0:
-	        ext = _Zero()
-	    elif 'ext' in keys:
-		if n_ext2 == 1:
-		    ext = ext2['ext']
-		elif n_ext2 == 2 and 'extver' in keys:
-		    ext = ext2['ext'], ext2['extver']
-		else:
-		    raise KeyError, 'Redundant/conflicting keyword argument(s): %s' % ext2
-	    else:
-		if 'extname' in keys:
-		    if 'extver' in keys:
-			ext = ext2['extname'], ext2['extver']
-		    else:
-			ext = ext2['extname']
-		else:
-		    raise KeyError, 'Insufficient keyword argument: %s' % ext2
+        # parse the extension spec
+        if n_ext1 > 2:
+            raise ValueError, "too many positional arguments"
+        elif n_ext1 == 1:
+            if n_ext2 == 0:
+                ext = ext1[0]
+            else:
+                if isinstance(ext1[0], (int, tuple)):
+                    raise KeyError, 'Redundant/conflicting keyword argument(s): %s' % ext2
+                if isinstance(ext1[0], str):
+                    if n_ext2 == 1 and 'extver' in keys:
+                        ext = ext1[0], ext2['extver']
+                    raise KeyError, 'Redundant/conflicting keyword argument(s): %s' % ext2
+        elif n_ext1 == 2:
+            if n_ext2 == 0:
+                ext = ext1
+            else:
+                raise KeyError, 'Redundant/conflicting keyword argument(s): %s' % ext2
+        elif n_ext1 == 0:
+            if n_ext2 == 0:
+                ext = _Zero()
+            elif 'ext' in keys:
+                if n_ext2 == 1:
+                    ext = ext2['ext']
+                elif n_ext2 == 2 and 'extver' in keys:
+                    ext = ext2['ext'], ext2['extver']
+                else:
+                    raise KeyError, 'Redundant/conflicting keyword argument(s): %s' % ext2
+            else:
+                if 'extname' in keys:
+                    if 'extver' in keys:
+                        ext = ext2['extname'], ext2['extver']
+                    else:
+                        ext = ext2['extname']
+                else:
+                    raise KeyError, 'Insufficient keyword argument: %s' % ext2
 
-	return hdulist, ext
+        return hdulist, ext
 
 def getheader(filename, *ext, **extkeys):
-	"""Get the header of the specified extension of filename.
+        """Get the header of the specified extension of filename.
 
            Input arguments:   
 
-	   filename: input FITS file name
-	   
-	   The rest ofthe arguments are for extension specification.  They are
-	   flexible and is best illustrated by examples:
+           filename: input FITS file name
+           
+           The rest ofthe arguments are for extension specification.  They are
+           flexible and is best illustrated by examples:
 
-	   # the default extension (=0) i.e. primary HDU
-	   >>> getheader('in.fits')       
-	   >>> getheader('in.fits', 0)    # the primary HDU
-	   >>> getheader('in.fits', 2)    # the second extension
+           # the default extension (=0) i.e. primary HDU
+           >>> getheader('in.fits')       
+           >>> getheader('in.fits', 0)    # the primary HDU
+           >>> getheader('in.fits', 2)    # the second extension
 
-	   # the HDU with EXTNAME='sci' (if there is only 1)
-	   >>> getheader('in.fits', 'sci')  
+           # the HDU with EXTNAME='sci' (if there is only 1)
+           >>> getheader('in.fits', 'sci')  
 
-	   # the HDU with EXTNAME='sci' and EXTVER=2
-	   >>> getheader('in.fits', 'sci', 2)
-	   >>> getheader('in.fits', ('sci', 2))   # same
+           # the HDU with EXTNAME='sci' and EXTVER=2
+           >>> getheader('in.fits', 'sci', 2)
+           >>> getheader('in.fits', ('sci', 2))   # same
 
-	   >>> getheader('in.fits', ext=2)          # the second extension
+           >>> getheader('in.fits', ext=2)          # the second extension
 
-	   # the 'sci' extension, if there is only 1
-	   >>> getheader('in.fits', extname='sci')  
+           # the 'sci' extension, if there is only 1
+           >>> getheader('in.fits', extname='sci')  
 
-	   # the HDU with EXTNAME='sci' and EXTVER=2
-	   >>> getheader('in.fits', extname='sci', extver=2)
+           # the HDU with EXTNAME='sci' and EXTVER=2
+           >>> getheader('in.fits', extname='sci', extver=2)
 
-	   # ambiguous specifications will raise an exception, DON"T DO IT!!
-	   >>> getheader('in.fits', ext=('sci',1), extname='err', extver=2) 
-	"""
+           # ambiguous specifications will raise an exception, DON"T DO IT!!
+           >>> getheader('in.fits', ext=('sci',1), extname='err', extver=2) 
+        """
 
-	hdulist, _ext = _getext(filename, 'readonly', *ext, **extkeys)
-	hdu = hdulist[_ext]
-	hdr = hdu.header
-	hdulist.close()
-	return hdr
+        hdulist, _ext = _getext(filename, 'readonly', *ext, **extkeys)
+        hdu = hdulist[_ext]
+        hdr = hdu.header
+        hdulist.close()
+        return hdr
 
 def getdata(filename, *ext, **extkeys):
-	"""Get the data of the specified extension of filename.  
+        """Get the data of the specified extension of filename.  
 
            Input arguments:   
 
-	   filename: input FITS file name
-	   
-	   The rest of the arguments are for extension specification.  
-	   See getheader for explanations/examples.
+           filename: input FITS file name
+           
+           The rest of the arguments are for extension specification.  
+           See getheader for explanations/examples.
 
-	   If the optional key 'header' is set to True, this function will 
-	   return (data, header).
-	"""
+           If the optional key 'header' is set to True, this function will 
+           return (data, header).
+        """
 
-	if 'header' in extkeys:
-	    _gethdr = extkeys['header']
-	    del extkeys['header']
-	else:
-	    _gethdr = False 
+        if 'header' in extkeys:
+            _gethdr = extkeys['header']
+            del extkeys['header']
+        else:
+            _gethdr = False 
 
-	hdulist, _ext = _getext(filename, 'readonly', *ext, **extkeys)
-	hdu = hdulist[_ext]
-	_data = hdu.data
-	if _data is None and isinstance(_ext, _Zero):
-	    try:
-	        hdu = hdulist[1]
-	        _data = hdu.data
-	    except IndexError:
-		raise IndexError, 'No data in this HDU.'
-	if _data is None:
-	    raise IndexError, 'No data in this HDU.'
-	if _gethdr:
-	    _hdr = hdu.header
-	hdulist.close()
-	if _gethdr:
-	    return _data, _hdr
-	else:
-	    return _data
+        hdulist, _ext = _getext(filename, 'readonly', *ext, **extkeys)
+        hdu = hdulist[_ext]
+        _data = hdu.data
+        if _data is None and isinstance(_ext, _Zero):
+            try:
+                hdu = hdulist[1]
+                _data = hdu.data
+            except IndexError:
+                raise IndexError, 'No data in this HDU.'
+        if _data is None:
+            raise IndexError, 'No data in this HDU.'
+        if _gethdr:
+            _hdr = hdu.header
+        hdulist.close()
+        if _gethdr:
+            return _data, _hdr
+        else:
+            return _data
 
 def getval(filename, key, *ext, **extkeys):
-	"""Return a header keyword's value.
+        """Return a header keyword's value.
 
            Input arguments:   
 
-	   filename: input FITS file name
-	   key: keyword name
-	   
-	   The rest of the arguments are for extension specification.  
-	   See getheader for explanations/examples.
-	"""
+           filename: input FITS file name
+           key: keyword name
+           
+           The rest of the arguments are for extension specification.  
+           See getheader for explanations/examples.
+        """
 
-	_hdr = getheader(filename, *ext, **extkeys)
-	return _hdr[key]
+        _hdr = getheader(filename, *ext, **extkeys)
+        return _hdr[key]
 
 def _makehdu(data, header):
-	if header is None:
-	    if isinstance(data, num.NumArray):
-		hdu = ImageHDU(data)
-	    elif isinstance(data, FITS_rec):
-		hdu = BinTableHDU(data)
-	    else:
-		raise KeyError, 'data must be numarray or table data.'
-	else:    
-	    hdu=header._hdutype(data=data, header=header)
-	return hdu
+        if header is None:
+            if isinstance(data, num.NumArray):
+                hdu = ImageHDU(data)
+            elif isinstance(data, FITS_rec):
+                hdu = BinTableHDU(data)
+            else:
+                raise KeyError, 'data must be numarray or table data.'
+        else:    
+            hdu=header._hdutype(data=data, header=header)
+        return hdu
 
 def writeto(filename, data, header=None, **keys):
-	"""Create a new file using the input data/header.
+        """Create a new file using the input data/header.
 
            Input arguments:   
 
-	   filename: name of the new FITS file to write to
-	   data: data in the new file
-	   header: the header associated with 'data', if None, will be 
-		   an image HDU header if data is numarray, and binary table 
-		   HDU header if data is from a table. 
-		   This argument is optional and can be specified with or 
-		   without the key.
-	   clobber: optional key, if True and if filename already exists, it 
-		   will overwrite the file.  Default is False.
-	"""
+           filename: name of the new FITS file to write to
+           data: data in the new file
+           header: the header associated with 'data', if None, will be 
+                   an image HDU header if data is numarray, and binary table 
+                   HDU header if data is from a table. 
+                   This argument is optional and can be specified with or 
+                   without the key.
+           clobber: optional key, if True and if filename already exists, it 
+                   will overwrite the file.  Default is False.
+        """
 
-	if header is None:
-	    if 'header' in keys:
-		header = keys['header']
-	hdu=_makehdu(data, header)
-	if not isinstance(hdu, PrimaryHDU):
-	    hdu = PrimaryHDU(data, header=header)
-	clobber = keys.get('clobber', False)
-	hdu.writeto(filename, clobber=clobber)
+        if header is None:
+            if 'header' in keys:
+                header = keys['header']
+        hdu=_makehdu(data, header)
+        if not isinstance(hdu, PrimaryHDU):
+            hdu = PrimaryHDU(data, header=header)
+        clobber = keys.get('clobber', False)
+        hdu.writeto(filename, clobber=clobber)
 
 def append(filename, data, header=None):
-	"""Append the header/data if filename exists, create if not.
+        """Append the header/data if filename exists, create if not.
 
            Input arguments:   
 
-	   filename: name of the file to append to
-	   data: the new data used for appending
-	   header: the header associated with 'data', if None, will be 
-		   an image HDU header if data is numarray, and binary table 
-		   HDU header if data is from a table. 
-	"""
+           filename: name of the file to append to
+           data: the new data used for appending
+           header: the header associated with 'data', if None, will be 
+                   an image HDU header if data is numarray, and binary table 
+                   HDU header if data is from a table. 
+        """
 
         if not os.path.exists(filename):
-	    writeto(filename, data, header)
-	else:
-	    hdu=_makehdu(data, header)
-	    if isinstance(hdu, PrimaryHDU):
-		hdu = ImageHDU(data, header)
-	    f = open(filename, mode='update')
-	    f.append(hdu)
-	    f.close()
+            writeto(filename, data, header)
+        else:
+            hdu=_makehdu(data, header)
+            if isinstance(hdu, PrimaryHDU):
+                hdu = ImageHDU(data, header)
+            f = open(filename, mode='update')
+            f.append(hdu)
+            f.close()
 
 def update(filename, data, *ext, **extkeys):
-	"""Update the specified extension with the input data/header.
+        """Update the specified extension with the input data/header.
       
            Input arguments:   
 
-	   filename: name of the file to be updated
-	   data: the new data used for updating
-	   
-	   The rest of the arguments are flexible: 
-	   the 3rd argument can be the header associated with the data.  
-	   If the 3rd argument is not a header, it (and other positional 
-	   arguments) are assumed to be the extension specification(s).  
-	   Header and extension specs can also be keyword arguments.  
-	   For example:
+           filename: name of the file to be updated
+           data: the new data used for updating
+           
+           The rest of the arguments are flexible: 
+           the 3rd argument can be the header associated with the data.  
+           If the 3rd argument is not a header, it (and other positional 
+           arguments) are assumed to be the extension specification(s).  
+           Header and extension specs can also be keyword arguments.  
+           For example:
 
-	   >>> update(file, dat, hdr, 'sci')  # update the 'sci' extension 
-	   >>> update(file, dat, 3)  # update the 3rd extension 
-	   >>> update(file, dat, hdr, 3)  # update the 3rd extension 
-	   >>> update(file, dat, 'sci', 2)  # update the 2nd SCI extension 
-	   >>> update(file, dat, 3, header=hdr)  # update the 3rd extension 
-	   >>> update(file, dat, header=hdr, ext=5)  # update the 5th extension 
-	"""
+           >>> update(file, dat, hdr, 'sci')  # update the 'sci' extension 
+           >>> update(file, dat, 3)  # update the 3rd extension 
+           >>> update(file, dat, hdr, 3)  # update the 3rd extension 
+           >>> update(file, dat, 'sci', 2)  # update the 2nd SCI extension 
+           >>> update(file, dat, 3, header=hdr)  # update the 3rd extension 
+           >>> update(file, dat, header=hdr, ext=5)  # update the 5th extension 
+        """
 
-	# parse the arguments
-	header = None
-	if len(ext) > 0:
-	    if isinstance(ext[0], Header):
-		header = ext[0]
-		ext = ext[1:]
-	    elif not isinstance(ext[0], (int, long, str, tuple)):
-		raise KeyError, 'Input argument has wrong data type.' 
+        # parse the arguments
+        header = None
+        if len(ext) > 0:
+            if isinstance(ext[0], Header):
+                header = ext[0]
+                ext = ext[1:]
+            elif not isinstance(ext[0], (int, long, str, tuple)):
+                raise KeyError, 'Input argument has wrong data type.' 
 
-	if 'header' in extkeys:
-	    header = extkeys['header']
-	    del extkeys['header']
-	    
-	new_hdu=_makehdu(data, header)
-	hdulist, _ext = _getext(filename, 'update', *ext, **extkeys)
-	hdulist[_ext] = new_hdu
-	hdulist.close()
+        if 'header' in extkeys:
+            header = extkeys['header']
+            del extkeys['header']
+            
+        new_hdu=_makehdu(data, header)
+        hdulist, _ext = _getext(filename, 'update', *ext, **extkeys)
+        hdulist[_ext] = new_hdu
+        hdulist.close()
 
 def info(filename):
-	"""Get the file info.
+        """Get the file info.
       
            Input argument:
 
-	   filename: input FITS file name
-	"""
+           filename: input FITS file name
+        """
 
-	f = open(filename)
-	text = f.info()
-	f.close()
-	return text
+        f = open(filename)
+        text = f.info()
+        f.close()
+        return text
 
 _locals = locals().keys()
 for n in _locals[::-1]:
     if n[0] == '_' or n in ('re', 'os', 'tempfile', 'exceptions', 'operator', 'num', 'ndarray', 'chararray', 'rec', 'objects', 'Memmap', 'maketrans', 'open'):
-	_locals.remove(n)
+        _locals.remove(n)
 __all__ = _locals
 
 
