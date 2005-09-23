@@ -17,7 +17,7 @@ publication, NOST 100-2.0.
 
                 - Google Search, when asked for "PyFITS"
 """
- 
+
 import re, os, tempfile, exceptions
 import operator
 import __builtin__
