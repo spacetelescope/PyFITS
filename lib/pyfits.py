@@ -29,7 +29,7 @@ import numarray.objects as objects
 import numarray.memmap as Memmap
 from string import maketrans
 
-__version__ = '0.9.8.7 (July 22, 2005)'
+__version__ = '1.0 (Nov 01, 2005)'
 
 # Module variables
 blockLen = 2880         # the FITS block size
