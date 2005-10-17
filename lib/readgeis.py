@@ -54,7 +54,7 @@
 
 # Developed by Science Software Branch, STScI, USA.
 # This version needs pyfits 0.9.6.3 or later
-__version__ = "Version 1.8 (05 April, 2005), \xa9 AURA"
+__version__ = "1.8 (05 April, 2005), \xa9 AURA"
 
 import os, sys, string
 import pyfits
