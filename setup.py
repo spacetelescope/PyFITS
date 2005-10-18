@@ -2,11 +2,11 @@ from distutils.core import setup
 import sys
 
 if not hasattr(sys, 'version_info') or sys.version_info < (2,3,0,'alpha',0):
-    raise SystemExit, "Python 2.3 or later required to build pytools."
+    raise SystemExit, "Python 2.3 or later required to build pyfits."
 
 def dolocal():
     """Adds a command line option --local=<install-dir> which is an abbreviation for
-    'put all of pytools in <install-dir>/pytools'."""
+    'put all of pyfits in <install-dir>/pyfits'."""
     if "--help" in sys.argv:
         print >>sys.stderr
         print >>sys.stderr, " options:"
