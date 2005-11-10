@@ -11,8 +11,8 @@
 
 # test set attribute and  ascardimage() using the most updated attributes
 >>> c.value=200
->>> print c.ascardimage()
-XYZ     =                  200
+>>> print c.ascardimage() 
+XYZ     =                  200 
 
 # string value
 >>> c=pyfits.Card('abc','<8 ch')
