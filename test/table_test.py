@@ -2,6 +2,7 @@
 >>> import pyfits
 >>> import os
 >>> import numarray as num
+>>> import numarray.records as rec
 >>> import numarray.strings as chararray
 
 # open some existing FITS files:
@@ -44,12 +45,13 @@
 
 >>> x2=pyfits.ColDefs(tt[1])
 >>> t2=pyfits.new_table(x2, nrows=3)
->>> print t2.data
-RecArray[
-(1, 'abc', 3.7000002861022949, 0),
-(2, 'xy', 6.6999998092651367, 1),
-(0, ' ', 0.40000000596046448, 0)
-]
+>>> ra = rec.array([
+... (1, 'abc', 3.7000002861022949, 0),
+... (2, 'xy', 6.6999998092651367, 1),
+... (0, ' ', 0.40000000596046448, 0)
+... ], names='c1, c2, c3, c4')
+>>> comparerecords(t2.data, ra)
+True
 
 # the table HDU's data is a subclass of a record array, so we can access
 # one row like this:
@@ -106,11 +108,8 @@ start:
 dim:
      ['', '', '', '']
 
->>> print t[1].data
-RecArray[
-(1, 'abc', 3.7000002861022949, 0),
-(2, 'xy', 6.6999998092651367, 1)
-]
+>>> comparerecords(t[1].data, ra[:2])
+True
 
 # Change scaled field and scale back to the original array
 >>> t[1].data.field('c4')[0] = 1
@@ -127,31 +126,34 @@ array([1, 2])
 
 # ASCII table
 >>> a=pyfits.open('ascii.fits')
->>> print a[1].data
-RecArray[
-(10.123000144958496, 37),
-(5.1999998092651367, 23),
-(15.609999656677246, 17),
-(0.0, 0),
-(345.0, 345)
-]
+>>> ra1 = rec.array([
+... (10.123000144958496, 37),
+... (5.1999998092651367, 23),
+... (15.609999656677246, 17),
+... (0.0, 0),
+... (345.0, 345)
+... ], names='c1, c2')
+>>> comparerecords(a[1].data, ra1)
+True
 
 # Test slicing
 >>> a2=a[1].data[2:]
->>> print a2
-RecArray[
-(15.609999656677246, 17),
-(0.0, 0),
-(345.0, 345)
-]
+>>> ra2 = rec.array([
+... (15.609999656677246, 17),
+... (0.0, 0),
+... (345.0, 345)
+... ], names='c1, c2')
+>>> comparerecords(a2, ra2)
+True
 >>> a2.field(1)
 array([ 17,   0, 345])
->>> print a[1].data[::2]
-RecArray[
-(10.123000144958496, 37),
-(15.609999656677246, 17),
-(345.0, 345)
-]
+>>> ra3 = rec.array([
+... (10.123000144958496, 37),
+... (15.609999656677246, 17),
+... (345.0, 345)
+... ], names='c1, c2')
+>>> comparerecords(a[1].data[::2], ra3)
+True
 
 >>> os.remove('tableout1.fits')
 
@@ -162,7 +164,61 @@ import numarray.records as recarray
 import numarray as num
 import os, sys, string
 
-
+def comparefloats(a, b):
+    """Compare two float scalars or arrays and see if they are consistent
+    
+    Consistency is determined ensuring the difference is less than the
+    expected amount. Return True if consistent, False if any differences"""
+    aa = num.ravel(num.array(a))
+    bb = num.ravel(num.array(b))
+    # compute expected precision
+    if aa.type()==num.Float32 or bb.type()==num.Float32:
+        precision = 0.000001
+    else:
+        precision = 0.0000000000000001
+    precision = 0.00001 # until precision problem is fixed in pyfits
+    diff = num.abs(aa-bb)
+    mask0 = aa == 0
+    masknz = aa != 0. 
+    if num.any(mask0):
+        if diff[mask0].max() != 0.:
+            return False
+    if num.any(masknz):
+        if (diff[masknz]/aa[masknz]).max() > precision:
+            return False
+    return True
+    
+def comparerecords(a, b):
+    """Compare two record arrays
+    
+    Does this field by field, using approximation testing for float columns
+    (Complex not yet handled.)
+    Column names not compared, but column types and sizes are.
+    """
+    nfieldsa = a._nfields
+    nfieldsb = b._nfields
+    if nfieldsa != nfieldsb:
+        print "number of fields don't match"
+        return False
+    for i in range(nfieldsa):
+        fielda = a.field(i)
+        fieldb = b.field(i)
+        if type(fielda) != type(fieldb):
+            print 'field %d type differs' % i
+            return False
+        if not isinstance(fielda, num.strings.CharArray) and \
+               isinstance(fielda.type(), num.FloatingType):
+            if not comparefloats(fielda, fieldb):
+                print 'field %d differs' % i
+                return False
+        else:
+            if num.any(fielda != fieldb):
+                print 'field %d differs' % i
+                return False
+    return True
+    
+        
+    
 def test():
     import doctest, table_test
     return doctest.testmod(table_test)

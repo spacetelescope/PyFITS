@@ -12,20 +12,20 @@
 # test set attribute and  ascardimage() using the most updated attributes
 >>> c.value=200
 >>> print c.ascardimage() 
-XYZ     =                  200 
+XYZ     =                  200                                                  
 
 # string value
 >>> c=pyfits.Card('abc','<8 ch')
 >>> print c
-ABC     = '<8 ch   '
+ABC     = '<8 ch   '                                                            
 >>> c=pyfits.Card('nullstr','')
 >>> print c
-NULLSTR = ''
+NULLSTR = ''                                                                    
 
 # Boolean value card
 >>> c=pyfits.Card("abc", pyfits.TRUE)
 >>> print c
-ABC     =                    T
+ABC     =                    T                                                  
 
 >>> c=pyfits.Card().fromstring('abc     = F')
 >>> print c.value
@@ -34,17 +34,17 @@ F
 # long integer number
 >>> c=pyfits.Card('long_int', -467374636747637647347374734737437)
 >>> print c
-LONG_INT= -467374636747637647347374734737437
+LONG_INT= -467374636747637647347374734737437                                    
 
 # floating point number
 >>> c=pyfits.Card('floatnum', -467374636747637647347374734737437.)
 >>> print c
-FLOATNUM= -4.673746367476376E+32
+FLOATNUM= -4.673746367476376E+32                                                
 
 # complex value
 >>> c=pyfits.Card('abc',1.2345377437887837487e88+6324767364763746367e-33j)
 >>> print c
-ABC     = (1.234537743788784E+88, 6.324767364763747E-15)
+ABC     = (1.234537743788784E+88, 6.324767364763747E-15)                        
 
 # card image constructed from key/value/comment is too long (non-string value)
 >>> c=pyfits.Card('abc',9,'abcde'*20)
@@ -113,10 +113,10 @@ ValueError: Unprintable string 'abcde\\x00                                      
 # commentary cards
 >>> c=pyfits.Card("history","A commentary card's value has no quotes around it.")
 >>> print c
-HISTORY A commentary card's value has no quotes around it.
+HISTORY A commentary card's value has no quotes around it.                      
 >>> c=pyfits.Card("comment", "A commentary card has no comment.", "comment")
 >>> print c
-COMMENT A commentary card has no comment.
+COMMENT A commentary card has no comment.                                       
 
 # commentary card created by fromstring()
 >>> c=pyfits.Card().fromstring("COMMENT card has no comments. / text after slash is still part of the value.")
@@ -128,40 +128,40 @@ COMMENT A commentary card has no comment.
 # commentary card will not parse the numerical value
 >>> c=pyfits.Card().fromstring("history  (1, 2)")
 >>> print c.ascardimage()
-HISTORY  (1, 2)
+HISTORY  (1, 2)                                                                 
 
 # equal sign after column 8 of a commentary card will be part ofthe string value
 >>> c=pyfits.Card().fromstring("history =   (1, 2)")
 >>> print c.ascardimage()
-HISTORY =   (1, 2)
+HISTORY =   (1, 2)                                                              
 
 # this is how to specify an undefined value
 >>> c=pyfits.Card("undef", pyfits.UNDEFINED)
 >>> print c
-UNDEF   =
+UNDEF   =                                                                       
 
 # complex number using string input
 >>> c=pyfits.Card().fromstring('abc     = (8, 9)')
 >>> print c.ascardimage()
-ABC     =               (8, 9)
+ABC     =               (8, 9)                                                  
 
 # fixable non-standard FITS card will keep the original format
 >>> c=pyfits.Card().fromstring('abc     = +  2.1   e + 12')
 >>> c.value
 2100000000000.0
 >>> print c.ascardimage()
-ABC     =             +2.1E+12
+ABC     =             +2.1E+12                                                  
 
 # fixable non-FSC: if the card is not parsable, it's value will be assumed
 # to be a string and everything after the first slash will be comment
 >>> c= pyfits.Card().fromstring("no_quote=  this card's value has no quotes / let's also try the comment")
 >>> print c.ascardimage()
-NO_QUOTE= 'this card''s value has no quotes' / let's also try the comment
+NO_QUOTE= 'this card''s value has no quotes' / let's also try the comment       
 
 # undefined value using string input
 >>> c=pyfits.Card().fromstring('abc     =    ')
 >>> print c.ascardimage()
-ABC     =
+ABC     =                                                                       
 
 # test mislocated "=" sign
 >>> c=pyfits.Card().fromstring('xyz= 100')
@@ -170,15 +170,15 @@ ABC     =
 >>> c.value
 100
 >>> print c.ascardimage()
-XYZ     =                  100
+XYZ     =                  100                                                  
 
 # the test of "=" location is only up to column 10
 >>> c=pyfits.Card().fromstring("histo       =   (1, 2)")
 >>> print c.ascardimage()
-HISTO   = '=   (1, 2)'
+HISTO   = '=   (1, 2)'                                                          
 >>> c=pyfits.Card().fromstring("   history          (1, 2)")
 >>> print c.ascardimage()
-HISTO   = 'ry          (1, 2)'
+HISTO   = 'ry          (1, 2)'                                                  
 
 # verification
 >>> c=pyfits.Card().fromstring('abc= a6')
@@ -186,38 +186,38 @@ HISTO   = 'ry          (1, 2)'
 Output verification result:
 Card image is not FITS standard (equal sign not at column 8).
 >>> print c
-abc= a6
+abc= a6                                                                         
 >>> c.verify('fix')
 Output verification result:
   Fixed card to be FITS standard.: ABC
 >>> c
-ABC     = 'a6      '
+ABC     = 'a6      '                                                            
 
 # test long string value
 >>> c=pyfits.Card('abc','long string value '*10, 'long comment '*10)
 >>> print80(str(c))
-ABC     = 'long string value long string value long string value long string &'
-CONTINUE  'value long string value long string value long string value long &'
-CONTINUE  'string value long string value long string value &'
-CONTINUE  '&' / long comment long comment long comment long comment long
-CONTINUE  '&' / comment long comment long comment long comment long comment
-CONTINUE  '&' / long comment
+ABC     = 'long string value long string value long string value long string &' 
+CONTINUE  'value long string value long string value long string value long &'  
+CONTINUE  'string value long string value long string value &'                  
+CONTINUE  '&' / long comment long comment long comment long comment long        
+CONTINUE  '&' / comment long comment long comment long comment long comment     
+CONTINUE  '&' / long comment                                                    
 
 # if a word in a long string is too long, it will be cut in the middle
 >>> c=pyfits.Card('abc','longstringvalue'*10, 'longcomment'*10)
 >>> print80(str(c))
 ABC     = 'longstringvaluelongstringvaluelongstringvaluelongstringvaluelongstr&'
 CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'
-CONTINUE  'elongstringvalue&'
+CONTINUE  'elongstringvalue&'                                                   
 CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme
-CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment
+CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment                  
 
 # long string value via fromstring() method
 >>> c=pyfits.Card().fromstring(pyfits._pad("abc     = 'longstring''s testing  &  ' / comments in line 1")+pyfits._pad("continue  'continue with long string but without the ampersand at the end' / ")+pyfits._pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
 >>> print80(c.ascardimage())
-ABC     = 'longstring''s testing  continue with long string but without the &'
-CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'
-CONTINUE  '&' / comments in line 1 comments with ''.
+ABC     = 'longstring''s testing  continue with long string but without the &'  
+CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  
+CONTINUE  '&' / comments in line 1 comments with ''.                            
 
 # The function "open" reads a FITS file into an HDUList object.  There are
 # three modes to open: "readonly" (the default), "append", and "update".
@@ -263,7 +263,7 @@ No.    Name         Type      Cards   Dimensions   Format
 # append (using "update()") a new card
 >>> r[0].header.update('xxx',1.234e56)
 >>> r[0].header.ascard[-3:]
-EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                FILENAME= 'vtest3.fits'        / File name                                      XXX     =            1.234E+56
+EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                FILENAME= 'vtest3.fits'        / File name                                      XXX     =            1.234E+56                                                  
 
 # rename a keyword
 >>> r[0].header.rename_key('filename','fname')
@@ -377,7 +377,7 @@ array([[ 1.,  1.,  1.,  1.,  1.],
 # ImageHDU
 >>> hdu2=pyfits.ImageHDU(header=r[1].header, data=numarray.array([1,2]))
 >>> hdu2.header.ascard[1:5]
-BITPIX  =                   32 / number of bits per data pixel                  NAXIS   =                    1 / number of data axes                            NAXIS1  =                    2 / length of data axis 1                          PCOUNT  =                    0 / required keyword; must = 0
+BITPIX  =                   32 / number of bits per data pixel                  NAXIS   =                    1 / number of data axes                            NAXIS1  =                    2 / length of data axis 1                          PCOUNT  =                    0 / required keyword; must = 0                     
 
 # memory mapping
 >>> f1 = pyfits.open('test0.fits', memmap=1)
