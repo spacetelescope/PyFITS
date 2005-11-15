@@ -11,7 +11,7 @@
 
 # create some local arrays
 >>> a1=chararray.array(['abc','def','xx'])
->>> r1=num.array([11.,12.])
+>>> r1=num.array([11.,12.,13.])
 
 # create a table from scratch, using a mixture of columns from existing
 # tables and locally created arrays:
@@ -21,23 +21,19 @@
 >>> c1=pyfits.Column(name='abc',format='3A', array=a1)
 >>> c2=pyfits.Column(name='def',format='E', array=r1)
 >>> c3=pyfits.Column(name='xyz',format='I', array=num.array([3,4,5]))
->>> c4=pyfits.Column(name='t1', format='I', array=tt[1].data.field(0))
+>>> c4=pyfits.Column(name='t1', format='I', array=num.array([1,2,3]))
 >>> c5=pyfits.Column(name='t2', format='C', array=num.array([3+3j,4+4j,5+5j]))
 
 # Note that X format must be two-D array
->>> c6=pyfits.Column(name='t3', format='X', array=num.array([[0],[1]]))
+>>> c6=pyfits.Column(name='t3', format='X', array=num.array([[0],[1],[0]]))
 >>> c7=pyfits.Column(name='t4', format='J', array=num.array([101,102,103]))
-
-# if there are more flags than needed, they will be truncated
->>> c8=pyfits.Column(name='t5', format='11X', array=num.array([[1,1,0,1,0,1,1,1,0,0,1,1],[0,1,1,1,1,0,0,0,0,1,0,0],[1,1,1,0,0,1,1,1,1,1,1,1]]))
+>>> c8=pyfits.Column(name='t5', format='11X', array=num.array([[1,1,0,1,0,1,1,1,0,0,1],[0,1,1,1,1,0,0,0,0,1,0],[1,1,1,0,0,1,1,1,1,1,1]]))
 
 # second, create a column-definitions object for all columns in a table
 
->>> x=pyfits.ColDefs([c1,c2,c3,c4,c5,c6,c7,c8])
+>>> x = pyfits.ColDefs([c1,c2,c3,c4,c5,c6,c7,c8])
 
 # create a new binary table HDU object by using the new_table function
-# Note that the data array for each field has different length, the new
-# table will have the length of the longest array.
 
 >>> tbhdu=pyfits.new_table(x)
 
@@ -92,7 +88,7 @@ True
 name:
      ['c1', 'c2', 'c3', 'c4']
 format:
-     ['i4', 'a3', 'f4', 'i1']
+     ['1J', '3A', '1E', '1L']
 unit:
      ['', '', '', '']
 null:

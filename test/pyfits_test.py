@@ -29,7 +29,7 @@ ABC     =                    T
 
 >>> c=pyfits.Card().fromstring('abc     = F')
 >>> print c.value
-F
+False
 
 # long integer number
 >>> c=pyfits.Card('long_int', -467374636747637647347374734737437)
@@ -83,7 +83,7 @@ Traceback (innermost last):
     self.key = key
   File "./pyfits.py", line 145, in __setattr__
     raise ValueError, 'keyword name %s is too long (> 8)' % val
-ValueError: keyword name ABCDEFGHI is too long (> 8)
+ValueError: keyword name abcdefghi is too long (> 8), use HIERARCH.
 
 # will not allow illegal characters in key when using constructor
 >>> c=pyfits.Card('abc+',9)
@@ -377,7 +377,7 @@ array([[ 1.,  1.,  1.,  1.,  1.],
 # ImageHDU
 >>> hdu2=pyfits.ImageHDU(header=r[1].header, data=numarray.array([1,2]))
 >>> hdu2.header.ascard[1:5]
-BITPIX  =                   32 / number of bits per data pixel                  NAXIS   =                    1 / number of data axes                            NAXIS1  =                    2 / length of data axis 1                          PCOUNT  =                    0 / required keyword; must = 0                     
+BITPIX  =                   32 / array data type                                NAXIS   =                    1 / number of array dimensions                     NAXIS1  =                    2                                                  PCOUNT  =                    0 / number of parameters                           
 
 # memory mapping
 >>> f1 = pyfits.open('test0.fits', memmap=1)
