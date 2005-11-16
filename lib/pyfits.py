@@ -29,25 +29,28 @@ import numarray.objects as objects
 import numarray.memmap as Memmap
 from string import maketrans
 
-__version__ = '1.0 (Nov 01, 2005)'
+__version__ = '1.0 (develop)'
 
 # Module variables
-blockLen = 2880         # the FITS block size
-python_mode = {'readonly':'rb', 'copyonwrite':'rb', 'update':'rb+', 'append':'ab+'}  # open modes
-memmap_mode = {'readonly':'r', 'copyonwrite':'c', 'update':'r+'}
+_blockLen = 2880         # the FITS block size
+_python_mode = {'readonly':'rb', 'copyonwrite':'rb', 'update':'rb+', 'append':'ab+'}  # open modes
+_memmap_mode = {'readonly':'r', 'copyonwrite':'c', 'update':'r+'}
 
-TAB = "   "
+TRUE  = True    # deprecated
+FALSE = False   # deprecated
+
+_INDENT = "   "
 DELAYED = "delayed"     # used for lazy instantiation of data
 ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
                         # this can be reset by user.
-isInt = "isinstance(val, (int, long))"
+_isInt = "isinstance(val, (int, long))"
 
 
 # Functions
 
-def padLength(stringLen):
+def _padLength(stringLen):
     """Bytes needed to pad the input stringLen to the next FITS block."""
-    return (blockLen - stringLen%blockLen) % blockLen
+    return (_blockLen - stringLen%_blockLen) % _blockLen
 
 def _tmpName(input):
     """Create a temporary file name which should not already exist.
@@ -64,14 +67,9 @@ def _tmpName(input):
     else:
         raise _name, "exists"
 
-
-
-
-
 class VerifyError(exceptions.Exception):
     """Verify exception class."""
     pass
-
 
 class _ErrList(list):
     """Verification errors list class.  It has a nested list structure
@@ -95,7 +93,7 @@ class _ErrList(list):
         # go through the list twice, first time print out all top level messages
         for item in self:
             if not isinstance(item, _ErrList):
-                result += TAB*tab+"%s\n" % item
+                result += _INDENT*tab+"%s\n" % item
 
         # second time go through the next level items, each of the next level
         # must present, even it has nothing.
@@ -106,12 +104,11 @@ class _ErrList(list):
                 # print out a message only if there is something
                 if _dummy.strip():
                     if self.unit:
-                        result += TAB*tab+"%s %s:\n" % (self.unit, element)
+                        result += _INDENT*tab+"%s %s:\n" % (self.unit, element)
                     result += _dummy
                 element += 1
 
         return result
-
 
 class _Verify:
     """Shared methods for verification."""
@@ -155,11 +152,6 @@ class _Verify:
         if _option == 'exception' and x:
             raise VerifyError
 
-
-
-TRUE = True
-FALSE = False
-
 def _pad(input):
     """Pad balnk space to the input string to be multiple of 80."""
     _len = len(input)
@@ -188,10 +180,6 @@ class Undefined:
     """Undefined value."""
     pass
 
-UNDEFINED = Undefined()
-_eval = eval
-
-
 class Delayed:
     """Delayed file-reading data."""
     def __init__(self, hdu=None, field=None):
@@ -199,9 +187,8 @@ class Delayed:
         self.field = field
 
 # translation table for floating value string
-fix_table = maketrans('de', 'DE')
-fix_table2 = maketrans('dD', 'eE')
-
+_fix_table = maketrans('de', 'DE')
+_fix_table2 = maketrans('dD', 'eE')
 
 class Card(_Verify):
 
@@ -538,26 +525,26 @@ class Card(_Verify):
 
                 #  Check for numbers with leading 0s.
                 numr = Card._number_NFSC_RE.match(valu.group('numr'))
-                _digt = numr.group('digt').translate(fix_table2, ' ')
+                _digt = numr.group('digt').translate(_fix_table2, ' ')
                 if numr.group('sign') == None:
-                    _val = _eval(_digt)
+                    _val = eval(_digt)
                 else:
-                    _val = _eval(numr.group('sign')+_digt)
+                    _val = eval(numr.group('sign')+_digt)
             elif valu.group('cplx') != None:
 
                 #  Check for numbers with leading 0s.
                 real = Card._number_NFSC_RE.match(valu.group('real'))
-                _rdigt = real.group('digt').translate(fix_table2, ' ')
+                _rdigt = real.group('digt').translate(_fix_table2, ' ')
                 if real.group('sign') == None:
-                    _val = _eval(_rdigt)
+                    _val = eval(_rdigt)
                 else:
-                    _val = _eval(real.group('sign')+_rdigt)
+                    _val = eval(real.group('sign')+_rdigt)
                 imag  = Card._number_NFSC_RE.match(valu.group('imag'))
-                _idigt = imag.group('digt').translate(fix_table2, ' ')
+                _idigt = imag.group('digt').translate(_fix_table2, ' ')
                 if imag.group('sign') == None:
-                    _val += _eval(_idigt)*1j
+                    _val += eval(_idigt)*1j
                 else:
-                    _val += _eval(imag.group('sign') + _idigt)*1j
+                    _val += eval(imag.group('sign') + _idigt)*1j
             else:
                 _val = UNDEFINED
 
@@ -591,18 +578,18 @@ class Card(_Verify):
 
         elif input.group('numr') != None:
             numr = Card._number_NFSC_RE.match(input.group('numr'))
-            _valStr = numr.group('digt').translate(fix_table, ' ')
+            _valStr = numr.group('digt').translate(_fix_table, ' ')
             if numr.group('sign') is not None:
                 _valStr = numr.group('sign')+_valStr
 
         elif input.group('cplx') != None:
             real  = Card._number_NFSC_RE.match(input.group('real'))
-            _realStr = real.group('digt').translate(fix_table, ' ')
+            _realStr = real.group('digt').translate(_fix_table, ' ')
             if real.group('sign') is not None:
                 _realStr = real.group('sign')+_realStr
 
             imag  = Card._number_NFSC_RE.match(input.group('imag'))
-            _imagStr = imag.group('digt').translate(fix_table, ' ')
+            _imagStr = imag.group('digt').translate(_fix_table, ' ')
             if imag.group('sign') is not None:
                 _imagStr = imag.group('sign') + _imagStr
             _valStr = '(' + _realStr + ', ' + _imagStr + ')'
@@ -892,9 +879,9 @@ class Header:
         # decide which kind of header it belongs to
         try:
             if cards[0].key == 'SIMPLE':
-                if 'GROUPS' in cards._keylist and cards['GROUPS'].value == TRUE:
+                if 'GROUPS' in cards._keylist and cards['GROUPS'].value == True:
                     self._hdutype = GroupsHDU
-                elif cards[0].value == TRUE:
+                elif cards[0].value == True:
                     self._hdutype = PrimaryHDU
                 else:
                     self._hdutype = _ValidHDU
@@ -1463,15 +1450,15 @@ class _ValidHDU(_AllHDU, _Verify):
             firstval = self._xtn
         else:
             firstkey = 'SIMPLE'
-            firstval = TRUE
+            firstval = True
         self.req_cards(firstkey, '== 0', '', firstval, option, _err)
-        self.req_cards('BITPIX', '== 1', isInt+" and "+isValid, 8, option, _err)
-        self.req_cards('NAXIS', '== 2', isInt+" and val >= 0 and val <= 999", 0, option, _err)
+        self.req_cards('BITPIX', '== 1', _isInt+" and "+isValid, 8, option, _err)
+        self.req_cards('NAXIS', '== 2', _isInt+" and val >= 0 and val <= 999", 0, option, _err)
 
         naxis = self.header.get('NAXIS', 0)
         if naxis < 1000:
             for j in range(3, naxis+3):
-                self.req_cards('NAXIS'+`j-2`, '== '+`j`, isInt+" and val>= 0", 1, option, _err)
+                self.req_cards('NAXIS'+`j-2`, '== '+`j`, _isInt+" and val>= 0", 1, option, _err)
         # verify each card
         for _card in self.header.ascard:
             _err.append(_card._verify(option))
@@ -1633,8 +1620,8 @@ class _TempHDU(_ValidHDU):
         _keyList = []
 
         blocks = self._raw
-        if (len(blocks) % blockLen) != 0:
-            raise IOError, 'Header size is not multiple of %d: %d' % (blockLen, len(blocks))
+        if (len(blocks) % _blockLen) != 0:
+            raise IOError, 'Header size is not multiple of %d: %d' % (_blockLen, len(blocks))
         elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
             raise IOError, 'Block does not begin with SIMPLE or XTENSION'
 
@@ -1732,8 +1719,8 @@ class _ExtensionHDU(_ValidHDU):
 
         # Verify location and value of mandatory keywords.
         naxis = self.header.get('NAXIS', 0)
-        self.req_cards('PCOUNT', '== '+`naxis+3`, isInt+" and val >= 0", 0, option, _err)
-        self.req_cards('GCOUNT', '== '+`naxis+4`, isInt+" and val == 1", 1, option, _err)
+        self.req_cards('PCOUNT', '== '+`naxis+3`, _isInt+" and val >= 0", 0, option, _err)
+        self.req_cards('GCOUNT', '== '+`naxis+4`, _isInt+" and val == 1", 1, option, _err)
         return _err
 
 
@@ -1922,7 +1909,7 @@ class _ImageBaseHDU(_ValidHDU):
             if isinstance(self, _ExtensionHDU):
                 c0 = Card('XTENSION', 'IMAGE', 'Image extension')
             else:
-                c0 = Card('SIMPLE', TRUE, 'conforms to FITS standard')
+                c0 = Card('SIMPLE', True, 'conforms to FITS standard')
 
             _list = CardList([
                 c0,
@@ -1930,7 +1917,7 @@ class _ImageBaseHDU(_ValidHDU):
                 Card('NAXIS',     0, 'number of array dimensions'),
                 ])
             if isinstance(self, GroupsHDU):
-                _list.append(Card('GROUPS', TRUE, 'has groups'))
+                _list.append(Card('GROUPS', True, 'has groups'))
 
             if isinstance(self, (_ExtensionHDU, GroupsHDU)):
                 _list.append(Card('PCOUNT',    0, 'number of parameters'))
@@ -2000,7 +1987,7 @@ class _ImageBaseHDU(_ValidHDU):
                 pass
 
         if isinstance(self.data, GroupData):
-            self.header.update('GROUPS', TRUE, after='NAXIS'+`len(axes)`)
+            self.header.update('GROUPS', True, after='NAXIS'+`len(axes)`)
             self.header.update('PCOUNT', len(self.data.parnames), after='GROUPS')
             self.header.update('GCOUNT', len(self.data), after='PCOUNT')
             npars = len(self.data.parnames)
@@ -2212,7 +2199,7 @@ class PrimaryHDU(_ImageBaseHDU):
             dim = `self.header['NAXIS']`
             if dim == '0':
                 dim = ''
-            self.header.update('EXTEND', TRUE, after='NAXIS'+dim)
+            self.header.update('EXTEND', True, after='NAXIS'+dim)
 
 
 class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
@@ -2248,7 +2235,7 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
     def _verify(self, option='warn'):
         """ImageHDU verify method."""
         _err = _ExtensionHDU._verify(self, option=option)
-        self.req_cards('PCOUNT', None, isInt+" and val == 0", 0, option, _err)
+        self.req_cards('PCOUNT', None, _isInt+" and val == 0", 0, option, _err)
         return _err
 
 
@@ -2301,7 +2288,7 @@ class GroupsHDU(PrimaryHDU):
             _cols.append(Column(name='data', format = dat_format, bscale = _bscale, bzero = _bzero))
             _coldefs = ColDefs(_cols)
             _coldefs._shape = self.header['GCOUNT']
-            _coldefs._dat_format = fits2rec[_format]
+            _coldefs._dat_format = _fits2rec[_format]
             _coldefs._pnames = _pnames
             self.__dict__[attr] = _coldefs
 
@@ -2334,8 +2321,8 @@ class GroupsHDU(PrimaryHDU):
         _err = PrimaryHDU._verify(self, option=option)
 
         # Verify locations and values of mandatory keywords.
-        self.req_cards('NAXIS', '== 2', isInt+" and val >= 1 and val <= 999", 1, option, _err)
-        self.req_cards('NAXIS1', '== 3', isInt+" and val == 0", 0, option, _err)
+        self.req_cards('NAXIS', '== 2', _isInt+" and val >= 1 and val <= 999", 1, option, _err)
+        self.req_cards('NAXIS1', '== 3', _isInt+" and val == 0", 0, option, _err)
         _after = self.header['NAXIS'] + 3
 
         # if the card EXTEND exists, must be after it.
@@ -2345,9 +2332,9 @@ class GroupsHDU(PrimaryHDU):
         except:
             pass
         _pos = '>= '+`_after`
-        self.req_cards('GCOUNT', _pos, isInt, 1, option, _err)
-        self.req_cards('PCOUNT', _pos, isInt, 0, option, _err)
-        self.req_cards('GROUPS', _pos, 'val == TRUE', TRUE, option, _err)
+        self.req_cards('GCOUNT', _pos, _isInt, 1, option, _err)
+        self.req_cards('PCOUNT', _pos, _isInt, 0, option, _err)
+        self.req_cards('GROUPS', _pos, 'val == True', True, option, _err)
         return _err
 
 
@@ -2357,18 +2344,18 @@ class GroupsHDU(PrimaryHDU):
 # sure to preserve the one-to-one correspondence when updating the list(s).
 # Use lists, instead of dictionaries so the names can be displayed in a
 # preferred order.
-commonNames = ['name', 'format', 'unit', 'null', 'bscale', 'bzero', 'disp', 'start', 'dim']
-keyNames = ['TTYPE', 'TFORM', 'TUNIT', 'TNULL', 'TSCAL', 'TZERO', 'TDISP', 'TBCOL', 'TDIM']
+_commonNames = ['name', 'format', 'unit', 'null', 'bscale', 'bzero', 'disp', 'start', 'dim']
+_keyNames = ['TTYPE', 'TFORM', 'TUNIT', 'TNULL', 'TSCAL', 'TZERO', 'TDISP', 'TBCOL', 'TDIM']
 
 # mapping from TFORM data type to numarray data type (code)
 
-booltype = 'i1'
-fits2rec = {'L':booltype, 'B':'u1', 'I':'i2', 'E':'f4', 'D':'f8', 'J':'i4', 'A':'a', 'C':'c8', 'M':'c16', 'K':'i8'}
+_booltype = 'i1'
+_fits2rec = {'L':_booltype, 'B':'u1', 'I':'i2', 'E':'f4', 'D':'f8', 'J':'i4', 'A':'a', 'C':'c8', 'M':'c16', 'K':'i8'}
 
 # the reverse dictionary of the above
-rec2fits = {}
-for key in fits2rec.keys():
-    rec2fits[fits2rec[key]]=key
+_rec2fits = {}
+for key in _fits2rec.keys():
+    _rec2fits[_fits2rec[key]]=key
 
 
 class _FormatX(str):
@@ -2380,15 +2367,15 @@ class _FormatP(str):
     pass
 
 # TFORM regular expression
-tformat_re = re.compile(r'(?P<repeat>^[0-9]*)(?P<dtype>[A-Za-z])(?P<option>[!-~]*)')
+_tformat_re = re.compile(r'(?P<repeat>^[0-9]*)(?P<dtype>[A-Za-z])(?P<option>[!-~]*)')
 
 # table definition keyword regular expression
-tdef_re = re.compile(r'(?P<label>^T[A-Z]*)(?P<num>[1-9][0-9 ]*$)')
+_tdef_re = re.compile(r'(?P<label>^T[A-Z]*)(?P<num>[1-9][0-9 ]*$)')
 
-def parse_tformat(tform):
+def _parse_tformat(tform):
     """Parse the TFORM value into repeat, data type, and option."""
     try:
-        (repeat, dtype, option) = tformat_re.match(tform.strip()).groups()
+        (repeat, dtype, option) = _tformat_re.match(tform.strip()).groups()
     except:
         print 'Format "%s" is not recognized.' % tform
 
@@ -2397,27 +2384,27 @@ def parse_tformat(tform):
 
     return (repeat, dtype, option)
 
-def convert_format(input_format, reverse=0):
+def _convert_format(input_format, reverse=0):
     """Convert FITS format spec to record format spec.  Do the opposite
        if reverse = 1.
     """
 
     fmt = input_format
-    (repeat, dtype, option) = parse_tformat(fmt)
+    (repeat, dtype, option) = _parse_tformat(fmt)
     if reverse == 0:
-        if dtype in fits2rec.keys():                            # FITS format
+        if dtype in _fits2rec.keys():                            # FITS format
             if dtype == 'A':
-                output_format = fits2rec[dtype]+`repeat`
+                output_format = _fits2rec[dtype]+`repeat`
                 # to accomodate both the ASCII table and binary table column
                 # format spec, i.e. A7 in ASCII table is the same as 7A in
                 # binary table, so both will produce 'a7'.
                 if fmt.lstrip()[0] == 'A' and option != '':
-                    output_format = fits2rec[dtype]+`int(option)` # make sure option is integer
+                    output_format = _fits2rec[dtype]+`int(option)` # make sure option is integer
             else:
                 _repeat = ''
                 if repeat != 1:
                     _repeat = `repeat`
-                output_format = _repeat+fits2rec[dtype]
+                output_format = _repeat+_fits2rec[dtype]
 
         elif dtype == 'X':
             nbytes = ((repeat-1) / 8) + 1
@@ -2427,27 +2414,27 @@ def convert_format(input_format, reverse=0):
 
         elif dtype == 'P':
             output_format = _FormatP('2i4')
-            output_format._dtype = fits2rec[option[0]]
+            output_format._dtype = _fits2rec[option[0]]
         elif dtype == 'F':
             output_format = 'f8'
         else:
             raise ValueError, "Illegal format %s" % fmt
     else:
         if dtype == 'a':
-            output_format = option+rec2fits[dtype]
+            output_format = option+_rec2fits[dtype]
         elif isinstance(dtype, _FormatX):
             print 'X format'
-        elif dtype+option in rec2fits.keys():                    # record format
+        elif dtype+option in _rec2fits.keys():                    # record format
             _repeat = ''
             if repeat != 1:
                 _repeat = `repeat`
-            output_format = _repeat+rec2fits[dtype+option]
+            output_format = _repeat+_rec2fits[dtype+option]
         else:
             raise ValueError, "Illegal format %s" % fmt
 
     return output_format
 
-def convert_ASCII_format(input_format):
+def _convert_ASCII_format(input_format):
     """Convert ASCII table format spec to record format spec. """
 
     ascii2rec = {'A':'a', 'I':'i4', 'F':'f4', 'E':'f4', 'D':'f8'}
@@ -2466,7 +2453,7 @@ def convert_ASCII_format(input_format):
 
     return (dtype, width)
 
-def get_index(nameList, key):
+def _get_index(nameList, key):
     """
     Get the index of the key in the name list.
     The key can be an integer or string.  If integer, it is the index
@@ -2636,10 +2623,10 @@ class Column:
 
         # any of the input argument (except array) can be a Card or just
         # a number/string
-        for cname in commonNames:
+        for cname in _commonNames:
             value = eval(cname)           # get the argument's value
 
-            keyword = keyNames[commonNames.index(cname)]
+            keyword = _keyNames[_commonNames.index(cname)]
             if isinstance(value, Card):
                 setattr(self, cname, value.value)
             else:
@@ -2652,12 +2639,12 @@ class Column:
             try:
 
                 # legit FITS format? convert to record format (e.g. '3J'->'3i4')
-                recfmt = convert_format(format)
+                recfmt = _convert_format(format)
             except:
                 try:
                     # legit RecArray format?
                     recfmt = format
-                    format = convert_format(recfmt, reverse=1)
+                    format = _convert_format(recfmt, reverse=1)
                 except:
                     raise ValueError, "Illegal format `%s`." % format
 
@@ -2697,7 +2684,7 @@ class Column:
         if isinstance(array, num.NumArray):
 
             # boolean needs to be scaled too
-            if recfmt == booltype:
+            if recfmt == _booltype:
                 _out = num.zeros(array.shape, type=recfmt)
                 num.where(array==0, ord('F'), ord('T'), _out)
                 array = _out
@@ -2713,7 +2700,7 @@ class Column:
 
     def __repr__(self):
         text = ''
-        for cname in commonNames:
+        for cname in _commonNames:
             value = getattr(self, cname)
             if value != None:
                 text += cname + ' = ' + `value` + '\n'
@@ -2755,7 +2742,7 @@ class ColDefs(object):
             # if the format of an ASCII column has no width, add one
             if tbtype == 'TableHDU':
                 for i in range(len(self)):
-                    (type, width) = convert_ASCII_format(self.data[i].format)
+                    (type, width) = _convert_ASCII_format(self.data[i].format)
                     if width is None:
                         self.data[i].format = ascii_fmt[self.data[i].format[0]]
 
@@ -2769,15 +2756,15 @@ class ColDefs(object):
             # go through header keywords to pick out column definition keywords
             dict = [{} for i in range(_nfields)] # definition dictionaries for each field
             for _card in hdr.ascardlist():
-                _key = tdef_re.match(_card.key)
+                _key = _tdef_re.match(_card.key)
                 try:
                     keyword = _key.group('label')
                 except:
                     continue               # skip if there is no match
-                if (keyword in keyNames):
+                if (keyword in _keyNames):
                     col = eval(_key.group('num'))
                     if col <= _nfields and col > 0:
-                        cname = commonNames[keyNames.index(keyword)]
+                        cname = _commonNames[_keyNames.index(keyword)]
                         dict[col-1][cname] = _card.value
 
             # data reading will be delayed
@@ -2794,7 +2781,7 @@ class ColDefs(object):
         """Populate the attributes."""
 
         cname = name[:-1]
-        if cname in commonNames:
+        if cname in _commonNames:
             attr = [''] * len(self)
             for i in range(len(self)):
                 val = getattr(self[i], cname)
@@ -2804,7 +2791,7 @@ class ColDefs(object):
             attr = [col.array for col in self.data]
         elif name == '_recformats':
             if self._tbtype == 'BinTableHDU':
-                attr = [convert_format(fmt) for fmt in self.formats]
+                attr = [_convert_format(fmt) for fmt in self.formats]
             elif self._tbtype == 'TableHDU':
                 self._Formats = self.formats
                 if len(self) == 1:
@@ -2821,7 +2808,7 @@ class ColDefs(object):
                 last_end = 0
                 attr = [0] * len(self)
                 for i in range(len(self)):
-                    (_format, _width) = convert_ASCII_format(self.formats[i])
+                    (_format, _width) = _convert_ASCII_format(self.formats[i])
                     if self.starts[i] is '':
                         self.starts[i] = last_end + 1
                     _end = self.starts[i] + _width - 1
@@ -2839,7 +2826,7 @@ class ColDefs(object):
                 # make sure to consider the case that the starting column of
                 # a field may not be the column right after the last field
                 elif tbtype == 'TableHDU':
-                    (_format, _width) = convert_ASCII_format(self.formats[i])
+                    (_format, _width) = _convert_ASCII_format(self.formats[i])
                     if self.starts[i] is '':
                         self.starts[i] = last_end + 1
                     _end = self.starts[i] + _width - 1
@@ -2885,7 +2872,7 @@ class ColDefs(object):
     def __sub__(self, other):
         if not isinstance(other, (list, tuple)):
             other = [other]
-        _other = [get_index(self.names, key) for key in other]
+        _other = [_get_index(self.names, key) for key in other]
         indx=range(len(self))
         for x in _other:
             indx.remove(x)
@@ -2894,7 +2881,7 @@ class ColDefs(object):
 
     def _setup(self):
         """ Initialize all attributes to be a list of null strings."""
-        for cname in commonNames:
+        for cname in _commonNames:
             setattr(self, cname+'s', ['']*self._nfields)
         setattr(self, '_arrays', [None]*self._nfields)
 
@@ -2906,9 +2893,9 @@ class ColDefs(object):
 
     def del_col(self, col_name):
         """Delete (the definition of) one Column."""
-        indx = get_index(self.names, col_name)
+        indx = _get_index(self.names, col_name)
 
-        for cname in commonNames:
+        for cname in _commonNames:
             attr = getattr(self, cname+'s')
             del attr[indx]
 
@@ -2917,7 +2904,7 @@ class ColDefs(object):
 
     def change_attrib(self, col_name, attrib, new_value):
         """Change an attribute (in the commonName list) of a Column."""
-        indx = get_index(self.names, col_name)
+        indx = _get_index(self.names, col_name)
         getattr(self, attrib+'s')[indx] = new_value
 
     def change_name(self, col_name, new_name):
@@ -2935,13 +2922,13 @@ class ColDefs(object):
         """Get attribute(s) information of the column definition."""
 
         """The attrib can be one or more of the attributes listed in
-           commonNames.  The default is "all" which will print out
+           _commonNames.  The default is "all" which will print out
            all attributes.  It forgives plurals and blanks.  If there are
            two or more attribute names, they must be separated by comma(s).
         """
 
         if attrib.strip().lower() in ['all', '']:
-            list = commonNames
+            list = _commonNames
         else:
             list = attrib.split(',')
             for i in range(len(list)):
@@ -2950,14 +2937,14 @@ class ColDefs(object):
                     list[i]=list[i][:-1]
 
         for att in list:
-            if att not in commonNames:
+            if att not in _commonNames:
                 print "'%s' is not an attribute of the column definitions."%att
                 continue
             print "%s:" % att
             print '    ', getattr(self, att+'s')
 
     #def change_format(self, col_name, new_format):
-        #new_format = convert_format(new_format)
+        #new_format = _convert_format(new_format)
         #self.change_attrib(col_name, 'format', new_format)
 
 def _get_tbdata(hdu):
@@ -3162,7 +3149,7 @@ class FITS_rec(rec.RecArray):
 
         if self._coldefs._tbtype == 'BinTableHDU':
             _str = 'a' in self._coldefs.formats[indx]
-            _bool = self._coldefs._recformats[indx][-2:] == booltype
+            _bool = self._coldefs._recformats[indx][-2:] == _booltype
         else:
             _str = self._coldefs.formats[indx][0] == 'A'
             _bool = 0             # there is no boolean in ASCII table
@@ -3181,7 +3168,7 @@ class FITS_rec(rec.RecArray):
 
     def field(self, key):
         """A view of a Column's data as an array."""
-        indx = get_index(self._coldefs.names, key)
+        indx = _get_index(self._coldefs.names, key)
 
         if (self._convert[indx] is None):
             # for X format
@@ -3213,7 +3200,7 @@ class FITS_rec(rec.RecArray):
                         dummy[i][:] = dummy[i]*bscale+bzero
 
                 # Boolean (logical) column
-                if self._coldefs._recformats[indx]._dtype is booltype:
+                if self._coldefs._recformats[indx]._dtype is _booltype:
                     for i in range(len(self._parent)):
                         dummy[i] = num.equal(dummy[i], ord('T'))
 
@@ -3265,7 +3252,7 @@ class FITS_rec(rec.RecArray):
             _width = []
             for i in range(self._nfields):
                 _loc.append(_loc[-1]+self._parent.field(i).itemsize())
-                _width.append(convert_ASCII_format(self._coldefs._Formats[i])[1])
+                _width.append(_convert_ASCII_format(self._coldefs._Formats[i])[1])
 
         self._heapsize = 0
         for indx in range(self._nfields):
@@ -3383,7 +3370,7 @@ class GroupData(FITS_rec):
             if bitpix is None:
                 bitpix = _ImageBaseHDU.ImgCode[input.type()]
             fits_fmt = GroupsHDU._dict[bitpix] # -32 -> 'E'
-            _fmt = fits2rec[fits_fmt] # 'E' -> 'f4'
+            _fmt = _fits2rec[fits_fmt] # 'E' -> 'f4'
             _formats = (_fmt+',') * npars
             data_fmt = '%s%s' % (`input.shape[1:]`, _fmt)
             _formats += data_fmt
@@ -3626,10 +3613,10 @@ class _TableBaseHDU(_ExtensionHDU):
         _list = []
         for i in range(len(self.header.ascard)-1,-1,-1):
             _card = self.header.ascard[i]
-            _key = tdef_re.match(_card.key)
+            _key = _tdef_re.match(_card.key)
             try: keyword = _key.group('label')
             except: continue                # skip if there is no match
-            if (keyword in keyNames):
+            if (keyword in _keyNames):
                 _list.append(i)
         for i in _list:
             del self.header.ascard[i]
@@ -3637,10 +3624,10 @@ class _TableBaseHDU(_ExtensionHDU):
 
         # populate the new table definition keywords
         for i in range(len(_cols)):
-            for cname in commonNames:
+            for cname in _commonNames:
                 val = getattr(_cols, cname+'s')[i]
                 if val != '':
-                    keyword = keyNames[commonNames.index(cname)]+`i+1`
+                    keyword = _keyNames[_commonNames.index(cname)]+`i+1`
                     if cname == 'format' and isinstance(self, BinTableHDU):
                         val = _cols._recformats[i]
                         if isinstance(val, _FormatX):
@@ -3648,9 +3635,9 @@ class _TableBaseHDU(_ExtensionHDU):
                         elif isinstance(val, _FormatP):
                             VLdata = self.data.field(i)
                             VLdata._max = max(map(len, VLdata))
-                            val = 'P' + convert_format(val._dtype, reverse=1) + '(%d)' %  VLdata._max
+                            val = 'P' + _convert_format(val._dtype, reverse=1) + '(%d)' %  VLdata._max
                         else:
-                            val = convert_format(val, reverse=1)
+                            val = _convert_format(val, reverse=1)
                     #_update(keyword, val)
                     _append(Card(keyword, val))
 
@@ -3666,7 +3653,7 @@ class _TableBaseHDU(_ExtensionHDU):
         _err = _ExtensionHDU._verify(self, option=option)
         self.req_cards('NAXIS', None, 'val == 2', 2, option, _err)
         self.req_cards('BITPIX', None, 'val == 8', 8, option, _err)
-        self.req_cards('TFIELDS', '== 7', isInt+" and val >= 0 and val <= 999", 0, option, _err)
+        self.req_cards('TFIELDS', '== 7', _isInt+" and val >= 0 and val <= 999", 0, option, _err)
         tfields = self.header['TFIELDS']
         for i in range(tfields):
             self.req_cards('TFORM'+`i+1`, None, None, None, option, _err)
@@ -3715,7 +3702,7 @@ class TableHDU(_TableBaseHDU):
         self.req_cards('PCOUNT', None, 'val == 0', 0, option, _err)
         tfields = self.header['TFIELDS']
         for i in range(tfields):
-            self.req_cards('TBCOL'+`i+1`, None, isInt, None, option, _err)
+            self.req_cards('TBCOL'+`i+1`, None, _isInt, None, option, _err)
         return _err
 
 
@@ -3742,7 +3729,7 @@ class _File:
     """A file I/O class"""
 
     def __init__(self, name, mode='copyonwrite', memmap=0):
-        if mode not in python_mode.keys():
+        if mode not in _python_mode.keys():
             raise "Mode '%s' not recognized" % mode
         self.name = name
         self.mode = mode
@@ -3751,7 +3738,7 @@ class _File:
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
         else:
-            self.__file = __builtin__.open(name, python_mode[mode])
+            self.__file = __builtin__.open(name, _python_mode[mode])
 
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
@@ -3762,7 +3749,7 @@ class _File:
     def __getattr__(self, attr):
         """Get the _mm attribute."""
         if attr == '_mm':
-            self.__dict__[attr] = Memmap.open(self.name, mode=memmap_mode[self.mode])
+            self.__dict__[attr] = Memmap.open(self.name, mode=_memmap_mode[self.mode])
         try:
             return self.__dict__[attr]
         except KeyError:
@@ -3776,12 +3763,12 @@ class _File:
            Will deal with CONTINUE cards in a later stage as CONTINUE cards
            may span across blocks.
         """
-        if len(block) != blockLen:
-            raise IOError, 'Block length is not %d: %d' % (blockLen, len(block))
+        if len(block) != _blockLen:
+            raise IOError, 'Block length is not %d: %d' % (_blockLen, len(block))
         elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
             raise IOError, 'Block does not begin with SIMPLE or XTENSION'
 
-        for i in range(0, len(blockLen), Card.length):
+        for i in range(0, len(_blockLen), Card.length):
             _card = Card('').fromstring(block[i:i+Card.length])
             _key = _card.key
 
@@ -3797,7 +3784,7 @@ class _File:
         _hdrLoc = self.__file.tell()
 
         # Read the first header block.
-        block = self.__file.read(blockLen)
+        block = self.__file.read(_blockLen)
         if block == '':
             raise EOFError
 
@@ -3811,7 +3798,7 @@ class _File:
             mo = end_RE.search(block)
             if mo is None:
                 hdu._raw += block
-                block = self.__file.read(blockLen)
+                block = self.__file.read(_blockLen)
                 if block == '':
                     break
             else:
@@ -3831,7 +3818,7 @@ class _File:
         hdu._datLoc = self.__file.tell()     # beginning of the data area
 
         # data area size, including padding
-        hdu._datSpan = _size + padLength(_size)
+        hdu._datSpan = _size + _padLength(_size)
         hdu._new = 0
         self.__file.seek(hdu._datSpan, 1)
         if self.__file.tell() > self._size:
@@ -3854,9 +3841,9 @@ class _File:
         """Write FITS HDU header part."""
 
         blocks = repr(hdu.header.ascard) + _pad('END')
-        blocks = blocks + padLength(len(blocks))*' '
+        blocks = blocks + _padLength(len(blocks))*' '
 
-        if len(blocks)%blockLen != 0:
+        if len(blocks)%_blockLen != 0:
             raise IOError
         self.__file.flush()
         loc = self.__file.tell()
@@ -3943,7 +3930,7 @@ class _File:
 
             # pad the FITS data block
             if _size > 0:
-                self.__file.write(padLength(_size)*'\0')
+                self.__file.write(_padLength(_size)*'\0')
 
         # flush, to make sure the content is written
         self.__file.flush()
@@ -3954,7 +3941,7 @@ class _File:
                 hdu.data.byteswap()
 
         # return both the location and the size of the data area
-        return loc, _size+padLength(_size)
+        return loc, _size+_padLength(_size)
 
     def close(self):
         """Close the 'physical' FITS file."""
@@ -4192,7 +4179,7 @@ class HDUList(list, _Verify):
                     # Add 1 to .ascard to include the END card
                     _nch80 = reduce(operator.add, map(Card._ncards, hdu.header.ascard))
                     _bytes = (_nch80+1) * Card.length
-                    _bytes = _bytes + padLength(_bytes)
+                    _bytes = _bytes + _padLength(_bytes)
                     if _bytes != (hdu._datLoc-hdu._hdrLoc):
                         self._resize = 1
                         if verbose:
@@ -4205,7 +4192,7 @@ class HDUList(list, _Verify):
                     if hdu.data is None:
                         continue
                     _bytes = hdu.data._itemsize*hdu.data.nelements()
-                    _bytes = _bytes + padLength(_bytes)
+                    _bytes = _bytes + _padLength(_bytes)
                     if _bytes != hdu._datSpan:
                         self._resize = 1
                         if verbose:
@@ -4272,14 +4259,14 @@ class HDUList(list, _Verify):
 
         hdr = self[0].header
         if hdr.has_key('extend'):
-            if (hdr['extend'] == FALSE):
-                hdr['extend'] = TRUE
+            if (hdr['extend'] == False):
+                hdr['extend'] = True
         else:
             if hdr['naxis'] == 0:
-                hdr.update('extend', TRUE, after='naxis')
+                hdr.update('extend', True, after='naxis')
             else:
                 n = hdr['naxis']
-                hdr.update('extend', TRUE, after='naxis'+`n`)
+                hdr.update('extend', True, after='naxis'+`n`)
 
     def writeto(self, name, output_verify='exception', clobber=False):
         """Write the HDUList to a new file.
@@ -4654,6 +4641,7 @@ for n in _locals[::-1]:
         _locals.remove(n)
 __all__ = _locals
 
+UNDEFINED = Undefined()
 
 __credits__="""
 
