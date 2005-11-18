@@ -1,3 +1,5 @@
+# $Id$
+
 """
 >>> import pyfits
 >>> import os

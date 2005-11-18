@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
+# $Id$
+
 """
 A module for reading and writing FITS files and manipulating their contents.
-
 
 A module for reading and writing Flexible Image Transport System
 (FITS) files.  This file format was endorsed by the International
@@ -10,6 +11,19 @@ Astronomical Union in 1999 and mandated by NASA as the standard format
 for storing high energy astrophysics data.  For details of the FITS
 standard, see the NASA/Science Office of Standards and Technology
 publication, NOST 100-2.0.
+
+For detailed examples of usage, see the I{PyFITS User's Manual} available from
+U{http://www.stsci.edu/resources/software_hardware/pyfits/Users_Manual1.pdf}
+
+Epydoc markup used for all docstrings in this module.
+
+@group Header-related Classes: Card, CardList, _Card_with_continue,
+    Header, _Hierarch
+@group HDU Classes: _AllHDU, BinTableHDU, _CorruptedHDU, _ExtensionHDU,
+    GroupsHDU, ImageHDU, _ImageBaseHDU, PrimaryHDU, TableHDU, 
+    _TableBaseHDU, _TempHDU, _ValidHDU
+@group Table-related Classes: ColDefs, Column, FITS_rec, _FormatP,
+    _FormatX, _VLF
 
 """
 """
@@ -29,7 +43,7 @@ import numarray.objects as objects
 import numarray.memmap as Memmap
 from string import maketrans
 
-__version__ = '1.0 (develop)'
+__version__ = '1.1dev'
 
 # Module variables
 _blockLen = 2880         # the FITS block size
@@ -3330,7 +3344,10 @@ class FITS_rec(rec.RecArray):
 
 
 class GroupData(FITS_rec):
-    """Random groupd data object."""
+    """Random groups data object.
+    
+    Allows structured access to FITS Group data in a manner analogous to tables
+    """
 
     def __init__(self, input=None, bitpix=None, pardata=None, parnames=[],
                  bscale=None, bzero=None, parbscales=None, parbzeros=None):
@@ -4429,37 +4446,15 @@ def _getext(filename, mode, *ext1, **ext2):
     return hdulist, ext
 
 def getheader(filename, *ext, **extkeys):
-    """Get the header of the specified extension of filename.
+    """Get the header from an extension of a FITS file.
 
-       Input arguments:
-
-       filename: input FITS file name
-
-       The rest ofthe arguments are for extension specification.  They are
-       flexible and is best illustrated by examples:
-
-       # the default extension (=0) i.e. primary HDU
-       >>> getheader('in.fits')
-       >>> getheader('in.fits', 0)    # the primary HDU
-       >>> getheader('in.fits', 2)    # the second extension
-
-       # the HDU with EXTNAME='sci' (if there is only 1)
-       >>> getheader('in.fits', 'sci')
-
-       # the HDU with EXTNAME='sci' and EXTVER=2
-       >>> getheader('in.fits', 'sci', 2)
-       >>> getheader('in.fits', ('sci', 2))   # same
-
-       >>> getheader('in.fits', ext=2)          # the second extension
-
-       # the 'sci' extension, if there is only 1
-       >>> getheader('in.fits', extname='sci')
-
-       # the HDU with EXTNAME='sci' and EXTVER=2
-       >>> getheader('in.fits', extname='sci', extver=2)
-
-       # ambiguous specifications will raise an exception, DON"T DO IT!!
-       >>> getheader('in.fits', ext=('sci',1), extname='err', extver=2)
+       @param filename: input FITS file name
+       @type: string
+       @param ext: The rest of the arguments are for extension specification.
+          See L{getdata} for explanations/examples.
+       
+       @rtype: L{Header} object
+       @return: header
     """
 
     hdulist, _ext = _getext(filename, 'readonly', *ext, **extkeys)
@@ -4469,17 +4464,45 @@ def getheader(filename, *ext, **extkeys):
     return hdr
 
 def getdata(filename, *ext, **extkeys):
-    """Get the data of the specified extension of filename.
+    """Get the data from an extension of a FITS file (and optionally the header).
 
-       Input arguments:
+       @type filename: string
+       @param filename: input FITS file name
+     
+       @param ext: The rest of the arguments are for extension specification.  They are
+       flexible and are best illustrated by examples:
 
-       filename: input FITS file name
+       No extra arguments implies the primary header
+       
+       >>> getdata('in.fits')
+       
+       By extension number:
+       
+       >>> getdata('in.fits', 0)    # the primary header      
+       >>> getdata('in.fits', 2)    # the second extension
+       >>> getdata('in.fits', ext=2) # the second extension
+       
+       By name, i.e., EXTNAME value (if unique):
+       
+       >>> getdata('in.fits', 'sci')
+       >>> getdata('in.fits', extname='sci') # equivalent
+       
+       Note EXTNAMEs are not case sensitive
 
-       The rest of the arguments are for extension specification.
-       See getheader for explanations/examples.
+       By combination of EXTNAME and EXTVER, as separate arguments or as a tuple: 
+       
+       >>> getdata('in.fits', 'sci', 2) # EXTNAME='SCI' & EXTVER=2
+       >>> getdata('in.fits', extname='sci', extver=2) # equivalent
+       >>> getdata('in.fits', ('sci', 2)) # equivalent
 
-       If the optional key 'header' is set to True, this function will
-       return (data, header).
+       Ambiguous or conflicting specifications will raise an exception, e.g.,
+       
+       >>> getdata('in.fits', ext=('sci',1), extname='err', extver=2) 
+
+       @return: an array, record array (i.e. table), or groups data object 
+       depending on the type of the extension being referenced
+       If the optional keyword 'header' is set to True, this function will
+       return a (data, header) tuple.
     """
 
     if 'header' in extkeys:
@@ -4508,15 +4531,16 @@ def getdata(filename, *ext, **extkeys):
         return _data
 
 def getval(filename, key, *ext, **extkeys):
-    """Return a header keyword's value.
+    """Get a keyword's value from a header in a FITS file.
 
-       Input arguments:
-
-       filename: input FITS file name
-       key: keyword name
-
-       The rest of the arguments are for extension specification.
-       See getheader for explanations/examples.
+    @type filename: string
+    @param filename: input FITS file name
+    @type key: string
+    @param key: keyword name
+    @param ext: The rest of the arguments are for extension specification.
+       See L{getdata} for explanations/examples.
+    @return: keyword value
+    @rtype: string, integer, or float
     """
 
     _hdr = getheader(filename, *ext, **extkeys)
@@ -4535,18 +4559,17 @@ def _makehdu(data, header):
     return hdu
 
 def writeto(filename, data, header=None, **keys):
-    """Create a new file using the input data/header.
+    """Create a new FITS file using the supplied data/header.
 
-       Input arguments:
-
-       filename: name of the new FITS file to write to
-       data: data in the new file
-       header: the header associated with 'data', if None, will be
-               an image HDU header if data is numarray, and binary table
-               HDU header if data is from a table.
-               This argument is optional and can be specified with or
-               without the key.
-       clobber: optional key, if True and if filename already exists, it
+       @type filename: string
+       @param filename: name of the new FITS file to write to
+       @type data: array, record array, or groups data object
+       @param data: data to write to the new file
+       @type header: L{Header} object or None
+       @param header: the header associated with 'data', if None, a
+               header of the appropriate type is created for the supplied
+               data. This argument is optional.
+       @keyword clobber: (optional) if True and if filename already exists, it
                will overwrite the file.  Default is False.
     """
 
@@ -4560,15 +4583,18 @@ def writeto(filename, data, header=None, **keys):
     hdu.writeto(filename, clobber=clobber)
 
 def append(filename, data, header=None):
-    """Append the header/data if filename exists, create if not.
+    """Append the header/data to FITS file if filename exists, create if not.
+    
+    If only data is supplied, a minimal header is created
 
-       Input arguments:
-
-       filename: name of the file to append to
-       data: the new data used for appending
-       header: the header associated with 'data', if None, will be
-               an image HDU header if data is numarray, and binary table
-               HDU header if data is from a table.
+       @type filename: string
+       @param filename: name of the file to append to
+       @type data: array, table, or group data object
+       @param data: the new data used for appending
+       @type header: L{Header} object or None
+       @param header: the header associated with 'data', if None,
+               an appropriate header will be created for the data object
+               supplied.
     """
 
     if not os.path.exists(filename):
@@ -4584,9 +4610,8 @@ def append(filename, data, header=None):
 def update(filename, data, *ext, **extkeys):
     """Update the specified extension with the input data/header.
 
-       Input arguments:
-
-       filename: name of the file to be updated
+       @type filename: string
+       @param filename: name of the file to be updated
        data: the new data used for updating
 
        The rest of the arguments are flexible:
@@ -4623,17 +4648,18 @@ def update(filename, data, *ext, **extkeys):
     hdulist.close()
 
 def info(filename):
-    """Get the file info.
+    """Print the summary information on a FITS file.
+    
+    This includes the name, type, length of header, data shape and type
+    for each extension.
 
-       Input argument:
-
-       filename: input FITS file name
+    @type filename: string
+    @param filename: input FITS file name
     """
 
     f = open(filename)
-    text = f.info()
+    f.info()
     f.close()
-    return text
 
 _locals = locals().keys()
 for n in _locals[::-1]:

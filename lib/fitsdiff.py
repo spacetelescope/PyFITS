@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# $Id$
+
 """
         fitsdiff: Compare two FITS image files and report the differences
                 in header keywords and data.

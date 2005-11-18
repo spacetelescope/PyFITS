@@ -1,3 +1,5 @@
+# $Id$
+
 """
 # test the constructor with default argument values
 >>> c=pyfits.Card()

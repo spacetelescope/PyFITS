@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# $Id$
+
 """
         readgeis: Read GEIS file and convert it to a FITS extension file.
 
