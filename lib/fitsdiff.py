@@ -6,6 +6,8 @@
         fitsdiff: Compare two FITS image files and report the differences
                 in header keywords and data.
 
+        License: http://www.stsci.edu/resources/software_hardware/pyraf/LICENSE
+
         Usage:
 
                 fitsdiff.py [options] filename1 filename2

@@ -12,6 +12,8 @@ for storing high energy astrophysics data.  For details of the FITS
 standard, see the NASA/Science Office of Standards and Technology
 publication, NOST 100-2.0.
 
+License: http://www.stsci.edu/resources/software_hardware/pyraf/LICENSE
+
 For detailed examples of usage, see the I{PyFITS User's Manual} available from
 U{http://www.stsci.edu/resources/software_hardware/pyfits/Users_Manual1.pdf}
 
