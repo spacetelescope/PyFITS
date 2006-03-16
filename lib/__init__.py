@@ -18,9 +18,6 @@ import os
 
 __version__ = '1.1dev'
 
-
-
-
 # Check the environment variables for NUMERIX
 try:
     numerix = os.environ["NUMERIX"]
@@ -49,14 +46,21 @@ if (numpystatus and numarraystatus):
     # to numarray
     if numerix == 'numpy':
         from NP_pyfits import *
+        import NP_pyfits as core
     else:
         from NA_pyfits import *
+        import NA_pyfits as core
+
 elif (numpystatus):
     # if only numpy is installed use the numpy version of pyfits
     from NP_pyfits import *
+    import NP_pyfits as core
+
 elif (numarraystatus):
     # if only numarray is installed use the numarray version of pyfits
     from NA_pyfits import *
+    import NA_pyfits as core
+
 else:
     raise RuntimeError, "The numarray or numpy array package is required for use."
 
@@ -65,4 +69,3 @@ for n in _locals[::-1]:
     if n[0] == '_' or n in ('re', 'os', 'tempfile', 'exceptions', 'operator', 'num', 'ndarray', 'chararray', 'rec', 'objects', 'Memmap', 'maketrans', 'open'):
         _locals.remove(n)
 __all__ = _locals
-
