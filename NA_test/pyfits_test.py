@@ -215,7 +215,7 @@ CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme
 CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment                  
 
 # long string value via fromstring() method
->>> c=pyfits.Card().fromstring(pyfits._pad("abc     = 'longstring''s testing  &  ' / comments in line 1")+pyfits._pad("continue  'continue with long string but without the ampersand at the end' / ")+pyfits._pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
+>>> c=pyfits.Card().fromstring(pyfits.core._pad("abc     = 'longstring''s testing  &  ' / comments in line 1")+pyfits.core._pad("continue  'continue with long string but without the ampersand at the end' / ")+pyfits.core._pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
 >>> print80(c.ascardimage())
 ABC     = 'longstring''s testing  continue with long string but without the &'  
 CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  
