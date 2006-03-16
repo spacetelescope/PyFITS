@@ -2078,6 +2078,7 @@ class _ImageBaseHDU(_ValidHDU):
         for j in range(naxis):
             axes[j] = self.header['NAXIS'+`j+1`]
         axes.reverse()
+        print "axes in _dimShape line 2081:",axes
         return tuple(axes)
 
     def _summary(self):
