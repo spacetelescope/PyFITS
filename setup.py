@@ -28,9 +28,7 @@ def main():
               maintainer_email = "help@stsci.edu",
               license = "http://www.stsci.edu/resources/software_hardware/pyraf/LICENSE",
               platforms = ["Linux","Solaris","Mac OS X","Win"],
-              py_modules = ['pyfits'],
-              package_dir={'':'lib'})
-
-
+              packages = ['pyfits'],
+              package_dir={'pyfits':'lib'})
 if __name__ == "__main__":
     main()
