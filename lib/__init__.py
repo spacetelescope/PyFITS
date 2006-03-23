@@ -16,13 +16,12 @@ Anything else is an exception.
 """
 import os
 
-__version__ = '1.1dev'
+__version__ = '1.1a1'
 
 # Check the environment variables for NUMERIX
 try:
     numerix = os.environ["NUMERIX"]
 except:
-    print "NUMERIX variable not set.  Assuming use of 'numarray'"
     numerix = 'numarray'
 
 # Deteremine if numarray is installed on the system
