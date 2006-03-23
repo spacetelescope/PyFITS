@@ -2374,7 +2374,6 @@ _keyNames = ['TTYPE', 'TFORM', 'TUNIT', 'TNULL', 'TSCAL', 'TZERO', 'TDISP', 'TBC
 
 # mapping from TFORM data type to numpy data type (code)
 
-#_booltype = 'i1'
 _booltype = 'i1'
 _fits2rec = {'L':_booltype, 'B':'u1', 'I':'i2', 'E':'f4', 'D':'f8', 'J':'i4', 'A':'a', 'C':'c8', 'M':'c16', 'K':'i8'}
 
@@ -2656,8 +2655,8 @@ class Column:
             else:
                 setattr(self, cname, value)
 
-        # if the column data is not NDarray, make it to be one, i.e.
-        # input arrays can be just list or tuple, not required to be NDArray
+        # if the column data is not ndarray, make it to be one, i.e.
+        # input arrays can be just list or tuple, not required to be ndarray
         if format is not None:
             # check format
             try:
@@ -2720,8 +2719,25 @@ class Column:
                     array += -bzero
                 if bscale not in ['', None, 1]:
                     array /= bscale
+        
+        array = self.__checkValidDataType(array,self.format)
         self.array = array
 
+    def __checkValidDataType(self,array,format):
+        # Convert the format to a type we understand
+        if isinstance(array,Delayed):
+            return array
+        elif (array.dtype.name == 'object'):
+            return array
+        else:
+            if (format.find('X') == -1 and format.find('P') == -1):
+                numpyFormat = _convert_format(format)
+                return np.array(array,dtype=numpyFormat)
+            elif (format.find('X') !=-1):
+                return np.array(array,dtype=np.uint8)
+            else:
+                return array
+    
     def __repr__(self):
         text = ''
         for cname in _commonNames:
@@ -2755,9 +2771,7 @@ class ColDefs(object):
             self.data = [col.copy() for col in input.data]
 
         # if the input is a list of Columns
-        elif isinstance(input, (list, tuple)):
-
-
+        elif isinstance(input, (list, tuple)):            
             for col in input:
                 if not isinstance(col, Column):
                     raise "Element %d in the ColDefs input is not a Column." % input.index(col)
