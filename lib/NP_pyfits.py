@@ -2730,11 +2730,15 @@ class Column:
         elif (array.dtype.name == 'object'):
             return array
         else:
-            if (format.find('X') == -1 and format.find('P') == -1):
+            if (format.find('A') != -1):
                 numpyFormat = _convert_format(format)
-                return np.array(array,dtype=numpyFormat)
+                return array.astype(numpyFormat)                
+            elif (format.find('X') == -1 and format.find('P') == -1):
+                (repeat, fmt, option) = _parse_tformat(format)
+                numpyFormat = _convert_format(fmt)
+                return array.astype(numpyFormat)
             elif (format.find('X') !=-1):
-                return np.array(array,dtype=np.uint8)
+                return array.astype(np.uint8)
             else:
                 return array
     
