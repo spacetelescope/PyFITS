@@ -16,7 +16,7 @@ Anything else is an exception.
 """
 import os
 
-__version__ = '1.1a1'
+__version__ = '1.1a2'
 
 # Check the environment variables for NUMERIX
 try:

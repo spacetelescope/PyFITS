@@ -24,7 +24,7 @@ def main():
     setup(name = "pyfits",
               version = "1.0",
               description = "General Use Python Tools",
-              author = "J. C. Hsu",
+              author = "J. C. Hsu and Christopher Hanley",
               maintainer_email = "help@stsci.edu",
               license = "http://www.stsci.edu/resources/software_hardware/pyraf/LICENSE",
               platforms = ["Linux","Solaris","Mac OS X","Win"],
