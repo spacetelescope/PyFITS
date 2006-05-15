@@ -159,7 +159,7 @@ class _Verify:
         x = str(self._verify(_option)).rstrip()
         if _option in ['fix', 'silentfix'] and x.find('Unfixable') != -1:
             raise VerifyError, '\n'+x
-        if (_option != "silentfix") and x:
+        if (_option != "silentfix"and _option != 'exception') and x:
             print 'Output verification result:'
             print x
         if _option == 'exception' and x:
