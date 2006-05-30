@@ -2045,7 +2045,10 @@ class _ImageBaseHDU(_ValidHDU):
                     _mmap = self._ffile._mm[self._datLoc:self._datLoc+self._datSpan]
                     raw_data = np.array(_mmap, type=code, shape=dims)
                 else:
-                    nelements = dims[0]*dims[1]                    
+
+                    nelements = 1
+                    for x in range(len(dims)):
+                        nelements = nelements * dims[x]                    
                     raw_data = np.fromfile(self._file, dtype=code, count=nelements,sep="")
                     raw_data.shape=dims
                     
