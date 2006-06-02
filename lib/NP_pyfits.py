@@ -1886,7 +1886,7 @@ class Section:
         raw_data = np.fromfile(self.hdu._file, dtype=code, count=nelements, sep="")
         raw_data.shape = dims
 #        raw_data._byteorder = 'big'
-        raw_data.dtype = raw_data.dtype.newbyteorder("big")
+        raw_data.dtype = raw_data.dtype.newbyteorder(">")
         return raw_data
 
 
@@ -2054,7 +2054,7 @@ class _ImageBaseHDU(_ValidHDU):
                     
 #                print "raw_data.shape: ",raw_data.shape
 #                raw_data._byteorder = 'big'
-                raw_data.dtype = raw_data.dtype.newbyteorder('big')
+                raw_data.dtype = raw_data.dtype.newbyteorder('>')
 
                 if (self._bzero != 0 or self._bscale != 1):
                     if _bitpix > 0:  # scale integers to Float32
@@ -3009,7 +3009,7 @@ def _get_tbdata(hdu):
 
     if isinstance(hdu._ffile, _File):
 #        _data._byteorder = 'big'
-        _data.dtype = _data.dtype.newbyteorder("big")
+        _data.dtype = _data.dtype.newbyteorder(">")
 
     # pass datLoc, for P format
     _data._heapoffset = hdu._theap + hdu._datLoc
@@ -3200,6 +3200,7 @@ class FITS_rec(rec.recarray):
 #        print "self.size: ",self.size
         self._convert = [None]*len(self.dtype.fields[-1])
         self._coldefs = None
+        self.names = self.dtype.fields[-1]
         return self
 
     def __array_finalize__(self,obj):
@@ -3209,6 +3210,7 @@ class FITS_rec(rec.recarray):
         self._convert = obj._convert
         self._coldefs = obj._coldefs
         self._nfields = obj._nfields
+        self.names = obj.names
         
     def _clone(self, shape):
         """Overload this to make mask array indexing work properly."""
@@ -3304,7 +3306,7 @@ class FITS_rec(rec.recarray):
 #                        dummy[i] = np.array(self._file, type=self._coldefs._recformats[indx]._dtype, shape=self._parent.field(indx)[i,0])
                         dummy[i] = np.array(self._file, type=self._coldefs._recformats[indx]._dtype, shape=rec.recarray.field(self,indx)[i,0])
 #                        dummy[i]._byteorder = 'big'
-                        dummy[i].dtype = dummy[i].dtype.newbyteorder("big")
+                        dummy[i].dtype = dummy[i].dtype.newbyteorder(">")
 
                 # scale by TSCAL and TZERO
                 if _scale or _zero:
@@ -4014,7 +4016,7 @@ class _File:
 #                if hdu.data._byteorder != 'big':
 #               if the data is bigendian
                 if hdu.data.dtype.str[0] != '>':
-                    hdu.data.byteswap()
+                    hdu.data = hdu.data.byteswap()
                     _byteorder = 'little'
                 else:
                     _byteorder = 'big'
@@ -4024,7 +4026,7 @@ class _File:
                 for i in range(hdu.data._nfields):
                     coldata = hdu.data.field(i)
 #                    coldata2 = hdu.data._parent.field(i)
-                    coldata2 = hdu.data.field(i)
+#                    coldata2 = hdu.data.field(i)
 
                     if not isinstance(coldata, chararray.chararray):
 
@@ -4036,23 +4038,23 @@ class _File:
                                     if i.itemsize > 1:
                                         if i.dtype.byteorder != '>':
                                             i = i.byteswap()
-                                            i.dtype= i.dtype.newbyteorder('big')
+                                            i.dtype= i.dtype.newbyteorder('>')
                         else:
                             if coldata.itemsize > 1:
                                 if coldata.dtype.byteorder != '>':
                                     coldata = coldata.byteswap()
-                                    coldata.dtype = coldata.dtype.newbyteorder('big')
+                                    coldata.dtype = coldata.dtype.newbyteorder('>')
 
-                        if coldata2.itemsize > 1:
+                        #if coldata2.itemsize > 1:
 
-                            # do the _parent too, otherwise the _parent
-                            # of a scaled column may have wrong byteorder
-                            if coldata2.dtype.byteorder != '>':
-                                coldata2 = coldata2.byteswap()
-                                coldata2.dtype = coldata2.dtype.newbyteorder('big')
+                            ## do the _parent too, otherwise the _parent
+                            ## of a scaled column may have wrong byteorder
+                            #if coldata2.dtype.byteorder != '>':
+                                #coldata2 = coldata2.byteswap()
+                                #coldata2.dtype = coldata2.dtype.newbyteorder('>')
 
                 # In case the FITS_rec was created in a LittleEndian machine
-                hdu.data.dtype = hdu.data.dtype.newbyteorder('big')
+                hdu.data.dtype = hdu.data.dtype.newbyteorder('>')
 #                hdu.data._parent.dtype = hdu.data._parent.dtype.newbyteorder('big')
 
             output = hdu.data
@@ -4087,7 +4089,7 @@ class _File:
         # unswap the data for image
         if hdu.data is not None and isinstance(hdu, _ImageBaseHDU):
             if _byteorder == 'little':
-                hdu.data.byteswap()
+                hdu.data = hdu.data.byteswap()
 
         # return both the location and the size of the data area
         return loc, _size+_padLength(_size)
