@@ -4035,15 +4035,15 @@ class _File:
                         if isinstance(coldata, _VLF):
                             for i in coldata:
                                 if not isinstance(i, chararray.chararray):
-                                    if i.itemsize > 1:
-                                        if i.dtype.byteorder != '>':
-                                            i = i.byteswap()
-                                            i.dtype= i.dtype.newbyteorder('>')
+                                    if hdu.data.field(i).itemsize > 1:
+                                        if hdu.data.field(i).dtype.byteorder != '>':
+                                            hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
+#                                            i.dtype= i.dtype.newbyteorder('>')
                         else:
                             if coldata.itemsize > 1:
-                                if coldata.dtype.byteorder != '>':
-                                    coldata = coldata.byteswap()
-                                    coldata.dtype = coldata.dtype.newbyteorder('>')
+                                if hdu.data.field(i).dtype.byteorder != '>':
+                                    hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
+#                                    coldata.dtype = coldata.dtype.newbyteorder('>')
 
                         #if coldata2.itemsize > 1:
 
