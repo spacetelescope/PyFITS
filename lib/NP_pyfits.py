@@ -4012,8 +4012,6 @@ class _File:
             # if image, need to deal with byte order
             if isinstance(hdu, _ImageBaseHDU):
 
-
-#                if hdu.data._byteorder != 'big':
 #               if the data is bigendian
                 if hdu.data.dtype.str[0] != '>':
                     hdu.data = hdu.data.byteswap()
@@ -4025,11 +4023,8 @@ class _File:
             elif isinstance(hdu, BinTableHDU):
                 for i in range(hdu.data._nfields):
                     coldata = hdu.data.field(i)
-#                    coldata2 = hdu.data._parent.field(i)
-#                    coldata2 = hdu.data.field(i)
-
+                    
                     if not isinstance(coldata, chararray.chararray):
-
                             # only swap unswapped
                             # deal with var length table
                         if isinstance(coldata, _VLF):
@@ -4038,24 +4033,13 @@ class _File:
                                     if hdu.data.field(i).itemsize > 1:
                                         if hdu.data.field(i).dtype.byteorder != '>':
                                             hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
-#                                            i.dtype= i.dtype.newbyteorder('>')
                         else:
                             if coldata.itemsize > 1:
                                 if hdu.data.field(i).dtype.byteorder != '>':
                                     hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
-#                                    coldata.dtype = coldata.dtype.newbyteorder('>')
-
-                        #if coldata2.itemsize > 1:
-
-                            ## do the _parent too, otherwise the _parent
-                            ## of a scaled column may have wrong byteorder
-                            #if coldata2.dtype.byteorder != '>':
-                                #coldata2 = coldata2.byteswap()
-                                #coldata2.dtype = coldata2.dtype.newbyteorder('>')
 
                 # In case the FITS_rec was created in a LittleEndian machine
                 hdu.data.dtype = hdu.data.dtype.newbyteorder('>')
-#                hdu.data._parent.dtype = hdu.data._parent.dtype.newbyteorder('big')
 
             output = hdu.data
 
