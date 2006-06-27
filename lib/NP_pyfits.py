@@ -3281,7 +3281,7 @@ class FITS_rec(rec.recarray):
             if isinstance(self._coldefs._recformats[indx], _FormatX):
                 _nx = self._coldefs._recformats[indx]._nx
 #                dummy = np.zeros(self._parent.shape+(_nx,), dtype=np.Bool)
-                dummy = np.zeros(self.shape+(_nx,), dtype=np.Bool)
+                dummy = np.zeros(self.shape+(_nx,), dtype=np.bool8)
 #                _unwrapx(self._parent.field(indx), dummy, _nx)
                 _unwrapx(rec.recarray.field(self,indx), dummy, _nx)
                 self._convert[indx] = dummy
