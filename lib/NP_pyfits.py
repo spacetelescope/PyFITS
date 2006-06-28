@@ -56,7 +56,7 @@ _INDENT = "   "
 DELAYED = "delayed"     # used for lazy instantiation of data
 ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
                         # this can be reset by user.
-_isInt = "isinstance(val, (int, long))"
+_isInt = "isinstance(val, (int, long, np.integer))"
 
 
 # Functions
@@ -346,7 +346,8 @@ class Card(_Verify):
     def _setvalue(self, val):
         """Set the value attribute."""
 
-        if isinstance(val, (str, int, long, float, complex, bool, Undefined)):
+        if isinstance(val, (str, int, long, float, complex, bool, Undefined,
+                            np.floating, np.integer, np.complexfloating)):
             if isinstance(val, str):
                 self._checkText(val)
             self.__dict__['_valueModified'] = 1
@@ -423,18 +424,18 @@ class Card(_Verify):
                 valStr = "'%-8s'" % _expValStr
                 valStr = '%-20s' % valStr
         # must be before int checking since bool is also int
-        elif isinstance(self.value , bool):
+        elif isinstance(self.value ,(bool,np.bool8)):
             valStr = '%20s' % `self.value`[0]
-        elif isinstance(self.value , (int, long)):
+        elif isinstance(self.value , (int, long, np.integer)):
             valStr = '%20d' % self.value
 
         # XXX need to consider platform dependence of the format (e.g. E-009 vs. E-09)
-        elif isinstance(self.value, float):
+        elif isinstance(self.value, (float, np.floating)):
             if self._valueModified:
                 valStr = '%20s' % _floatFormat(self.value)
             else:
                 valStr = '%20s' % self._valuestring
-        elif isinstance(self.value, complex):
+        elif isinstance(self.value, (complex,np.complexfloating)):
             if self._valueModified:
                 _tmp = '(' + _floatFormat(self.value.real) + ', ' + _floatFormat(self.value.imag) + ')'
                 valStr = '%20s' % _tmp
@@ -1325,7 +1326,7 @@ class CardList(list):
                      If backward = 1, search from the end.
         """
 
-        if isinstance(key, (int, long)):
+        if isinstance(key, (int, long,np.integer)):
             return key
         elif isinstance(key, str):
             _key = key.strip().upper()
@@ -1739,7 +1740,7 @@ class _ExtensionHDU(_ValidHDU):
 
 # 0.8.8
 def _iswholeline(indx, naxis):
-    if isinstance(indx, (int, long)):
+    if isinstance(indx, (int, long,np.integer)):
         if indx >= 0 and indx < naxis:
             if naxis > 1:
                 return _SinglePoint(1, indx)
@@ -1775,7 +1776,7 @@ def _normalize_slice(input, naxis):
     _start = input.start
     if _start is None:
         _start = 0
-    elif isinstance(_start, (int, long)):
+    elif isinstance(_start, (int, long,np.integer)):
         _start = _normalize(_start, naxis)
     else:
         raise IndexError, 'Illegal slice %s, start must be integer.' % input
@@ -1783,7 +1784,7 @@ def _normalize_slice(input, naxis):
     _stop = input.stop
     if _stop is None:
         _stop = naxis
-    elif isinstance(_stop, (int, long)):
+    elif isinstance(_stop, (int, long,np.integer)):
         _stop = _normalize(_stop, naxis)
     else:
         raise IndexError, 'Illegal slice %s, stop must be integer.' % input
@@ -1794,7 +1795,7 @@ def _normalize_slice(input, naxis):
     _step = input.step
     if _step is None:
         _step = 1
-    elif isinstance(_step, (int, long)):
+    elif isinstance(_step, (int, long, np.integer)):
         if _step <= 0:
             raise IndexError, 'Illegal slice %s, step must be positive.' % input
     else:
@@ -2502,7 +2503,7 @@ def _get_index(nameList, key):
         this field.
     """
 
-    if isinstance(key, (int, long)):
+    if isinstance(key, (int, long,np.integer)):
         indx = int(key)
     elif isinstance(key, str):
 
@@ -2884,7 +2885,7 @@ class ColDefs(object):
 
     def __getitem__(self, key):
         x = self.data[key]
-        if isinstance(key, (int, long)):
+        if isinstance(key, (int, long, np.integer)):
             return x
         else:
             return ColDefs(x)
@@ -3563,7 +3564,7 @@ class GroupData(FITS_rec):
     def par(self, parName):
         """Get the group parameter values."""
 
-        if isinstance(parName, (int, long)):
+        if isinstance(parName, (int, long, np.integer)):
             result = self.field(parName)
         else:
             indx = self._unique[parName.lower()]
@@ -3581,7 +3582,7 @@ class GroupData(FITS_rec):
     def setpar(self, parName, value):
         """Set the group parameter values."""
 
-        if isinstance(parName, (int, long)):
+        if isinstance(parName, (int, long, np.integer)):
             self.field(parName)[:] = value
         else:
             indx = self._unique[parName]
@@ -4132,7 +4133,7 @@ class HDUList(list, _Verify):
         """Set an HDU to the HDUList, indexed by number or name."""
         _key = self.index_of(key)
         if isinstance(hdu, (slice, list)):
-            if isinstance(_key, int):
+            if isinstance(_key, (int,np.integer)):
                 raise ValueError, "An element in the HDUList must be an HDU."
             for item in hdu:
                 if not isinstance(item, _AllHDU):
@@ -4202,7 +4203,7 @@ class HDUList(list, _Verify):
            integer, a string, or a tuple of (string, integer).
         """
 
-        if isinstance(key, (int, slice)):
+        if isinstance(key, (int, np.integer,slice)):
             return key
         elif isinstance(key, tuple):
             _key = key[0]
@@ -4531,7 +4532,7 @@ def _getext(filename, mode, *ext1, **ext2):
         if n_ext2 == 0:
             ext = ext1[0]
         else:
-            if isinstance(ext1[0], (int, tuple)):
+            if isinstance(ext1[0], (int, np.integer, tuple)):
                 raise KeyError, 'Redundant/conflicting keyword argument(s): %s' % ext2
             if isinstance(ext1[0], str):
                 if n_ext2 == 1 and 'extver' in keys:
@@ -4753,7 +4754,7 @@ def update(filename, data, *ext, **extkeys):
         if isinstance(ext[0], Header):
             header = ext[0]
             ext = ext[1:]
-        elif not isinstance(ext[0], (int, long, str, tuple)):
+        elif not isinstance(ext[0], (int, long, np.integer, str, tuple)):
             raise KeyError, 'Input argument has wrong data type.'
 
     if 'header' in extkeys:
