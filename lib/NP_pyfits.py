@@ -37,6 +37,7 @@ Epydoc markup used for all docstrings in this module.
 import re, os, tempfile, exceptions
 import operator
 import __builtin__
+import urllib
 import numpy.core as np
 from numpy.core import char as chararray
 from numpy.core import rec
@@ -3873,6 +3874,16 @@ class BinTableHDU(_TableBaseHDU):
             hdr.ascard[0].comment = 'binary table extension'
 
 
+class ErrorURLopener(urllib.FancyURLopener):
+    """A class to use with urlretrieve to allow IOError exceptions to be
+       raised when a file specified by a URL cannot be accessed"""
+    def http_error_default(self, url, fp, errcode, errmsg, headers):
+        raise IOError, (errcode, errmsg, url)
+
+urllib._urlopener = ErrorURLopener() # Assign the locally subclassed opener
+                                     # class to the urllibrary
+urllib._urlopener.tempcache = {} # Initialize tempcache with an empty
+                                 # dictionary to enable file cacheing
 
 class _File:
     """A file I/O class"""
@@ -3880,14 +3891,15 @@ class _File:
     def __init__(self, name, mode='copyonwrite', memmap=0):
         if mode not in _python_mode.keys():
             raise "Mode '%s' not recognized" % mode
-        self.name = name
+
+        self.name, fileheader = urllib.urlretrieve(name)
         self.mode = mode
         self.memmap = memmap
 
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
         else:
-            self.__file = __builtin__.open(name, _python_mode[mode])
+            self.__file = __builtin__.open(self.name, _python_mode[mode])
 
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
