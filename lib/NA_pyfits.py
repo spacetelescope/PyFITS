@@ -3760,7 +3760,11 @@ class _File:
         if mode not in _python_mode.keys():
             raise "Mode '%s' not recognized" % mode
 
-        self.name, fileheader = urllib.urlretrieve(name)
+        if mode != 'append':
+           self.name, fileheader = urllib.urlretrieve(name)
+        else:
+           self.name = name
+
         self.mode = mode
         self.memmap = memmap
 
