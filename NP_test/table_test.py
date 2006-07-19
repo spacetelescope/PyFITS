@@ -198,8 +198,8 @@ def comparerecords(a, b):
     Column names not compared, but column types and sizes are.
     """
     
-    nfieldsa = len(a.dtype.fields[-1])
-    nfieldsb = len(b.dtype.fields[-1])
+    nfieldsa = len(a.dtype.names)
+    nfieldsb = len(b.dtype.names)
     if nfieldsa != nfieldsb:
         print "number of fields don't match"
         return False
