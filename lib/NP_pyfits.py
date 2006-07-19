@@ -3197,12 +3197,12 @@ class FITS_rec(rec.recarray):
         # _parent is the original (storage) array,
         # _convert is the scaled (physical) array.
 #        self._parent = input
-        self._nfields = len(self.dtype.fields[-1])
+        self._nfields = len(self.dtype.names)
 #        self._convert = [None]*self._nfields
 #        print "self.size: ",self.size
-        self._convert = [None]*len(self.dtype.fields[-1])
+        self._convert = [None]*len(self.dtype.names)
         self._coldefs = None
-        self.names = self.dtype.fields[-1]
+        self.names = self.dtype.names
         return self
 
     def __array_finalize__(self,obj):
@@ -3230,8 +3230,8 @@ class FITS_rec(rec.recarray):
 
         if isinstance(key, slice):
             out = tmp
-            out._convert = [None]*len(self.dtype.fields[-1])
-            for i in range(len(self.dtype.fields[-1])):
+            out._convert = [None]*len(self.dtype.names)
+            for i in range(len(self.dtype.names)):
 
                 # touch all fields to expand the original ._convert list
                 # so the sliced FITS_rec will view the same scaled columns as
@@ -3374,13 +3374,13 @@ class FITS_rec(rec.recarray):
         if self._coldefs._tbtype == 'TableHDU':
             _loc = [1]
             _width = []
-            for i in range(len(self.dtype.fields[-1])):
+            for i in range(len(self.dtype.names)):
 #                _loc.append(_loc[-1]+self._parent.field(i).itemsize())
                 _loc.append(_loc[-1]+rec.recarray.field(self,i).itemsize())
                 _width.append(_convert_ASCII_format(self._coldefs._Formats[i])[1])
 
         self._heapsize = 0
-        for indx in range(len(self.dtype.fields[-1])):
+        for indx in range(len(self.dtype.names)):
             if (self._convert[indx] is not None):
                 if isinstance(self._coldefs._recformats[indx], _FormatX):
 #                    _wrapx(self._convert[indx], self._parent.field(indx), self._coldefs._recformats[indx]._nx)
