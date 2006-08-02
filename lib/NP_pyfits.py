@@ -2060,7 +2060,7 @@ class _ImageBaseHDU(_ValidHDU):
 
                 if (self._bzero != 0 or self._bscale != 1):
                     if _bitpix > 0:  # scale integers to Float32
-                        self.data = np.array(raw_data, type=np.Float32)
+                        self.data = np.array(raw_data, dtype=np.float32)
                     else:  # floating point cases
                         if self._ffile.memmap:
                             self.data = raw_data.copy()
@@ -2076,7 +2076,7 @@ class _ImageBaseHDU(_ValidHDU):
                     # delete the keywords BSCALE and BZERO after scaling
                     del self.header['BSCALE']
                     del self.header['BZERO']
-                    self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.type()]
+                    self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
                 else:
                     self.data = raw_data
         try:
@@ -3064,7 +3064,7 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
     # use the largest column shape as the shape of the record
     if nrows == 0:
         for arr in tmp._arrays:
-            if arr is not None:
+            if (arr is not None) and (arr.dtype.name is not 'object'):
                 dim = arr.shape[0]
             else:
                 dim = 0
