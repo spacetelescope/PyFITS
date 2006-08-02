@@ -2682,7 +2682,8 @@ class Column:
             # the elements in the object array are consistent.
             if not isinstance(array, (np.ndarray, chararray.chararray, Delayed)):
                 try: # try to convert to a ndarray first
-                    array = np.array(array)
+                    if array is not None:
+                        array = np.array(array)
                 except:
                     try: # then try to conver it to a strings array
                         array = chararray.array(array, itemsize=eval(recfmt[1:]))
@@ -2732,7 +2733,7 @@ class Column:
         # Convert the format to a type we understand
         if isinstance(array,Delayed):
             return array
-        elif (array.dtype.name == 'object'):
+        elif (array is None):
             return array
         else:
             if (format.find('A') != -1):
@@ -3058,13 +3059,12 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
     for i in range(len(tmp)):
         _arr = tmp._arrays[i]
         if isinstance(_arr, Delayed):
-#            tmp._arrays[i] = _arr.hdu.data._parent.field(i)
             tmp._arrays[i] = rec.recarray.field(_arr.hdu.data,i)
 
     # use the largest column shape as the shape of the record
     if nrows == 0:
         for arr in tmp._arrays:
-            if (arr is not None) and (arr.dtype.name is not 'object'):
+            if (arr is not None):
                 dim = arr.shape[0]
             else:
                 dim = 0
@@ -3190,9 +3190,14 @@ class FITS_rec(rec.recarray):
     def __new__(subtype, input):
         """Construct a FITS record array from a recarray."""
         # input should be a record array
-#        self.__setstate__(input.__getstate__())        
-        self = rec.recarray.__new__(subtype, input.shape, input.dtype, 
-            buf=input.data, strides=input.strides)
+#        self.__setstate__(input.__getstate__())
+
+        if input.dtype.subdtype is None:
+            self = rec.recarray.__new__(subtype, input.shape, input.dtype, 
+                                        buf=input.data)
+        else:
+            self = rec.recarray.__new__(subtype, input.shape, input.dtype, 
+                                        buf=input.data, strides=input.strides)
 
         # _parent is the original (storage) array,
         # _convert is the scaled (physical) array.
