@@ -2045,7 +2045,9 @@ class _ImageBaseHDU(_ValidHDU):
 #                print "code: ",code
                 if self._ffile.memmap:
                     _mmap = self._ffile._mm[self._datLoc:self._datLoc+self._datSpan]
-                    raw_data = np.array(_mmap, type=code, shape=dims)
+                    #raw_data = np.array(_mmap, type=code, shape=dims)
+                    raw_data = np.array(_mmap,dtype=code)
+                    raw_data = raw_data.reshape(dims)
                 else:
 
                     nelements = 1
@@ -3207,6 +3209,7 @@ class FITS_rec(rec.recarray):
 #        print "self.size: ",self.size
         self._convert = [None]*len(self.dtype.names)
         self._coldefs = None
+        self._gap = 0
         self.names = self.dtype.names
         return self
 
@@ -3218,6 +3221,7 @@ class FITS_rec(rec.recarray):
         self._coldefs = obj._coldefs
         self._nfields = obj._nfields
         self.names = obj.names
+        self._gap = obj._gap
         
     def _clone(self, shape):
         """Overload this to make mask array indexing work properly."""
