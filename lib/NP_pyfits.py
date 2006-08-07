@@ -2044,10 +2044,11 @@ class _ImageBaseHDU(_ValidHDU):
                 code = _ImageBaseHDU.NumCode[self.header['BITPIX']]
 #                print "code: ",code
                 if self._ffile.memmap:
+                    self._ffile.__code = code
+                    self._ffile.__dims = dims
                     _mmap = self._ffile._mm[self._datLoc:self._datLoc+self._datSpan]
                     #raw_data = np.array(_mmap, type=code, shape=dims)
-                    raw_data = np.array(_mmap,dtype=code)
-                    raw_data = raw_data.reshape(dims)
+                    raw_data = np.array(_mmap)
                 else:
 
                     nelements = 1
@@ -3150,7 +3151,7 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
 class FITS_record:
     """FITS record class.  FITS record class is used to access records of
        the FITS_rec object.  This will allow us to deal with scaled columns.
-       The FITS_record class expects aa FITS_rec object as input
+       The FITS_record class expects a FITS_rec object as input
     """    
     def __init__(self, input, row=0):
         self.array = input
@@ -3237,7 +3238,7 @@ class FITS_rec(rec.recarray):
     def __getitem__(self, key):
         tmp = rec.recarray.__getitem__(self, key)
 
-        if isinstance(key, slice):
+        if isinstance(key, slice) or isinstance(key,np.ndarray):
             out = tmp
             out._convert = [None]*len(self.dtype.names)
             for i in range(len(self.dtype.names)):
@@ -3909,6 +3910,10 @@ class _File:
         self.mode = mode
         self.memmap = memmap
 
+        # adding hidden attributes for use with numpy's memmap class
+        self.__dims = None
+        self.__code = None
+        
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
         else:
@@ -3923,7 +3928,8 @@ class _File:
     def __getattr__(self, attr):
         """Get the _mm attribute."""
         if attr == '_mm':
-            self.__dict__[attr] = Memmap(self.name, mode=_memmap_mode[self.mode])
+            self.__dict__[attr] = Memmap(self.name, mode=_memmap_mode[self.mode],
+                                         dtype=self.__code, shape=self.__dims)
         try:
             return self.__dict__[attr]
         except KeyError:
