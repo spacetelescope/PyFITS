@@ -38,6 +38,9 @@ import re, os, tempfile, exceptions
 import operator
 import __builtin__
 import urllib
+import tempfile
+import gzip
+import zipfile
 import numpy.core as np
 from numpy.core import char as chararray
 from numpy.core import rec
@@ -3924,7 +3927,31 @@ class _File:
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
         else:
-            self.__file = __builtin__.open(self.name, _python_mode[mode])
+            if os.path.splitext(self.name)[1] == '.gz':
+                # Handle gzip files
+                if mode in ['update', 'append']:
+                    raise "Writing to gzipped fits files is not supported"
+                zfile = gzip.GzipFile(self.name)
+                self.tfile = tempfile.NamedTemporaryFile('rb+',-1,'.fits')
+                self.name = self.tfile.name
+                self.__file = self.tfile.file
+                self.__file.write(zfile.read())
+                zfile.close()
+            elif os.path.splitext(self.name)[1] == '.zip':
+                # Handle zip files
+                if mode in ['update', 'append']:
+                    raise "Writing to zipped fits files is not supported"
+                zfile = zipfile.ZipFile(self.name)
+                namelist = zfile.namelist()
+                if len(namelist) != 1:
+                    raise "Zip files with multiple members are not supported."
+                self.tfile = tempfile.NamedTemporaryFile('rb+',-1,'.fits')
+                self.name = self.tfile.name
+                self.__file = self.tfile.file
+                self.__file.write(zfile.read(namelist[0]))
+                zfile.close()
+            else:
+                self.__file = __builtin__.open(self.name, _python_mode[mode])
 
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
