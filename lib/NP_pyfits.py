@@ -3148,7 +3148,7 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
     hdu.update()
     return hdu
 
-class FITS_record:
+class FITS_record(object):
     """FITS record class.  FITS record class is used to access records of
        the FITS_rec object.  This will allow us to deal with scaled columns.
        The FITS_record class expects a FITS_rec object as input
@@ -3183,6 +3183,9 @@ class FITS_record:
 
         return self.array.field(key)[self.row]
         
+    def __setitem__(self,fieldname,value):
+        
+        self.array.field(fieldName)[self.row] = value
 
 class FITS_rec(rec.recarray):
     """FITS record array class.  FITS record array is the data part of a
@@ -3257,6 +3260,10 @@ class FITS_rec(rec.recarray):
         else:
             newrecord = FITS_record(self,key)
             return newrecord
+    
+    def __setitem__(self,row,value):
+        for i in range(self._nfields):
+            self.field(self.names[i])[row] = value.field(self.names[i])
 
     def _get_scale_factors(self, indx):
         """
