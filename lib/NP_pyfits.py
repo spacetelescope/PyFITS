@@ -428,7 +428,7 @@ class Card(_Verify):
                 valStr = "'%-8s'" % _expValStr
                 valStr = '%-20s' % valStr
         # must be before int checking since bool is also int
-        elif isinstance(self.value ,(bool,np.bool8)):
+        elif isinstance(self.value ,(bool,np.bool_)):
             valStr = '%20s' % `self.value`[0]
         elif isinstance(self.value , (int, long, np.integer)):
             valStr = '%20d' % self.value
@@ -3303,7 +3303,7 @@ class FITS_rec(rec.recarray):
             if isinstance(self._coldefs._recformats[indx], _FormatX):
                 _nx = self._coldefs._recformats[indx]._nx
 #                dummy = np.zeros(self._parent.shape+(_nx,), dtype=np.Bool)
-                dummy = np.zeros(self.shape+(_nx,), dtype=np.bool8)
+                dummy = np.zeros(self.shape+(_nx,), dtype=np.bool_)
 #                _unwrapx(self._parent.field(indx), dummy, _nx)
                 _unwrapx(rec.recarray.field(self,indx), dummy, _nx)
                 self._convert[indx] = dummy
