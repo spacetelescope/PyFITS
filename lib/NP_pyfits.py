@@ -2720,9 +2720,8 @@ class Column:
 
             # boolean needs to be scaled too
             if recfmt == _booltype:
-                _out = np.zeros(array.shape, type=recfmt)
-                np.where(array==0, ord('F'), ord('T'), _out)
-                array = _out
+                _out = np.zeros(array.shape, dtype=recfmt)
+                array = np.where(array==0, ord('F'), ord('T'))
 
             # make a copy if scaled, so as not to corrupt the original array
             if bzero not in ['', None, 0] or bscale not in ['', None, 1]:
