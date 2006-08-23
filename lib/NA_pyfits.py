@@ -3122,6 +3122,7 @@ class FITS_rec(rec.RecArray):
         # _convert is the scaled (physical) array.
         self._parent = input
         self._convert = [None]*self._nfields
+        self.names = self._names
 
     def _clone(self, shape):
         """Overload this to make mask array indexing work properly."""
