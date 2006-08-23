@@ -3217,6 +3217,7 @@ class FITS_rec(rec.recarray):
         self._coldefs = None
         self._gap = 0
         self.names = self.dtype.names
+        self._names = self.dtype.names # This attribute added for backward compatibility with numarray version of FITS_rec
         return self
 
     def __array_finalize__(self,obj):
@@ -3227,6 +3228,7 @@ class FITS_rec(rec.recarray):
         self._coldefs = obj._coldefs
         self._nfields = obj._nfields
         self.names = obj.names
+        self._names = obj._names
         self._gap = obj._gap
         
     def _clone(self, shape):
