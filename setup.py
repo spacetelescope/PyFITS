@@ -22,7 +22,7 @@ def dolocal():
 def main():
     dolocal()
     setup(name = "pyfits",
-              version = "1.1b3",
+              version = "1.1b4",
               description = "General Use Python Tools",
               author = "J. C. Hsu and Christopher Hanley",
               maintainer_email = "help@stsci.edu",
