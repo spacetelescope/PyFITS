@@ -995,9 +995,12 @@ class Header:
         elif (force == 0) and (newkey in self.ascard._keylist):
             raise ValueError, 'Intended keyword %s already exists in header.' % newkey
         _index = self.ascard.index_of(oldkey)
-        self.ascard[_index].__dict__['key']=newkey
-        self.ascard[_index].ascardimage()
-        self.ascard._keylist[_index] = newkey
+        _comment = self.ascard[_index].comment
+        _value = self.ascard[_index].value
+        self.ascard[_index] = Card(newkey, _value, _comment)
+#        self.ascard[_index].__dict__['key']=newkey
+#        self.ascard[_index].ascardimage()
+#        self.ascard._keylist[_index] = newkey
 
     def get(self, key, default=None):
         """Get a keyword value from the CardList.
