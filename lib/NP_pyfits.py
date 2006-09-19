@@ -2043,15 +2043,12 @@ class _ImageBaseHDU(_ValidHDU):
                 else:
                     dims = self._dimShape()
 
-
                 code = _ImageBaseHDU.NumCode[self.header['BITPIX']]
-#                print "code: ",code
+
                 if self._ffile.memmap:
-                    self._ffile.__code = code
-                    self._ffile.__dims = dims
                     _mmap = self._ffile._mm[self._datLoc:self._datLoc+self._datSpan]
-                    #raw_data = np.array(_mmap, type=code, shape=dims)
-                    raw_data = np.array(_mmap)
+                    raw_data = _mmap.view(code)
+                    raw_data = raw_data.reshape(dims)
                 else:
 
                     nelements = 1
@@ -3920,10 +3917,6 @@ class _File:
 
         self.mode = mode
         self.memmap = memmap
-
-        # adding hidden attributes for use with numpy's memmap class
-        self.__dims = None
-        self.__code = None
         
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
@@ -3963,8 +3956,7 @@ class _File:
     def __getattr__(self, attr):
         """Get the _mm attribute."""
         if attr == '_mm':
-            self.__dict__[attr] = Memmap(self.name, mode=_memmap_mode[self.mode],
-                                         dtype=self.__code, shape=self.__dims)
+            self.__dict__[attr] = Memmap(self.name, mode=_memmap_mode[self.mode])
         try:
             return self.__dict__[attr]
         except KeyError:
