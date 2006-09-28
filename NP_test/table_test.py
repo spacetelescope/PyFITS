@@ -61,7 +61,7 @@ True
 # and a column like this:
 
 >>> print tbhdu.data.field('abc')
-[abc def xx]
+['abc' 'def' 'xx']
 
 # An alternative way to create a column-definitions object is from an
 # existing table.
