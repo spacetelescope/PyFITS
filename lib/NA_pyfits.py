@@ -48,6 +48,7 @@ import numarray.records as rec
 import numarray.objects as objects
 import numarray.memmap as Memmap
 from string import maketrans
+import copy
 
 # Module variables
 _blockLen = 2880         # the FITS block size
@@ -3127,6 +3128,14 @@ class FITS_rec(rec.RecArray):
         self._convert = [None]*self._nfields
         self.names = self._names
 
+    def copy(self):
+        r  = rec.RecArray.copy(self)
+        r.__class__ = rec.RecArray
+        r._coldefs = self._coldefs
+        f = FITS_rec(r)
+        f._convert = copy.deepcopy(self._convert)
+        return f
+        
     def _clone(self, shape):
         """Overload this to make mask array indexing work properly."""
         hdu = new_table(self._coldefs, nrows=shape[0])
