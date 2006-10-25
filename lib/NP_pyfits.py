@@ -4093,11 +4093,11 @@ class _File:
                             for i in coldata:
                                 if not isinstance(i, chararray.chararray):
                                     if hdu.data.field(i).itemsize > 1:
-                                        if hdu.data.field(i).dtype.byteorder != '>':
+                                        if hdu.data.field(i).dtype.str[0] != '>':
                                             hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
                         else:
                             if coldata.itemsize > 1:
-                                if hdu.data.field(i).dtype.byteorder != '>':
+                                if hdu.data.field(i).dtype.str[0] != '>':
                                     hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
 
                 # In case the FITS_rec was created in a LittleEndian machine
