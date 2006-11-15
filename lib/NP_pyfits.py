@@ -3976,7 +3976,7 @@ class _py_File:
         if mode not in _python_mode.keys():
             raise "Mode '%s' not recognized" % mode
 
-        if mode != 'append':
+        if mode != 'append' and not os.path.exists(name):
            self.name, fileheader = urllib.urlretrieve(name)
         else:
            self.name = name
