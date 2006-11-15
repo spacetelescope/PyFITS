@@ -4582,7 +4582,7 @@ class HDUList(list, _Verify):
 
 
         if output_verify == 'warn':
-            output_verify == 'exception'
+            output_verify = 'exception'
         self.verify(option=output_verify)
 
         # check if the output file already exists

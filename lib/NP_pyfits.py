@@ -3754,8 +3754,8 @@ class _TableBaseHDU(_ExtensionHDU):
 
         if (data is not DELAYED):
             if isinstance(data, rec.recarray):
-                self.header['NAXIS1'] = data._itemsize
-                self.header['NAXIS2'] = data._shape[0]
+                self.header['NAXIS1'] = data.itemsize
+                self.header['NAXIS2'] = data.shape[0]
                 self.header['TFIELDS'] = data._nfields
                 self.data = data
                 self.columns = data._coldefs
@@ -4706,7 +4706,7 @@ class HDUList(list, _Verify):
 
 
         if output_verify == 'warn':
-            output_verify == 'exception'
+            output_verify = 'exception'
         self.verify(option=output_verify)
 
         # check if the output file already exists
