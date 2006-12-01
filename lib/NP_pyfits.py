@@ -41,7 +41,7 @@ import urllib
 import tempfile
 import gzip
 import zipfile
-import numpy.core as np
+import numpy as np
 from numpy.core import char as chararray
 from numpy.core import rec
 from numpy.core import memmap as Memmap
@@ -2671,27 +2671,34 @@ def _makep(input, desp_output, dtype):
 
 class _VLF(np.ndarray):
     """variable length field object."""
-    def __init__(self, input):
+
+    def __new__(subtype, input):
         """
             input: a sequence of variable-sized elements.
         """
-        objects.ObjectArray.__init__(self, input)
+        self = np.ndarray.__new__(subtype, shape=(len(input)), dtype=np.object)
         self._max = 0
+        return self
 
+    def __array_finalize__(self,obj):
+        if obj is None:
+            return 
+        self._max = obj._max
+        
     def __setitem__(self, key, value):
         """To make sure the new item has consistent data type to avoid
            misalignment.
         """
 
-        if isinstance(value, np.ndarray) and value.type() == self._dtype:
+        if isinstance(value, np.ndarray) and value.dtype == self.dtype:
             pass
-        elif isinstance(value, chararray.CharArray) and value.itemsize() == 1:
+        elif isinstance(value, chararray.chararray) and value.itemsize == 1:
             pass
         elif self._dtype == 'a':
             value = chararray.array(value, itemsize=1)
         else:
             value = np.array(value, type=self._dtype)
-        objects.ObjectArray.__setitem__(self, key, value)
+        np.ndarray.__setitem__(self, key, value)
         self._max = max(self._max, len(value))
 
 
@@ -3580,7 +3587,9 @@ class GroupData(FITS_rec):
            parbzeros: list of bzeros for the parameters
         """
 
-        if isinstance(input, np.ndarray):
+        print "type(input): ",type(input)
+        print input._coldefs
+        if not isinstance(input, FITS_rec):
             _formats = ''
             _cols = []
             if pardata is None:
@@ -3594,7 +3603,7 @@ class GroupData(FITS_rec):
                 parbzeros = [None]*npars
 
             if bitpix is None:
-                bitpix = _ImageBaseHDU.ImgCode[input.type()]
+                bitpix = _ImageBaseHDU.ImgCode[input.dtype.name]
             fits_fmt = GroupsHDU._dict[bitpix] # -32 -> 'E'
             _fmt = _fits2rec[fits_fmt] # 'E' -> 'f4'
             _formats = (_fmt+',') * npars
@@ -3608,10 +3617,10 @@ class GroupData(FITS_rec):
             subtype.parnames = [i.lower() for i in parnames]
             
             # need to inherit from FITS rec.  What is being done here?
-            tmp = FITS_rec(rec.array(None, formats=_formats, shape=gcount, names= self._coldefs.names))
-            self.__setstate__(tmp.__getstate__())
+ #           tmp = FITS_rec(rec.array(None, formats=_formats, shape=gcount, names= self._coldefs.names))
+ #           self.__setstate__(tmp.__getstate__())
             
-            
+            self = FITS_rec(rec.array(None, formats=_formats, names=self._coldefs.names, shape=gcount))
             
             for i in range(npars):
                 (_scale, _zero)  = self._get_scale_factors(i)[3:5]
@@ -3627,7 +3636,8 @@ class GroupData(FITS_rec):
 #                self._parent.field(npars)[:] = input
                 rec.recarray.field(self,npars)[:] = input
         else:
-            self.__setstate__(input.__getstate__())
+#            self.__setstate__(input.__getstate__())
+             self = input
 
     def __getattr__(self, attr):
         if attr == 'data':
