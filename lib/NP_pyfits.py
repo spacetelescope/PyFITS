@@ -42,9 +42,9 @@ import tempfile
 import gzip
 import zipfile
 import numpy as np
-from numpy.core import char as chararray
-from numpy.core import rec
-from numpy.core import memmap as Memmap
+from numpy import char as chararray
+import rec
+from numpy import memmap as Memmap
 from string import maketrans
 import types
 
@@ -3175,20 +3175,16 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
         if n > 0:
             if isinstance(tmp._recformats[i], _FormatX):
                 if tmp._arrays[i][:n].shape[-1] == tmp._recformats[i]._nx:
-#                    _wrapx(tmp._arrays[i][:n], hdu.data._parent.field(i)[:n], tmp._recformats[i]._nx)
                     _wrapx(tmp._arrays[i][:n], rec.recarray.field(hdu.data,i)[:n], tmp._recformats[i]._nx)
                 else: # from a table parent data, just pass it
-#                    hdu.data._parent.field(i)[:n] = tmp._arrays[i][:n]
                     rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
             elif isinstance(tmp._recformats[i], _FormatP):
-#                hdu.data._convert[i] = _makep(tmp._arrays[i][:n], hdu.data._parent.field(i)[:n], tmp._recformats[i]._dtype)
                 hdu.data._convert[i] = _makep(tmp._arrays[i][:n], rec.recarray.field(hdu.data,i)[:n], tmp._recformats[i]._dtype)
             else:
                 if tbtype == 'TableHDU':
 
                     # string no need to convert,
                     if isinstance(tmp._arrays[i], chararray.CharArray):
-#                        hdu.data._parent.field(i)[:n] = tmp._arrays[i][:n]
                         rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
                     else:
                         hdu.data._convert[i] = np.zeros(nrows, type=tmp._arrays[i].type())
@@ -3202,19 +3198,15 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
                             _arr += bzero
                         hdu.data._convert[i][:n] = _arr
                 else:
-#                    hdu.data._parent.field(i)[:n] = tmp._arrays[i][:n]
                     rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
 
         if n < nrows:
             if tbtype == 'BinTableHDU':
-#                if isinstance(hdu.data._parent.field(i), np.ndarray):
                 if isinstance(rec.recarray.field(hdu.data,i), np.ndarray):
 
                     # make the scaled data = 0, not the stored data
-#                    hdu.data._parent.field(i)[n:] = -bzero/bscale
                     rec.recarray.field(hdu.data,i)[n:] = -bzero/bscale
                 else:
-#                    hdu.data._parent.field(i)[n:] = ''
                     rec.recarray.field(hdu.data,i)[n:] = ''
 
     hdu.update()
@@ -3268,21 +3260,14 @@ class FITS_rec(rec.recarray):
     def __new__(subtype, input):
         """Construct a FITS record array from a recarray."""
         # input should be a record array
-#        self.__setstate__(input.__getstate__())
-
         if input.dtype.subdtype is None:
             self = rec.recarray.__new__(subtype, input.shape, input.dtype, 
-                                        buf=input.data)
+                                        buf=input.data,heapoffset=input._heapoffset,file=input._file)
         else:
             self = rec.recarray.__new__(subtype, input.shape, input.dtype, 
-                                        buf=input.data, strides=input.strides)
+                                        buf=input.data, strides=input.strides,heapoffset=input._heapoffset,file=input._file)
 
-        # _parent is the original (storage) array,
-        # _convert is the scaled (physical) array.
-#        self._parent = input
         self._nfields = len(self.dtype.names)
-#        self._convert = [None]*self._nfields
-#        print "self.size: ",self.size
         self._convert = [None]*len(self.dtype.names)
         self._coldefs = None
         self._gap = 0
@@ -3293,7 +3278,6 @@ class FITS_rec(rec.recarray):
     def __array_finalize__(self,obj):
         if obj is None:
             return 
-#        self._parent = obj._parent
         self._convert = obj._convert
         self._coldefs = obj._coldefs
         self._nfields = obj._nfields
@@ -3373,9 +3357,7 @@ class FITS_rec(rec.recarray):
             # for X format
             if isinstance(self._coldefs._recformats[indx], _FormatX):
                 _nx = self._coldefs._recformats[indx]._nx
-#                dummy = np.zeros(self._parent.shape+(_nx,), dtype=np.Bool)
                 dummy = np.zeros(self.shape+(_nx,), dtype=np.bool_)
-#                _unwrapx(self._parent.field(indx), dummy, _nx)
                 _unwrapx(rec.recarray.field(self,indx), dummy, _nx)
                 self._convert[indx] = dummy
                 return self._convert[indx]
@@ -3384,32 +3366,25 @@ class FITS_rec(rec.recarray):
 
             # for P format
             if isinstance(self._coldefs._recformats[indx], _FormatP):
-#                dummy = _VLF([None]*len(self._parent))
                 dummy = _VLF([None]*len(self))
                 dummy._dtype = self._coldefs._recformats[indx]._dtype
-#                for i in range(len(self._parent)):
                 for i in range(len(self)):
-#                    _offset = self._parent.field(indx)[i,1] + self._heapoffset
                     _offset = rec.recarray.field(self,indx)[i,1] + self._heapoffset
                     self._file.seek(_offset)
                     if self._coldefs._recformats[indx]._dtype is 'a':
-#                        dummy[i] = chararray.array(self._file, itemsize=self._parent.field(indx)[i,0], shape=1)
                         dummy[i] = chararray.array(self._file, itemsize=rec.recarray.field(self,indx)[i,0], shape=1)
                     else:
-#                        dummy[i] = np.array(self._file, type=self._coldefs._recformats[indx]._dtype, shape=self._parent.field(indx)[i,0])
-                        dummy[i] = np.array(self._file, type=self._coldefs._recformats[indx]._dtype, shape=rec.recarray.field(self,indx)[i,0])
-#                        dummy[i]._byteorder = 'big'
+                        dummy[i] = np.array(self._file, dtype=self._coldefs._recformats[indx]._dtype)
+                        dummy[i] = dummy[i].reshape(rec.recarray.field(self,indx)[i,0])
                         dummy[i].dtype = dummy[i].dtype.newbyteorder(">")
 
                 # scale by TSCAL and TZERO
                 if _scale or _zero:
-#                    for i in range(len(self._parent)):
                     for i in range(len(self)):
                         dummy[i][:] = dummy[i]*bscale+bzero
 
                 # Boolean (logical) column
                 if self._coldefs._recformats[indx]._dtype is _booltype:
-#                    for i in range(len(self._parent)):
                     for i in range(len(self)):
                         dummy[i] = np.equal(dummy[i], ord('T'))
 
@@ -3417,7 +3392,6 @@ class FITS_rec(rec.recarray):
                 return self._convert[indx]
 
             if _str:
-#                return self._parent.field(indx)
                 return rec.recarray.field(self,indx)
 
             # ASCII table, convert strings to numbers
@@ -3427,18 +3401,13 @@ class FITS_rec(rec.recarray):
 
                 # if the string = TNULL, return ASCIITNULL
                 nullval = self._coldefs.nulls[indx].strip()
-#                dummy = np.zeros(len(self._parent), dtype=_type)
                 dummy = np.zeros(len(self), dtype=_type)
                 dummy[:] = ASCIITNULL
                 self._convert[indx] = dummy
-#                for i in range(len(self._parent)):
                 for i in range(len(self)):
-#                    if self._parent.field(indx)[i].strip() != nullval:
                     if rec.recarray.field(self,indx)[i].strip() != nullval:
-#                        dummy[i] = float(self._parent.field(indx)[i].replace('D', 'E'))
                         dummy[i] = float(rec.recarray.field(self,indx)[i].replace('D', 'E'))
             else:
-#                dummy = self._parent.field(indx)
                 dummy = rec.recarray.field(self,indx)
 
             # further conversion for both ASCII and binary tables
@@ -3466,7 +3435,6 @@ class FITS_rec(rec.recarray):
             _loc = [1]
             _width = []
             for i in range(len(self.dtype.names)):
-#                _loc.append(_loc[-1]+self._parent.field(i).itemsize())
                 _loc.append(_loc[-1]+rec.recarray.field(self,i).itemsize())
                 _width.append(_convert_ASCII_format(self._coldefs._Formats[i])[1])
 
@@ -3474,7 +3442,6 @@ class FITS_rec(rec.recarray):
         for indx in range(len(self.dtype.names)):
             if (self._convert[indx] is not None):
                 if isinstance(self._coldefs._recformats[indx], _FormatX):
-#                    _wrapx(self._convert[indx], self._parent.field(indx), self._coldefs._recformats[indx]._nx)
                     _wrapx(self._convert[indx], rec.recarray.field(self,indx), self._coldefs._recformats[indx]._nx)
                     continue
 
@@ -3483,7 +3450,6 @@ class FITS_rec(rec.recarray):
                 # add the location offset of the heap area for each
                 # variable length column
                 if isinstance(self._coldefs._recformats[indx], _FormatP):
-#                    desc = self._parent.field(indx)
                     desc = rec.recarray.field(self,indx)
                     desc[:] = 0 # reset
                     _npts = map(len, self._convert[indx])
@@ -3529,31 +3495,21 @@ class FITS_rec(rec.recarray):
                             if len(x) > (_loc[indx+1]-_loc[indx]):
                                 raise ValueError, "number `%s` does not fit into the output's itemsize of %s" % (x, _width[indx])
                             else:
-#                                self._parent.field(indx)[i] = x
                                 rec.recarray.field(self,indx)[i] = x
                         if 'D' in _format:
-#                            self._parent.field(indx).sub('E', 'D')
                             rec.recarray.field(self,indx).sub('E', 'D')
 
 
                     # binary table
                     else:
-#                        if isinstance(self._parent.field(indx)[0], np.integer):
                         if isinstance(rec.recarray.field(self,indx)[0], np.integer):
                             dummy = np.around(dummy)
-                        #print "dumpy.dtype: ",dummy.dtype
-                        #print "self.field(indx)[:].dtype: ",self._parent.field(indx)[:].dtype
-#                        self._parent.field(indx)[:] = dummy.astype(self._parent.field(indx).dtype)
                         rec.recarray.field(self,indx)[:] = dummy.astype(rec.recarray.field(self,indx).dtype)
 
                     del dummy
 
                 # ASCII table does not have Boolean type
                 elif _bool:
-#                    self.field(indx)[:] = np.choose(self._convert[indx], (ord('F'),ord('T')))
-#                    self._parent.field(indx)[:] = np.choose(self._convert[indx], 
-#                                                            (np.array([ord('F')],dtype=np.int8)[0],
-#                                                            np.array([ord('T')],dtype=np.int8)[0]))
                     rec.recarray.field(self,indx)[:] = np.choose(self._convert[indx], 
                                                     (np.array([ord('F')],dtype=np.int8)[0],
                                                     np.array([ord('T')],dtype=np.int8)[0]))
@@ -3587,8 +3543,6 @@ class GroupData(FITS_rec):
            parbzeros: list of bzeros for the parameters
         """
 
-        print "type(input): ",type(input)
-        print input._coldefs
         if not isinstance(input, FITS_rec):
             _formats = ''
             _cols = []

@@ -4,7 +4,7 @@
 >>> import pyfits
 >>> import os
 >>> import numpy as num
->>> from numpy import rec
+>>> from pyfits import rec
 >>> from numpy import char as chararray
 
 # open some existing FITS files:
