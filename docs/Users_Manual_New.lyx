@@ -1,0 +1,121 @@
+#LyX 1.4.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 245
+\begin_document
+\begin_header
+\textclass article
+\language english
+\inputencoding auto
+\fontscheme default
+\graphics default
+\paperfontsize default
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Standard
+The PyFITS module is a Python library providing access to FITS files.
+ FITS (Flexible Image Transport System) is a portable file standard widely
+ used in the astronomy community to store images and tables.
+ 
+\end_layout
+
+\begin_layout Subsection
+Install PyFITS 
+\end_layout
+
+\begin_layout Standard
+PyFITS requires Python version 2.3 or newer.
+ PyFITS also requires the numarray module.
+ Information about numarray can be found in:
+\end_layout
+
+\begin_layout Itemize
+http://www.stsci.edu/resources/software_hardware/numarray
+\end_layout
+
+\begin_layout Standard
+To download numarray, go to:
+\end_layout
+
+\begin_layout Itemize
+http://sourceforge.net/project/numpy
+\end_layout
+
+\begin_layout Standard
+PyFITS's source code is pure Python.
+ It can be downloaded from:
+\end_layout
+
+\begin_layout Itemize
+http://www.stsci.edu/resources/software_hardware/pyfits/Download
+\end_layout
+
+\begin_layout Standard
+PyFITS uses python's distutils for its installation.
+ To install it, unpack the tar file and type:
+\end_layout
+
+\begin_layout Standard
+python setup.py install
+\end_layout
+
+\begin_layout Standard
+This will install pyfits, readgeis and fitsdiff in python's site-packages
+ directory.
+ If permissions do not allow this kind of installation PyFITS can be installed
+ in a personal directory using one of the commands below.
+ Note, that PYTHONPATH has to be set or modified accordingly.
+ The three examples below show how to install PyFITS in an arbitrary directory
+ <install-dir> and how to modify PYTHONPATH.
+\end_layout
+
+\begin_layout Standard
+python setup.py install --local=<install-dir> setenv PYTHONPATH <install-dir>
+\end_layout
+
+\begin_layout Standard
+python setup.py install --home=<install-dir> setenv PYTHONPATH <install-dir>/lib/
+python
+\end_layout
+
+\begin_layout Standard
+python setup.py install --prefix=<install-lib> setenv PYTHONPATH <install-dir>lib
+/python2.3/site-packages
+\end_layout
+
+\begin_layout Standard
+In this Guide, we'll assume that the reader has basic familiarity with Python.
+ Familiarity with numarray is not required, but it will help to understand
+ the data structures in PyFITS.
+ User Support for PyFITS The official PyFITS web page is: http://www.stsci.edu/res
+ources/software_hardware/pyfits
+\end_layout
+
+\begin_layout Standard
+If you have any question or comment regarding PyFITS, user support is available
+ through the STScI Help Desk: E-mail: help@stsci.edu Phone: (410) 338-1082
+ 
+\end_layout
+
+\end_body
+\end_document
