@@ -75,7 +75,9 @@ PyFITS uses python's distutils for its installation.
  To install it, unpack the tar file and type:
 \end_layout
 
-\begin_layout Standard
+\begin_layout Quotation
+
+\emph on
 python setup.py install
 \end_layout
 
@@ -89,32 +91,118 @@ This will install pyfits, readgeis and fitsdiff in python's site-packages
  <install-dir> and how to modify PYTHONPATH.
 \end_layout
 
+\begin_layout List
+\labelwidthstring 00.00.0000
+
+\emph on
+Example 1:
+\end_layout
+
+\begin_deeper
 \begin_layout Standard
-python setup.py install --local=<install-dir> setenv PYTHONPATH <install-dir>
+
+\emph on
+python setup.py install --local=<install-dir>
 \end_layout
 
 \begin_layout Standard
-python setup.py install --home=<install-dir> setenv PYTHONPATH <install-dir>/lib/
-python
+
+\emph on
+setenv PYTHONPATH <install-dir>
+\end_layout
+
+\end_deeper
+\begin_layout List
+\labelwidthstring 00.00.0000
+
+\emph on
+Example 2:
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+
+\emph on
+python setup.py install --home=<install-dir> 
 \end_layout
 
 \begin_layout Standard
-python setup.py install --prefix=<install-lib> setenv PYTHONPATH <install-dir>lib
-/python2.3/site-packages
+
+\emph on
+setenv PYTHONPATH <install-dir>/lib/python
 \end_layout
 
+\end_deeper
+\begin_layout List
+\labelwidthstring 00.00.0000
+
+\emph on
+Example 3
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+
+\emph on
+python setup.py install --prefix=<install-lib> 
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+setenv PYTHONPATH <install-dir>lib/python2.3/site-packages
+\end_layout
+
+\end_deeper
 \begin_layout Standard
 In this Guide, we'll assume that the reader has basic familiarity with Python.
  Familiarity with numarray is not required, but it will help to understand
  the data structures in PyFITS.
- User Support for PyFITS The official PyFITS web page is: http://www.stsci.edu/res
-ources/software_hardware/pyfits
+ 
+\end_layout
+
+\begin_layout Subsection
+User Support for PyFITS 
+\end_layout
+
+\begin_layout Standard
+The official PyFITS web page is: 
+\end_layout
+
+\begin_layout Itemize
+http://www.stsci.edu/resources/software_hardware/pyfits
 \end_layout
 
 \begin_layout Standard
 If you have any question or comment regarding PyFITS, user support is available
- through the STScI Help Desk: E-mail: help@stsci.edu Phone: (410) 338-1082
+ through the STScI Help Desk: 
+\end_layout
+
+\begin_layout Itemize
+E-mail: help@stsci.edu 
+\end_layout
+
+\begin_layout Itemize
+Phone: (410) 338-1082 
+\end_layout
+
+\begin_layout Section
+A Quick Tutorial
+\end_layout
+
+\begin_layout Standard
+This chapter provides a quick introduction of using PyFITS.
+ The goal is to demonstrate PyFITS s basic features without getting into
+ too much detail.
+ If you are a first time user or an occasional PyFITS user, using only the
+ most basic functionality, this is where you should start.
+ Otherwise, it is safe to skip this chapter.
  
+\end_layout
+
+\begin_layout Standard
+After installing numarray and PyFITS, start Python and load the PyFITS library.
+ Note that the module name is all lower case.
 \end_layout
 
 \end_body
