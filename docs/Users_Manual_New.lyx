@@ -76,9 +76,27 @@ PyFITS uses python's distutils for its installation.
 \end_layout
 
 \begin_layout Quotation
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
 
 \emph on
 python setup.py install
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -89,37 +107,26 @@ This will install pyfits, readgeis and fitsdiff in python's site-packages
  Note, that PYTHONPATH has to be set or modified accordingly.
  The three examples below show how to install PyFITS in an arbitrary directory
  <install-dir> and how to modify PYTHONPATH.
+\newline
+
 \end_layout
 
-\begin_layout List
-\labelwidthstring 00.00.0000
-
-\emph on
-Example 1:
-\end_layout
-
-\begin_deeper
 \begin_layout Standard
 
 \emph on
-python setup.py install --local=<install-dir>
+python setup.py install --local=<install-dir> 
 \end_layout
 
 \begin_layout Standard
 
 \emph on
 setenv PYTHONPATH <install-dir>
+\emph default
+
+\newline
+
 \end_layout
 
-\end_deeper
-\begin_layout List
-\labelwidthstring 00.00.0000
-
-\emph on
-Example 2:
-\end_layout
-
-\begin_deeper
 \begin_layout Standard
 
 \emph on
@@ -130,30 +137,28 @@ python setup.py install --home=<install-dir>
 
 \emph on
 setenv PYTHONPATH <install-dir>/lib/python
+\emph default
+
+\newline
+
 \end_layout
 
-\end_deeper
-\begin_layout List
-\labelwidthstring 00.00.0000
-
-\emph on
-Example 3
-\end_layout
-
-\begin_deeper
 \begin_layout Standard
 
 \emph on
-python setup.py install --prefix=<install-lib> 
+python setup.py install --prefix=<install-lib>
 \end_layout
 
 \begin_layout Standard
 
 \emph on
 setenv PYTHONPATH <install-dir>lib/python2.3/site-packages
+\emph default
+
+\newline
+
 \end_layout
 
-\end_deeper
 \begin_layout Standard
 In this Guide, we'll assume that the reader has basic familiarity with Python.
  Familiarity with numarray is not required, but it will help to understand
@@ -203,6 +208,407 @@ This chapter provides a quick introduction of using PyFITS.
 \begin_layout Standard
 After installing numarray and PyFITS, start Python and load the PyFITS library.
  Note that the module name is all lower case.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> import pyfits
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Read and Update Existing FITS Files
+\end_layout
+
+\begin_layout Subsubsection
+Open a FITS file
+\end_layout
+
+\begin_layout Standard
+Once the PyFITS module is loaded, we can open an existing FITS file:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdulist = pyfits.open('input.fits')
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The 
+\emph on
+open()
+\emph default
+ function has several optional arguments which will be discussed in a later
+ chapter.
+ The default mode, as in the above example, is "readonly".
+ The open method returns a PyFITS object called an HDUList which is a Python-lik
+e list, consisting of HDU objects.
+ An HDU (Header Data Unit) is the highest level component of the FITS file
+ structure.
+ So, after the above open call, hdulist[0] is the primary HDU, hdulist[1],
+ if any, is the first extension HDU, etc.
+ The HDUList has a useful method 
+\emph on
+info()
+\emph default
+, which summarizes the content of the opened FITS file:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdulist.info() 
+\end_layout
+
+\begin_layout Standard
+Filename: test1.fits 
+\end_layout
+
+\begin_layout Standard
+No.
+ Name Type Cards Dimensions Format 
+\end_layout
+
+\begin_layout Standard
+0 PRIMARY PrimaryHDU 220 () Int16 
+\end_layout
+
+\begin_layout Standard
+1 SCI ImageHDU 61 (800, 800) Float32 
+\end_layout
+
+\begin_layout Standard
+2 SCI ImageHDU 61 (800, 800) Float32 
+\end_layout
+
+\begin_layout Standard
+3 SCI ImageHDU 61 (800, 800) Float32 
+\end_layout
+
+\begin_layout Standard
+4 SCI ImageHDU 61 (800, 800) Float32
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+After you are done with the opened file, close it with the 
+\emph on
+close()
+\emph default
+ method:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdulist.close()
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The headers will still be accessable after the HDUlist is closed.
+ The data may or may not be accessable depending on whether the data are
+ touched and if they are memory-mapped, see later chapters for detail.
+\end_layout
+
+\begin_layout Subsubsection
+Working with the Header
+\end_layout
+
+\begin_layout Standard
+As mentioned earlier, each element of an HDUList is an HDU object with attribute
+s of header and data, which can be used to access the header keywords and
+ the data.
+ The header attribute is a Header instance, another PyFITS object.
+ To get the value of a header keyword, simply do (a la Python dictionaries):
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdulist[0].header[ targname ] 
+\end_layout
+
+\begin_layout Standard
+'NGC121' 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+to get the value of the keyword targname, which is a string 'NGC121'.
+ 
+\end_layout
+
+\begin_layout Standard
+Although keyword names are always in upper case inside the FITS file, specifying
+ a keyword name with PyFITS is case-insensitive, for user s convenience.
+ If the specified keyword name does not exist, it will raise a 
+\emph on
+KeyError
+\emph default
+ exception.
+ We can also get the keyword value by indexing (a la Python lists):
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdulist[0].header[27]
+\end_layout
+
+\begin_layout Standard
+96
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This example returns the 28th (like Python lists, it is 0-indexed) keyword's
+ value, an integer, 96.
+ 
+\end_layout
+
+\begin_layout Standard
+Similarly, it is easy to update a keyword s value in PyFITS, either through
+ keyword name or index:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> prihdr = hdulist[0].header 
+\end_layout
+
+\begin_layout Standard
+>>> hdr[ targname ] = 'NGC121-a' 
+\end_layout
+
+\begin_layout Standard
+>>> hdr[27] = 99
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Use the above syntax if the keyword is already present in the header.
+ If the keyword might not exist and you want to add it if it doesn t, use
+ the 
+\emph on
+update()
+\emph default
+ method:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> prihdr.update('observer','Edwin Hubble')
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A header consists of 
+\emph on
+Card
+\emph default
+ objects (i.e.
+ the 80-column card-images specified in the FITS standard).
+ Each Card normally has up to three parts: key, value, and comment.
+ To see the entire list of cardimages of an HDU, use the 
+\emph on
+ascardlist()
+\emph default
+ method :
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> print prihdr.ascardlist()[:3] 
+\end_layout
+
+\begin_layout Standard
+SIMPLE = T / file does conform to FITS standard 
+\end_layout
+
+\begin_layout Standard
+BITPIX = 16 / number of bits per data pixel 
+\end_layout
+
+\begin_layout Standard
+NAXIS = 0 / number of data axes
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Only the first three cards are shown above.
+ To get a list of all keywords, use the keys() method of the card list:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> prihdr.ascardlist().keys() 
+\end_layout
+
+\begin_layout Standard
+['SIMPLE','BITPIX','NAXIS', ...]
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
 \end_layout
 
 \end_body
