@@ -607,6 +607,296 @@ status open
 
 \end_layout
 
+\begin_layout Subsubsection
+Working with Image Data
+\end_layout
+
+\begin_layout Standard
+If an HDU's data is an image, the 
+\emph on
+data
+\emph default
+ attribute of the HDU object will return a numarray object.
+ Refer to the numarray Manual for details of manipulating these numerical
+ arrays.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> scidata = hdulist[1].data
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Here, scidata points to the data object in the second HDU (the first HDU,
+ 
+\emph on
+hdulist[0]
+\emph default
+, being the primary HDU) in 
+\emph on
+hdulist
+\emph default
+, which corresponds to the 
+\emph on
+'SCI'
+\emph default
+ extension.
+ Alternatively, you can access the extension by its extension name (specified
+ in the 
+\emph on
+EXTNAME
+\emph default
+ keyword):
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> scidata = hdulist['SCI'].data
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\lyxline
+
+\end_layout
+
+\begin_layout Standard
+If there is more than one extension with the same 
+\emph on
+EXTNAME, EXTVER's
+\emph default
+ value needs to be specified as the second argument, e.g.: 
+\emph on
+hdulist['sci',2]
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+
+\lyxline
+
+\end_layout
+
+\begin_layout Standard
+The returned numarray object has many attributes and methods for a user
+ to get information about the array, e.
+ g.:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> scidata.shape
+\end_layout
+
+\begin_layout Standard
+(800, 800) 
+\end_layout
+
+\begin_layout Standard
+>>> scidata.type() 
+\end_layout
+
+\begin_layout Standard
+Float32
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Since image data is a numarray object, we can slice it, view it, and perform
+ mathematical operations on it.
+ To see the pixel value at x=5, y=2:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> print scidata[1,4]
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Note that, like C (and unlike FORTRAN), Python is 0-indexed and the indices
+ have the slowest axis first and fast axis last, i.e.
+ for a 2-D image, the fast axis (X-axis) which corresponds to the FITS NAXIS1
+ keyword, is the second index.
+ Similarly, the sub-section of x=11 to 20 (inclusive) and y=31 to 40 (inclusive)
+ is:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> scidata[30:40, 10:20]
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+To update the value of a pixel or a sub-section:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> scidata[30:40,10:20] = scidata[1,4] = 999
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This example changes the values of both the pixel [1,4] and the sub-section
+ [30:40,10:20] to the new value of 999.
+\end_layout
+
+\begin_layout Standard
+Next example of array arithmetics is to convert the image data from counts
+ to flux:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> photflam = hdulist[1].header[ photflam ] 
+\end_layout
+
+\begin_layout Standard
+>>> exptime = prihdr[ exptime ] 
+\end_layout
+
+\begin_layout Standard
+>>> scidata *= photflam / exptime
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This example performs the math on the array in-place, thereby keeping the
+ memory usage to a minimum.
+ (Note: before Python 2.2.3, the use of "*=" may cause an error, this is fixed
+ in later Python versions.) 
+\end_layout
+
+\begin_layout Standard
+If at this point you want to preserve all the changes you made and write
+ it to a new file, you can use the 
+\emph on
+writeto()
+\emph default
+ method of HDUList (see below).
+\end_layout
+
+\begin_layout Subsubsection
+Working with Table Data
+\end_layout
+
 \begin_layout Standard
 
 \end_layout
