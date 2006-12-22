@@ -400,7 +400,7 @@ height_special "totalheight"
 status open
 
 \begin_layout Standard
->>> hdulist[0].header[ targname ] 
+>>> hdulist[0].header['targname'] 
 \end_layout
 
 \begin_layout Standard
@@ -895,6 +895,459 @@ writeto()
 
 \begin_layout Subsubsection
 Working with Table Data
+\end_layout
+
+\begin_layout Standard
+If you are familiar with the record array in numarray, you will find the
+ table data is basically a record array with some extra properties.
+ But familiarity with record arrays is not a prerequisite for this Guide.
+ 
+\end_layout
+
+\begin_layout Standard
+Like images, the data portion of a FITS table extension is in the 
+\emph on
+.data
+\emph default
+ attribute:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdulist = pyfits.open('table.fits') 
+\end_layout
+
+\begin_layout Standard
+>>> tbdata = hdulist[1].data # assuming the first extension is a table
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+To see the first row of the table:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> print tbdata[0] 
+\end_layout
+
+\begin_layout Standard
+(1, 'abc',3.7000002861022949,0)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Each 
+\emph on
+row
+\emph default
+ in the table is a Record object which looks like a (Python) tuple containing
+ elements of heterogeneous data types.
+ In this example: an integer, a string, a floating point number, and a Boolean
+ value.
+ So the table data are just an array of such Records.
+ More commonly, a user is likely to access the data in a 
+\emph on
+column-wise
+\emph default
+ way.
+ This is accomplished by using the 
+\emph on
+field()
+\emph default
+ method.
+ To get the first 
+\emph on
+column
+\emph default
+ (or 
+\emph on
+field
+\emph default
+) of the table, use:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> tbdata.field(0)
+\end_layout
+
+\begin_layout Standard
+array([1, 2])
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A numarray object with the data type of the specified field is returned.
+\end_layout
+
+\begin_layout Standard
+Like header keywords, a field can be referred either by index, as above,
+ or by name:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> tbdata.field('id') 
+\end_layout
+
+\begin_layout Standard
+array([1, 2])
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+But how do we know what field names we ve got? First, let's introduce another
+ attribute of the table HDU: the 
+\emph on
+.columns
+\emph default
+ attribute:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> cols = hdulist[1].columns
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This attribute is a 
+\emph on
+ColDefs
+\emph default
+ (column definitions) object.
+ If we use its 
+\emph on
+info()
+\emph default
+ method:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> cols.info() 
+\end_layout
+
+\begin_layout Standard
+name: 
+\end_layout
+
+\begin_layout Standard
+['c1','c2','c3','c4'] 
+\end_layout
+
+\begin_layout Standard
+format: 
+\end_layout
+
+\begin_layout Standard
+['1J','3A','1E','1L'] 
+\end_layout
+
+\begin_layout Standard
+unit: 
+\end_layout
+
+\begin_layout Standard
+[ '', '', '', ''] 
+\end_layout
+
+\begin_layout Standard
+null: 
+\end_layout
+
+\begin_layout Standard
+[-2147483647, '', '', ''] 
+\end_layout
+
+\begin_layout Standard
+bscale: 
+\end_layout
+
+\begin_layout Standard
+[ '', '', 3, ''] 
+\end_layout
+
+\begin_layout Standard
+bzero: 
+\end_layout
+
+\begin_layout Standard
+[ '', '', 0.40000000000000002, ''] 
+\end_layout
+
+\begin_layout Standard
+disp: 
+\end_layout
+
+\begin_layout Standard
+[ 'I11' , 'A3' , 'G15.7' , 'L6' ] 
+\end_layout
+
+\begin_layout Standard
+start: 
+\end_layout
+
+\begin_layout Standard
+[ '', '', '', ''] 
+\end_layout
+
+\begin_layout Standard
+dim: 
+\end_layout
+
+\begin_layout Standard
+[ '', '', '', '']
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+it will show all its attributes, such as names, formats, bscales, bzeros,
+ etc.
+ We can also get these properties individually, e.g.:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> cols.names 
+\end_layout
+
+\begin_layout Standard
+[ 'ID' , 'name' , 'mag' , 'flag' ]
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+returns a (Python) list of field names.
+ 
+\end_layout
+
+\begin_layout Standard
+Since each field is a numarray object, we ll have the entire arsenal of
+ numarray tools to use.
+ We can reassign (update) the values:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> tbdata.field( 'flag' )[:] = 0
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The 
+\emph on
+info()
+\emph default
+ method of table data will show the attributes of the record array, many
+ of them may seem esoteric to casual users:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> tbdata.info() 
+\end_layout
+
+\begin_layout Standard
+class: <class pyfits.FITS_rec > 
+\end_layout
+
+\begin_layout Standard
+shape: (2,) 
+\end_layout
+
+\begin_layout Standard
+strides: (12,) 
+\end_layout
+
+\begin_layout Standard
+byteoffset: 0 
+\end_layout
+
+\begin_layout Standard
+bytestride: 12 
+\end_layout
+
+\begin_layout Standard
+itemsize: 12 
+\end_layout
+
+\begin_layout Standard
+aligned: 0 
+\end_layout
+
+\begin_layout Standard
+contiguous: 1 
+\end_layout
+
+\begin_layout Standard
+buffer: <memory at 0x092dc3d8 with size:0x00000018 held by 
+\end_layout
+
+\begin_layout Standard
+object 0x4086eb20 aliasing object 0x00000000> 
+\end_layout
+
+\begin_layout Standard
+data pointer: 0x092dc3d8 (DEBUG ONLY) 
+\end_layout
+
+\begin_layout Standard
+field names: [ 'c1' , 'c2' , 'c3' , 'c4 '] 
+\end_layout
+
+\begin_layout Standard
+field formats: [ '1Int32' , '1a3' , '1Float32' , '1Int8' ]
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Create New FITS Files
 \end_layout
 
 \begin_layout Standard
