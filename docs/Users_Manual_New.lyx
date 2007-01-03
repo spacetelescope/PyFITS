@@ -1792,6 +1792,576 @@ Use the Convenience Functions
 \end_layout
 
 \begin_layout Standard
+PyFITS also provides several high level ("convenience") functions.
+ Such a convenience function is a "canned" operation to achieve one simple
+ task.
+ By using these "convenience" functions, a user does not have to worry about
+ opening or closing a file, all the housekeeping is done implicitly.
+ 
+\end_layout
+
+\begin_layout Standard
+The first of these functions is 
+\emph on
+getheader()
+\emph default
+, to get the header of an HDU.
+ Here are several examples of getting the header.
+ Only the file name is required for this function.
+ The rest of the arguments are optional and flexible to specifiy which HDU
+ the user wants to get:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> getheader('in.fits') # get default HDU (=0), i.e.
+ primary HDU's header 
+\end_layout
+
+\begin_layout Standard
+>>> getheader('in.fits', 0) # get primary HDU's header 
+\end_layout
+
+\begin_layout Standard
+>>> getheader('in.fits', 2) # the second extension
+\newline
+
+\end_layout
+
+\begin_layout Standard
+# the HDU with EXTNAME='sci' (if there is only 1) 
+\end_layout
+
+\begin_layout Standard
+>>> getheader('in.fits','sci ')
+\newline
+ 
+\end_layout
+
+\begin_layout Standard
+# the HDU with EXTNAME='sci' and EXTVER=2 
+\end_layout
+
+\begin_layout Standard
+>>> getheader('in.fits','sci', 2) 
+\end_layout
+
+\begin_layout Standard
+>>> getheader('in.fits', ('sci', 2)) # use a tuple to do the same
+\newline
+ 
+\end_layout
+
+\begin_layout Standard
+>>> getheader('in.fits', ext=2) # the second extension
+\newline
+ 
+\end_layout
+
+\begin_layout Standard
+# the 'sci' extension, if there is only 1 
+\end_layout
+
+\begin_layout Standard
+>>> getheader('in.fits', extname= 'sci' )
+\newline
+
+\end_layout
+
+\begin_layout Standard
+# the HDU with EXTNAME='sci' and EXTVER=2 
+\end_layout
+
+\begin_layout Standard
+>>> getheader('in.fits', extname='sci' , extver=2)
+\newline
+ 
+\end_layout
+
+\begin_layout Standard
+# ambiguous specifications will raise an exception, DON"T DO IT!! 
+\end_layout
+
+\begin_layout Standard
+>>> getheader('in.fits', ext=('sci',1), extname='err', extver=2)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+After you get the header, you can access the information in it, such as
+ getting and modifying a keyword value:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> from pyfits import getheader 
+\end_layout
+
+\begin_layout Standard
+>>> hdr = getheader('in.fits', 1) # get first extension's header 
+\end_layout
+
+\begin_layout Standard
+>>> filter = hdr['filter'] # get the value of the keyword "filter
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Standard
+>>> val = hdr[10] # get the 11th keyword's value 
+\end_layout
+
+\begin_layout Standard
+>>> hdr['filter']= 'FW555' # change the keyword value
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+For the header keywords, the header is like a dictionary, as well as a list.
+ The user can access the keywords either by name or by numerix index, as
+ explained earlier in this chapter.
+\end_layout
+
+\begin_layout Standard
+If a user only needs to 
+\emph on
+read
+\emph default
+ one keyword, the 
+\emph on
+getval()
+\emph default
+ function can further simplify to just one call, instead of two as shown
+ in the above examples:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> from pyfits import getval 
+\end_layout
+
+\begin_layout Standard
+# get 1st extension's keyword FILTER's value 
+\end_layout
+
+\begin_layout Standard
+>>> flt = getval('in.fits','filter', 1) 
+\end_layout
+
+\begin_layout Standard
+# get the 2nd sci extension's 11th keyword's value
+\end_layout
+
+\begin_layout Standard
+>>> val = getval('in.fits', 10, 'sci', 2) 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The function 
+\emph on
+getdata()
+\emph default
+ gets the data of an HDU.
+ Similar to 
+\emph on
+getheader()
+\emph default
+, it only requires the input FITS file name while the extension is specified
+ through the optional arguments.
+ It does have one extra optional arguemnt 
+\emph on
+header
+\emph default
+.
+ If 
+\emph on
+header
+\emph default
+ is set to True, this function will return both data and header, otherwise
+ only data is returned.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> from pyfits import getdata 
+\end_layout
+
+\begin_layout Standard
+>>> dat = getdata('in.fits','sci', 3) # get 3rd sci extension's data
+\newline
+ 
+\end_layout
+
+\begin_layout Standard
+# get 1st extension's data and header 
+\end_layout
+
+\begin_layout Standard
+>>> data, hdr = getdata('in.fits', 1, header=True)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The functions introduced above are for reading.
+ The next few functions demonstrate convenience functions for writing:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> pyfits.writeto('out.fits', data, header)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The 
+\emph on
+writeto()
+\emph default
+ function uses the provided data and an optional header to write to an output
+ FITS file.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> pyfits.append('out.fits', data, header)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The 
+\emph on
+append()
+\emph default
+ function will use the provided data and the optional header to append to
+ an existing FITS file.
+ If the specified output file does not exist, it will create one.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> from pyfits import update 
+\end_layout
+
+\begin_layout Standard
+>>> update(file, dat, hdr,'sci') # update the 'sci' extension 
+\end_layout
+
+\begin_layout Standard
+>>> update(file, dat, 3) # update the 3rd extension 
+\end_layout
+
+\begin_layout Standard
+>>> update(file, dat, hdr, 3) # update the 3rd extension 
+\end_layout
+
+\begin_layout Standard
+>>> update(file, dat, 'sci' , 2) # update the 2nd SCI extension 
+\end_layout
+
+\begin_layout Standard
+>>> update(file, dat, 3, header=hdr) # update the 3rd extension 
+\end_layout
+
+\begin_layout Standard
+>>> update(file, dat, header=hdr, ext=5) # update the 5th extension
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The update() function will update the specified extension with the input
+ data/header.
+ The 3rd argument can be the header associated with the data.
+ If the 3rd argument is not a header, it (and other positional arguments)
+ are assumed to be the extension specification(s).
+ Header and extension specs can also be keyword arguments.
+ 
+\end_layout
+
+\begin_layout Standard
+Finally, the 
+\emph on
+info()
+\emph default
+ function will print out information of the specified FITS file:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> pyfits.info('test0.fits') 
+\end_layout
+
+\begin_layout Standard
+Filename: test0.fits 
+\end_layout
+
+\begin_layout Standard
+No.
+ Name Type Cards Dimensions Format 
+\end_layout
+
+\begin_layout Standard
+0 PRIMARY PrimaryHDU 138 () Int16 
+\end_layout
+
+\begin_layout Standard
+1 SCI ImageHDU 61 (400, 400) Int16 
+\end_layout
+
+\begin_layout Standard
+2 SCI ImageHDU 61 (400, 400) Int16 
+\end_layout
+
+\begin_layout Standard
+3 SCI ImageHDU 61 (400, 400) Int16 
+\end_layout
+
+\begin_layout Standard
+4 SCI ImageHDU 61 (400, 400) Int16
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+FITS Headers
+\end_layout
+
+\begin_layout Standard
+In the next threee chapters, more detailed information as well as examples
+ will be explained for manipulating the header, the image data, and the
+ table data respectively.
+\end_layout
+
+\begin_layout Subsection
+Header of an HDU
+\end_layout
+
+\begin_layout Standard
+Every HDU normally has two components: header and data.
+ In PyFITS these two components are accessed through the two attributes
+ of the HDU, 
+\emph on
+.header
+\emph default
+ and 
+\emph on
+.data
+\emph default
+.
+ 
+\end_layout
+
+\begin_layout Standard
+While an HDU may have empty data, i.e.
+ the 
+\emph on
+.data
+\emph default
+ attribute is None, any HDU will always have a header.
+ When an HDU is created with a constructor, e.g.
+ 
+\emph on
+hdu=PrimaryHDU(data, header)
+\emph default
+, the user may supply the 
+\emph on
+header
+\emph default
+ value from an existing HDU's header and the data value from a numarray.
+ If the defaults (None) are used, the new HDU will have the minimal require
+ keyword:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdu = pyfits.PrimaryHDU() 
+\end_layout
+
+\begin_layout Standard
+>>> print hdu.header.ascardlist() # show the keywords 
+\end_layout
+
+\begin_layout Standard
+SIMPLE = T / conforms to FITS standard 
+\end_layout
+
+\begin_layout Standard
+BITPIX = 8 / array data type 
+\end_layout
+
+\begin_layout Standard
+NAXIS = 0 / number of array dimensions 
+\end_layout
+
+\begin_layout Standard
+EXTEND = T
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A user can use any header and any data to construct a new HDU.
+ PyFITS will strip the required keywords from the input header first and
+ then add back the required keywords compatible to the new HDU.
+ So, a user can use a table HDU's header to construct an image HDU and vice
+ versa.
+ The constructor will also ensure the data type and dimension information
+ in the header agree with the data.
+\end_layout
+
+\begin_layout Subsection
+The Header Attribute
+\end_layout
+
+\begin_layout Subsubsection
+Value Access and Update
+\end_layout
+
+\begin_layout Standard
 
 \end_layout
 
