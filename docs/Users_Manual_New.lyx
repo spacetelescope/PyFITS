@@ -1350,6 +1350,447 @@ field formats: [ '1Int32' , '1a3' , '1Float32' , '1Int8' ]
 Create New FITS Files
 \end_layout
 
+\begin_layout Subsubsection
+Save Changes
+\end_layout
+
+\begin_layout Standard
+As mentioned earlier, after a user opened a file, made a few changes to
+ either header or data, the user can use the 
+\emph on
+writeto()
+\emph default
+ method in 
+\emph on
+HDUList
+\emph default
+ to save the changes.
+ This takes the version of headers and data in memory and writes them to
+ a new FITS file on disk.
+ Subsequent operations can be performed to the data in memory and written
+ out to yet another different file, all without recopying the original data
+ to (more) memory.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdulist.writeto('newimage.fits')
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+will write the current content of 
+\emph on
+hdulist
+\emph default
+ to a new disk file 
+\emph on
+newfile.fits
+\emph default
+.
+ If a file was opened with the 
+\emph on
+update
+\emph default
+ mode, the 
+\emph on
+flush()
+\emph default
+ method can also be used to write all the changes made since 
+\emph on
+open()
+\emph default
+, back to the original file.
+ The 
+\emph on
+close()
+\emph default
+ method will do the same for a FITS file opened with 
+\emph on
+update
+\emph default
+ mode.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> f = pyfits.open('original.fits', mode='update') 
+\end_layout
+
+\begin_layout Standard
+...
+ # making changes in data and/or header 
+\end_layout
+
+\begin_layout Standard
+>>> f.flush() # changes are written back to original.fits
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Create FITS Images from Scratch
+\end_layout
+
+\begin_layout Standard
+So far we have demonstrated how to read and update an existing FITS file.
+ But how about creating a new FITS file from scratch? Such task is very
+ easy in PyFITS for an image HDU.
+ We ll first demonstrate how to create a FITS file consisting only the primary
+ HDU with image data.
+ First, we create a numarray object for the data part:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> import numarray 
+\end_layout
+
+\begin_layout Standard
+>>> n = numarray.arange(100) # a simple sequence from 0 to 99
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Next, we create a 
+\emph on
+PrimaryHDU
+\emph default
+ object to encapsulate the data:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdu = pyfits.PrimaryHDU(n)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+we then create a 
+\emph on
+HDUList
+\emph default
+ to contain the newly created primary HDU, and write to a new file:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdulist = pyfits.HDUList([hdu]) 
+\end_layout
+
+\begin_layout Standard
+>>> hdulist.writeto('new.fits')
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+That's it! In fact, PyFITS even provides a short cut for the last two lines:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdu.writeto('new.fits')
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+accomplishes the same!
+\end_layout
+
+\begin_layout Subsubsection
+Create FITS Tables from Scratch
+\end_layout
+
+\begin_layout Standard
+To create a table HDU is a little more involved than image HDU, because
+ table's structure needs more information.
+ First of all, tables can only be an extension HDU, not a primary.
+ There are two kinds of FITS table extensions: ASCII and binary.
+ We'll use binary table examples here.
+ 
+\end_layout
+
+\begin_layout Standard
+To create a table from scratch, we need to define columns first, by constructing
+ the 
+\emph on
+Column
+\emph default
+ objects and their data.
+ Say, we have two columns, the first contains strings, and the second contains
+ floating point numbers
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> a1=numarray.strings.array(['NGC1001','NGC1002','NGC1003']) 
+\end_layout
+
+\begin_layout Standard
+>>> a2=numarray.array([11.1,12.3,15.2]) 
+\end_layout
+
+\begin_layout Standard
+>>> col1=pyfits.Column(name='target', format='20A', array=a1) 
+\end_layout
+
+\begin_layout Standard
+>>> col2=pyfits.Column(name='V_mag', format='E', array=a2)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Second, create a 
+\emph on
+ColDefs
+\emph default
+ (column-definitions) object for all columns:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> cols=pyfits.ColDefs([col1, col2])
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now, create a new binary table HDU object by using the PyFITS function 
+\emph on
+new_table()
+\emph default
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> tbhdu=pyfits.new_table(cols)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This function returns (in this case) a 
+\emph on
+BinTableHDU
+\emph default
+.
+ Append it to the hdulist we already have:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdulist.append(tbhdu)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+or create a new 
+\emph on
+HDUList
+\emph default
+ and go through the same steps as you did for the 
+\emph on
+ImageHDU
+\emph default
+.
+ If this will be the only extension of the new FITS file 
+\emph on
+and
+\emph default
+ you only have a minimal primary HDU with no data, PyFITS again provides
+ a short cut:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+tbhdu.writeto('table.fits')
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So far, we have covered the most basic features of PyFITS.
+ In the following chapters we ll show more advanced examples and explain
+ options in each class and method.
+\end_layout
+
+\begin_layout Subsection
+Use the Convenience Functions
+\end_layout
+
 \begin_layout Standard
 
 \end_layout
