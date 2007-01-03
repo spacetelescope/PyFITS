@@ -2362,6 +2362,183 @@ Value Access and Update
 \end_layout
 
 \begin_layout Standard
+As shown in the Quick Tutorial, keyword values can be accessed via keyword
+ name or index of an HDU's header attribute.
+ Here is a quick summary:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdulist = pyfits.open('input.fits') # open a FITS file 
+\end_layout
+
+\begin_layout Standard
+>>> prihdr = hdulist[0].header # the primary HDU header 
+\end_layout
+
+\begin_layout Standard
+>>> print prihdr[3] # get the 4th keyword's value 
+\end_layout
+
+\begin_layout Standard
+10 
+\end_layout
+
+\begin_layout Standard
+>>> prihdr[3] = 20 # change it's value 
+\end_layout
+
+\begin_layout Standard
+>>> print prihdr['darkcorr'] # get the value of the keyword 'darkcorr'
+\newline
+ 'OMIT'
+ 
+\end_layout
+
+\begin_layout Standard
+>>> prihdr['darkcorr']= 'PERFORM' # change darkcorr s value
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When reference by the keyword name, it is case insensitive.
+ Thus, 
+\emph on
+prihdr['abc'], prihdr['ABC'], 
+\emph default
+or
+\emph on
+ prihdr['aBc']
+\emph default
+ are all equivalent.
+ 
+\end_layout
+
+\begin_layout Standard
+A keyword (and its corresponding Card) can be deleted using the same index/name
+ syntax:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> del prihdr[3] # delete the 2nd keyword 
+\end_layout
+
+\begin_layout Standard
+>>> del prihdr['abc'] # get the value of the keyword 'abc' 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Note that, like a regular Python list, the indexing updates after each delete,
+ so if 
+\emph on
+del prihdr[3]
+\emph default
+ is done two times in a row, the 2nd and 3rd keywords are removed from the
+ original header.
+ 
+\end_layout
+
+\begin_layout Standard
+Slices are not accepted by the header attribute, so it is not possible to
+ do 
+\emph on
+del prihdr[3:5]
+\emph default
+, for example.
+ 
+\end_layout
+
+\begin_layout Standard
+The method 
+\emph on
+update(key, value, comment)
+\emph default
+ is a more versatile way to update keywords.
+ It has the flexibility to update an existing keyword and in case the keyword
+ does not exist, add it to the header.
+ It also allows the use to update both the value and its comment.
+ If it is a new keyword, the user can also specify where to put it, using
+ the before or after optional argument.
+ The default is to append at the end of the header.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> prihdr.update('target', 'NGC1234', 'target name') 
+\end_layout
+
+\begin_layout Standard
+>>> # place the next new keyword before the 'target' keyword 
+\end_layout
+
+\begin_layout Standard
+>>> prihdr.update('newkey' , 666, before='target') # comment is optional
+\end_layout
+
+\begin_layout Standard
+>>> # place the next new keyword after the 21st keyword 
+\end_layout
+
+\begin_layout Standard
+>>> prihdr.update('newkey2', 42.0, 'another new key' , after=20)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+COMMENT, HISTORY, and Blank Keywords
+\end_layout
+
+\begin_layout Standard
 
 \end_layout
 
