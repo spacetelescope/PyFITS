@@ -55,8 +55,8 @@ True
 # one row like this:
 
 >>> print tbhdu.data[1]
-('def', 12.0, 4, 2, (4+4j), array([True], dtype=bool), 102, array([False, True, True, True, True, False, False, False, False, True,
-       False], dtype=bool))
+('def', 12.0, 4, 2, (4+4j), array([ True], dtype=bool), 102, array([False,  True,  True,  True,  True, False, False, False, False,
+        True, False], dtype=bool))
 
 # and a column like this:
 
@@ -75,7 +75,7 @@ True
 >>> f2 = pyfits.open('tableout1.fits')
 >>> temp = f2[1].data.field(7)
 >>> print temp[0]
-[True True False True False True True True False False True]
+[ True  True False  True False  True  True  True False False  True]
 
 # An alternative way to create an output table FITS file:
 # fout2=pyfits.open('tableout2.fits','append')
