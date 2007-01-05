@@ -3925,7 +3925,235 @@ Table Data
 \end_layout
 
 \begin_layout Standard
+In this chapter, we'll discuss the data component in a table HDU.
+ A table will always be in an extension HDU, never in a primary HDU.
+ 
+\end_layout
 
+\begin_layout Standard
+There are two kinds of tables in the FITS standard: a binary table and an
+ ASCII table.
+ A binary table is more economical in storage and faster in data access
+ and manipulation.
+ An ASCII table stores the data in a "human readable" form and therefore
+ takes up more storage space as well as more processing time since the ASCII
+ text needs to be parsed back into numerical values.
+\end_layout
+
+\begin_layout Subsection
+Table Data as a Record Array
+\end_layout
+
+\begin_layout Subsubsection
+What is a Record Array?
+\end_layout
+
+\begin_layout Standard
+A record array is an array which contains records (i.e.
+ rows) of heterogeneous data types.
+ Record array is available through the 
+\emph on
+records
+\emph default
+ module in the 
+\emph on
+numarray
+\emph default
+ library.
+ Here is a simple example of record array:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> import numarray.records as rec 
+\end_layout
+
+\begin_layout Standard
+>>> bright=rec.array([(1, 'Sirius' , -1.45, 'A1V' ),
+\backslash
+ 
+\end_layout
+
+\begin_layout Standard
+...
+ (2, 'Canopus' , -0.73, 'F0Ib' ),
+\backslash
+ 
+\end_layout
+
+\begin_layout Standard
+...
+ (3, 'Rigil Kent' , -0.1, 'G2V' )],
+\backslash
+ 
+\end_layout
+
+\begin_layout Standard
+...
+ formats= 'Int16,a20,Float32,a10',
+\backslash
+ 
+\end_layout
+
+\begin_layout Standard
+...
+ names= 'order,name,mag,Sp' )
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In this example, there are 3 records (rows) and 4 fields (columns).
+ The first field is a short integer, second a character string (of length
+ 20), third a floating point number, and fourth a character string (of length
+ 10).
+ Each record has the same (heterogeneous) data structure.
+\end_layout
+
+\begin_layout Subsubsection
+Metadata of a Table
+\end_layout
+
+\begin_layout Standard
+The data in a FITS table HDU is basically a record array, with added attributes.
+ The metadata, i.e.
+ information about the table data, are stored in the header.
+ For example, the keyword TFORM1 contains the format of the first field,
+ TTYPE2 the name of the second field, etc.
+ NAXIS2 gives the number of records(rows) and TFIELDS gives the number of
+ fields (columns).
+ For FITS tables, the maximum number of fields is 999.
+ The data type specified in TFORM is represented by letter code for binary
+ tables and a FORTRAN-like format string for ASCII tables.
+ Note that this is different from the format specifications when constructing
+ a record array.
+\end_layout
+
+\begin_layout Subsubsection
+Reading a FITS Table
+\end_layout
+
+\begin_layout Standard
+Like images, the 
+\emph on
+.data
+\emph default
+ attribute of a table HDU contains the data of the table.
+ To recap the simple example in Chapter 1:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> f = pyfits.open('bright_stars.fits') # open a FITS file 
+\end_layout
+
+\begin_layout Standard
+>>> tbdata = f[1].data # assume the first extension is a table 
+\end_layout
+
+\begin_layout Standard
+>>> print tbdata[:2] # show the first two rows 
+\end_layout
+
+\begin_layout Standard
+RecArray[ 
+\end_layout
+
+\begin_layout Standard
+(1, 'Sirius' , -1.4500000476837158, 'A1V' ), 
+\end_layout
+
+\begin_layout Standard
+(2, 'Canopus' , -0.73000001907348633, 'F0Ib' ) 
+\end_layout
+
+\begin_layout Standard
+] 
+\end_layout
+
+\begin_layout Standard
+--> print tbdata.field('mag') # show the values in field "mag" 
+\end_layout
+
+\begin_layout Standard
+[-1.45000005 -0.73000002 -0.1 ] 
+\end_layout
+
+\begin_layout Standard
+--> print tbdata.field(1) # field can be referred by index too 
+\end_layout
+
+\begin_layout Standard
+[ 'Sirius' 'Canopus' 'Rigil' 'Kent' ] 
+\newline
+
+\end_layout
+
+\begin_layout Standard
+>>> scidata[1,4] = 999 # update a pixel value 
+\end_layout
+
+\begin_layout Standard
+>>> scidata[30:40, 10:20] = 0 # update values of a subsection 
+\end_layout
+
+\begin_layout Standard
+>>> scidata[3] = scidata[2] # copy the 3rd row to the 4th row
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Note that in PyFITS, when using the 
+\emph on
+field()
+\emph default
+ method, it is 0-indexed while the suffixes in header keywords, such as
+ TFORM is 1-indexed.
+ So, 
+\emph on
+tbdata.field(0)
+\emph default
+ is the data in the column with the name specified in TTYPE1 and format
+ in TFORM1.
+\end_layout
+
+\begin_layout Subsection
+Table Operations
+\end_layout
+
+\begin_layout Subsubsection
+Select Records in a Table
 \end_layout
 
 \end_body
