@@ -3263,5 +3263,670 @@ keyword name will preserve its cases from its constructor, but when refer
 Image Data
 \end_layout
 
+\begin_layout Standard
+In this chapter, we'll discuss the data component in an image HDU.
+\end_layout
+
+\begin_layout Subsection
+Image Data as an Array
+\end_layout
+
+\begin_layout Standard
+A FITS primary HDU or an image extension HDU may contain image data.
+ The following discussions apply to both of these HDU classes.
+ In PyFITS, for most cases, it is just a simple numarray, having the shape
+ specified by the NAXIS keywords and the data type specified by the BITPIX
+ keyword - unless the data is scaled, see next section.
+ Here is a quick cross reference between allowed BITPIX values in FITS images
+ and the numarray data types:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+BITPIX numarray data type 
+\newline
+
+\end_layout
+
+\begin_layout Standard
+8 UInt8 (note it is UNsigned integer) 
+\end_layout
+
+\begin_layout Standard
+16 Int16 
+\end_layout
+
+\begin_layout Standard
+32 Int32 
+\end_layout
+
+\begin_layout Standard
+-32 Float32 
+\end_layout
+
+\begin_layout Standard
+-64 Float64
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+To recap the fact that in numarray the arrays are 0-indexed and the axes
+ are ordered from slow to fast.
+ So, if a FITS image has NAXIS1=300 and NAXIS2=400, the numarray of its
+ data will have the shape of (400, 300).
+ Here is a summary of reading and updating image data values:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> f = pyfits.open(
+\begin_inset Quotes eld
+\end_inset
+
+image.fits
+\begin_inset Quotes erd
+\end_inset
+
+) # open a FITS file 
+\end_layout
+
+\begin_layout Standard
+>>> scidata = f[1].data # assume the first extension is an image 
+\end_layout
+
+\begin_layout Standard
+>>> print scidata[1,4] # get the pixel value at x=5, y=2 
+\end_layout
+
+\begin_layout Standard
+>>> scidata[30:40, 10:20] # get values of the subsection from x=11 to 20,
+ y=31 to 40 (inclusive) 
+\end_layout
+
+\begin_layout Standard
+>>> scidata[1,4] = 999 # update a pixel value 
+\end_layout
+
+\begin_layout Standard
+>>> scidata[30:40, 10:20] = 0 # update values of a subsection 
+\end_layout
+
+\begin_layout Standard
+>>> scidata[3] = scidata[2] # copy the 3rd row to the 4th row
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Here are some more complicated examples by using the concept of the "mask
+ array".
+ The first example is to change all negative pixel values in scidata to
+ zero.
+ The second one is to take logarithm of the pixel values which are positive:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> scidata[scidata<0] = 0 
+\end_layout
+
+\begin_layout Standard
+>>> scidata[scidata>0] = numarray.log(scidata[scidata>0])
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+These examples show the concise nature of numarray operations.
+\end_layout
+
+\begin_layout Subsection
+Scaled Data
+\end_layout
+
+\begin_layout Standard
+Sometimes an image is scaled, i.e.
+ the data stored in the file is not the image s physical (true) values,
+ but linearly transformed according to the equation:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+physical value = BSCALE*(storage value) + BZERO
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+BSCALE and BZERO are stored as keywords of the same names in the header
+ of the same HDU.
+ The most common use of scaled image is to store unsigned 16-bit integer
+ data because FITS standard does not allow it.
+ In this case, the stored data is signed 16-bit integer (BITPIX=16) with
+ BZERO=32768 (2**15), BSCALE=1.
+\end_layout
+
+\begin_layout Subsubsection
+Reading Scaled Image Data
+\end_layout
+
+\begin_layout Standard
+Images are scaled only when either of the BSCALE/BZERO keywords are present
+ in the header and either of their values is not the default value (BSCALE=1,
+ BZERO=0).
+\end_layout
+
+\begin_layout Standard
+For unscaled data, the data attribute of an HDU in PyFITS is a numarray
+ of the same data type as specified by the BITPIX keyword.
+ For scaled image, the 
+\emph on
+.data
+\emph default
+ attribute will be the 
+\emph on
+physical data
+\emph default
+, i.e.
+ already transformed from the 
+\emph on
+storage
+\emph default
+ data and may not be the same data type as prescribed in BITPIX.
+ This means an extra step of copying is needed and thus the corresponding
+ memory requirement.
+ This also means that the advantage of memory mapping is reduced for scaled
+ data.
+ 
+\end_layout
+
+\begin_layout Standard
+For floating point storage data, the scaled data will have the same data
+ type.
+ For integer data type, the scaled data will always be single precision
+ floating point (Float32).
+ Here is an example of what happens to such a file, before and after the
+ data is touched:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> f=pyfits.open( scaled_uint16.fits ) 
+\end_layout
+
+\begin_layout Standard
+>>> hdu = f[1] 
+\end_layout
+
+\begin_layout Standard
+>>> print hdu.header[ bitpix ], hdu.header[ bzero ] 
+\end_layout
+
+\begin_layout Standard
+16 32768 
+\end_layout
+
+\begin_layout Standard
+>>> print hdu.data # once data is touched, it is scaled 
+\end_layout
+
+\begin_layout Standard
+[ 11.
+ 12.
+ 13.
+ 14.
+ 15.] 
+\end_layout
+
+\begin_layout Standard
+>>> hdu.data.type() 
+\end_layout
+
+\begin_layout Standard
+Float32 
+\end_layout
+
+\begin_layout Standard
+>>> print hdu.header[ bitpix ] # BITPIX is also updated 
+\end_layout
+
+\begin_layout Standard
+-32 
+\end_layout
+
+\begin_layout Standard
+# BZERO and BSCALE are removed after the scaling 
+\end_layout
+
+\begin_layout Standard
+>>> print hdu.header[ bzero ] 
+\end_layout
+
+\begin_layout Standard
+KeyError: "Keyword 'bzero' not found."
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Writing Scaled Image Data
+\end_layout
+
+\begin_layout Standard
+With the extra processing and memory requirement, we discourage users to
+ use scaled data as much as possible.
+ However, PyFITS does provide ways to write scaled data with the 
+\emph on
+scale(type, option, bscale, bzero)
+\emph default
+ method.
+ Here are a few examples:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+# scale the data to Int16 with user specified bscale/bzero 
+\end_layout
+
+\begin_layout Standard
+>>> hdu.scale('Int16', '', bzero=32768) 
+\newline
+
+\end_layout
+
+\begin_layout Standard
+# scale the data to Int32 with the min/max of the data range 
+\end_layout
+
+\begin_layout Standard
+>>> hdu.scale('Int32','minmax') 
+\newline
+
+\end_layout
+
+\begin_layout Standard
+# scale the data, using the original BSCALE/BZERO 
+\end_layout
+
+\begin_layout Standard
+>>> hdu.scale('Int32','old')
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first example above shows how to store an unsigned short integer array.
+ 
+\end_layout
+
+\begin_layout Standard
+Great caution must be exercised when using the 
+\emph on
+scale()
+\emph default
+ method.
+ The 
+\emph on
+.data
+\emph default
+ attribute of an image HDU, after the 
+\emph on
+scale()
+\emph default
+ call, will become the storage values, not the physical values.
+ So, only call 
+\emph on
+scale()
+\emph default
+ just before writing out to FITS files, i.e.
+ calls of 
+\emph on
+writeto(), flush(), 
+\emph default
+or 
+\emph on
+close()
+\emph default
+.
+ No further use of the data should be exercised.
+ Here is an example of what happens to the 
+\emph on
+.data
+\emph default
+ attribute after the 
+\emph on
+scale()
+\emph default
+ call:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> hdu=pyfits.PrimaryHDU(numarray.array([0.,1,2,3])) 
+\end_layout
+
+\begin_layout Standard
+>>> print hdu.data 
+\end_layout
+
+\begin_layout Standard
+[ 0.
+ 1.
+ 2.
+ 3.] 
+\end_layout
+
+\begin_layout Standard
+>>> hdu.scale('Int16', '', bzero=32768) 
+\end_layout
+
+\begin_layout Standard
+>>> print hdu.data # now the data has storage values 
+\end_layout
+
+\begin_layout Standard
+[-32768 -32767 -32766 -32765] 
+\end_layout
+
+\begin_layout Standard
+>>> hdu.writeto('new.fits')
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Data Section
+\end_layout
+
+\begin_layout Standard
+When a FITS image HDU's 
+\emph on
+.data
+\emph default
+ is accessed, either the whole data is copied into memory (in cases of NOT
+ using memory mapping or if the data is scaled) or a virtual memory space
+ equivalent to the data size is allocated (in the case of memory mapping
+ of non-scaled data).
+ If there are several very large image HDU's being accessed at the same
+ time, the system may run out of memory.
+ 
+\end_layout
+
+\begin_layout Standard
+If a user does not need the entire image(s) at the same time, e.g.
+ processing images(s) ten rows at a time, the 
+\emph on
+section()
+\emph default
+ method can be used to alleviate such memory problems.
+ 
+\end_layout
+
+\begin_layout Standard
+Here is an example of getting the median image from 3 input images of the
+ size 5000x5000:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> f1=pyfits.open('file1.fits') 
+\end_layout
+
+\begin_layout Standard
+>>> f2=pyfits.open('file2.fits') 
+\end_layout
+
+\begin_layout Standard
+>>> f3=pyfits.open('file3.fits') 
+\end_layout
+
+\begin_layout Standard
+>>> output = numarray.zeros(5000*5000) 
+\end_layout
+
+\begin_layout Standard
+>>> for i in range(50): 
+\end_layout
+
+\begin_layout Standard
+...
+ j=i*100 
+\end_layout
+
+\begin_layout Standard
+...
+ k=j+100 
+\end_layout
+
+\begin_layout Standard
+...
+ x1=f[1].section[j:k,:] 
+\end_layout
+
+\begin_layout Standard
+...
+ x2=f[2].section[j:k,:] 
+\end_layout
+
+\begin_layout Standard
+...
+ x3=f[3].section[j:k,:] 
+\end_layout
+
+\begin_layout Standard
+...
+ # use numarray.image s median function 
+\end_layout
+
+\begin_layout Standard
+...
+ output[j:k] = numarray.image.median([x1,x2,x3])
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Data in each 
+\emph on
+.section
+\emph default
+ must be contiguous.
+ Therefore, if 
+\emph on
+f[1].data
+\emph default
+ is a 400x400 image, the first part of the following specifications will
+ not work, while the second part will:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Shadowbox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Standard
+>>> # These will NOT work, since the data are not contiguous! 
+\end_layout
+
+\begin_layout Standard
+>>> f[1].section[:5,:5] 
+\end_layout
+
+\begin_layout Standard
+>>> f[1].section[:,:3] 
+\end_layout
+
+\begin_layout Standard
+>>> f[1].section[:,2] 
+\newline
+
+\end_layout
+
+\begin_layout Standard
+>>> # but these will work: 
+\end_layout
+
+\begin_layout Standard
+>>> f[1].section[5,:] 
+\end_layout
+
+\begin_layout Standard
+>>> f[1].section[5,:10] 
+\end_layout
+
+\begin_layout Standard
+>>> f[1].section[6,7]
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+At present, the 
+\emph on
+section()
+\emph default
+ method does not support scaled data.
+\end_layout
+
+\begin_layout Section
+Table Data
+\end_layout
+
+\begin_layout Standard
+
+\end_layout
+
 \end_body
 \end_document
