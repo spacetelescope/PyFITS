@@ -3592,6 +3592,7 @@ class GroupData(FITS_rec):
         else:
 #            self.__setstate__(input.__getstate__())
              self = input
+        return self
 
     def __getattr__(self, attr):
         if attr == 'data':
