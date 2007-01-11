@@ -3591,8 +3591,19 @@ class GroupData(FITS_rec):
                 rec.recarray.field(self,npars)[:] = input
         else:
 #            self.__setstate__(input.__getstate__())
-             self = input
+             self = FITS_rec.__new__(subtype,input)
         return self
+
+    def __str__(self):
+
+        # Byteswap temporarily the byte order for presentation (if needed)
+        outlist = []
+        for i in self:
+            outlist.append(FITS_record.__str__(i))
+
+        # When finished, restore the byte order (if needed)
+        return "RecArray[ \n" + ",\n".join(outlist) + "\n]"
+
 
     def __getattr__(self, attr):
         if attr == 'data':
