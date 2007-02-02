@@ -2364,6 +2364,7 @@ class GroupsHDU(PrimaryHDU):
                 self._file.seek(self._datLoc)
                 data = GroupData(_get_tbdata(self))
                 data._coldefs = self.columns
+                data.formats = self.columns.formats
                 data.parnames = self.columns._pnames
             else:
                 data = None
@@ -3158,6 +3159,7 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
         hdu.data = FITS_rec(rec.array(None, formats=",".join(tmp._recformats), names=tmp.names, shape=nrows))
 
     hdu.data._coldefs = hdu.columns
+    hdu.data.formats = hdu.columns.formats
 
     # populate data to the new table
     for i in range(len(tmp)):
@@ -3273,6 +3275,7 @@ class FITS_rec(rec.recarray):
         self._gap = 0
         self.names = self.dtype.names
         self._names = self.dtype.names # This attribute added for backward compatibility with numarray version of FITS_rec
+        self.formats = None
         return self
 
     def __array_finalize__(self,obj):
@@ -3284,6 +3287,7 @@ class FITS_rec(rec.recarray):
         self.names = obj.names
         self._names = obj._names
         self._gap = obj._gap
+        self.formats = obj.formats
         
     def _clone(self, shape):
         """Overload this to make mask array indexing work properly."""
@@ -3754,6 +3758,7 @@ class _TableBaseHDU(_ExtensionHDU):
                 self._file.seek(self._datLoc)
                 data = _get_tbdata(self)
                 data._coldefs = self.columns
+                data.formats = self.columns.formats
 #                print "Got data?"
             else:
                 data = None
