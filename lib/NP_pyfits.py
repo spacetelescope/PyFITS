@@ -2698,7 +2698,7 @@ class _VLF(np.ndarray):
         elif self._dtype == 'a':
             value = chararray.array(value, itemsize=1)
         else:
-            value = np.array(value, type=self._dtype)
+            value = np.array(value, dtype=self._dtype)
         np.ndarray.__setitem__(self, key, value)
         self._max = max(self._max, len(value))
 
@@ -3378,8 +3378,10 @@ class FITS_rec(rec.recarray):
                     if self._coldefs._recformats[indx]._dtype is 'a':
                         dummy[i] = chararray.array(self._file, itemsize=rec.recarray.field(self,indx)[i,0], shape=1)
                     else:
-                        dummy[i] = np.array(self._file, dtype=self._coldefs._recformats[indx]._dtype)
-                        dummy[i] = dummy[i].reshape(rec.recarray.field(self,indx)[i,0])
+#                       print type(self._file)
+#                       print "type =",self._coldefs._recformats[indx]._dtype
+                        count = rec.recarray.field(self,indx)[i,0]
+                        dummy[i] = np.fromfile(self._file, dtype=self._coldefs._recformats[indx]._dtype,count =count,sep="")
                         dummy[i].dtype = dummy[i].dtype.newbyteorder(">")
 
                 # scale by TSCAL and TZERO
