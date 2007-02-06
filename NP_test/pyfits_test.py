@@ -489,11 +489,10 @@ IndexError: Subsection data is not contiguous.
 
 """
 import pyfits
-import numarray
 import numpy
 import numpy as np
 import os, sys
-from numarray.numtest import dtp
+import string
 
 def print80(input):
     n = len(input) / 80
@@ -503,6 +502,18 @@ def print80(input):
 def test():
     import doctest, pyfits_test
     return doctest.testmod(pyfits_test)
+
+def dtp(array, prefix=". "):
+    """dtp == DocTestPrint
+
+    Prepends a leading ". " to each line of repr(self) so that blank
+    lines in the repr will work correctly with DocTest.  Since dtp(x)
+    has no quoted characters, it's easy to insert into a DocTest.
+
+    """
+    s = prefix + repr(array).replace("\n","\n"+prefix)
+    lines = map(string.strip, string.split(s,"\n"))
+    print string.join(lines,"\n")
 
 if __name__ == "__main__":
     test()
