@@ -4729,10 +4729,10 @@ class HDUList(list, _Verify):
         # close the memmap object, it is designed to use an independent
         # attribute of mmobject so if the HDUList object is created from files
         # other than FITS, the close() call can also close the mm object.
-        try:
-            self.mmobject.close()
-        except:
-            pass
+#        try:
+#            self.mmobject.close()
+#        except:
+#            pass
 
     def info(self):
         """Summarize the info of the HDU's in this HDUList."""
