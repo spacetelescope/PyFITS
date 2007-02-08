@@ -47,6 +47,7 @@ import rec
 from numpy import memmap as Memmap
 from string import maketrans
 import types
+import signal
 
 # Module variables
 _blockLen = 2880         # the FITS block size
@@ -61,8 +62,7 @@ DELAYED = "delayed"     # used for lazy instantiation of data
 ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
                         # this can be reset by user.
 _isInt = "isinstance(val, (int, long, np.integer))"
-
-
+    
 # Functions
 
 def _padLength(stringLen):
@@ -4554,6 +4554,15 @@ class HDUList(list, _Verify):
            verbose: print out verbose messages? default = 0.
         """
 
+        # Define new signal interput handler
+        keyboardInterruptSent = False
+        def New_SIGINT(*args):
+            print "KeyboardInterrupt ignored until flush is complete!"
+            keyboardInterrputSent = True
+
+        # Install new handler
+        signal.signal(signal.SIGINT,New_SIGINT)
+
         if self.__file.mode not in ('append', 'update'):
             print "flush for '%s' mode is not supported." % self.__file.mode
             return
@@ -4656,6 +4665,11 @@ class HDUList(list, _Verify):
                 for hdu in self:
                     hdu.header._mod = 0
                     hdu.header.ascard._mod = 0
+        
+        if keyboardInterruptSent:
+            raise KeyboardInterrupt
+        
+        signal.signal(signal.SIGINT,signal.getsignal(signal.SIGINT))
 
     def update_extend(self):
         """Make sure if the primary header needs the keyword EXTEND or if
