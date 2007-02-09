@@ -49,6 +49,8 @@ import numarray.objects as objects
 import numarray.memmap as Memmap
 from string import maketrans
 import copy
+import signal
+
 
 # Module variables
 _blockLen = 2880         # the FITS block size
@@ -4447,6 +4449,15 @@ class HDUList(list, _Verify):
            verbose: print out verbose messages? default = 0.
         """
 
+        # Define new signal interput handler
+        keyboardInterruptSent = False
+        def New_SIGINT(*args):
+            print "KeyboardInterrupt ignored until flush is complete!"
+            keyboardInterrputSent = True
+
+        # Install new handler
+        signal.signal(signal.SIGINT,New_SIGINT)
+
         if self.__file.mode not in ('append', 'update'):
             print "flush for '%s' mode is not supported." % self.__file.mode
             return
@@ -4549,6 +4560,11 @@ class HDUList(list, _Verify):
                 for hdu in self:
                     hdu.header._mod = 0
                     hdu.header.ascard._mod = 0
+
+        if keyboardInterruptSent:
+            raise KeyboardInterrupt
+        
+        signal.signal(signal.SIGINT,signal.getsignal(signal.SIGINT))
 
     def update_extend(self):
         """Make sure if the primary header needs the keyword EXTEND or if
