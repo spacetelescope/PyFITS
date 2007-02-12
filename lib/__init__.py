@@ -21,7 +21,7 @@ __version__ = '1.1b4'
 try:
     numerix = os.environ["NUMERIX"]
 except:
-    numerix = 'numarray'
+    numerix = 'numpy'
 
 # Deteremine if numarray is installed on the system
 try:
