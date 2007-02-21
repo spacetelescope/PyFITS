@@ -2265,7 +2265,8 @@ class _st_ImageBaseHDU(_py_ImageBaseHDU):
 # Define _ImageBaseHDU class to use the version that handles STScI
 # extensions.
 #
-_ImageBaseHDU = _st_ImageBaseHDU
+#ImageBaseHDU = _st_ImageBaseHDU
+_ImageBaseHDU = _py_ImageBaseHDU
 
 class PrimaryHDU(_ImageBaseHDU):
     """FITS primary HDU class."""
@@ -4246,7 +4247,8 @@ class _st_File(_py_File):
 #
 # Define _File class to be the one that handles STScI extensions.
 #
-_File = _st_File
+#_File = _st_File
+_File = _py_File
 
 class HDUList(list, _Verify):
     """HDU list class.  This is the top-level FITS object.  When a FITS
