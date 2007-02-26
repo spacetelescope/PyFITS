@@ -2230,8 +2230,10 @@ class _st_ImageBaseHDU(_py_ImageBaseHDU):
                pixVal = long(pixVal)
 
             raw_data = num.zeros(shape=dims,type=code) + pixVal
-            raw_data.byteswap()
-            raw_data._byteorder = 'big'
+
+            if raw_data._byteorder != 'big':
+               raw_data.byteswap()
+               raw_data._byteorder = 'big'
 
             if (self._bzero != 0 or self._bscale != 1):
                 if _bitpix > 0:  # scale integers to Float32

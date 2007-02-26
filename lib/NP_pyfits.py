@@ -2242,7 +2242,10 @@ class _st_ImageBaseHDU(_py_ImageBaseHDU):
                pixVal = long(pixVal)
 
             raw_data = np.zeros(shape=dims,dtype=code) + pixVal
-            raw_data = raw_data.byteswap()
+
+            if raw_data.dtype.str[0] != '>':
+               raw_data = raw_data.byteswap()
+
             raw_data.dtype = raw_data.dtype.newbyteorder('>')
 
             if (self._bzero != 0 or self._bscale != 1):
