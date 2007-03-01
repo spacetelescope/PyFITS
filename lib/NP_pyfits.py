@@ -2660,13 +2660,13 @@ def _makep(input, desp_output, dtype):
     if dtype == 'a':
         _nbytes = 1
     else:
-        _nbytes = np.getType(dtype).bytes
-
+        _nbytes = np.array([],dtype=np.typeDict[dtype]).itemsize
+        
     for i in range(len(input)):
         if dtype == 'a':
             data_output[i] = chararray.array(input[i], itemsize=1)
         else:
-            data_output[i] = np.array(input[i], type=dtype)
+            data_output[i] = np.array(input[i], dtype=dtype)
 
         desp_output[i,0] = len(data_output[i])
         desp_output[i,1] = _offset
