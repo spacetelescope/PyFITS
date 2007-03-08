@@ -4457,7 +4457,7 @@ class HDUList(list, _Verify):
         keyboardInterruptSent = False
         def New_SIGINT(*args):
             print "KeyboardInterrupt ignored until flush is complete!"
-            keyboardInterrputSent = True
+            keyboardInterruptSent = True
 
         # Install new handler
         signal.signal(signal.SIGINT,New_SIGINT)
