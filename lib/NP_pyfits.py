@@ -2049,9 +2049,11 @@ class _py_ImageBaseHDU(_ValidHDU):
                 code = _ImageBaseHDU.NumCode[self.header['BITPIX']]
 
                 if self._ffile.memmap:
+                    print type(self._ffile)
+                    self._ffile.code = code
+                    self._ffile.dims = dims
                     _mmap = self._ffile._mm[self._datLoc:self._datLoc+self._datSpan]
-                    raw_data = _mmap.view(code)
-                    raw_data = raw_data.reshape(dims)
+                    raw_data = _mmap
                 else:
 
                     nelements = 1
@@ -4009,7 +4011,7 @@ class _py_File:
     def __getattr__(self, attr):
         """Get the _mm attribute."""
         if attr == '_mm':
-            self.__dict__[attr] = Memmap(self.name, mode=_memmap_mode[self.mode])
+            self.__dict__[attr] = Memmap(self.name, mode=_memmap_mode[self.mode],dtype=self.code,shape=self.dims)
         try:
             return self.__dict__[attr]
         except KeyError:
