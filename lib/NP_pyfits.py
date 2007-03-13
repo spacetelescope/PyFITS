@@ -2049,7 +2049,6 @@ class _py_ImageBaseHDU(_ValidHDU):
                 code = _ImageBaseHDU.NumCode[self.header['BITPIX']]
 
                 if self._ffile.memmap:
-                    print type(self._ffile)
                     self._ffile.code = code
                     self._ffile.dims = dims
                     _mmap = self._ffile._mm[self._datLoc:self._datLoc+self._datSpan]
