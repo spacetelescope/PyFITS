@@ -4563,11 +4563,12 @@ class HDUList(list, _Verify):
            verbose: print out verbose messages? default = 0.
         """
 
-        # Get the name of the current thread
+        # Get the name of the current thread and determine if this is a single treaded application
         threadName = threading.currentThread()
+        singleThread = (threading.activeCount() == 1) and (threadName.getName() == 'MainThread')
 
         # Define new signal interput handler
-        if (threading.activeCount() == 1) and (threadName.getName() == 'MainThread'):
+        if singleThread:
             keyboardInterruptSent = False
             def New_SIGINT(*args):
                 print "KeyboardInterrupt ignored until flush is complete!"
@@ -4678,7 +4679,7 @@ class HDUList(list, _Verify):
                 for hdu in self:
                     hdu.header._mod = 0
                     hdu.header.ascard._mod = 0
-        if (threading.activeCount() == 1) and (threadName.getName() == 'MainThread'):        
+        if singleThread:        
             if keyboardInterruptSent:
                 raise KeyboardInterrupt
             
