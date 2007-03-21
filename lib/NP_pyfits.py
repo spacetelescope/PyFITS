@@ -48,6 +48,7 @@ from numpy import memmap as Memmap
 from string import maketrans
 import types
 import signal
+import threading
 
 # Module variables
 _blockLen = 2880         # the FITS block size
@@ -3971,6 +3972,8 @@ class _py_File:
 
         self.mode = mode
         self.memmap = memmap
+        self.code = None
+        self.dims = None
         
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
@@ -4560,14 +4563,18 @@ class HDUList(list, _Verify):
            verbose: print out verbose messages? default = 0.
         """
 
-        # Define new signal interput handler
-        keyboardInterruptSent = False
-        def New_SIGINT(*args):
-            print "KeyboardInterrupt ignored until flush is complete!"
-            keyboardInterruptSent = True
+        # Get the name of the current thread
+        threadName = threading.currentThread()
 
-        # Install new handler
-        signal.signal(signal.SIGINT,New_SIGINT)
+        # Define new signal interput handler
+        if (threading.activeCount() == 1) and (threadName.getName() == 'MainThread'):
+            keyboardInterruptSent = False
+            def New_SIGINT(*args):
+                print "KeyboardInterrupt ignored until flush is complete!"
+                keyboardInterruptSent = True
+        
+            # Install new handler
+            signal.signal(signal.SIGINT,New_SIGINT)
 
         if self.__file.mode not in ('append', 'update'):
             print "flush for '%s' mode is not supported." % self.__file.mode
@@ -4671,11 +4678,11 @@ class HDUList(list, _Verify):
                 for hdu in self:
                     hdu.header._mod = 0
                     hdu.header.ascard._mod = 0
-        
-        if keyboardInterruptSent:
-            raise KeyboardInterrupt
-        
-        signal.signal(signal.SIGINT,signal.getsignal(signal.SIGINT))
+        if (threading.activeCount() == 1) and (threadName.getName() == 'MainThread'):        
+            if keyboardInterruptSent:
+                raise KeyboardInterrupt
+            
+            signal.signal(signal.SIGINT,signal.getsignal(signal.SIGINT))
 
     def update_extend(self):
         """Make sure if the primary header needs the keyword EXTEND or if
@@ -4742,6 +4749,7 @@ class HDUList(list, _Verify):
         if self.__file != None:
             if self.__file.memmap == 1:
                 self.mmobject = self.__file._mm
+                self.mmobject.sync()
             if self.__file.mode in ['append', 'update']:
                 self.flush(output_verify=output_verify, verbose=verbose)
             self.__file.close()
