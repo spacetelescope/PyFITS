@@ -50,7 +50,7 @@ import numarray.memmap as Memmap
 from string import maketrans
 import copy
 import signal
-
+import threading
 
 # Module variables
 _blockLen = 2880         # the FITS block size
@@ -4453,14 +4453,19 @@ class HDUList(list, _Verify):
            verbose: print out verbose messages? default = 0.
         """
 
-        # Define new signal interput handler
-        keyboardInterruptSent = False
-        def New_SIGINT(*args):
-            print "KeyboardInterrupt ignored until flush is complete!"
-            keyboardInterruptSent = True
+        # Get the name of the current thread and determine if this is a single treaded application
+        threadName = threading.currentThread()
+        singleThread = (threading.activeCount() == 1) and (threadName.getName() == 'MainThread')
 
-        # Install new handler
-        signal.signal(signal.SIGINT,New_SIGINT)
+        if singleThread:
+            # Define new signal interput handler
+            keyboardInterruptSent = False
+            def New_SIGINT(*args):
+                print "KeyboardInterrupt ignored until flush is complete!"
+                keyboardInterruptSent = True
+    
+            # Install new handler
+            signal.signal(signal.SIGINT,New_SIGINT)
 
         if self.__file.mode not in ('append', 'update'):
             print "flush for '%s' mode is not supported." % self.__file.mode
@@ -4565,10 +4570,11 @@ class HDUList(list, _Verify):
                     hdu.header._mod = 0
                     hdu.header.ascard._mod = 0
 
-        if keyboardInterruptSent:
-            raise KeyboardInterrupt
-        
-        signal.signal(signal.SIGINT,signal.getsignal(signal.SIGINT))
+        if singleThread:
+            if keyboardInterruptSent:
+                raise KeyboardInterrupt
+            
+            signal.signal(signal.SIGINT,signal.getsignal(signal.SIGINT))
 
     def update_extend(self):
         """Make sure if the primary header needs the keyword EXTEND or if
