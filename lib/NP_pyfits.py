@@ -2579,11 +2579,10 @@ def _get_index(nameList, key):
         variant of "XYZ", then field('xyz'), field('Xyz'), etc. will get
         this field.
     """
-
+    
     if isinstance(key, (int, long,np.integer)):
         indx = int(key)
     elif isinstance(key, str):
-
         # try to find exact match first
         try:
             indx = nameList.index(key.rstrip())
@@ -3466,11 +3465,11 @@ class FITS_rec(rec.recarray):
                     desc[:] = 0 # reset
                     _npts = map(len, self._convert[indx])
                     desc[:len(_npts),0] = _npts
-                    _dtype = np.getType(self._coldefs._recformats[indx]._dtype)
-                    desc[1:,1] = np.add.accumulate(desc[:-1,0])*_dtype.bytes
+                    _dtype= np.array([],dtype=self._coldefs._recformats[indx]._dtype)
+                    desc[1:,1] = np.add.accumulate(desc[:-1,0])*_dtype.itemsize
 
                     desc[:,1][:] += self._heapsize
-                    self._heapsize += desc[:,0].sum()*_dtype.bytes
+                    self._heapsize += desc[:,0].sum()*_dtype.itemsize
 
                 # conversion for both ASCII and binary tables
                 if _number or _str:
@@ -4146,9 +4145,12 @@ class _py_File:
                         if isinstance(coldata, _VLF):
                             for i in coldata:
                                 if not isinstance(i, chararray.chararray):
-                                    if hdu.data.field(i).itemsize > 1:
-                                        if hdu.data.field(i).dtype.str[0] != '>':
-                                            hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
+                                    #if hdu.data.field(i).itemsize > 1:
+                                        #if hdu.data.field(i).dtype.str[0] != '>':
+                                            #hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
+                                    if i.itemsize > 1:
+                                        if i.dtype.str[0] != '>':
+                                            i[:] = i.byteswap()
                         else:
                             if coldata.itemsize > 1:
                                 if hdu.data.field(i).dtype.str[0] != '>':
