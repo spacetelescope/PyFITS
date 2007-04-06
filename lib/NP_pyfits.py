@@ -2052,8 +2052,8 @@ class _py_ImageBaseHDU(_ValidHDU):
                 if self._ffile.memmap:
                     self._ffile.code = code
                     self._ffile.dims = dims
-                    _mmap = self._ffile._mm[self._datLoc:self._datLoc+self._datSpan]
-                    raw_data = _mmap
+                    self._ffile.offset = self._datLoc
+                    raw_data = self._ffile._mm
                 else:
 
                     nelements = 1
@@ -3973,6 +3973,7 @@ class _py_File:
         self.memmap = memmap
         self.code = None
         self.dims = None
+        self.offset = 0
         
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
@@ -4012,7 +4013,7 @@ class _py_File:
     def __getattr__(self, attr):
         """Get the _mm attribute."""
         if attr == '_mm':
-            self.__dict__[attr] = Memmap(self.name, mode=_memmap_mode[self.mode],dtype=self.code,shape=self.dims)
+            self.__dict__[attr] = Memmap(self.name,offset=self.offset,mode=_memmap_mode[self.mode],dtype=self.code,shape=self.dims)
         try:
             return self.__dict__[attr]
         except KeyError:
