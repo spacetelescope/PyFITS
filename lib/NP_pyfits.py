@@ -3945,6 +3945,213 @@ class BinTableHDU(_TableBaseHDU):
             hdr[0] = self._xtn
             hdr.ascard[0].comment = 'binary table extension'
 
+class StreamingHDU:
+    """
+    A class that provides the capability to stream data to a FITS file
+    instead of requiring data to all be written at once.  
+
+    The following psudo code illustrates its use:
+
+    header = pyfits.Header()
+
+    for all the cards you need in the header:
+        header.update(key,value,comment)
+
+    shdu = pyfits.StreamingHDU('filename.fits',header)
+
+    for each piece of data:
+        shdu.write(data)
+
+    shdu.close()
+    """
+
+    def __init__(self, name, header): 
+        """
+        Construct a StreamingHDU object given a file name and a header.
+
+        :Parameters:
+          name : string
+              The name of the file to which the header and data will be 
+              streamed.
+
+          header : Header
+              The header object associated with the data to be written 
+              to the file.
+
+        :Returns:
+          None
+
+        Notes
+        -----
+
+        The file will be opened and the header appended to the end of
+        the file.  If the file does not already exist, it will be created 
+        and if the header represents a Primary header, it will be written 
+        to the beginning of the file.  If the file does not exist and the 
+        provided header is not a Primary header, a default Primary HDU will 
+        be inserted at the beginning of the file and the provided header 
+        will be added as the first extension.  If the file does already 
+        exist, but the provided header represents a Primary header, the 
+        header will be modified to an image extension header and appended 
+        to the end of the file.
+        """
+
+        self.header = header.copy()
+#
+#       Check if the file already exists.  If it does not, check to see
+#       if we were provided with a Primary Header.  If not we will need 
+#       to prepend a default PrimaryHDU to the file before writing the 
+#       given header.
+#
+        if not os.path.exists(name):
+            if not self.header.has_key('SIMPLE'):
+                hdulist = HDUList([PrimaryHDU()])
+                hdulist.writeto(name, 'exception')
+        else:
+            if self.header.has_key('SIMPLE') and os.path.getsize(name) > 0:
+#
+#               This will not be the first extension in the file so we
+#               must change the Primary header provided into an image 
+#               extension header.
+#
+                self.header.update('XTENSION','IMAGE','Image extension',
+                                   after='SIMPLE')
+                del self.header['SIMPLE']
+
+                if not self.header.has_key('PCOUNT'):
+                    dim = self.header['NAXIS']
+
+                    if dim == 0:
+                        dim = ''
+                    else:
+                        dim = str(dim)
+
+                    self.header.update('PCOUNT', 0, 'number of parameters',                                            after='NAXIS'+dim)
+
+                if not self.header.has_key('GCOUNT'):
+                    self.header.update('GCOUNT', 1, 'number of groups',                                                after='PCOUNT')
+
+        self._ffo = _File(name, 'append')
+        self._ffo.getfile().seek(0,2)
+
+        self._hdrLoc = self._ffo.writeHDUheader(self)
+        self._datLoc = self._ffo.getfile().tell()
+        self._size = self.size()
+
+        if self._size != 0:
+            self.writeComplete = 0
+        else:
+            self.writeComplete = 1
+
+    def write(self,data):
+        """
+        Write the given data to the stream.
+
+        :Parameters:
+          data : ndarray
+              Data to stream to the file.
+
+        :Returns:
+
+          writeComplete : integer 
+              Flag that when true indicates that all of the required data
+              has been written to the stream. 
+
+        Notes
+        -----
+
+        Only the amount of data specified in the header provided to the 
+        class constructor may be written to the stream.  If the provided
+        data would cause the stream to overflow, an IOError exception is 
+        raised and the data is not written.  Once sufficient data has been
+        written to the stream to satisfy the amount specified in the header,
+        the stream is padded to fill a complete FITS block and no more data
+        will be accepted.  An attempt to write more data after the stream
+        has been filled will raise an IOError exception.  If the dtype of 
+        the input data does not match what is expected by the header, a
+        TypeError exception is raised.
+        """
+
+        if self.writeComplete:
+            raise IOError, "The stream is closed and can no longer be written"
+
+        curDataSize = self._ffo.getfile().tell() - self._datLoc
+
+        if curDataSize + data.nbytes > self._size:
+            raise IOError, "Supplied data will overflow the stream"
+
+        if _ImageBaseHDU.NumCode[self.header['BITPIX']] != data.dtype.name:
+            raise TypeError, "Supplied data is not the correct type."
+
+        if data.dtype.str[0] != '>':
+#
+#           byteswap little endian arrays before writing
+#
+            output = data.byteswap()
+        else:
+            output = data
+
+        output.tofile(self._ffo.getfile())
+
+        if self._ffo.getfile().tell() - self._datLoc == self._size:
+#
+#           the stream is full so pad the data to the next FITS block
+#
+            self._ffo.getfile().write(_padLength(self._size)*'\0')
+            self.writeComplete = 1
+
+        self._ffo.getfile().flush()
+
+        return self.writeComplete
+
+    def size(self):
+        """
+        Return the size (in bytes) of the data portion of the HDU.
+
+        :Parameters:
+          None
+
+        :Returns:
+          size : integer
+              The number of bytes of data required to fill the stream
+              per the header provided in the constructor.
+        """
+
+        size = 0
+        naxis = self.header.get('NAXIS', 0)
+
+        if naxis > 0:
+            simple = self.header.get('SIMPLE','F')
+            randomGroups = self.header.get('GROUPS','F')
+
+            if simple == 'T' and randomGroups == 'T':
+                groups = 1
+            else:
+                groups = 0
+
+            size = 1
+
+            for j in range(groups,naxis):
+                size = size * self.header['NAXIS'+`j+1`]
+            bitpix = self.header['BITPIX']
+            gcount = self.header.get('GCOUNT', 1)
+            pcount = self.header.get('PCOUNT', 0)
+            size = abs(bitpix) * gcount * (pcount + size) / 8
+        return size
+
+    def close(self):
+        """
+        Close the 'physical' FITS file.
+
+        :Parameters:
+          None
+
+        :Returns:
+          None
+        """
+
+        self._ffo.close()
+
 
 class ErrorURLopener(urllib.FancyURLopener):
     """A class to use with urlretrieve to allow IOError exceptions to be
@@ -4130,10 +4337,9 @@ class _py_File:
 
 #               if the data is bigendian
                 if hdu.data.dtype.str[0] != '>':
-                    hdu.data = hdu.data.byteswap()
-                    _byteorder = 'little'
+                    output = hdu.data.byteswap()
                 else:
-                    _byteorder = 'big'
+                    output = hdu.data
 
             # Binary table byteswap
             elif isinstance(hdu, BinTableHDU):
@@ -4159,8 +4365,9 @@ class _py_File:
 
                 # In case the FITS_rec was created in a LittleEndian machine
                 hdu.data.dtype = hdu.data.dtype.newbyteorder('>')
-
-            output = hdu.data
+                output = hdu.data
+            else:
+                output = hdu.data
 
             output.tofile(self.__file)
             _size = output.size * output.itemsize
@@ -4188,11 +4395,6 @@ class _py_File:
 
         # flush, to make sure the content is written
         self.__file.flush()
-
-        # unswap the data for image
-        if hdu.data is not None and isinstance(hdu, _ImageBaseHDU):
-            if _byteorder == 'little':
-                hdu.data = hdu.data.byteswap()
 
         # return both the location and the size of the data area
         return loc, _size+_padLength(_size)
