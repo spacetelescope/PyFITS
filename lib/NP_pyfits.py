@@ -3301,8 +3301,6 @@ class FITS_rec(rec.recarray):
 
     def __repr__(self):
         tmp = rec.recarray.__repr__(self)
-        loc = tmp.rfind('\nnames=')
-        tmp = tmp[:loc+7] + `self._coldefs.names` + ')'
         return tmp
 
     def __getitem__(self, key):
@@ -4343,6 +4341,7 @@ class _py_File:
 
             # Binary table byteswap
             elif isinstance(hdu, BinTableHDU):
+                byteswap = False
                 for i in range(hdu.data._nfields):
                     coldata = hdu.data.field(i)
                     
@@ -4357,15 +4356,24 @@ class _py_File:
                                             #hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
                                     if i.itemsize > 1:
                                         if i.dtype.str[0] != '>':
+                                            byteswap = True
                                             i[:] = i.byteswap()
+                                            i.dtype = i.dtype.newbyteorder('>')
+ 
                         else:
                             if coldata.itemsize > 1:
                                 if hdu.data.field(i).dtype.str[0] != '>':
+                                    byteswap = True
                                     hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
+                                    hdu.data.field(i).dtype = hdu.data.field(i).dtype.newbyteorder('>')
 
                 # In case the FITS_rec was created in a LittleEndian machine
                 hdu.data.dtype = hdu.data.dtype.newbyteorder('>')
-                output = hdu.data
+
+                if byteswap:
+                    output = hdu.data.byteswap()
+                else:
+                    output = hdu.data
             else:
                 output = hdu.data
 
