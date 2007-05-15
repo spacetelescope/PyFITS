@@ -195,7 +195,7 @@ class recarray(ndarray):
         self._heapoffset = obj._heapoffset
         self._file = obj._file
 
-        def __getattribute__(self, attr):
+    def __getattribute__(self, attr):
         try:
             return object.__getattribute__(self, attr)
         except AttributeError: # attr must be a fieldname
