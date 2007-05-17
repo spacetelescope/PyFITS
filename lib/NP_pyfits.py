@@ -4341,7 +4341,6 @@ class _py_File:
 
             # Binary table byteswap
             elif isinstance(hdu, BinTableHDU):
-                byteswap = False
                 for i in range(hdu.data._nfields):
                     coldata = hdu.data.field(i)
                     
@@ -4356,24 +4355,18 @@ class _py_File:
                                             #hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
                                     if i.itemsize > 1:
                                         if i.dtype.str[0] != '>':
-                                            byteswap = True
                                             i[:] = i.byteswap()
                                             i.dtype = i.dtype.newbyteorder('>')
- 
+                            hdu.data = hdu.data.byteswap()
                         else:
                             if coldata.itemsize > 1:
                                 if hdu.data.field(i).dtype.str[0] != '>':
-                                    byteswap = True
                                     hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
                                     hdu.data.field(i).dtype = hdu.data.field(i).dtype.newbyteorder('>')
 
                 # In case the FITS_rec was created in a LittleEndian machine
                 hdu.data.dtype = hdu.data.dtype.newbyteorder('>')
-
-                if byteswap:
-                    output = hdu.data.byteswap()
-                else:
-                    output = hdu.data
+                output = hdu.data
             else:
                 output = hdu.data
 
