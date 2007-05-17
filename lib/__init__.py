@@ -55,11 +55,13 @@ elif (numpystatus):
     # if only numpy is installed use the numpy version of pyfits
     from NP_pyfits import *
     import NP_pyfits as core
+    __doc__ = NP_pyfits.__doc__
 
 elif (numarraystatus):
     # if only numarray is installed use the numarray version of pyfits
     from NA_pyfits import *
     import NA_pyfits as core
+    __doc__ = NA_pyfits.__doc__
 
 else:
     raise RuntimeError, "The numarray or numpy array package is required for use."
