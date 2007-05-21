@@ -4362,8 +4362,7 @@ class _py_File:
                         else:
                             if coldata.itemsize > 1:
                                 if hdu.data.field(i).dtype.str[0] != '>':
-                                    hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
-                                    hdu.data.field(i).dtype = hdu.data.field(i).dtype.newbyteorder('>')
+                                    byteswap = True
 
                 # In case the FITS_rec was created in a LittleEndian machine
                 hdu.data.dtype = hdu.data.dtype.newbyteorder('>')
