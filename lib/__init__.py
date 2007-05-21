@@ -15,7 +15,7 @@
 
 import os
 
-__version__ = '1.1final'
+__version__ = '1.1rc4'
 
 # Check the environment variables for NUMERIX
 try:
