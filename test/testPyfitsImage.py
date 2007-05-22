@@ -120,13 +120,12 @@ class TestPyfitsImageFunctions(unittest.TestCase):
     #raise ValueError, 'Unprintable string %s' % repr(val)
 #ValueError: Unprintable string 'abcde\\x00                                              '
 
-## commentary cards
-#>>> c=pyfits.Card("history","A commentary card's value has no quotes around it.")
-#>>> print c
-#HISTORY A commentary card's value has no quotes around it.                      
-#>>> c=pyfits.Card("comment", "A commentary card has no comment.", "comment")
-#>>> print c
-#COMMENT A commentary card has no comment.                                       
+    def testCommentaryCards(self):
+        # commentary cards
+        c=pyfits.Card("history","A commentary card's value has no quotes around it.")
+        self.assertEqual(str(c),"HISTORY A commentary card's value has no quotes around it.                      ")
+        c=pyfits.Card("comment", "A commentary card has no comment.", "comment")
+        self.assertEqual(str(c),"COMMENT A commentary card has no comment.                                       ")
 
     def testCommentaryCardCreatedByFromstring(self):
         # commentary card created by fromstring()
