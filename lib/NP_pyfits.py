@@ -4341,7 +4341,6 @@ class _py_File:
 
             # Binary table byteswap
             elif isinstance(hdu, BinTableHDU):
-                byteswap = False
                 for i in range(hdu.data._nfields):
                     coldata = hdu.data.field(i)
                     
@@ -4349,27 +4348,27 @@ class _py_File:
                             # only swap unswapped
                             # deal with var length table
                         if isinstance(coldata, _VLF):
-                            for i in coldata:
-                                if not isinstance(i, chararray.chararray):
+                            k = 0
+                            for j in coldata:
+                                if not isinstance(j, chararray.chararray):
                                     #if hdu.data.field(i).itemsize > 1:
                                         #if hdu.data.field(i).dtype.str[0] != '>':
                                             #hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
-                                    if i.itemsize > 1:
-                                        if i.dtype.str[0] != '>':
-                                            i[:] = i.byteswap()
-                                            i.dtype = i.dtype.newbyteorder('>')
-                                            byteswap = True
+                                    if j.itemsize > 1:
+                                        if j.dtype.str[0] != '>':
+                                            j[:] = j.byteswap()
+                                            j.dtype = j.dtype.newbyteorder('>')
+
+                                if rec.recarray.field(hdu.data,i)[k:k+1].dtype.str[0] != '>':
+                                    rec.recarray.field(hdu.data,i)[k:k+1].byteswap(True)
+                                k = k + 1
                         else:
                             if coldata.itemsize > 1:
                                 if hdu.data.field(i).dtype.str[0] != '>':
-                                    byteswap = True
+                                    hdu.data.field(i)[:] = hdu.data.field(i).byteswap() 
 
                 # In case the FITS_rec was created in a LittleEndian machine
                 hdu.data.dtype = hdu.data.dtype.newbyteorder('>')
-
-                if byteswap:
-                    hdu.data = hdu.data.byteswap()
-
                 output = hdu.data
             else:
                 output = hdu.data
