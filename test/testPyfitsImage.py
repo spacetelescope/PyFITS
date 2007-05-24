@@ -1,6 +1,24 @@
 import unittest
 import pyfits
 import numpy as np
+import exceptions
+
+def print80(input):
+    n = len(input) / 80
+    for i in range(n):
+        print input[i*80:(i+1)*80]
+
+def dtp(array, prefix=". "):
+    """dtp == DocTestPrint
+
+    Prepends a leading ". " to each line of repr(self) so that blank
+    lines in the repr will work correctly with DocTest.  Since dtp(x)
+    has no quoted characters, it's easy to insert into a DocTest.
+
+    """
+    s = prefix + repr(array).replace("\n","\n"+prefix)
+    lines = map(string.strip, string.split(s,"\n"))
+    print string.join(lines,"\n")
 
 class TestPyfitsImageFunctions(unittest.TestCase):
 
@@ -56,34 +74,30 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         c=pyfits.Card('abc',1.2345377437887837487e88+6324767364763746367e-33j)
         self.assertEqual(str(c),"ABC     = (1.234537743788784E+88, 6.324767364763747E-15)                        ")
 
-## card image constructed from key/value/comment is too long (non-string value)
-#>>> c=pyfits.Card('abc',9,'abcde'*20)
-#>>> print c
-#card is too long, comment is truncated.
-#ABC     =                    9 / abcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeab
-#>>> c=pyfits.Card('abc', 'a'*68, 'abcdefg')
-#>>> c
-#card is too long, comment is truncated.
-#ABC     = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    def testCardImageConstructedTooLong(self):
+        # card image constructed from key/value/comment is too long (non-string value)
+        c=pyfits.Card('abc',9,'abcde'*20)
+        self.assertEqual(str(c),"ABC     =                    9 / abcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeab")
+        c=pyfits.Card('abc', 'a'*68, 'abcdefg')
+        self.assertEqual(str(c),"ABC     = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'")
 
-## the constrctor will filter out illegal data structures...
-#>>> c=pyfits.Card("abc", value=(2,3))
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "./pyfits.py", line 105, in __init__
-    #self.value = value
-  #File "./pyfits.py", line 154, in __setattr__
-    #raise ValueError, 'Illegal value %s' % str(val)
-#ValueError: Illegal value (2, 3)
+    def testConstructorFilterIllegalDataStructures(self):
+        # the constrctor will filter out illegal data structures...
+        def test(*args,**kwargs):
+            try:
+                c = pyfits.Card(args,kwargs)
+            except ValueError:
+                c= "Failed as expected"
+            return c
+        self.assertEqual(test("abc",value=(2,3)),"Failed as expected")
+        def test2(*args,**kwargs):
+            try:
+                c = pyfits.Card(args,kwargs)
+            except TypeError:
+                c= "Failed as expected"
+            return c
 
-#>>> c=pyfits.Card('key',[],'comment')
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "./pyfits.py", line 103, in __init__
-    #self.value = value
-  #File "./pyfits.py", line 146, in __setattr__
-    #raise ValueError, 'Illegal value %s' % val
-#ValueError: Illegal value []
+        self.assertEqual(test2('key',[],'comment'),"Failed as expected")
 
 ## or keywords too long
 #>>> c=pyfits.Card("abcdefghi", "long")
