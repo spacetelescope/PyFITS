@@ -1,24 +1,10 @@
 import unittest
 import pyfits
 import numpy as np
-import exceptions
+import exceptions,os,sys
 
-def print80(input):
-    n = len(input) / 80
-    for i in range(n):
-        print input[i*80:(i+1)*80]
-
-def dtp(array, prefix=". "):
-    """dtp == DocTestPrint
-
-    Prepends a leading ". " to each line of repr(self) so that blank
-    lines in the repr will work correctly with DocTest.  Since dtp(x)
-    has no quoted characters, it's easy to insert into a DocTest.
-
-    """
-    s = prefix + repr(array).replace("\n","\n"+prefix)
-    lines = map(string.strip, string.split(s,"\n"))
-    print string.join(lines,"\n")
+# Define a junk file for redirection of stdout
+jfile = "junkfile.fits"
 
 class TestPyfitsImageFunctions(unittest.TestCase):
 
@@ -28,6 +14,11 @@ class TestPyfitsImageFunctions(unittest.TestCase):
     
     def tearDown(self):
         # Perform clean-up actions (if any)
+        ## clean up
+        #os.remove('test_update.fits')
+        #os.remove('test_new.fits')
+        #os.remove('test_new2.fits')
+
         pass
     
     def testCardConstructorDefaultArgs(self):
@@ -92,47 +83,44 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         self.assertEqual(test("abc",value=(2,3)),"Failed as expected")
         def test2(*args,**kwargs):
             try:
-                c = pyfits.Card(args,kwargs)
-            except TypeError:
+                c = pyfits.Card(*args,**kwargs)
+            except ValueError:
                 c= "Failed as expected"
             return c
-
         self.assertEqual(test2('key',[],'comment'),"Failed as expected")
 
-## or keywords too long
-#>>> c=pyfits.Card("abcdefghi", "long")
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "./pyfits.py", line 104, in __init__
-    #self.key = key
-  #File "./pyfits.py", line 145, in __setattr__
-    #raise ValueError, 'keyword name %s is too long (> 8)' % val
-#ValueError: keyword name abcdefghi is too long (> 8), use HIERARCH.
+    def testKeywordTooLong(self):
+        #keywords too long
+        def test(*args,**kwargs):
+            try:
+                c=pyfits.Card(*args,**kwargs)
+            except ValueError:
+                c = "Failed as expected"
+            return c
+        self.assertEqual(test("abcdefghi", "long"),"Failed as expected")
+        
 
-## will not allow illegal characters in key when using constructor
-#>>> c=pyfits.Card('abc+',9)
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "./pyfits.py", line 114, in __init__
-    #self.key = key
-  #File "./pyfits.py", line 153, in __setattr__
-    #self._checkKeyText(val)
-  #File "./pyfits.py", line 270, in _checkKeyText
-    #raise ValueError, 'Illegal keyword name %s' % val
-#ValueError: Illegal keyword name 'ABC+'
+    def testIllegalCharactersInKey(self):
+        # will not allow illegal characters in key when using constructor
+        def test(*args,**kwargs):
+            try:
+                c=pyfits.Card(*args,**kwargs)
+            except ValueError:
+                c="Failed as expected."
+            return c
+        self.assertEqual(test('abc+',9),"Failed as expected.")
 
-## the ascardimage() verifies the comment string to be ASCII text
-#>>> c=pyfits.Card().fromstring('abc     = +  2.1   e + 12 / abcde'+chr(0x00))
-#>>> print c.ascardimage()
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "/data/litchi5/hsu/python/PyFITS/latest/pyfits.py", line 193, in ascardimage
-    #self._check('fix')
-  #File "/data/litchi5/hsu/python/PyFITS/latest/pyfits.py", line 457, in _check
-    #self._checkText(_str)
-  #File "/data/litchi5/hsu/python/PyFITS/latest/pyfits.py", line 275, in _checkText
-    #raise ValueError, 'Unprintable string %s' % repr(val)
-#ValueError: Unprintable string 'abcde\\x00                                              '
+
+    def testAscardiageVerifiesTheCommentStringToBeAsciiText(self):
+        # the ascardimage() verifies the comment string to be ASCII text
+        c=pyfits.Card().fromstring('abc     = +  2.1   e + 12 / abcde'+chr(0x00))
+        def test(obj):
+            try:
+                x = str(obj.ascardimage())
+            except:
+                x = "Failed as expected."
+            return x
+        self.assertEqual(test(c),"Failed as expected.")
 
     def testCommentaryCards(self):
         # commentary cards
@@ -198,66 +186,84 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         c=pyfits.Card().fromstring("   history          (1, 2)")
         self.assertEqual(str(c.ascardimage()),"HISTO   = 'ry          (1, 2)'                                                  ")
 
-## verification
-#>>> c=pyfits.Card().fromstring('abc= a6')
-#>>> c.verify()
-#Output verification result:
-#Card image is not FITS standard (equal sign not at column 8).
-#>>> print c
-#abc= a6                                                                         
-#>>> c.verify('fix')
-#Output verification result:
-  #Fixed card to be FITS standard.: ABC
-#>>> c
-#ABC     = 'a6      '                                                            
+    def testVerification(self):
+        # verification
+        c=pyfits.Card().fromstring('abc= a6')
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        c.verify()
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.read()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(output,"Output verification result:\nCard image is not FITS standard (equal sign not at column 8).\n")
+        self.assertEqual(str(c),"abc= a6                                                                         ")
 
-## test long string value
-#>>> c=pyfits.Card('abc','long string value '*10, 'long comment '*10)
-#>>> print80(str(c))
-#ABC     = 'long string value long string value long string value long string &' 
-#CONTINUE  'value long string value long string value long string value long &'  
-#CONTINUE  'string value long string value long string value &'                  
-#CONTINUE  '&' / long comment long comment long comment long comment long        
-#CONTINUE  '&' / comment long comment long comment long comment long comment     
-#CONTINUE  '&' / long comment                                                    
+    def testFix(self):
+        c=pyfits.Card().fromstring('abc= a6')
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        c.verify('fix')
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(output,["Output verification result:\n","  Fixed card to be FITS standard.: ABC\n"])
+        self.assertEqual(str(c),"ABC     = 'a6      '                                                            ")
 
-## if a word in a long string is too long, it will be cut in the middle
-#>>> c=pyfits.Card('abc','longstringvalue'*10, 'longcomment'*10)
-#>>> print80(str(c))
-#ABC     = 'longstringvaluelongstringvaluelongstringvaluelongstringvaluelongstr&'
-#CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'
-#CONTINUE  'elongstringvalue&'                                                   
-#CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme
-#CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment                  
+    def testLongStringValue(self):
+        # test long string value
+        c=pyfits.Card('abc','long string value '*10, 'long comment '*10)
+        self.assertEqual(str(c),"ABC     = 'long string value long string value long string value long string &' \
+CONTINUE  'value long string value long string value long string value long &'  \
+CONTINUE  'string value long string value long string value &'                  \
+CONTINUE  '&' / long comment long comment long comment long comment long        \
+CONTINUE  '&' / comment long comment long comment long comment long comment     \
+CONTINUE  '&' / long comment                                                    ")
 
-## long string value via fromstring() method
-#>>> c=pyfits.Card().fromstring(pyfits.core._pad("abc     = 'longstring''s testing  &  ' / comments in line 1")+pyfits.core._pad("continue  'continue with long string but without the ampersand at the end' / ")+pyfits.core._pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
-#>>> print80(c.ascardimage())
-#ABC     = 'longstring''s testing  continue with long string but without the &'  
-#CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  
-#CONTINUE  '&' / comments in line 1 comments with ''.                            
+    def testWordInLongStringTooLong(self):
+        # if a word in a long string is too long, it will be cut in the middle
+        c=pyfits.Card('abc','longstringvalue'*10, 'longcomment'*10)
+        self.assertEqual(str(c),"ABC     = 'longstringvaluelongstringvaluelongstringvaluelongstringvaluelongstr&'\
+CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'\
+CONTINUE  'elongstringvalue&'                                                   \
+CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme\
+CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment                  ")
 
-## The function "open" reads a FITS file into an HDUList object.  There are
-## three modes to open: "readonly" (the default), "append", and "update".
+    def testLongStringValueViaFromstring(self):
+        # long string value via fromstring() method
+        c=pyfits.Card().fromstring(pyfits.core._pad("abc     = 'longstring''s testing  &  ' / comments in line 1")+pyfits.core._pad("continue  'continue with long string but without the ampersand at the end' / ")+pyfits.core._pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
+        self.assertEqual(str(c.ascardimage()),"ABC     = 'longstring''s testing  continue with long string but without the &'  \
+CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  \
+CONTINUE  '&' / comments in line 1 comments with ''.                            ")
 
-## Open a file read-only (the default mode), the content of the FITS file
-## are read into memory.
-#>>> r=pyfits.open('test0.fits')                 # readonly
+    def testOpen(self):
+        # The function "open" reads a FITS file into an HDUList object.  There are
+        # three modes to open: "readonly" (the default), "append", and "update".
 
-## data parts are latent instantiation, so if we close the HDUList without
-## touching data, data can not be accessed.
-#>>> r.close()
-#>>> r[1].data[:2,:2]
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "pyfits.py", line 765, in __getattr__
-    #self._file.seek(self._datLoc)
-#ValueError: I/O operation on closed file
+        # Open a file read-only (the default mode), the content of the FITS file
+        # are read into memory.
+        r=pyfits.open('test0.fits')                 # readonly
 
-#>>> r=pyfits.open('test0.fits')
+        # data parts are latent instantiation, so if we close the HDUList without
+        # touching data, data can not be accessed.
+        r.close()
+        try:
+            r[1].data[:2,:2]
+            x = "Did not fail as expected."
+        except:
+            x = "Failed as expected."
+        self.assertEqual(x,"Failed as expected.")
+                         
+    def testOpen2(self):
+        r=pyfits.open('test0.fits')
 
-## Use the "info" method for a summary of the FITS file's content.
-#>>> r.info()
+        # Use the "info" method for a summary of the FITS file's content.
+        r.info()
 #Filename: test0.fits
 #No.    Name         Type      Cards   Dimensions   Format
 #0    PRIMARY     PrimaryHDU     138  ()            int16
@@ -489,19 +495,6 @@ class TestPyfitsImageFunctions(unittest.TestCase):
   #File "./pyfits.py", line 1588, in __getitem__
     #raise IndexError, 'Subsection data is not contiguous.'
 #IndexError: Subsection data is not contiguous.
-
-
-## clean up
-#>>> os.remove('test_update.fits')
-#>>> os.remove('test_new.fits')
-#>>> os.remove('test_new2.fits')
-
-
-    #def testopen(self):
-        #...
-        
-    #def testclose(self):
-        #...
     
 if __name__ == '__main__':
     unittest.main()
