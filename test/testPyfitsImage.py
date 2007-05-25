@@ -1,5 +1,6 @@
 import unittest
 import pyfits
+import numpy
 import numpy as np
 import exceptions,os,sys
 
@@ -14,11 +15,6 @@ class TestPyfitsImageFunctions(unittest.TestCase):
     
     def tearDown(self):
         # Perform clean-up actions (if any)
-        ## clean up
-        #os.remove('test_update.fits')
-        #os.remove('test_new.fits')
-        #os.remove('test_new2.fits')
-
         pass
     
     def testCardConstructorDefaultArgs(self):
@@ -263,145 +259,144 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         r=pyfits.open('test0.fits')
 
         # Use the "info" method for a summary of the FITS file's content.
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
         r.info()
-#Filename: test0.fits
-#No.    Name         Type      Cards   Dimensions   Format
-#0    PRIMARY     PrimaryHDU     138  ()            int16
-#1    SCI         ImageHDU        61  (400, 400)    int16
-#2    SCI         ImageHDU        61  (400, 400)    int16
-#3    SCI         ImageHDU        61  (400, 400)    int16
-#4    SCI         ImageHDU        61  (400, 400)    int16
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        r.close()
+        self.assertEqual(output,["Filename: test0.fits\n",
+"No.    Name         Type      Cards   Dimensions   Format\n",
+"0    PRIMARY     PrimaryHDU     138  ()            int16\n",
+"1    SCI         ImageHDU        61  (400, 400)    int16\n",
+"2    SCI         ImageHDU        61  (400, 400)    int16\n",
+"3    SCI         ImageHDU        61  (400, 400)    int16\n",
+"4    SCI         ImageHDU        61  (400, 400)    int16\n"])
 
-## Get a keyword value.  An extension can be referred by name or by number.
-## Both extension and keyword names are case insensitive.
-#>>> r['primary'].header['naxis']
-#0
-#>>> r[0].header['naxis']
-#0
+    def testIOManipulation(self):
+        # Get a keyword value.  An extension can be referred by name or by number.
+        # Both extension and keyword names are case insensitive.
+        r=pyfits.open('test0.fits')
+        self.assertEqual(r['primary'].header['naxis'],0)
+        self.assertEqual(r[0].header['naxis'],0)
 
-## If there are more than one extension with the same EXTNAME value, the
-## EXTVER can be used (as the second argument) to distinguish the extension.
-#>>> r['sci',1].header['detector']
-#1
+        # If there are more than one extension with the same EXTNAME value, the
+        # EXTVER can be used (as the second argument) to distinguish the extension.
+        self.assertEqual(r['sci',1].header['detector'],1)
 
-## append (using "update()") a new card
-#>>> r[0].header.update('xxx',1.234e56)
-#>>> r[0].header.ascard[-3:]
-#EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                FILENAME= 'vtest3.fits'        / File name                                      XXX     =            1.234E+56                                                  
+        # append (using "update()") a new card
+        r[0].header.update('xxx',1.234e56)
+        self.assertEqual(str(r[0].header.ascard[-3:]),"EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                \nFILENAME= 'vtest3.fits'        / File name                                      \nXXX     =            1.234E+56                                                  ")
 
-## rename a keyword
-#>>> r[0].header.rename_key('filename','fname')
-#>>> r[0].header.rename_key('fname','history')
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "/data/litchi5/hsu/python/PyFITS/latest/pyfits.py", line 949, in rename_key
-    #raise ValueError, 'Regular and commentary keys can not be renamed to each other.'
-#ValueError: Regular and commentary keys can not be renamed to each other.
-#>>> r[0].header.rename_key('fname','simple')
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "/data/litchi5/hsu/python/PyFITS/latest/pyfits.py", line 951, in rename_key
-    #raise ValueError, 'Intended keyword %s already exists in header.' % newkey
-#ValueError: Intended keyword SIMPLE already exists in header.
-#>>> r[0].header.rename_key('fname','filename')
+        # rename a keyword
+        r[0].header.rename_key('filename','fname')
+        try:
+            r[0].header.rename_key('fname','history')
+            x = "Did not fail as expected."
+        except ValueError:
+            x = "Failed as expected."
+        self.assertEqual(x, "Failed as expected.")
+        
+        try:
+            r[0].header.rename_key('fname','simple')
+            x = "Did not fail as expected."
+        except ValueError:
+            x = "Failed as expected."
+        self.assertEqual(x, "Failed as expected.")
 
-## get a subsection of data
-#>>> r[2].data[:3,:3]
-#array([[349, 349, 348],
-       #[348, 348, 348],
-       #[349, 349, 350]], dtype=int16)
+        r[0].header.rename_key('fname','filename')
 
-## We can create a new FITS file by opening a new file with "append" mode.
-#>>> n=pyfits.open('test_new.fits',mode='append')
+        # get a subsection of data
+        self.assertEqual(r[2].data[:3,:3].all(),np.array([[349, 349, 348],[348, 348, 348],[349, 349, 350]], dtype=np.int16).all())
 
-## Append the primary header and the 2nd extension to the new file.
-#>>> n.append(r[0])
-#>>> n.append(r[2])
+        #We can create a new FITS file by opening a new file with "append" mode.
+        n=pyfits.open('test_new.fits',mode='append')
 
-## The flush method will write the current HDUList object back to the newly
-## created file on disk.  The HDUList is still open and can be further operated.
-#>>> n.flush()
-#>>> n[1].data[1,1]
-#348
+        # Append the primary header and the 2nd extension to the new file.
+        n.append(r[0])
+        n.append(r[2])
 
-## modify a data point
-#>>> n[1].data[1,1]=99
+        # The flush method will write the current HDUList object back to the newly
+        # created file on disk.  The HDUList is still open and can be further operated.
+        n.flush()
+        self.assertEqual(n[1].data[1,1],348)
 
-## When the file is closed, the most recent additions of extension(s) since
-## last flush() will be appended, but any HDU already existed at the last
-## flush will not be modified
-#>>> n.close()
+        #modify a data point
+        n[1].data[1,1]=99
 
-## If an existing file is opened with "append" mode, like the readonly mode,
-## the HDU's will be read into the HDUList which can be modified in memory
-## but can not be written back to the original file.  A file opened with
-## append mode can only add new HDU's.
-#>>> os.rename('test_new.fits', 'test_append.fits')
-#>>> a=pyfits.open('test_append.fits',mode='append')
+        # When the file is closed, the most recent additions of extension(s) since
+        # last flush() will be appended, but any HDU already existed at the last
+        # flush will not be modified
+        n.close()
 
-## The above change did not take effect since this was made after the flush().
-#>>> a[1].data[1,1]
-#348
+        # If an existing file is opened with "append" mode, like the readonly mode,
+        # the HDU's will be read into the HDUList which can be modified in memory
+        # but can not be written back to the original file.  A file opened with
+        # append mode can only add new HDU's.
+        os.rename('test_new.fits', 'test_append.fits')
 
-#>>> a.append(r[1])
-#>>> a.close()
+        a=pyfits.open('test_append.fits',mode='append')
 
-## When changes are made to an HDUList which was opened with "update" mode,
-## they will be written back to the original file when a flush/close is called.
-#>>> os.rename('test_append.fits', 'test_update.fits')
-#>>> u=pyfits.open('test_update.fits',mode='update')
+        # The above change did not take effect since this was made after the flush().
+        self.assertEqual(a[1].data[1,1],348)
 
-## When the changes do not alter the size structures of the original (or since
-## last flush) HDUList, the changes are written back "in place".
-#>>> u[0].header['rootname']
-#'U2EQ0201T'
-#>>> u[0].header['rootname']='abc'
-#>>> u[1].data[1,1]
-#348
-#>>> u[1].data[1,1]=99
-#>>> u.flush()
+        a.append(r[1])
+        a.close()
 
-## If the changes affect the size structure, e.g. adding or deleting HDU(s),
-## header was expanded or reduced beyond existing number of blocks (2880 bytes
-## in each block), or change the data size, the HDUList is written to a
-## temporary file, the original file is deleted, and the temporary file is
-## renamed to the original file name and reopened in the update mode.
-## To a user, these two kinds of updating writeback seem to be the same, unless
-## the optional argument in flush or close is set to 1.
-#>>> del u[2]
-#>>> u.flush()
+        # When changes are made to an HDUList which was opened with "update" mode,
+        # they will be written back to the original file when a flush/close is called.
+        os.rename('test_append.fits', 'test_update.fits')
 
-## the write method in HDUList class writes the current HDUList, with
-## all changes made up to now, to a new file.  This method works the same
-## disregard the mode the HDUList was opened with.
-#>>> u.append(r[3])
-#>>> u.writeto('test_new.fits')
+        u=pyfits.open('test_update.fits',mode='update')
 
+        # When the changes do not alter the size structures of the original (or since
+        # last flush) HDUList, the changes are written back "in place".
+        self.assertEqual(u[0].header['rootname'],'U2EQ0201T')
+        u[0].header['rootname']='abc'
+        self.assertEqual(u[1].data[1,1],348)
+        u[1].data[1,1]=99
+        u.flush()
 
-## Another useful new HDUList method is readall.  It will "touch" the data parts
-## in all HDUs, so even if the HDUList is closed, we can still operate on
-## the data.
-#>>> r=pyfits.open('test0.fits')
-#>>> r.readall()
-#>>> r.close()
-#>>> r[1].data[1,1]
-#314
+        # If the changes affect the size structure, e.g. adding or deleting HDU(s),
+        # header was expanded or reduced beyond existing number of blocks (2880 bytes
+        # in each block), or change the data size, the HDUList is written to a
+        # temporary file, the original file is deleted, and the temporary file is
+        # renamed to the original file name and reopened in the update mode.
+        # To a user, these two kinds of updating writeback seem to be the same, unless
+        # the optional argument in flush or close is set to 1.
+        del u[2]
+        u.flush()
 
-## create an HDU with data only
-#>>> data = numpy.ones((3,5), dtype=np.float32)
-#>>> hdu=pyfits.ImageHDU(data=data, name='SCI')
-#>>> hdu.data
-#array([[ 1.,  1.,  1.,  1.,  1.],
-       #[ 1.,  1.,  1.,  1.,  1.],
-       #[ 1.,  1.,  1.,  1.,  1.]], dtype=float32)
+        # the write method in HDUList class writes the current HDUList, with
+        # all changes made up to now, to a new file.  This method works the same
+        # disregard the mode the HDUList was opened with.
+        u.append(r[3])
+        u.writeto('test_new.fits')
 
 
-## create an HDU with header and data
-## notice that the header has the right NAXIS's since it is constructed with
-## ImageHDU
-#>>> hdu2=pyfits.ImageHDU(header=r[1].header, data=numpy.array([1,2]))
-#>>> hdu2.header.ascard[1:5]
-#BITPIX  =                   32 / array data type                                NAXIS   =                    1 / number of array dimensions                     NAXIS1  =                    2                                                  PCOUNT  =                    0 / number of parameters                           
+        #Another useful new HDUList method is readall.  It will "touch" the data parts
+        # in all HDUs, so even if the HDUList is closed, we can still operate on
+        # the data.
+        r=pyfits.open('test0.fits')
+        r.readall()
+        r.close()
+        self.assertEqual(r[1].data[1,1],314)
+
+        # create an HDU with data only
+        data = numpy.ones((3,5), dtype=np.float32)
+        hdu=pyfits.ImageHDU(data=data, name='SCI')
+        self.assertEqual(hdu.data.all(),np.array([[ 1.,  1.,  1.,  1.,  1.],[ 1.,  1.,  1.,  1.,  1.],[ 1.,  1.,  1.,  1.,  1.]], dtype=np.float32).all())
+
+
+        # create an HDU with header and data
+        # notice that the header has the right NAXIS's since it is constructed with
+        # ImageHDU
+        hdu2=pyfits.ImageHDU(header=r[1].header, data=numpy.array([1,2]))
+        self.assertEqual(str(hdu2.header.ascard[1:5]),"BITPIX  =                   32 / array data type                                NAXIS   =                    1 / number of array dimensions                     NAXIS1  =                    2                                                  PCOUNT  =                    0 / number of parameters                           ")
 
 ## memory mapping
 #>>> f1 = pyfits.open('test0.fits', memmap=1)
