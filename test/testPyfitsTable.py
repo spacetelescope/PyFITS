@@ -236,6 +236,22 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         q = toto[1].data.field('QUAL_SPE') 
         self.assertEqual(q[0][4:8].all(),num.array([0,0,0,0],dtype=numpy.uint8).all())
         os.remove('toto.fits')
+    
+    def testEndianness(self):
+        x = num.ndarray((1,), dtype=object)
+        channelsIn = num.array([3], dtype='uint8')
+        x[0] = channelsIn
+        col = pyfits.Column(name="Channels", format="PB()", array=x)
+        cols = pyfits.ColDefs([col])
+        tbhdu = pyfits.new_table(cols)
+        tbhdu.name = "RFI"
+        tbhdu.writeto('testendian.fits', clobber=True)
+        hduL = pyfits.open('testendian.fits')
+        rfiHDU = hduL['RFI']
+        data = rfiHDU.data
+        channelsOut = data.field('Channels')[0]
+        self.assertEqual(channelsIn.all(),channelsOut.all())
+        os.remove('testendian.fits')
 
 if __name__ == '__main__':
     unittest.main()
