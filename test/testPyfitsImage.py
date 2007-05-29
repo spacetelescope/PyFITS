@@ -62,11 +62,16 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         self.assertEqual(str(c),"ABC     = (1.234537743788784E+88, 6.324767364763747E-15)                        ")
 
     def testCardImageConstructedTooLong(self):
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
         # card image constructed from key/value/comment is too long (non-string value)
         c=pyfits.Card('abc',9,'abcde'*20)
         self.assertEqual(str(c),"ABC     =                    9 / abcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeab")
         c=pyfits.Card('abc', 'a'*68, 'abcdefg')
         self.assertEqual(str(c),"ABC     = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'")
+        tmpfile.close()
+        sys.stderr = sys.__stdout__
+        os.remove(jfile)
 
     def testConstructorFilterIllegalDataStructures(self):
         # the constrctor will filter out illegal data structures...
@@ -377,6 +382,10 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         u.append(r[3])
         u.writeto('test_new.fits')
 
+        # Remove temporary files created by this test
+        os.remove('test_new.fits')
+        os.remove('test_update.fits')
+
 
         #Another useful new HDUList method is readall.  It will "touch" the data parts
         # in all HDUs, so even if the HDUList is closed, we can still operate on
@@ -396,22 +405,51 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         # notice that the header has the right NAXIS's since it is constructed with
         # ImageHDU
         hdu2=pyfits.ImageHDU(header=r[1].header, data=numpy.array([1,2]))
-        self.assertEqual(hdu2.header.ascard[1:5],"BITPIX  =                   32 / array data type                                NAXIS   =                    1 / number of array dimensions                     NAXIS1  =                    2                                                  PCOUNT  =                    0 / number of parameters                           ")
+        
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        print hdu2.header.ascard[1:5]
+        tmpfile.close()
+        sys.stdout = sys.__stdout__
+        tmpfile = open(jfile,'r')
+        tmplist = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(tmplist,["BITPIX  =                   32 / array data type                                \n","NAXIS   =                    1 / number of array dimensions                     \n","NAXIS1  =                    2                                                  \n","PCOUNT  =                    0 / number of parameters                           \n"])
 
-## memory mapping
-#>>> f1 = pyfits.open('test0.fits', memmap=1)
-#>>> f1.close()
+    def testMemmoryMapping(self):
+        # memory mapping
+        f1 = pyfits.open('test0.fits', memmap=1)
+        f1.close()
 
-## verification on output
-## make a defect HDUList first
-#>>> x = pyfits.ImageHDU()
-#>>> hdu = pyfits.HDUList(x)     # HDUList can take a list or one single HDU
-#>>> hdu.verify()
-#Output verification result:
-#HDUList's 0th element is not a primary HDU.
-#>>> hdu.writeto('test_new2.fits','fix')
-#Output verification result:
-#HDUList's 0th element is not a primary HDU.  Fixed by inserting one as 0th HDU.
+    def testVerificationOnOutput(self):
+        # verification on output
+        # make a defect HDUList first
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        x = pyfits.ImageHDU()
+        hdu = pyfits.HDUList(x)     # HDUList can take a list or one single HDU
+        hdu.verify()
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        tmplist = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(tmplist,["Output verification result:\n","HDUList's 0th element is not a primary HDU.\n"])
+
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        hdu.writeto('test_new2.fits','fix')
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        tmplist = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(tmplist,["Output verification result:\n","HDUList's 0th element is not a primary HDU.  Fixed by inserting one as 0th HDU.\n"])
+
+        os.remove('test_new2.fits')
 
     def testSection(self):
         # section testing
@@ -429,68 +467,70 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
                                                                      [341, 342, 343],
                                                                      [352, 353, 354]]).all())
 
-#>>> fs[0].section[3,2:5,:8]
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "./pyfits.py", line 1588, in __getitem__
-    #raise IndexError, 'Subsection data is not contiguous.'
-#IndexError: Subsection data is not contiguous.
 
-#>>> fs[0].section[3,2:5,3]
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "./pyfits.py", line 1588, in __getitem__
-    #raise IndexError, 'Subsection data is not contiguous.'
-#IndexError: Subsection data is not contiguous.
+        try:
+            fs[0].section[3,2:5,:8]
+            x = "Did not fail as expected."
+        except IndexError:
+            x = "Failed as expected."
+        self.assertEqual(x,"Failed as expected.")
 
-#>>> dtp(fs[0].section[3:6,:,:][:3,:3,:3])
-#. array([[[330, 331, 332],
-#.         [341, 342, 343],
-#.         [352, 353, 354]],
-#.
-#.        [[440, 441, 442],
-#.         [451, 452, 453],
-#.         [462, 463, 464]],
-#.
-#.        [[550, 551, 552],
-#.         [561, 562, 563],
-#.         [572, 573, 574]]])
+        try:
+            fs[0].section[3,2:5,3]
+            x = "Did not fail as expected."
+        except IndexError:
+            x = "Failed as expected."
+        self.assertEqual(x,"Failed as expected.")
 
-#>>> dtp(fs[0].section[:,:,:][:3,:2,:2])
-#. array([[[  0,   1],
-#.         [ 11,  12]],
-#.
-#.        [[110, 111],
-#.         [121, 122]],
-#.
-#.        [[220, 221],
-#.         [231, 232]]])
+        self.assertEqual(fs[0].section[3:6,:,:][:3,:3,:3].all(),np.array([[[330, 331, 332],
+                                                                     [341, 342, 343],
+                                                                     [352, 353, 354]],
 
-#>>> fs[0].section[:,2,:]
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "./pyfits.py", line 1588, in __getitem__
-    #raise IndexError, 'Subsection data is not contiguous.'
-#IndexError: Subsection data is not contiguous.
-#>>> fs[0].section[:,2:5,:]
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "./pyfits.py", line 1588, in __getitem__
-    #raise IndexError, 'Subsection data is not contiguous.'
-#IndexError: Subsection data is not contiguous.
-#>>> fs[0].section[3:6,3,:]
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "./pyfits.py", line 1588, in __getitem__
-    #raise IndexError, 'Subsection data is not contiguous.'
-#IndexError: Subsection data is not contiguous.
-#>>> fs[0].section[3:6,3:7,:]
-#Traceback (innermost last):
-  #File "<console>", line 1, in ?
-  #File "./pyfits.py", line 1588, in __getitem__
-    #raise IndexError, 'Subsection data is not contiguous.'
-#IndexError: Subsection data is not contiguous.
-    
+                                                                     [[440, 441, 442],
+                                                                      [451, 452, 453],
+                                                                      [462, 463, 464]],
+
+                                                                     [[550, 551, 552],
+                                                                      [561, 562, 563],
+                                                                      [572, 573, 574]]]).all())
+
+        self.assertEqual(fs[0].section[:,:,:][:3,:2,:2].all(),np.array([[[  0,   1],
+                                                                         [ 11,  12]],
+
+                                                                         [[110, 111],
+                                                                          [121, 122]],
+                                                                         
+                                                                         [[220, 221],
+                                                                          [231, 232]]]).all())
+
+        try:
+            fs[0].section[:,2,:]
+            x = "Did not fail as expected."
+        except IndexError:
+            x = "Failed as expected."
+        self.assertEqual(x,"Failed as expected.")
+        
+        try:
+            fs[0].section[:,2:5,:]
+            x = "Did not fail as expected."
+        except IndexError:
+            x = "Failed as expected."
+        self.assertEqual(x,"Failed as expected.")
+
+        try:
+            fs[0].section[3:6,3,:]
+            x = "Did not fail as expected."
+        except IndexError:
+            x = "Failed"
+        self.assertEqual(x,"Failed")
+        
+        try:
+            fs[0].section[3:6,3:7,:]
+            x = "Did not fail."
+        except IndexError:
+            x = "Failed again"
+        self.assertEqual(x,"Failed again")
+            
 if __name__ == '__main__':
     unittest.main()
     
