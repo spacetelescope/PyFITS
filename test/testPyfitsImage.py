@@ -396,7 +396,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         # notice that the header has the right NAXIS's since it is constructed with
         # ImageHDU
         hdu2=pyfits.ImageHDU(header=r[1].header, data=numpy.array([1,2]))
-        self.assertEqual(str(hdu2.header.ascard[1:5]),"BITPIX  =                   32 / array data type                                NAXIS   =                    1 / number of array dimensions                     NAXIS1  =                    2                                                  PCOUNT  =                    0 / number of parameters                           ")
+        self.assertEqual(hdu2.header.ascard[1:5],"BITPIX  =                   32 / array data type                                NAXIS   =                    1 / number of array dimensions                     NAXIS1  =                    2                                                  PCOUNT  =                    0 / number of parameters                           ")
 
 ## memory mapping
 #>>> f1 = pyfits.open('test0.fits', memmap=1)
