@@ -4335,7 +4335,7 @@ class _py_File:
 
 #               if the data is bigendian
                 if hdu.data.dtype.str[0] != '>':
-                    output = hdu.data.byteswap()
+                    output = hdu.data.byteswap(True)
                 else:
                     output = hdu.data
 
