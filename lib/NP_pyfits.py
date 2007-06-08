@@ -4333,9 +4333,10 @@ class _py_File:
             # if image, need to deal with byte order
             if isinstance(hdu, _ImageBaseHDU):
 
-#               if the data is bigendian
+#               if the data is littleendian
                 if hdu.data.dtype.str[0] != '>':
                     output = hdu.data.byteswap(True)
+                    output.dtype = output.dtype.newbyteorder('>')
                 else:
                     output = hdu.data
 
