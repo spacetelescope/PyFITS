@@ -70,7 +70,7 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         c=pyfits.Card('abc', 'a'*68, 'abcdefg')
         self.assertEqual(str(c),"ABC     = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'")
         tmpfile.close()
-        sys.stderr = sys.__stdout__
+        sys.stdout = sys.__stdout__
         os.remove(jfile)
 
     def testConstructorFilterIllegalDataStructures(self):
