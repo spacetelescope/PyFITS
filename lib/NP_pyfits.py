@@ -4324,6 +4324,7 @@ class _py_File:
 
     def writeHDUdata(self, hdu):
         """Write FITS HDU data part."""
+        byteswapped = False
 
         self.__file.flush()
         loc = self.__file.tell()
@@ -4335,6 +4336,7 @@ class _py_File:
 
 #               if the data is littleendian
                 if hdu.data.dtype.str[0] != '>':
+                    byteswapped = True
                     output = hdu.data.byteswap(True)
                     output.dtype = output.dtype.newbyteorder('>')
                 else:
@@ -4376,6 +4378,14 @@ class _py_File:
 
             output.tofile(self.__file)
             _size = output.size * output.itemsize
+
+
+            # if the image data was byteswapped in this method return it to
+            # it's original little-endian order
+            if (byteswapped == True):
+                output.byteswap(True)
+                output.dtype = output.dtype.newbyteorder('<')
+
 
             # write out the heap of variable length array columns
             # this has to be done after the "regular" data is written (above)
