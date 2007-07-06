@@ -1359,7 +1359,7 @@ class CardList(list):
 
         cards = [None]*len(self)
         for i in range(len(self)):
-            cards[i]=Card('').fromstring(str(self[i]))
+            cards[i]=Card('').fromstring(repr(self[i]))
         return CardList(cards)
 
     def __repr__(self):
@@ -1381,7 +1381,7 @@ class CardList(list):
 
 # ----------------------------- HDU classes ------------------------------------
 
-class _AllHDU:
+class _AllHDU(object):
     """Base class for all HDU (header data unit) classes."""
     pass
 
@@ -1443,7 +1443,8 @@ class _ValidHDU(_AllHDU, _Verify):
             _data = None
         return self.__class__(data=_data, header=self.header.copy())
 
-    def writeto(self, name, output_verify='exception', clobber=False):
+    def writeto(self, name, output_verify='exception', clobber=False,
+                classExtensions={}):
         """Write the HDU to a new file.  This is a convenience method
            to provide a user easier output interface if only one HDU
            needs to be written to a file.
@@ -1451,13 +1452,24 @@ class _ValidHDU(_AllHDU, _Verify):
            name:  output FITS file name to be written to.
            output_verify:  output verification option, default='exception'.
            clobber:  Overwrite the output file if exists, default = False.
+           classExtensions: A dictionary that maps pyfits classes to extensions 
+                            of those classes.  When present in the dictionary, 
+                            the extension class will be constructed in place of 
+                            the pyfits class. 
         """
 
         if isinstance(self, _ExtensionHDU):
-            hdulist = HDUList([PrimaryHDU(), self])
+            if classExtensions.has_key(HDUList):
+                hdulist = classExtensions[HDUList]([PrimaryHDU(),self]) 
+            else:
+                hdulist = HDUList([PrimaryHDU(), self])
         elif isinstance(self, PrimaryHDU):
-            hdulist = HDUList([self])
-        hdulist.writeto(name, output_verify, clobber=clobber)
+            if classExtensions.has_key(HDUList):
+                hdulist = classExtensions[HDUList]([self]) 
+            else:
+                hdulist = HDUList([self])
+        hdulist.writeto(name, output_verify, clobber=clobber,
+                        classExtensions=classExtensions)
 
     def _verify(self, option='warn'):
         _err = _ErrList([], unit='Card')
@@ -1633,7 +1645,7 @@ class _TempHDU(_ValidHDU):
 
         return size, name
 
-    def setupHDU(self):
+    def setupHDU(self, classExtensions={}):
         """Read one FITS HDU, data portions are not actually read here, but
            the beginning locations are computed.
         """
@@ -1690,6 +1702,10 @@ class _TempHDU(_ValidHDU):
         # construct the Header object, using the cards.
         try:
             header = Header(CardList(_cardList, keylist=_keyList))
+
+            if classExtensions.has_key(header._hdutype):
+                header._hdutype = classExtensions[header._hdutype]
+
             hdu = header._hdutype(data=DELAYED, header=header)
 
             # pass these attributes
@@ -1734,7 +1750,7 @@ class _ExtensionHDU(_ValidHDU):
             else:
                 self.header.ascard.append(Card('EXTNAME', value, 'extension name'))
 
-        self.__dict__[attr] = value
+        _ValidHDU.__setattr__(self,attr,value)
 
     def _verify(self, option='warn'):
         _err = _ValidHDU._verify(self, option=option)
@@ -1899,7 +1915,7 @@ class Section:
         return raw_data
 
 
-class _py_ImageBaseHDU(_ValidHDU):
+class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class."""
 
     """Attributes:
@@ -2105,7 +2121,10 @@ class _py_ImageBaseHDU(_ValidHDU):
     def _summary(self):
         """Summarize the HDU: name, dimensions, and formats."""
         class_name  = str(self.__class__)
-        type  = class_name[class_name.rfind('.')+1:]
+        type  = class_name[class_name.rfind('.')+1:-2]
+
+        if type.find('_') != -1:
+            type = type[type.find('_')+1:]
 
         # if data is touched, use data info.
         if 'data' in dir(self):
@@ -2216,74 +2235,6 @@ class _py_ImageBaseHDU(_ValidHDU):
 
         if self.data._type != _type:
             self.data = np.array(np.around(self.data), dtype=_type) #0.7.7.1
-
-class _st_ImageBaseHDU(_py_ImageBaseHDU):
-    """A class that extends the _py_ImageBaseHDU class to extend its behavior
-       to implement STScI specific extensions to Pyfits.
-    """
-
-    def __getattr__(self, attr):
-        """Extend pyfits._ImageBaseHDU.__getattr__ to support STScI specific
-           extensions to pyfits.  Currently, these extensions include Constant
-           Value Data Arrays.
-        """
-
-        if (attr == 'data' and self.header.has_key('PIXVALUE') and
-           self.header['NAXIS'] > 0):
-            self.__dict__[attr] = None
-            _bitpix = self.header['BITPIX']
-            if isinstance(self, GroupsHDU):
-                dims = self.size()*8/abs(_bitpix)
-            else:
-                dims = self._dimShape()
-
-            code = _ImageBaseHDU.NumCode[_bitpix]
-            pixVal = self.header['PIXVALUE']
-
-            if code in ['uint8','int16','int32','int64']:
-               pixVal = long(pixVal)
-
-            raw_data = np.zeros(shape=dims,dtype=code) + pixVal
-
-            if raw_data.dtype.str[0] != '>':
-               raw_data = raw_data.byteswap()
-
-            raw_data.dtype = raw_data.dtype.newbyteorder('>')
-
-            if (self._bzero != 0 or self._bscale != 1):
-                if _bitpix > 0:  # scale integers to Float32
-                    self.data = np.array(raw_data, dtype=np.float32)
-                else:  # floating point cases
-                    self.data = raw_data
-
-                if self._bscale != 1:
-                    np.multiply(self.data, self._bscale, self.data)
-                if self._bzero != 0:
-                    self.data += self._bzero
-
-                # delete the keywords BSCALE and BZERO after scaling
-                del self.header['BSCALE']
-                del self.header['BZERO']
-                self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
-            else:
-                self.data = raw_data
-
-            rtn_value = self.data
-        else:
-#
-#           This is not a STScI extenstion so call the base class
-#           method.
-#
-            rtn_value = _py_ImageBaseHDU.__getattr__(self, attr)
-
-        return rtn_value
-
-#
-# Define _ImageBaseHDU class to use the version that handles STScI
-# extensions.
-#
-#_ImageBaseHDU = _st_ImageBaseHDU
-_ImageBaseHDU = _py_ImageBaseHDU
 
 class PrimaryHDU(_ImageBaseHDU):
     """FITS primary HDU class."""
@@ -3771,7 +3722,7 @@ class _TableBaseHDU(_ExtensionHDU):
 
         elif attr == 'columns':
             class_name = str(self.__class__)
-            class_name = class_name[class_name.rfind('.')+1:]
+            class_name = class_name[class_name.rfind('.')+1:-2]
             self.__dict__[attr] = ColDefs(self, tbtype=class_name)
 
         elif attr == '_theap':
@@ -3788,7 +3739,7 @@ class _TableBaseHDU(_ExtensionHDU):
     def _summary(self):
         """Summarize the HDU: name, dimensions, and formats."""
         class_name  = str(self.__class__)
-        type  = class_name[class_name.rfind('.')+1:]
+        type  = class_name[class_name.rfind('.')+1:-2]
 
         # if data is touched, use data info.
         if 'data' in dir(self):
@@ -4070,16 +4021,15 @@ class StreamingHDU:
         TypeError exception is raised.
         """
 
-        if self.writeComplete:
-            raise IOError, "The stream is closed and can no longer be written"
-
         curDataSize = self._ffo.getfile().tell() - self._datLoc
 
-        if curDataSize + data.nbytes > self._size:
-            raise IOError, "Supplied data will overflow the stream"
+        if self.writeComplete or curDataSize + data.nbytes > self._size:
+            raise IOError, \
+            "Attempt to write more data to the stream than the header specified"
 
         if _ImageBaseHDU.NumCode[self.header['BITPIX']] != data.dtype.name:
-            raise TypeError, "Supplied data is not the correct type."
+            raise TypeError, \
+            "Supplied data does not match the type specified in the header."
 
         if data.dtype.str[0] != '>':
 #
@@ -4162,7 +4112,7 @@ urllib._urlopener = ErrorURLopener() # Assign the locally subclassed opener
 urllib._urlopener.tempcache = {} # Initialize tempcache with an empty
                                  # dictionary to enable file cacheing
 
-class _py_File:
+class _File:
     """A file I/O class"""
 
     def __init__(self, name, mode='copyonwrite', memmap=0):
@@ -4419,169 +4369,6 @@ class _py_File:
 
         self.__file.close()
 
-class _st_File(_py_File):
-    """A class that extends the _py_File class to extend its behavior to
-       implement STScI specific extensions to Pyfits.
-    """
-
-    def _readHDU(self):
-        """Extend _py_File._readHDU to support STScI specific extensions to
-           pyfits.  Currently, these extensions include Constant Value Data
-           Arrays.
-        """
-#
-#       Call base class _readHDU to perform generic reading of header
-#
-        hdu = _py_File._readHDU(self)
-#
-#       Convert header for HDU's with constant value data arrays
-#
-        pixvalue_RE = re.compile('PIXVALUE=')
-        mo = pixvalue_RE.search(hdu._raw)
-
-        if mo:
-#
-#           Add NAXISn keywords for each NPIXn keyword in the raw header
-#           and remove the NPIXx keyword
-#
-            naxis_RE = re.compile('NAXIS   = ')
-            mo = naxis_RE.search(hdu._raw)
-            naxis_sidx = mo.start()
-
-            npixn_RE = re.compile(r'NPIX(\d+)\s*=\s*(\d+)')
-            iterator = npixn_RE.finditer(hdu._raw)
-            numAxis = 0
-
-            for mo in iterator:
-                numAxis = numAxis + 1
-                sidx = mo.start()
-                nAxisStr = 'NAXIS' + str(numAxis) + \
-                           (3-len(str(numAxis)))*' ' + \
-                           hdu._raw[sidx+8:sidx+80]
-                hdu._raw = hdu._raw[:naxis_sidx+(80*numAxis)] + nAxisStr + \
-                           (80-len(nAxisStr))*' ' + \
-                           hdu._raw[naxis_sidx+(80*numAxis):sidx] + \
-                           hdu._raw[sidx+80:]
-#
-#           Replace NAXIS=0 keywords with NAZIS=n keywords where n is the
-#           number of NPIXn keywords
-#
-            numAxisS = '%d'%numAxis
-            lstr = len(numAxisS)
-
-            naxis_RE = re.compile('NAXIS   = ')
-            mo = naxis_RE.search(hdu._raw)
-            sidx = mo.start()
-
-            if lstr == 1:
-                naxisVal_RE = re.compile('0')
-            elif lstr == 2:
-                naxisVal_RE = re.compile('[ 0]|[0 ]')
-            elif lstr == 3:
-                naxisVal_RE = re.compile('[  0]|[ 0 ]|[0  ]')
-            else:
-                raise \
-                   "More than 999 NPIXn keywords in constant data value header"
-
-            tmpRaw, nSub = naxisVal_RE.subn(numAxisS, hdu._raw[sidx+10:],1)
-
-            if nSub != 1:
-                raise "Unable to substitute NAXISn for NPIXn in the header"
-
-            hdu._raw = hdu._raw[:sidx+10] + tmpRaw
-        return hdu
-
-    def writeHDUheader(self, hdu):
-        """Extend _st_File.writeHDUheader to support STScI specific
-           extensions to pyfits.  Currently, these extensions include Constant
-           Value Data Arrays.
-        """
-
-        if (hdu.header.has_key('PIXVALUE') and hdu.header['NAXIS'] > 0):
-#
-#           This is a Constant Value Data Array.  Verify that the data actually
-#           matches the PIXVALUE.
-#
-            pixVal = hdu.header['PIXVALUE']
-            arrayVal = np.reshape(hdu.data,(hdu.data.size,))[0]
-
-            if hdu.header['BITPIX'] > 0:
-               pixVal = long(pixVal)
-
-            if np.all(hdu.data == arrayVal):
-                st_ext = True
-                if arrayVal != pixVal:
-                    hdu.header['PIXVALUE'] = arrayVal
-
-                newHeader = hdu.header.copy()
-                naxis = hdu.header['NAXIS']
-                newHeader['NAXIS'] = 0
-
-                for n in range(naxis,0,-1):
-                    axisval = hdu.header['NAXIS'+str(n)]
-                    newHeader.update('NPIX'+str(n), axisval,
-                                     'length of constant array axis '+str(n),
-                                     after='PIXVALUE')
-                    del newHeader['NAXIS'+str(n)]
-                blocks = repr(newHeader.ascard)
-                blocks = blocks + _pad('END')
-                blocks = blocks + _padLength(len(blocks))*' '
-
-                if len(blocks)%_blockLen != 0:
-                    raise IOError
-                self._py_File__file.flush()
-                loc = self._py_File__file.tell()
-                self._py_File__file.write(blocks)
-
-                # flush, to make sure the content is written
-                self._py_File__file.flush()
-            else:
-#
-#               All elements in array are not the same value.
-#               so this is no longer a constant data value array
-#
-                del hdu.header['PIXVALUE']
-                st_ext = False
-        else:
-            st_ext = False
-
-        if not st_ext:
-#
-#          This is not a STScI extension so call the base class method
-#          to write the header.
-#
-           loc = _py_File.writeHDUheader(self,hdu)
-
-        return loc
-
-    def writeHDUdata(self, hdu):
-        """Extend pyfits._File.writeHDUdata to support STScI specific
-           extensions to pyfits.  Currently, these extensions include Constant
-           Value Data Arrays.
-        """
-
-        if (hdu.header.has_key('PIXVALUE')):
-#
-#           This is a Constant Value Data Array.
-#
-            self._py_File__file.flush()
-            loc = self._py_File__file.tell()
-            _size = 0
-        else:
-#
-#          This is not a STScI extension so call the base class method
-#          to write the data.
-#
-            loc, _size =  _py_File.writeHDUdata(self,hdu)
-
-        # return both the location and the size of the data area
-        return loc, _size+_padLength(_size)
-#
-# Define _File class to be the one that handles STScI extensions.
-#
-#_File = _st_File
-_File = _py_File
-
 class HDUList(list, _Verify):
     """HDU list class.  This is the top-level FITS object.  When a FITS
        file is opened, a HDUList object is returned.
@@ -4613,12 +4400,13 @@ class HDUList(list, _Verify):
     def __iter__(self):
         return [self[i] for i in range(len(self))].__iter__()
 
-    def __getitem__(self, key):
+    def __getitem__(self, key, classExtensions={}):
         """Get an HDU from the HDUList, indexed by number or name."""
         key = self.index_of(key)
         _item = super(HDUList, self).__getitem__(key)
         if isinstance(_item, _TempHDU):
-            super(HDUList, self).__setitem__(key, _item.setupHDU())
+            super(HDUList, self).__setitem__(key, 
+                                             _item.setupHDU(classExtensions))
 
         return super(HDUList, self).__getitem__(key)
 
@@ -4775,12 +4563,16 @@ class HDUList(list, _Verify):
                             hdu.header['TFORM'+`i+1`] = key[:key.find('(')+1] + `hdu.data.field(i)._max` + ')'
 
 
-    def flush(self, output_verify='exception', verbose=0):
+    def flush(self, output_verify='exception', verbose=0, classExtensions={}):
         """Force a write of the HDUList back to the file (for append and
            update modes only).
 
            output_verify:  output verification option, default = 'exception'.
            verbose: print out verbose messages? default = 0.
+           classExtensions: A dictionary that maps pyfits classes to extensions 
+                            of those classes.  When present in the dictionary, 
+                            the extension class will be constructed in place of 
+                            the pyfits class. 
         """
 
         # Get the name of the current thread and determine if this is a single treaded application
@@ -4853,7 +4645,8 @@ class HDUList(list, _Verify):
                 oldName = self.__file.name
                 oldMemmap = self.__file.memmap
                 _name = _tmpName(oldName)
-                _hduList = open(_name, mode="append")
+                _hduList = open(_name, mode="append", 
+                                classExtensions=classExtensions)
                 if (verbose): print "open a temp file", _name
 
                 for hdu in self:
@@ -4865,7 +4658,13 @@ class HDUList(list, _Verify):
 
                 # reopen the renamed new file with "update" mode
                 os.rename(_name, oldName)
-                ffo = _File(oldName, mode="update", memmap=oldMemmap)
+
+                if classExtensions.has_key(_File):
+                    ffo = classExtensions[_File](oldName, mode="update", 
+                                                   memmap=oldMemmap)
+                else:
+                    ffo = _File(oldName, mode="update", memmap=oldMemmap)
+
                 self.__file = ffo
                 if (verbose): print "reopen the newly renamed file", oldName
 
@@ -4921,12 +4720,17 @@ class HDUList(list, _Verify):
                 n = hdr['naxis']
                 hdr.update('extend', True, after='naxis'+`n`)
 
-    def writeto(self, name, output_verify='exception', clobber=False):
+    def writeto(self, name, output_verify='exception', clobber=False,
+                classExtensions={}):
         """Write the HDUList to a new file.
 
            name:  output FITS file name to be written to.
            output_verify:  output verification option, default = 'exception'.
            clobber:  Overwrite the output file if exists, default = False.
+           classExtensions: A dictionary that maps pyfits classes to extensions 
+                            of those classes.  When present in the dictionary, 
+                            the extension class will be constructed in place of 
+                            the pyfits class. 
         """
 
         if (len(self) == 0):
@@ -4952,7 +4756,7 @@ class HDUList(list, _Verify):
         if len(self) > 1:
             self.update_extend()
 
-        hduList = open(name, mode="append")
+        hduList = open(name, mode="append", classExtensions=classExtensions)
         for hdu in self:
             hduList.__file.writeHDU(hdu)
         hduList.close(output_verify=output_verify)
@@ -4998,17 +4802,29 @@ class HDUList(list, _Verify):
         print results
 
 
-def open(name, mode="copyonwrite", memmap=0):
+def open(name, mode="copyonwrite", memmap=0, classExtensions={}):
     """Factory function to open a FITS file and return an HDUList object.
 
        name: Name of the FITS file to be opened.
        mode: Open mode, 'readonly' (default), 'update', or 'append'.
        memmap: Is memmory mapping to be used? default=0.
+       classExtensions: A dictionary that maps pyfits classes to extensions of
+                        those classes.  When present in the dictionary, the
+                        extension class will be constructed in place of the
+                        pyfits class. 
     """
 
     # instantiate a FITS file object (ffo)
-    ffo = _File(name, mode=mode, memmap=memmap)
-    hduList = HDUList(file=ffo)
+
+    if classExtensions.has_key(_File):
+        ffo = classExtensions[_File](name, mode=mode, memmap=memmap)
+    else:
+        ffo = _File(name, mode=mode, memmap=memmap)
+
+    if classExtensions.has_key(HDUList):
+        hduList = classExtensions[HDUList](file=ffo)
+    else:
+        hduList = HDUList(file=ffo)
 
     # read all HDU's
     while 1:
@@ -5038,7 +4854,14 @@ class _Zero(int):
 
 def _getext(filename, mode, *ext1, **ext2):
     """Open the input file, return the HDUList and the extension."""
-    hdulist = open(filename, mode=mode)
+
+    if ext2.has_key('classExtensions'):
+        hdulist = open(filename, mode=mode, 
+                       classExtensions=ext2['classExtensions'])
+        del ext2['classExtensions']
+    else:
+        hdulist = open(filename, mode=mode)
+
     n_ext1 = len(ext1)
     n_ext2 = len(ext2)
     keys = ext2.keys()
@@ -5087,6 +4910,10 @@ def getheader(filename, *ext, **extkeys):
 
        @param filename: input FITS file name
        @type: string
+       @keyword classExtensions: (optional) A dictionary that maps pyfits 
+               classes to extensions of those classes.  When present in the 
+               dictionary, the extension class will be constructed in place 
+               of the pyfits class. 
        @param ext: The rest of the arguments are for extension specification.
           See L{getdata} for explanations/examples.
        
@@ -5105,6 +4932,11 @@ def getdata(filename, *ext, **extkeys):
 
        @type filename: string
        @param filename: input FITS file name
+
+       @keyword classExtensions: (optional) A dictionary that maps pyfits 
+               classes to extensions of those classes.  When present in the 
+               dictionary, the extension class will be constructed in place 
+               of the pyfits class. 
      
        @param ext: The rest of the arguments are for extension specification.  They are
        flexible and are best illustrated by examples:
@@ -5174,6 +5006,10 @@ def getval(filename, key, *ext, **extkeys):
     @param filename: input FITS file name
     @type key: string
     @param key: keyword name
+    @keyword classExtensions: (optional) A dictionary that maps pyfits 
+            classes to extensions of those classes.  When present in the 
+            dictionary, the extension class will be constructed in place 
+            of the pyfits class. 
     @param ext: The rest of the arguments are for extension specification.
        See L{getdata} for explanations/examples.
     @return: keyword value
@@ -5183,15 +5019,21 @@ def getval(filename, key, *ext, **extkeys):
     _hdr = getheader(filename, *ext, **extkeys)
     return _hdr[key]
 
-def _makehdu(data, header):
+def _makehdu(data, header, classExtensions={}):
     if header is None:
         if isinstance(data, np.ndarray):
-            hdu = ImageHDU(data)
+            if classExtensions.has_key(ImageHDU):
+                hdu = classExtensions[ImageHDU](data)
+            else:
+                hdu = ImageHDU(data)
         elif isinstance(data, FITS_rec):
             hdu = BinTableHDU(data)
         else:
             raise KeyError, 'data must be numarray or table data.'
     else:
+        if classExtensions.has_key(header._hdutype):
+            header._hdutype = classExtensions[header._hdutype]
+
         hdu=header._hdutype(data=data, header=header)
     return hdu
 
@@ -5206,6 +5048,10 @@ def writeto(filename, data, header=None, **keys):
        @param header: the header associated with 'data', if None, a
                header of the appropriate type is created for the supplied
                data. This argument is optional.
+       @keyword classExtensions: (optional) A dictionary that maps pyfits 
+               classes to extensions of those classes.  When present in the 
+               dictionary, the extension class will be constructed in place 
+               of the pyfits class. 
        @keyword clobber: (optional) if True and if filename already exists, it
                will overwrite the file.  Default is False.
     """
@@ -5213,13 +5059,18 @@ def writeto(filename, data, header=None, **keys):
     if header is None:
         if 'header' in keys:
             header = keys['header']
-    hdu=_makehdu(data, header)
-    if not isinstance(hdu, PrimaryHDU):
-        hdu = PrimaryHDU(data, header=header)
-    clobber = keys.get('clobber', False)
-    hdu.writeto(filename, clobber=clobber)
 
-def append(filename, data, header=None):
+    classExtensions = keys.get('classExtensions', {})
+    hdu=_makehdu(data, header, classExtensions)
+    if not isinstance(hdu, PrimaryHDU):
+        if classExtensions.has_key(PrimaryHDU):
+            hdu = classExtensions[PrimaryHDU](data, header=header)
+        else:
+            hdu = PrimaryHDU(data, header=header)
+    clobber = keys.get('clobber', False)
+    hdu.writeto(filename, clobber=clobber,classExtensions=classExtensions)
+
+def append(filename, data, header=None, classExtensions={}):
     """Append the header/data to FITS file if filename exists, create if not.
     
     If only data is supplied, a minimal header is created
@@ -5232,15 +5083,24 @@ def append(filename, data, header=None):
        @param header: the header associated with 'data', if None,
                an appropriate header will be created for the data object
                supplied.
+       @type classExtensions: dictionary
+       @param classExtensions: A dictionary that maps pyfits classes to 
+                               extensions of those classes.  When present in 
+                               the dictionary, the extension class will be 
+                               constructed in place of the pyfits class. 
     """
 
     if not os.path.exists(filename):
-        writeto(filename, data, header)
+        writeto(filename, data, header, classExtensions)
     else:
-        hdu=_makehdu(data, header)
+        hdu=_makehdu(data, header, classExtensions)
         if isinstance(hdu, PrimaryHDU):
-            hdu = ImageHDU(data, header)
-        f = open(filename, mode='update')
+            if classExtensions.has_key(ImageHDU):
+                hdu = classExtensions[ImageHDU](data, header)
+            else:
+                hdu = ImageHDU(data, header)
+
+        f = open(filename, mode='update', classExtensions=classExtensions)
         f.append(hdu)
         f.close()
 
@@ -5250,6 +5110,10 @@ def update(filename, data, *ext, **extkeys):
        @type filename: string
        @param filename: name of the file to be updated
        data: the new data used for updating
+       @keyword classExtensions: (optional) A dictionary that maps pyfits 
+               classes to extensions of those classes.  When present in the 
+               dictionary, the extension class will be constructed in place 
+               of the pyfits class. 
 
        The rest of the arguments are flexible:
        the 3rd argument can be the header associated with the data.
@@ -5279,12 +5143,14 @@ def update(filename, data, *ext, **extkeys):
         header = extkeys['header']
         del extkeys['header']
 
-    new_hdu=_makehdu(data, header)
+    classExtensions = extkeys.get('classExtensions', {})
+
+    new_hdu=_makehdu(data, header, classExtensions)
     hdulist, _ext = _getext(filename, 'update', *ext, **extkeys)
     hdulist[_ext] = new_hdu
     hdulist.close()
 
-def info(filename):
+def info(filename, classExtensions={}):
     """Print the summary information on a FITS file.
     
     This includes the name, type, length of header, data shape and type
@@ -5292,9 +5158,14 @@ def info(filename):
 
     @type filename: string
     @param filename: input FITS file name
+    @type classExtensions: dictionary
+    @param classExtensions: A dictionary that maps pyfits classes to 
+                            extensions of those classes.  When present in 
+                            the dictionary, the extension class will be 
+                            constructed in place of the pyfits class. 
     """
 
-    f = open(filename)
+    f = open(filename,classExtensions=classExtensions)
     f.info()
     f.close()
 

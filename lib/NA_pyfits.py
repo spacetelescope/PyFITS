@@ -1896,7 +1896,7 @@ class Section:
         return raw_data
 
 
-class _py_ImageBaseHDU(_ValidHDU):
+class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class."""
 
     """Attributes:
@@ -2202,73 +2202,6 @@ class _py_ImageBaseHDU(_ValidHDU):
 
         if self.data._type != _type:
             self.data = num.array(num.around(self.data), type=_type) #0.7.7.1
-
-class _st_ImageBaseHDU(_py_ImageBaseHDU):
-    """A class that extends the _py_ImageBaseHDU class to extend its behavior
-       to implement STScI specific extensions to Pyfits.
-    """
-
-    def __getattr__(self, attr):
-        """Extend pyfits._ImageBaseHDU.__getattr__ to support STScI specific
-           extensions to pyfits.  Currently, these extensions include Constant
-           Value Data Arrays.
-        """
-
-        if (attr == 'data' and self.header.has_key('PIXVALUE') and
-           self.header['NAXIS'] > 0):
-            self.__dict__[attr] = None
-            _bitpix = self.header['BITPIX']
-            if isinstance(self, GroupsHDU):
-                dims = self.size()*8/abs(_bitpix)
-            else:
-                dims = self._dimShape()
-
-            code = _ImageBaseHDU.NumCode[_bitpix]
-            pixVal = self.header['PIXVALUE']
-
-            if code in ['UInt8','Int16','Int32','Int64']:
-               pixVal = long(pixVal)
-
-            raw_data = num.zeros(shape=dims,type=code) + pixVal
-
-            if raw_data._byteorder != 'big':
-               raw_data.byteswap()
-               raw_data._byteorder = 'big'
-
-            if (self._bzero != 0 or self._bscale != 1):
-                if _bitpix > 0:  # scale integers to Float32
-                    self.data = num.array(raw_data, type=num.Float32)
-                else:  # floating point cases
-                    self.data = raw_data
-
-                if self._bscale != 1:
-                    num.multiply(self.data, self._bscale, self.data)
-                if self._bzero != 0:
-                    self.data += self._bzero
-
-                # delete the keywords BSCALE and BZERO after scaling
-                del self.header['BSCALE']
-                del self.header['BZERO']
-                self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.type()]
-            else:
-                self.data = raw_data
-
-            rtn_value = self.data
-        else:
-#
-#           This is not a STScI extenstion so call the base class
-#           method.
-#
-            rtn_value = _py_ImageBaseHDU.__getattr__(self, attr)
-
-        return rtn_value
-
-#
-# Define _ImageBaseHDU class to use the version that handles STScI
-# extensions.
-#
-#ImageBaseHDU = _st_ImageBaseHDU
-_ImageBaseHDU = _py_ImageBaseHDU
 
 class PrimaryHDU(_ImageBaseHDU):
     """FITS primary HDU class."""
@@ -4046,7 +3979,7 @@ urllib._urlopener = ErrorURLopener() # Assign the locally subclassed opener
 urllib._urlopener.tempcache = {} # Initialize tempcache with an empty
                                  # dictionary to enable file cacheing
 
-class _py_File:
+class _File:
     """A file I/O class"""
 
     def __init__(self, name, mode='copyonwrite', memmap=0):
@@ -4293,169 +4226,6 @@ class _py_File:
         """Close the 'physical' FITS file."""
 
         self.__file.close()
-
-class _st_File(_py_File):
-    """A class that extends the _py_File class to extend its behavior to
-       implement STScI specific extensions to Pyfits.
-    """
-
-    def _readHDU(self):
-        """Extend _py_File._readHDU to support STScI specific extensions to
-           pyfits.  Currently, these extensions include Constant Value Data
-           Arrays.
-        """
-#
-#       Call base class _readHDU to perform generic reading of header
-#
-        hdu = _py_File._readHDU(self)
-#
-#       Convert header for HDU's with constant value data arrays
-#
-        pixvalue_RE = re.compile('PIXVALUE=')
-        mo = pixvalue_RE.search(hdu._raw)
-
-        if mo:
-#
-#           Add NAXISn keywords for each NPIXn keyword in the raw header
-#           and remove the NPIXx keyword
-#
-            naxis_RE = re.compile('NAXIS   = ')
-            mo = naxis_RE.search(hdu._raw)
-            naxis_sidx = mo.start()
-
-            npixn_RE = re.compile(r'NPIX(\d+)\s*=\s*(\d+)')
-            iterator = npixn_RE.finditer(hdu._raw)
-            numAxis = 0
-
-            for mo in iterator:
-                numAxis = numAxis + 1
-                sidx = mo.start()
-                nAxisStr = 'NAXIS' + str(numAxis) + \
-                           (3-len(str(numAxis)))*' ' + \
-                           hdu._raw[sidx+8:sidx+80]
-                hdu._raw = hdu._raw[:naxis_sidx+(80*numAxis)] + nAxisStr + \
-                           (80-len(nAxisStr))*' ' + \
-                           hdu._raw[naxis_sidx+(80*numAxis):sidx] + \
-                           hdu._raw[sidx+80:]
-#
-#           Replace NAXIS=0 keywords with NAZIS=n keywords where n is the
-#           number of NPIXn keywords
-#
-            numAxisS = '%d'%numAxis
-            lstr = len(numAxisS)
-
-            naxis_RE = re.compile('NAXIS   = ')
-            mo = naxis_RE.search(hdu._raw)
-            sidx = mo.start()
-
-            if lstr == 1:
-                naxisVal_RE = re.compile('0')
-            elif lstr == 2:
-                naxisVal_RE = re.compile('[ 0]|[0 ]')
-            elif lstr == 3:
-                naxisVal_RE = re.compile('[  0]|[ 0 ]|[0  ]')
-            else:
-                raise \
-                   "More than 999 NPIXn keywords in constant data value header"
-
-            tmpRaw, nSub = naxisVal_RE.subn(numAxisS, hdu._raw[sidx+10:],1)
-
-            if nSub != 1:
-                raise "Unable to substitute NAXISn for NPIXn in the header"
-
-            hdu._raw = hdu._raw[:sidx+10] + tmpRaw
-        return hdu
-
-    def writeHDUheader(self, hdu):
-        """Extend _st_File.writeHDUheader to support STScI specific
-           extensions to pyfits.  Currently, these extensions include Constant
-           Value Data Arrays.
-        """
-
-        if (hdu.header.has_key('PIXVALUE') and hdu.header['NAXIS'] > 0):
-#
-#           This is a Constant Value Data Array.  Verify that the data actually
-#           matches the PIXVALUE.
-#
-            pixVal = hdu.header['PIXVALUE']
-            arrayVal = num.reshape(hdu.data,(hdu.data.size(),))[0]
-
-            if hdu.header['BITPIX'] > 0:
-               pixVal = long(pixVal)
-
-            if num.all(hdu.data == arrayVal):
-                st_ext = True
-                if arrayVal != pixVal:
-                    hdu.header['PIXVALUE'] = arrayVal
-
-                newHeader = hdu.header.copy()
-                naxis = hdu.header['NAXIS']
-                newHeader['NAXIS'] = 0
-
-                for n in range(naxis,0,-1):
-                    axisval = hdu.header['NAXIS'+str(n)]
-                    newHeader.update('NPIX'+str(n), axisval,
-                                     'length of constant array axis '+str(n),
-                                     after='PIXVALUE')
-                    del newHeader['NAXIS'+str(n)]
-                blocks = repr(newHeader.ascard)
-                blocks = blocks + _pad('END')
-                blocks = blocks + _padLength(len(blocks))*' '
-
-                if len(blocks)%_blockLen != 0:
-                    raise IOError
-                self._py_File__file.flush()
-                loc = self._py_File__file.tell()
-                self._py_File__file.write(blocks)
-
-                # flush, to make sure the content is written
-                self._py_File__file.flush()
-            else:
-#
-#               All elements in array are not the same value.
-#               so this is no longer a constant data value array
-#
-                del hdu.header['PIXVALUE']
-                st_ext = False
-        else:
-            st_ext = False
-
-        if not st_ext:
-#
-#          This is not a STScI extension so call the base class method
-#          to write the header.
-#
-           loc = _py_File.writeHDUheader(self,hdu)
-
-        return loc
-
-    def writeHDUdata(self, hdu):
-        """Extend pyfits._File.writeHDUdata to support STScI specific
-           extensions to pyfits.  Currently, these extensions include Constant
-           Value Data Arrays.
-        """
-
-        if (hdu.header.has_key('PIXVALUE')):
-#
-#           This is a Constant Value Data Array.
-#
-            self._py_File__file.flush()
-            loc = self._py_File__file.tell()
-            _size = 0
-        else:
-#
-#          This is not a STScI extension so call the base class method
-#          to write the data.
-#
-            loc, _size =  _py_File.writeHDUdata(self,hdu)
-
-        # return both the location and the size of the data area
-        return loc, _size+_padLength(_size)
-#
-# Define _File class to be the one that handles STScI extensions.
-#
-#_File = _st_File
-_File = _py_File
 
 class HDUList(list, _Verify):
     """HDU list class.  This is the top-level FITS object.  When a FITS
