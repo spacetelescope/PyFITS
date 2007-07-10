@@ -4119,7 +4119,13 @@ class _File:
         if mode not in _python_mode.keys():
             raise "Mode '%s' not recognized" % mode
 
-        if mode != 'append' and not os.path.exists(name):
+        if mode != 'append' and not os.path.exists(name) and \
+        not os.path.splitdrive(name)[0]:
+           #
+           # Not writing file and file does not exist on local machine and
+           # name does not begin with a drive letter (Windows), try to 
+           # get it over the web.
+           #
            self.name, fileheader = urllib.urlretrieve(name)
         else:
            self.name = name
