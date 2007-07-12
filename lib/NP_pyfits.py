@@ -5086,7 +5086,9 @@ def writeto(filename, data, header=None, **keys):
         else:
             hdu = PrimaryHDU(data, header=header)
     clobber = keys.get('clobber', False)
-    hdu.writeto(filename, clobber=clobber,classExtensions=classExtensions)
+    output_verify = keys.get('output_verify', 'exception')
+    hdu.writeto(filename, clobber=clobber, output_verify=output_verify,
+                classExtensions=classExtensions)
 
 def append(filename, data, header=None, classExtensions={}):
     """Append the header/data to FITS file if filename exists, create if not.
