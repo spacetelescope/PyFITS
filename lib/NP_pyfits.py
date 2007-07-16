@@ -49,6 +49,8 @@ from string import maketrans
 import types
 import signal
 import threading
+import sys
+import warnings
 
 # Module variables
 _blockLen = 2880         # the FITS block size
@@ -64,6 +66,22 @@ ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
                         # this can be reset by user.
 _isInt = "isinstance(val, (int, long, np.integer))"
     
+# Warnings routines
+
+_showwarning = warnings.showwarning
+
+def showwarning(message, category, filename, lineno, file=None):
+    if file is None:
+        file = sys.stdout
+    _showwarning(message, category, filename, lineno, file)
+
+def formatwarning(message, category, filename, lineno):
+    return str(message)+'\n'
+
+warnings.showwarning = showwarning
+warnings.formatwarning = formatwarning
+warnings.filterwarnings('always',category=UserWarning,append=True)
+
 # Functions
 
 def _padLength(stringLen):
@@ -165,8 +183,8 @@ class _Verify:
         if _option in ['fix', 'silentfix'] and x.find('Unfixable') != -1:
             raise VerifyError, '\n'+x
         if (_option != "silentfix"and _option != 'exception') and x:
-            print 'Output verification result:'
-            print x
+            warnings.warn('Output verification result:')
+            warnings.warn(x)
         if _option == 'exception' and x:
             raise VerifyError
 
@@ -492,7 +510,7 @@ class Card(_Verify):
                 self.__class__ = _Card_with_continue
                 output = self._breakup_strings()
             else:
-                print 'card is too long, comment is truncated.'
+                warnings.warn('card is too long, comment is truncated.')
                 output = output[:Card.length]
 
         self.__dict__['_cardimage'] = output
@@ -2434,7 +2452,8 @@ def _parse_tformat(tform):
     try:
         (repeat, dtype, option) = _tformat_re.match(tform.strip()).groups()
     except:
-        print 'Format "%s" is not recognized.' % tform
+        warnings.warn('Format "%s" is not recognized.' % tform)
+    
 
     if repeat == '': repeat = 1
     else: repeat = eval(repeat)
@@ -2480,7 +2499,7 @@ def _convert_format(input_format, reverse=0):
         if dtype == 'a':
             output_format = option+_rec2fits[dtype]
         elif isinstance(dtype, _FormatX):
-            print 'X format'
+            warnings.warn('X format')
         elif dtype+option in _rec2fits.keys():                    # record format
             _repeat = ''
             if repeat != 1:
@@ -4259,7 +4278,7 @@ class _File:
         hdu._new = 0
         self.__file.seek(hdu._datSpan, 1)
         if self.__file.tell() > self._size:
-            print 'Warning: File size is smaller than specified data size.  File may have been truncated.'
+            warnings.warn('Warning: File size is smaller than specified data size.  File may have been truncated.')
 
         hdu._ffile = self
 
@@ -4601,14 +4620,14 @@ class HDUList(list, _Verify):
         if singleThread:
             keyboardInterruptSent = False
             def New_SIGINT(*args):
-                print "KeyboardInterrupt ignored until flush is complete!"
+                warnings.warn("KeyboardInterrupt ignored until flush is complete!")
                 keyboardInterruptSent = True
         
             # Install new handler
             signal.signal(signal.SIGINT,New_SIGINT)
 
         if self.__file.mode not in ('append', 'update'):
-            print "flush for '%s' mode is not supported." % self.__file.mode
+            warnings.warn("flush for '%s' mode is not supported." % self.__file.mode)
             return
 
         self.update_tbhdu()
@@ -4752,7 +4771,7 @@ class HDUList(list, _Verify):
         """
 
         if (len(self) == 0):
-            print "There is nothing to write."
+            warnings.warn("There is nothing to write.")
             return
 
         self.update_tbhdu()
@@ -4765,7 +4784,7 @@ class HDUList(list, _Verify):
         # check if the output file already exists
         if os.path.exists(name):
             if clobber:
-                print "Overwrite existing file '%s'." % name
+                warnings.warn( "Overwrite existing file '%s'." % name)
                 os.remove(name)
             else:
                 raise IOError, "File '%s' already exist." % name
@@ -4852,7 +4871,7 @@ def open(name, mode="copyonwrite", memmap=0, classExtensions={}):
             break
         # check in the case there is extra space after the last HDU or corrupted HDU
         except ValueError:
-            print 'Warning:  Required keywords missing when trying to read HDU #%d.\n    There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList)+1)
+            warnings.warn('Warning:  Required keywords missing when trying to read HDU #%d.\n    There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList)+1))
             break
 
     # initialize/reset attributes to be used in "update/append" mode
