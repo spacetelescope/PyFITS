@@ -3180,23 +3180,15 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
         if n < nrows:
             if tbtype == 'BinTableHDU':
                 # resize the data in the hdu ColDefs attribute
-                if isinstance(hdu.columns._arrays[i], chararray.chararray):
-                    hdu.columns._arrays[i] = \
-                     chararray.array([dat[i] for dat in hdu.data],
-                                   itemsize=hdu.columns._arrays[i].itemsize)
-                else:
-                    hdu.columns._arrays[i] = \
-                     np.array([dat[i] for dat in hdu.data])
+                hdu.columns._arrays[i] = rec.recarray.field(hdu.data,i)
 
                 # initialize the new data to zero
                 if isinstance(rec.recarray.field(hdu.data,i), np.ndarray):
 
                     # make the scaled data = 0, not the stored data
                     rec.recarray.field(hdu.data,i)[n:] = -bzero/bscale
-                    hdu.columns._arrays[i][n:] = -bzero/bscale
                 else:
                     rec.recarray.field(hdu.data,i)[n:] = ''
-                    hdu.columns._arrays[i][n:] = ''
 
     hdu.update()
     return hdu
