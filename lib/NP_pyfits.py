@@ -3161,10 +3161,10 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
                 if tbtype == 'TableHDU':
 
                     # string no need to convert,
-                    if isinstance(tmp._arrays[i], chararray.CharArray):
+                    if isinstance(tmp._arrays[i], chararray.chararray):
                         rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
                     else:
-                        hdu.data._convert[i] = np.zeros(nrows, type=tmp._arrays[i].type())
+                        hdu.data._convert[i] = np.zeros(nrows, dtype=tmp._arrays[i].dtype)
                         if _scale or _zero:
                             _arr = tmp._arrays[i].copy()
                         else:
