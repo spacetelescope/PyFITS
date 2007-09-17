@@ -4464,17 +4464,32 @@ class HDUList(list, _Verify):
         except IndexError:
             raise IndexError, 'Extension %s is out of bound or not found.' % key
         self._resize = 1
+        self._truncate = 0
 
     def __delitem__(self, key):
         """Delete an HDU from the HDUList, indexed by number or name."""
         key = self.index_of(key)
+
+        endIndex = len(self)-1
         super(HDUList, self).__delitem__(key)
-        self._resize = 1
+       
+        if ( key == endIndex or key == -1 and not self._resize):
+            self._truncate = 1
+        else:
+            self._truncate = 0   
+            self._resize = 1
 
     def __delslice__(self, i, j):
         """Delete a slice of HDUs from the HDUList, indexed by number only."""
+
+        endIndex = len(self)
         super(HDUList, self).__delslice__(i, j)
-        self._resize = 1
+
+        if ( j == endIndex or j == sys.maxint and not self._resize):
+            self._truncate = 1
+        else:
+            self._truncate = 0   
+            self._resize = 1
 
 
     def _verify (self, option='warn'):
@@ -4508,6 +4523,7 @@ class HDUList(list, _Verify):
             super(HDUList, self).append(hdu)
             hdu._new = 1
             self._resize = 1
+            self._truncate = 0
         else:
             raise "HDUList can only append an HDU"
 
@@ -4653,6 +4669,7 @@ class HDUList(list, _Verify):
                     _bytes = _bytes + _padLength(_bytes)
                     if _bytes != (hdu._datLoc-hdu._hdrLoc):
                         self._resize = 1
+                        self._truncate = 0
                         if verbose:
                             print "One or more header is resized."
                         break
@@ -4666,10 +4683,18 @@ class HDUList(list, _Verify):
                     _bytes = _bytes + _padLength(_bytes)
                     if _bytes != hdu._datSpan:
                         self._resize = 1
+                        self._truncate = 0
                         if verbose:
                             print "One or more data area is resized."
                         break
 
+                if self._truncate:
+                   try:
+                       self.__file.getfile().truncate(hdu._datLoc+hdu._datSpan) 
+                   except IOError:
+                       self._resize = 1
+                   self._truncate = 0
+ 
             # if the HDUList is resized, need to write it to a tmp file,
             # delete the original file, and rename the tmp to the original file
             if self._resize:
@@ -4701,6 +4726,7 @@ class HDUList(list, _Verify):
 
                 # reset the resize attributes after updating
                 self._resize = 0
+                self._truncate = 0
                 for hdu in self:
                     hdu.header._mod = 0
                     hdu.header.ascard._mod = 0
@@ -4872,6 +4898,7 @@ def open(name, mode="copyonwrite", memmap=0, classExtensions={}):
     # CardList needs its own _mod attribute since it has methods to change
     # the content of header without being able to pass it to the header object
     hduList._resize = 0
+    hduList._truncate = 0
 
     return hduList
 
