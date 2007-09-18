@@ -2188,8 +2188,8 @@ class _ImageBaseHDU(_ValidHDU):
         used right before writing to the output file, as the data will be
         scaled and is therefore not very usable after the call.
 
-        type (string): destination data type, use numarray attribute format,
-              (e.g. 'UInt8', 'Int16', 'Float32' etc.).  If is None, use the
+        type (string): destination data type, use numpy attribute format,
+              (e.g. 'uint8', 'int16', 'float32' etc.).  If is None, use the
               current data type.
 
         option: how to scale the data: if "old", use the original BSCALE
@@ -2207,7 +2207,7 @@ class _ImageBaseHDU(_ValidHDU):
         # Determine the destination (numpy) data type
         if type is None:
             type = self.NumCode[self._bitpix]
-        _type = getattr(num, type)
+        _type = getattr(np, type)
 
         # Determine how to scale the data
         # bscale and bzero takes priority
@@ -2225,13 +2225,13 @@ class _ImageBaseHDU(_ValidHDU):
                 else:
 
                     # flat the shape temporarily to save memory
-                    dims = self.data.getshape()
-                    self.data.setshape(self.data.nelements())
+                    dims = self.data.shape
+                    self.data.shape = self.data.size
                     min = np.minimum.reduce(self.data)
                     max = np.maximum.reduce(self.data)
-                    self.data.setshape(dims)
+                    self.data.shape = dims
 
-                    if `_type` == 'UInt8':  # UInt8 case
+                    if _type == np.uint8:  # uint8 case
                         _zero = min
                         _scale = (max - min) / (2.**8 - 1)
                     else:
@@ -2253,7 +2253,7 @@ class _ImageBaseHDU(_ValidHDU):
         else:
             del self.header['BSCALE']
 
-        if self.data._type != _type:
+        if self.data.dtype.type != _type:
             self.data = np.array(np.around(self.data), dtype=_type) #0.7.7.1
 
 class PrimaryHDU(_ImageBaseHDU):
