@@ -23,49 +23,30 @@ try:
 except:
     numerix = 'numpy'
 
-# Deteremine if numarray is installed on the system
-try:
-    import numarray
-    numarraystatus = True
-except:
-    numarraystatus = False
 
-# Determine if numpy is installed on the system
-try:
-    import numpy
-    numpystatus = True
-except:
-    numpystatus = False
-
-
-if (numpystatus and numarraystatus):
-    # if both array packages are installed, use the NUMERIX environment
-    # variable to break the tie.  If NUMERIX doesn't exist, default
-    # to numarray
-    if numerix == 'numpy':
-        from NP_pyfits import *
-        import NP_pyfits as core
-        __doc__ = NP_pyfits.__doc__
-    else:
+if (numerix == 'numarray'):
+    try :
         from NA_pyfits import *
         import NA_pyfits as core
         __doc__ = NA_pyfits.__doc__
-        
-elif (numpystatus):
-    # if only numpy is installed use the numpy version of pyfits
-    from NP_pyfits import *
-    import NP_pyfits as core
-    __doc__ = NP_pyfits.__doc__
-
-elif (numarraystatus):
-    # if only numarray is installed use the numarray version of pyfits
-    from NA_pyfits import *
-    import NA_pyfits as core
-    __doc__ = NA_pyfits.__doc__
-
+    except ImportError:
+        raise ImportError, "Cannot import numarray version of PyFITS!"
 else:
-    raise RuntimeError, "The numarray or numpy array package is required for use."
-
+    try:
+        try:
+            from NP_pyfits import *
+            import NP_pyfits as core
+            __doc__ = NP_pyfits.__doc__
+        except ImportError:
+            try:
+                from NA_pyfits import *
+                import NA_pyfits as core
+                doc__ = NA_pyfits.__doc__
+            except ImportError:
+                raise ImportError, "Cannot import either numpy or numarray."
+    except:
+        raise ImportError, "No usable array package has been found.  Cannot import either numpy or numarray."
+    
 _locals = locals().keys()
 for n in _locals[::-1]:
     if n[0] == '_' or n in ('re', 'os', 'tempfile', 'exceptions', 'operator', 'num', 'ndarray', 'chararray', 'rec', 'objects', 'Memmap', 'maketrans', 'open'):
