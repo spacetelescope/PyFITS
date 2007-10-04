@@ -703,7 +703,7 @@ class Card(_Verify):
             if self.key not in Card._commentaryKeys and self._cardimage.find('=') != 8:
                 if option in ['exception', 'warn']:
                     self.__dict__['_err_text'] = 'Card image is not FITS standard (equal sign not at column 8).'
-                    raise ValueError, self._err_text, '\n%s' % self._cardimage
+                    raise ValueError, self._err_text + '\n%s' % self._cardimage
                 elif option in ['fix', 'silentfix']:
                     result = self._check('parse')
                     self._fixValue(result)
@@ -764,7 +764,9 @@ class Card(_Verify):
         _err = _ErrList([])
         try:
             self._check(option)
-        except:
+        except ValueError:
+            # Trapping the ValueError raised by _check method.  Want execution to continue while printing 
+            # exception message.
             pass
         _err.append(self.run_option(option, err_text=self._err_text, fix_text=self._fix_text, fixable=self._fixable))
 
