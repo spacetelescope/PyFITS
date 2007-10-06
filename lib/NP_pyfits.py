@@ -1192,11 +1192,11 @@ class Header:
                     for i in range(_tfields):
                         del self[name+`i+1`]
 
-            if issubclass(self._hdutype == TableHDU):
+            if issubclass(self._hdutype, TableHDU):
                 for i in range(_tfields):
                     del self['TBCOL'+`i+1`]
 
-        except:
+        except KeyError:
             pass
 
 
