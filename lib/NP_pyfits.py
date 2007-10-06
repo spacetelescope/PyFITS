@@ -1033,7 +1033,7 @@ class Header:
 
         try:
             return self[key]
-        except:
+        except KeyError:
             return default
 
     def update(self, key, value, comment=None, before=None, after=None):
@@ -1369,7 +1369,7 @@ class CardList(list):
                 if backward:
                     _indx = len(_keylist) - _indx - 1
                 return _indx
-            except:
+            except ValueError:
                 raise KeyError, 'Keyword %s not found.' % `key`
         else:
             raise KeyError, 'Illegal key data type %s' % type(key)
@@ -2037,7 +2037,7 @@ class _ImageBaseHDU(_ValidHDU):
         for j in range(len(axes)):
             try:
                 self.header['NAXIS'+`j+1`] = axes[j]
-            except:
+            except KeyError:
                 if (j == 0):
                     _after = 'naxis'
                 else :
@@ -2408,7 +2408,7 @@ class GroupsHDU(PrimaryHDU):
         try:
             _dum = self.header['EXTEND']
             #_after += 1
-        except:
+        except KeyError:
             pass
         _pos = '>= '+`_after`
         self.req_cards('GCOUNT', _pos, _isInt, 1, option, _err)
@@ -2528,7 +2528,7 @@ def _convert_ASCII_format(input_format):
             width = None
         else:
             width = eval(width)
-    except:
+    except KeyError:
         raise ValueError, 'Illegal format `%s` for ASCII table.' % input_format
 
     return (dtype, width)
@@ -2724,12 +2724,12 @@ class Column:
 
                 # legit FITS format? convert to record format (e.g. '3J'->'3i4')
                 recfmt = _convert_format(format)
-            except:
+            except ValueError:
                 try:
                     # legit recarray format?
                     recfmt = format
                     format = _convert_format(recfmt, reverse=1)
-                except:
+                except ValueError:
                     raise ValueError, "Illegal format `%s`." % format
 
             self.format = format
