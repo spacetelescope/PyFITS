@@ -225,6 +225,25 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(comparerecords(a[1].data[::2], ra3),True)
 
+        # Test Start Column
+
+        a1 = chararray.array(['abcd','def'])
+        r1 = numpy.array([11.,12.])
+        c1 = pyfits.Column(name='abc',format='A3',start=19,array=a1)
+        c2 = pyfits.Column(name='def',format='E',start=3,array=r1)
+        c3 = pyfits.Column(name='t1',format='I',array=[91,92,93])
+        hdu = pyfits.new_table([c2,c1,c3],tbtype='TableHDU')
+
+
+        self.assertEqual(hdu.data.dtype.fields,{'abc':(numpy.dtype('|S3'),18),
+                                                'def':(numpy.dtype('|S14'),2),
+                                                't1':(numpy.dtype('|S10'),21)})
+        hdu.writeto('toto.fits',clobber=True)
+        hdul = pyfits.open('toto.fits')
+        self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
+        os.remove('toto.fits')
+        
+
     def testVariableLengthColumns(self):
         col_list = []
         col_list.append(pyfits.Column(name='QUAL_SPE',format='PJ()',array=[[0]*1571]*225))
