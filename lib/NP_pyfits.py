@@ -2792,8 +2792,25 @@ class Column:
             return array
         else:
             if (format.find('A') != -1):
-                numpyFormat = _convert_format(format)
-                return array.astype(numpyFormat)                
+                if str(array.dtype).find('S') != -1:
+                    # For ASCII arrays, reconstruct the array and ensure
+                    # that all elements have enough characters to comply
+                    # with the format.  The new array will have the data
+                    # left justified in the field with trailing blanks
+                    # added to complete the format requirements.
+                    fsize=eval(_convert_format(format)[1:])
+
+                    if fsize > array.itemsize:
+                        l = []
+                        for i in range(len(array)):
+                            l.append(array[i][:min(fsize,array.itemsize)]+
+                                     ' '*(fsize-array.itemsize))
+                        return chararray.array(l)
+                    else:
+                        return array
+                else:
+                    numpyFormat = _convert_format(format)
+                    return array.astype(numpyFormat)
             elif (format.find('X') == -1 and format.find('P') == -1):
                 (repeat, fmt, option) = _parse_tformat(format)
                 numpyFormat = _convert_format(fmt)
@@ -2900,7 +2917,7 @@ class ColDefs(object):
                 if len(self) == 1:
                     dummy = []
                 else:
-                    dummy = map(lambda x, y: x-y, self.starts[1:], [1]+self.starts[1:-1])
+                    dummy = map(lambda x, y: x-y, self.starts[1:], [self.starts[0]]+self.starts[1:-1])
                 dummy.append(self._width-self.starts[-1]+1)
                 attr = map(lambda y: 'a'+`y`, dummy)
         elif name == 'spans':
@@ -2915,7 +2932,7 @@ class ColDefs(object):
                     if self.starts[i] is '':
                         self.starts[i] = last_end + 1
                     _end = self.starts[i] + _width - 1
-                    attr[i] = _end - last_end
+                    attr[i] = _width
                     last_end = _end
                 self._width = _end
         else:
@@ -3063,7 +3080,17 @@ def _get_tbdata(hdu):
         _mmap = hdu._ffile._mm[hdu._datLoc:hdu._datLoc+hdu._datSpan]
         _data = rec.recarray(_mmap, formats=tmp._recformats, names=tmp.names, shape=tmp._shape)
     else:
-        _data = rec.array(hdu._file, formats=",".join(tmp._recformats), names=tmp.names, shape=tmp._shape)
+        if isinstance(hdu, TableHDU):
+            itemsize = tmp.spans[-1]+tmp.starts[-1]-1
+            dtype = {}
+
+            for j in range(len(tmp)):
+                data_type = 'S'+str(tmp.spans[j])
+                dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
+       
+            _data = rec.array(hdu._file, dtype=dtype, names=tmp.names, shape=tmp._shape)
+        else:
+            _data = rec.array(hdu._file, formats=",".join(tmp._recformats), names=tmp.names, shape=tmp._shape)
 
     if isinstance(hdu._ffile, _File):
 #        _data._byteorder = 'big'
@@ -3127,13 +3154,15 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
                 nrows = dim
 
     if tbtype == 'TableHDU':
-        _formats = ''
-        _itemsize = 0
-        for i in range(len(tmp)):
-            _formats += 'a%d,' % tmp.spans[i]
-            _itemsize += tmp.spans[i]
-        hdu.data = FITS_rec(rec.array(' '*_itemsize*nrows, formats=_formats[:-1], names=tmp.names, shape=nrows))
+        _itemsize = tmp.spans[-1]+tmp.starts[-1]-1
+        dtype = {}
 
+        for j in range(len(tmp)):
+           data_type = 'S'+str(tmp.spans[j])
+           dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
+       
+        hdu.data = FITS_rec(rec.array(' '*_itemsize*nrows, dtype=dtype, shape=nrows))
+        hdu.data.setflags(write=True)
     else:
         hdu.data = FITS_rec(rec.array(None, formats=",".join(tmp._recformats), names=tmp.names, shape=nrows))
 
@@ -3193,6 +3222,10 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
                     rec.recarray.field(hdu.data,i)[n:] = -bzero/bscale
                 else:
                     rec.recarray.field(hdu.data,i)[n:] = ''
+            else:
+                # resize the data in the hdu ColDefs attribute
+                hdu.columns._arrays[i] = rec.recarray.field(hdu.data,i)
+                rec.recarray.field(hdu.data,i)[n:] = ' '*hdu.data._coldefs.spans[i]
 
     hdu.update()
     return hdu
@@ -3419,11 +3452,11 @@ class FITS_rec(rec.recarray):
         _dict = {'A':'s', 'I':'d', 'F':'f', 'E':'E', 'D':'E'}
         # calculate the starting point and width of each field for ASCII table
         if self._coldefs._tbtype == 'TableHDU':
-            _loc = [1]
+            _loc = self._coldefs.starts
             _width = []
             for i in range(len(self.dtype.names)):
-                _loc.append(_loc[-1]+rec.recarray.field(self,i).itemsize())
                 _width.append(_convert_ASCII_format(self._coldefs._Formats[i])[1])
+            _loc.append(_loc[-1]+rec.recarray.field(self,i).itemsize)
 
         self._heapsize = 0
         for indx in range(len(self.dtype.names)):
@@ -4389,7 +4422,10 @@ class _File:
 
             # pad the FITS data block
             if _size > 0:
-                self.__file.write(_padLength(_size)*'\0')
+                if isinstance(hdu, TableHDU):
+                    self.__file.write(_padLength(_size)*' ')
+                else:
+                    self.__file.write(_padLength(_size)*'\0')
 
         # flush, to make sure the content is written
         self.__file.flush()
