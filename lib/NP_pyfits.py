@@ -3086,6 +3086,11 @@ def _get_tbdata(hdu):
 
             for j in range(len(tmp)):
                 data_type = 'S'+str(tmp.spans[j])
+
+                if j == len(tmp)-1:
+                    if hdu.header['NAXIS1'] > itemsize:
+                        data_type = 'S'+str(tmp.spans[j]+ \
+                                    hdu.header['NAXIS1']-itemsize)
                 dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
        
             _data = rec.array(hdu._file, dtype=dtype, names=tmp.names, shape=tmp._shape)
@@ -3517,7 +3522,7 @@ class FITS_rec(rec.recarray):
                             else:
                                 rec.recarray.field(self,indx)[i] = x
                         if 'D' in _format:
-                            rec.recarray.field(self,indx).sub('E', 'D')
+                            rec.recarray.field(self,indx).replace('E', 'D')
 
 
                     # binary table
