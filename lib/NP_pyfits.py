@@ -4184,7 +4184,10 @@ class _File:
         if mode not in _python_mode.keys():
             raise "Mode '%s' not recognized" % mode
 
-        if mode != 'append' and not os.path.exists(name) and \
+        
+        if isinstance(name, file):
+            self.name = name.name
+        elif mode != 'append' and not os.path.exists(name) and \
         not os.path.splitdrive(name)[0]:
            #
            # Not writing file and file does not exist on local machine and
@@ -4204,7 +4207,14 @@ class _File:
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
         else:
-            if os.path.splitext(self.name)[1] == '.gz':
+            if isinstance(name, file) and not name.closed:
+                if _python_mode[mode] != name.mode:
+                    raise "Input mode '%s' (%s) " \
+                          % (mode, _python_mode[mode]) + \
+                          "does not match mode of the input file (%s)." \
+                          % name.mode
+                self.__file = name 
+            elif os.path.splitext(self.name)[1] == '.gz':
                 # Handle gzip files
                 if mode in ['update', 'append']:
                     raise "Writing to gzipped fits files is not supported"
@@ -4905,7 +4915,7 @@ class HDUList(list, _Verify):
 def open(name, mode="copyonwrite", memmap=0, classExtensions={}):
     """Factory function to open a FITS file and return an HDUList object.
 
-       name: Name of the FITS file to be opened.
+       name: Name of the FITS file to be opened or already opened file object.
        mode: Open mode, 'readonly' (default), 'update', or 'append'.
        memmap: Is memmory mapping to be used? default=0.
        classExtensions: A dictionary that maps pyfits classes to extensions of
