@@ -186,7 +186,7 @@ class _Verify:
             warnings.warn('Output verification result:')
             warnings.warn(x)
         if _option == 'exception' and x:
-            raise VerifyError
+            raise VerifyError, '\n'+x
 
 def _pad(input):
     """Pad balnk space to the input string to be multiple of 80."""
@@ -3146,7 +3146,10 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
     for i in range(len(tmp)):
         _arr = tmp._arrays[i]
         if isinstance(_arr, Delayed):
-            tmp._arrays[i] = rec.recarray.field(_arr.hdu.data,_arr.field)
+            if _arr.hdu.data == None:
+                tmp._arrays[i] = None
+            else:
+                tmp._arrays[i] = rec.recarray.field(_arr.hdu.data,_arr.field)
 
     # use the largest column shape as the shape of the record
     if nrows == 0:
