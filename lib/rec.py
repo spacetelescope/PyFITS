@@ -192,8 +192,8 @@ class recarray(ndarray):
     def __array_finalize__(self,obj):
         if obj is None:
             return 
-        self._heapoffset = obj._heapoffset
-        self._file = obj._file
+        self._heapoffset = getattr(obj,'_heapoffset',0)
+        self._file = getattr(obj,'_file', None)
 
     def __getattribute__(self, attr):
         try:

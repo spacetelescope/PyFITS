@@ -3139,6 +3139,8 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
             raise ValueError, 'column definitions have a different table type'
     elif isinstance(input, FITS_rec): # input is a FITS_rec
         tmp = hdu.columns = input._coldefs
+    elif isinstance(input, np.ndarray):
+        tmp = hdu.columns = eval(tbtype)(input).data._coldefs
     else:                 # input is a list of Columns
         tmp = hdu.columns = ColDefs(input, tbtype)
 
@@ -3214,7 +3216,7 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
                             _arr *= bscale
                         if _zero:
                             _arr += bzero
-                        hdu.data._convert[i][:n] = _arr
+                        hdu.data._convert[i][:n] = _arr[:n]
                 else:
                     rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
 
@@ -3757,12 +3759,51 @@ class _TableBaseHDU(_ExtensionHDU):
             self.header = Header(_list)
 
         if (data is not DELAYED):
-            if isinstance(data, rec.recarray):
-                self.header['NAXIS1'] = data.itemsize
-                self.header['NAXIS2'] = data.shape[0]
-                self.header['TFIELDS'] = data._nfields
-                self.data = data
-                self.columns = data._coldefs
+            if isinstance(data,np.ndarray) and not data.dtype.fields == None:
+                if isinstance(data,FITS_rec):
+                    self.data = data
+                elif isinstance(data,rec.recarray):
+                    self.data = FITS_rec(data)
+                else:
+                    d = data.view(rec.recarray)
+                    self.data = FITS_rec(d)
+            
+                self.header['NAXIS1'] = self.data.itemsize
+                self.header['NAXIS2'] = self.data.shape[0]
+                self.header['TFIELDS'] = self.data._nfields
+
+                if self.data._coldefs == None:
+                    #
+                    # The data does not have a _coldefs attribute so 
+                    # create one from the underlying recarray.
+                    #
+                    columns = []
+
+                    for i in range(len(data.dtype.names)):
+                       cname = data.dtype.names[i]
+
+                       if data.dtype.fields[cname][0].type == np.string_:
+                           format = \
+                            'A'+str(data.dtype.fields[cname][0].itemsize)
+                       else:
+                           format = \
+                            _convert_format(data.dtype.fields[cname][0].str[1:],
+                            True)
+
+                       c = Column(name=cname,format=format,array=data[cname])
+                       columns.append(c)
+
+                    try:
+                        tbtype = 'BinTableHDU'
+
+                        if self._xtn == 'TABLE':
+                            tbtype = 'TableHDU'
+                    except AttributeError:
+                        pass
+
+                    self.data._coldefs = ColDefs(columns,tbtype=tbtype)
+
+                self.columns = self.data._coldefs
                 self.update()
             elif data is None:
                 pass
@@ -3910,8 +3951,8 @@ class TableHDU(_TableBaseHDU):
            name:   the EXTNAME value
         """
 
-        _TableBaseHDU.__init__(self, data=data, header=header, name=name)
         self._xtn = 'TABLE'
+        _TableBaseHDU.__init__(self, data=data, header=header, name=name)
         if self.header[0].rstrip() != self._xtn:
             self.header[0] = self._xtn
             self.header.ascard[0].comment = 'ASCII table extension'
@@ -3955,8 +3996,8 @@ class BinTableHDU(_TableBaseHDU):
            name:   the EXTNAME value
         """
 
-        _TableBaseHDU.__init__(self, data=data, header=header, name=name)
         self._xtn = 'BINTABLE'
+        _TableBaseHDU.__init__(self, data=data, header=header, name=name)
         hdr = self.header
         if hdr[0] != self._xtn:
             hdr[0] = self._xtn
@@ -5135,13 +5176,13 @@ def getval(filename, key, *ext, **extkeys):
 
 def _makehdu(data, header, classExtensions={}):
     if header is None:
-        if isinstance(data, np.ndarray):
+        if isinstance(data, FITS_rec):
+            hdu = BinTableHDU(data)
+        elif isinstance(data, np.ndarray):
             if classExtensions.has_key(ImageHDU):
                 hdu = classExtensions[ImageHDU](data)
             else:
                 hdu = ImageHDU(data)
-        elif isinstance(data, FITS_rec):
-            hdu = BinTableHDU(data)
         else:
             raise KeyError, 'data must be numarray or table data.'
     else:
