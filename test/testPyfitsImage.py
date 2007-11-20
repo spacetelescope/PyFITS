@@ -404,7 +404,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         # create an HDU with header and data
         # notice that the header has the right NAXIS's since it is constructed with
         # ImageHDU
-        hdu2=pyfits.ImageHDU(header=r[1].header, data=numpy.array([1,2]))
+        hdu2=pyfits.ImageHDU(header=r[1].header, data=numpy.array([1,2],dtype='int32'))
         
         tmpfile = open(jfile,'w')
         sys.stdout = tmpfile
