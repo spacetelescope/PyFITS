@@ -1377,26 +1377,17 @@ class CardList(list):
     def copy(self):
         """Make a (deep)copy of the CardList."""
 
-        cards = [None]*len(self)
-        for i in range(len(self)):
-            cards[i]=Card('').fromstring(repr(self[i]))
-        return CardList(cards)
+        return CardList([Card('').fromstring(repr(c)) for c in self])
 
     def __repr__(self):
         """Format a list of cards into a string."""
 
-        block = ''
-        for card in self:
-            block = block + repr(card)
-        return block
+        return ''.join(map(repr,self))
 
     def __str__(self):
         """Format a list of cards into a printable string."""
 
-        output = ''
-        for card in self:
-            output += str(card) + '\n'
-        return output[:-1]
+        return '\n'.join(map(str,self))
 
 
 # ----------------------------- HDU classes ------------------------------------
