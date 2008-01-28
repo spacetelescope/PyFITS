@@ -4722,7 +4722,7 @@ class HDUList(list, _Verify):
                 keyboardInterruptSent = True
         
             # Install new handler
-            signal.signal(signal.SIGINT,New_SIGINT)
+            old_handler = signal.signal(signal.SIGINT,New_SIGINT)
 
         if self.__file.mode not in ('append', 'update'):
             warnings.warn("flush for '%s' mode is not supported." % self.__file.mode)
@@ -4847,7 +4847,7 @@ class HDUList(list, _Verify):
             if keyboardInterruptSent:
                 raise KeyboardInterrupt
             
-            signal.signal(signal.SIGINT,signal.getsignal(signal.SIGINT))
+            signal.signal(signal.SIGINT,old_handler)
 
     def update_extend(self):
         """Make sure if the primary header needs the keyword EXTEND or if
