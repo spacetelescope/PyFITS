@@ -128,7 +128,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         # the table HDU's data is a subclass of a record array, so we can access
         # one row like this:
 
-        self.assertEqual(str(tbhdu.data[1]),"('def', 12.0, 4, 2, (4.0+4.0j), array([ True], dtype=bool), 102, array([False,  True,  True,  True,  True, False, False, False, False,\n        True, False], dtype=bool))")
+        self.assertEqual(str(tbhdu.data[1]),"('def', 12.0, 4, 2, (4+4j), array([ True], dtype=bool), 102, array([False,  True,  True,  True,  True, False, False, False, False,\n        True, False], dtype=bool))")
 
         # and a column like this:
         self.assertEqual(str(tbhdu.data.field('abc')),"['abc' 'def' 'xx']")
@@ -306,7 +306,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
                                 formats='int16,a20,float32,a10',\
                                 names='order,name,mag,Sp')
         hdu=pyfits.new_table(bright,nrows=2,tbtype='TableHDU')
-        s="[(1, 'Serius', -1.45, 'A1V') (2, 'Canopys', -0.73000002, 'F0Ib')]"
+        s="[(1, 'Serius', -1.45000004768, 'A1V')\n (2, 'Canopys', -0.730000019073, 'F0Ib')]"
         self.assertEqual(str(hdu.data[:]),s)
         hdu.writeto('toto.fits', clobber=True)
         hdul = pyfits.open('toto.fits')
