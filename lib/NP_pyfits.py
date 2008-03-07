@@ -4488,6 +4488,10 @@ class _File:
 
         self.__file.close()
 
+        if hasattr(self, 'tfile'):
+            del self.tfile
+
+
 class HDUList(list, _Verify):
     """HDU list class.  This is the top-level FITS object.  When a FITS
        file is opened, a HDUList object is returned.
