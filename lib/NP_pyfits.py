@@ -5243,7 +5243,7 @@ def append(filename, data, header=None, classExtensions={}):
     """
 
     if not os.path.exists(filename):
-        writeto(filename, data, header, classExtensions)
+        writeto(filename, data, header, classExtensions=classExtensions)
     else:
         hdu=_makehdu(data, header, classExtensions)
         if isinstance(hdu, PrimaryHDU):
