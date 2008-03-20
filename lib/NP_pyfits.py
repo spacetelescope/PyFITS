@@ -3315,6 +3315,10 @@ class FITS_rec(rec.recarray):
         tmp = rec.recarray.__repr__(self)
         return tmp
 
+    def __getslice__(self, i, j):
+        key = slice(i,j)
+        return self.__getitem__(key)
+
     def __getitem__(self, key):
         tmp = rec.recarray.__getitem__(self, key)
 
@@ -3391,7 +3395,9 @@ class FITS_rec(rec.recarray):
                     _offset = rec.recarray.field(self,indx)[i,1] + self._heapoffset
                     self._file.seek(_offset)
                     if self._coldefs._recformats[indx]._dtype is 'a':
-                        dummy[i] = chararray.array(self._file, itemsize=rec.recarray.field(self,indx)[i,0], shape=1)
+                        count = rec.recarray.field(self,indx)[i,0]
+                        da = np.fromfile(self._file, dtype=self._coldefs._recformats[indx]._dtype+str(1),count =count,sep="")
+                        dummy[i] = chararray.array(da,itemsize=count)
                     else:
 #                       print type(self._file)
 #                       print "type =",self._coldefs._recformats[indx]._dtype

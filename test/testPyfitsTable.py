@@ -207,15 +207,11 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         # Test slicing
         a2 = a[1].data[2:][2:]
-        ra2 = rec.array([
-            (15.609999656677246, 17),
-            (0.0, 0),
-            (345.0, 345)
-            ], names='c1, c2')
+        ra2 = rec.array([(345.0,345)],names='c1, c2')
 
-        self.assertEqual(a2.field(1).all(), ra2.field(1).all())
+        self.assertEqual(comparerecords(a2, ra2),True)
 
-        self.assertEqual(a2.field(1).all(),num.array([ 17,   0, 345]).all())
+        self.assertEqual(a2.field(1).all(),num.array([345]).all())
 
         ra3 = rec.array([
             (10.123000144958496, 37),
