@@ -3066,27 +3066,37 @@ def _get_tbdata(hdu):
     # since binary table does not support ND yet
     if isinstance(hdu, GroupsHDU):
         tmp._recformats[-1] = `hdu._dimShape()[:-1]` + tmp._dat_format
+    elif isinstance(hdu, TableHDU):
+        itemsize = tmp.spans[-1]+tmp.starts[-1]-1
+        dtype = {}
+
+        for j in range(len(tmp)):
+            data_type = 'S'+str(tmp.spans[j])
+
+            if j == len(tmp)-1:
+                if hdu.header['NAXIS1'] > itemsize:
+                    data_type = 'S'+str(tmp.spans[j]+ \
+                                hdu.header['NAXIS1']-itemsize)
+            dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
 
     if hdu._ffile.memmap:
-        _mmap = hdu._ffile._mm[hdu._datLoc:hdu._datLoc+hdu._datSpan]
-        _data = rec.recarray(_mmap, formats=tmp._recformats, names=tmp.names, shape=tmp._shape)
+        if isinstance(hdu, TableHDU):
+            hdu._ffile.code = dtype
+        else:
+            hdu._ffile.code = rec.format_parser(",".join(tmp._recformats),
+                                                 tmp.names,None)._descr
+
+        hdu._ffile.dims = tmp._shape
+        hdu._ffile.offset = hdu._datLoc
+        _data = rec.recarray(shape=hdu._ffile.dims, buf=hdu._ffile._mm,
+                             dtype=hdu._ffile.code, names=tmp.names)
     else:
         if isinstance(hdu, TableHDU):
-            itemsize = tmp.spans[-1]+tmp.starts[-1]-1
-            dtype = {}
-
-            for j in range(len(tmp)):
-                data_type = 'S'+str(tmp.spans[j])
-
-                if j == len(tmp)-1:
-                    if hdu.header['NAXIS1'] > itemsize:
-                        data_type = 'S'+str(tmp.spans[j]+ \
-                                    hdu.header['NAXIS1']-itemsize)
-                dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
-       
-            _data = rec.array(hdu._file, dtype=dtype, names=tmp.names, shape=tmp._shape)
+            _data = rec.array(hdu._file, dtype=dtype, names=tmp.names, 
+                              shape=tmp._shape)
         else:
-            _data = rec.array(hdu._file, formats=",".join(tmp._recformats), names=tmp.names, shape=tmp._shape)
+            _data = rec.array(hdu._file, formats=",".join(tmp._recformats), 
+                              names=tmp.names, shape=tmp._shape)
 
     if isinstance(hdu._ffile, _File):
 #        _data._byteorder = 'big'
@@ -4290,7 +4300,7 @@ class _File:
     def __getattr__(self, attr):
         """Get the _mm attribute."""
         if attr == '_mm':
-            self.__dict__[attr] = Memmap(self.name,offset=self.offset,mode=_memmap_mode[self.mode],dtype=self.code,shape=self.dims)
+            return Memmap(self.name,offset=self.offset,mode=_memmap_mode[self.mode],dtype=self.code,shape=self.dims)
         try:
             return self.__dict__[attr]
         except KeyError:
@@ -4844,8 +4854,11 @@ class HDUList(list, _Verify):
                             print "update header in place: Name =", hdu.name, _extver
                     if 'data' in dir(hdu):
                         if hdu.data is not None:
-                            hdu._file.seek(hdu._datLoc)
-                            self.__file.writeHDUdata(hdu)
+                            if isinstance(hdu.data,Memmap):
+                                hdu.data.sync()
+                            else:
+                                hdu._file.seek(hdu._datLoc)
+                                self.__file.writeHDUdata(hdu)
                             if (verbose):
                                 print "update data in place: Name =", hdu.name, _extver
 
@@ -4927,9 +4940,6 @@ class HDUList(list, _Verify):
         """
 
         if self.__file != None:
-            if self.__file.memmap == 1:
-                self.mmobject = self.__file._mm
-                self.mmobject.sync()
             if self.__file.mode in ['append', 'update']:
                 self.flush(output_verify=output_verify, verbose=verbose)
             self.__file.close()
