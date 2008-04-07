@@ -98,14 +98,20 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         c1=pyfits.Column(name='abc',format='3A', array=a1)
         c2=pyfits.Column(name='def',format='E', array=r1)
-        c3=pyfits.Column(name='xyz',format='I', array=num.array([3,4,5],dtype='i2'))
-        c4=pyfits.Column(name='t1', format='I', array=num.array([1,2,3],dtype='i2'))
-        c5=pyfits.Column(name='t2', format='C', array=num.array([3+3j,4+4j,5+5j],dtype='c8'))
+        a3=num.array([3,4,5],dtype='i2')
+        c3=pyfits.Column(name='xyz',format='I', array=a3)
+        a4=num.array([1,2,3],dtype='i2')
+        c4=pyfits.Column(name='t1', format='I', array=a4)
+        a5=num.array([3+3j,4+4j,5+5j],dtype='c8')
+        c5=pyfits.Column(name='t2', format='C', array=a5)
 
         # Note that X format must be two-D array
-        c6=pyfits.Column(name='t3', format='X', array=num.array([[0],[1],[0]],dtype=num.uint8))
-        c7=pyfits.Column(name='t4', format='J', array=num.array([101,102,103],dtype='i4'))
-        c8=pyfits.Column(name='t5', format='11X', array=num.array([[1,1,0,1,0,1,1,1,0,0,1],[0,1,1,1,1,0,0,0,0,1,0],[1,1,1,0,0,1,1,1,1,1,1]],dtype=num.uint8))
+        a6=num.array([[0],[1],[0]],dtype=num.uint8)
+        c6=pyfits.Column(name='t3', format='X', array=a6)
+        a7=num.array([101,102,103],dtype='i4')
+        c7=pyfits.Column(name='t4', format='J', array=a7)
+        a8=num.array([[1,1,0,1,0,1,1,1,0,0,1],[0,1,1,1,1,0,0,0,0,1,0],[1,1,1,0,0,1,1,1,1,1,1]],dtype=num.uint8)
+        c8=pyfits.Column(name='t5', format='11X', array=a8)
 
         # second, create a column-definitions object for all columns in a table
 
@@ -128,7 +134,14 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         # the table HDU's data is a subclass of a record array, so we can access
         # one row like this:
 
-        self.assertEqual(str(tbhdu.data[1]),"('def', 12.0, 4, 2, (4+4j), array([ True], dtype=bool), 102, array([False,  True,  True,  True,  True, False, False, False, False,\n        True, False], dtype=bool))")
+        self.assertEqual(tbhdu.data[1][0], a1[1])
+        self.assertEqual(tbhdu.data[1][1], r1[1])
+        self.assertEqual(tbhdu.data[1][2], a3[1])
+        self.assertEqual(tbhdu.data[1][3], a4[1])
+        self.assertEqual(tbhdu.data[1][4], a5[1])
+        self.assertEqual(tbhdu.data[1][5], a6[1])
+        self.assertEqual(tbhdu.data[1][6], a7[1])
+        self.assertEqual(tbhdu.data[1][7].all(), a8[1].all())
 
         # and a column like this:
         self.assertEqual(str(tbhdu.data.field('abc')),"['abc' 'def' 'xx']")
@@ -302,11 +315,25 @@ class TestPyfitsTableFunctions(unittest.TestCase):
                                 formats='int16,a20,float32,a10',\
                                 names='order,name,mag,Sp')
         hdu=pyfits.new_table(bright,nrows=2,tbtype='TableHDU')
-        s="[(1, 'Serius', -1.45000004768, 'A1V')\n (2, 'Canopys', -0.730000019073, 'F0Ib')]"
-        self.assertEqual(str(hdu.data[:]),s)
+        self.assertEqual(hdu.data.field(0).all(),
+                         num.array([1,2],dtype=num.int16).all())
+        self.assertEqual(hdu.data[0][1],'Serius')
+        self.assertEqual(hdu.data[1][1],'Canopys')
+        self.assertEqual(hdu.data.field(2).all(),
+                         num.array([-1.45,-0.73],dtype=num.float32).all())
+        self.assertEqual(hdu.data[0][3],'A1V')
+        self.assertEqual(hdu.data[1][3],'F0Ib')
         hdu.writeto('toto.fits', clobber=True)
         hdul = pyfits.open('toto.fits')
-        self.assertEqual(str(hdul[1].data[:]),s)
+        self.assertEqual(hdul[1].data.field(0).all(),
+                         num.array([1,2],dtype=num.int16).all())
+        self.assertEqual(hdul[1].data[0][1],'Serius')
+        self.assertEqual(hdul[1].data[1][1],'Canopys')
+        self.assertEqual(hdul[1].data.field(2).all(),
+                         num.array([-1.45,-0.73],dtype=num.float32).all())
+        self.assertEqual(hdul[1].data[0][3],'A1V')
+        self.assertEqual(hdul[1].data[1][3],'F0Ib')
+
         os.remove('toto.fits')
         hdu=pyfits.new_table(bright,nrows=2)
         tmp=pyfits.rec.array([(1,'Serius',-1.45,'A1V'),\
