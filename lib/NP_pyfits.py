@@ -46,6 +46,7 @@ from numpy import char as chararray
 import rec
 from numpy import memmap as Memmap
 from string import maketrans
+import string
 import types
 import signal
 import threading
@@ -102,6 +103,21 @@ def _tmpName(input):
         return _name
     else:
         raise _name, "exists"
+
+def _fromfile(infile, dtype, count, sep):
+    if isinstance(infile, file):
+        return np.fromfile(infile, dtype=dtype, count=count, sep=sep)
+    else: # treat as file-like object with "read" method
+        read_size=np.dtype(dtype).itemsize * count
+        str=infile.read(read_size)
+        return np.fromstring(str, dtype=dtype, count=count, sep=sep)
+
+def _tofile(arr, outfile):
+    if isinstance(outfile, file):
+        arr.tofile(outfile)
+    else: # treat as file-like object with "read" method
+        str=arr.tostring()
+        outfile.write(str)
 
 class VerifyError(exceptions.Exception):
     """Verify exception class."""
@@ -1460,7 +1476,8 @@ class _ValidHDU(_AllHDU, _Verify):
            to provide a user easier output interface if only one HDU
            needs to be written to a file.
 
-           name:  output FITS file name to be written to.
+           name:  output FITS file name to be written to, file object, or
+                  file like object (if opened must be opened for append (ab+)).
            output_verify:  output verification option, default='exception'.
            clobber:  Overwrite the output file if exists, default = False.
            classExtensions: A dictionary that maps pyfits classes to extensions 
@@ -1919,7 +1936,7 @@ class Section:
         nelements = 1
         for dim in dims: 
             nelements = nelements*dim
-        raw_data = np.fromfile(self.hdu._file, dtype=code, count=nelements, sep="")
+        raw_data = _fromfile(self.hdu._file, dtype=code, count=nelements, sep="")
         raw_data.shape = dims
 #        raw_data._byteorder = 'big'
         raw_data.dtype = raw_data.dtype.newbyteorder(">")
@@ -2086,7 +2103,10 @@ class _ImageBaseHDU(_ValidHDU):
                     nelements = 1
                     for x in range(len(dims)):
                         nelements = nelements * dims[x]                    
-                    raw_data = np.fromfile(self._file, dtype=code, count=nelements,sep="")
+
+                    raw_data = _fromfile(self._file, dtype=code, 
+                                         count=nelements,sep="")
+
                     raw_data.shape=dims
                     
 #                print "raw_data.shape: ",raw_data.shape
@@ -2149,10 +2169,10 @@ class _ImageBaseHDU(_ValidHDU):
                 # reverse of the numarray shape
                 if isinstance(self, GroupsHDU):
                     _shape = list(self.data.data.shape)[1:]
-                    _format = `self.data._parent.field(0).dtype.name`
+                    _format = self.data._parent.field(0).dtype.name
                 else:
                     _shape = list(self.data.shape)
-                    _format = `self.data.dtype.name`
+                    _format = self.data.dtype.name
                 _shape.reverse()
                 _shape = tuple(_shape)
                 _format = _format[_format.rfind('.')+1:]
@@ -3406,13 +3426,13 @@ class FITS_rec(rec.recarray):
                     self._file.seek(_offset)
                     if self._coldefs._recformats[indx]._dtype is 'a':
                         count = rec.recarray.field(self,indx)[i,0]
-                        da = np.fromfile(self._file, dtype=self._coldefs._recformats[indx]._dtype+str(1),count =count,sep="")
+                        da = _fromfile(self._file, dtype=self._coldefs._recformats[indx]._dtype+str(1),count =count,sep="")
                         dummy[i] = chararray.array(da,itemsize=count)
                     else:
 #                       print type(self._file)
 #                       print "type =",self._coldefs._recformats[indx]._dtype
                         count = rec.recarray.field(self,indx)[i,0]
-                        dummy[i] = np.fromfile(self._file, dtype=self._coldefs._recformats[indx]._dtype,count =count,sep="")
+                        dummy[i] = _fromfile(self._file, dtype=self._coldefs._recformats[indx]._dtype,count =count,sep="")
                         dummy[i].dtype = dummy[i].dtype.newbyteorder(">")
 
                 # scale by TSCAL and TZERO
@@ -4035,9 +4055,9 @@ class StreamingHDU:
         Construct a StreamingHDU object given a file name and a header.
 
         :Parameters:
-          name : string
-              The name of the file to which the header and data will be 
-              streamed.
+          name : string, file object, or file like object
+              The file to which the header and data will be streamed
+              (if opened file object must be opened for append (ab+)).
 
           header : Header
               The header object associated with the data to be written 
@@ -4061,19 +4081,39 @@ class StreamingHDU:
         to the end of the file.
         """
 
+        if isinstance(name, gzip.GzipFile):
+            raise TypeError, 'StreamingHDU not supported for GzipFile objects'
+
         self.header = header.copy()
+
+        # handle a file object instead of a file name
+
+        if isinstance(name, file):
+           filename = name.name
+        elif isinstance(name, types.StringType):
+            filename = name
+        else:
+            filename = ''
 #
 #       Check if the file already exists.  If it does not, check to see
 #       if we were provided with a Primary Header.  If not we will need 
 #       to prepend a default PrimaryHDU to the file before writing the 
 #       given header.
 #
-        if not os.path.exists(name):
+        newFile = False
+
+        if filename:
+            if not os.path.exists(filename) or os.path.getsize(filename) == 0:
+                newFile = True
+        elif (hasattr(name,'len') and name.len == 0):
+            newFile = True
+
+        if newFile:
             if not self.header.has_key('SIMPLE'):
                 hdulist = HDUList([PrimaryHDU()])
                 hdulist.writeto(name, 'exception')
         else:
-            if self.header.has_key('SIMPLE') and os.path.getsize(name) > 0:
+            if self.header.has_key('SIMPLE'):
 #
 #               This will not be the first extension in the file so we
 #               must change the Primary header provided into an image 
@@ -4155,7 +4195,7 @@ class StreamingHDU:
         else:
             output = data
 
-        output.tofile(self._ffo.getfile())
+        _tofile(output, self._ffo.getfile())
 
         if self._ffo.getfile().tell() - self._datLoc == self._size:
 #
@@ -4238,16 +4278,26 @@ class _File:
         
         if isinstance(name, file):
             self.name = name.name
-        elif mode != 'append' and not os.path.exists(name) and \
-        not os.path.splitdrive(name)[0]:
-           #
-           # Not writing file and file does not exist on local machine and
-           # name does not begin with a drive letter (Windows), try to 
-           # get it over the web.
-           #
-           self.name, fileheader = urllib.urlretrieve(name)
+        elif isinstance(name, types.StringType):
+            if mode != 'append' and not os.path.exists(name) and \
+            not os.path.splitdrive(name)[0]:
+                #
+                # Not writing file and file does not exist on local machine and
+                # name does not begin with a drive letter (Windows), try to 
+                # get it over the web.
+                #
+                self.name, fileheader = urllib.urlretrieve(name)
+            else:
+                self.name = name
         else:
-           self.name = name
+            if hasattr(name, 'name'):
+                self.name = name.name
+            elif hasattr(name, 'filename'):
+                self.name = name.filename
+            elif hasattr(name, '__class__'):
+                self.name = str(name.__class__)
+            else:
+                self.name = str(type(name))
 
         self.mode = mode
         self.memmap = memmap
@@ -4258,44 +4308,70 @@ class _File:
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
         else:
-            if isinstance(name, file) and not name.closed:
-                if _python_mode[mode] != name.mode:
-                    raise "Input mode '%s' (%s) " \
-                          % (mode, _python_mode[mode]) + \
-                          "does not match mode of the input file (%s)." \
-                          % name.mode
-                self.__file = name 
-            elif os.path.splitext(self.name)[1] == '.gz':
-                # Handle gzip files
-                if mode in ['update', 'append']:
-                    raise "Writing to gzipped fits files is not supported"
-                zfile = gzip.GzipFile(self.name)
-                self.tfile = tempfile.NamedTemporaryFile('rb+',-1,'.fits')
-                self.name = self.tfile.name
-                self.__file = self.tfile.file
-                self.__file.write(zfile.read())
-                zfile.close()
-            elif os.path.splitext(self.name)[1] == '.zip':
-                # Handle zip files
-                if mode in ['update', 'append']:
-                    raise "Writing to zipped fits files is not supported"
-                zfile = zipfile.ZipFile(self.name)
-                namelist = zfile.namelist()
-                if len(namelist) != 1:
-                    raise "Zip files with multiple members are not supported."
-                self.tfile = tempfile.NamedTemporaryFile('rb+',-1,'.fits')
-                self.name = self.tfile.name
-                self.__file = self.tfile.file
-                self.__file.write(zfile.read(namelist[0]))
-                zfile.close()
+            if isinstance(name, file) or isinstance(name, gzip.GzipFile):
+                if hasattr(name, 'closed'):
+                    closed = name.closed
+                    foMode = name.mode
+                else:
+                    if name.fileobj != None:
+                        closed = name.fileobj.closed
+                        foMode = name.fileobj.mode
+                    else:
+                        closed = True
+                        foMode = _python_mode[mode]
+
+                if not closed:
+                    if _python_mode[mode] != foMode:
+                        raise "Input mode '%s' (%s) " \
+                              % (mode, _python_mode[mode]) + \
+                              "does not match mode of the input file (%s)." \
+                              % name.mode
+                    self.__file = name 
+                elif isinstance(name, file):
+                    self.__file=__builtin__.open(self.name, _python_mode[mode])
+                else:
+                    self.__file=gzip.open(self.name, _python_mode[mode])
+            elif isinstance(name, types.StringType):
+                if os.path.splitext(self.name)[1] == '.gz':
+                    # Handle gzip files
+                    if mode in ['update', 'append']:
+                        raise "Writing to gzipped fits files is not supported"
+                    zfile = gzip.GzipFile(self.name)
+                    self.tfile = tempfile.NamedTemporaryFile('rb+',-1,'.fits')
+                    self.name = self.tfile.name
+                    self.__file = self.tfile.file
+                    self.__file.write(zfile.read())
+                    zfile.close()
+                elif os.path.splitext(self.name)[1] == '.zip':
+                    # Handle zip files
+                    if mode in ['update', 'append']:
+                        raise "Writing to zipped fits files is not supported"
+                    zfile = zipfile.ZipFile(self.name)
+                    namelist = zfile.namelist()
+                    if len(namelist) != 1:
+                        raise "Zip files with multiple members are not supported."
+                    self.tfile = tempfile.NamedTemporaryFile('rb+',-1,'.fits')
+                    self.name = self.tfile.name
+                    self.__file = self.tfile.file
+                    self.__file.write(zfile.read(namelist[0]))
+                    zfile.close()
+                else:
+                    self.__file=__builtin__.open(self.name, _python_mode[mode])
             else:
-                self.__file = __builtin__.open(self.name, _python_mode[mode])
+                self.__file = name 
 
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
-            self.__file.seek(0, 2)
-            self._size = self.__file.tell()
-            self.__file.seek(0)
+
+            if isinstance(self.__file,gzip.GzipFile):
+                self.__file.fileobj.seek(0,2)
+                self._size = self.__file.fileobj.tell()
+                self.__file.fileobj.seek(0)
+                self.__file.seek(0)
+            else:
+                self.__file.seek(0, 2)
+                self._size = self.__file.tell()
+                self.__file.seek(0)
 
     def __getattr__(self, attr):
         """Get the _mm attribute."""
@@ -4371,11 +4447,15 @@ class _File:
         # data area size, including padding
         hdu._datSpan = _size + _padLength(_size)
         hdu._new = 0
-        self.__file.seek(hdu._datSpan, 1)
-        if self.__file.tell() > self._size:
-            warnings.warn('Warning: File size is smaller than specified data size.  File may have been truncated.')
-
         hdu._ffile = self
+        if isinstance(hdu._file, gzip.GzipFile):
+            pos = self.__file.tell()
+            self.__file.seek(pos+hdu._datSpan)
+        else:
+            self.__file.seek(hdu._datSpan, 1)
+
+            if self.__file.tell() > self._size:
+                warnings.warn('Warning: File size is smaller than specified data size.  File may have been truncated.')
 
         return hdu
 
@@ -4458,7 +4538,7 @@ class _File:
             else:
                 output = hdu.data
 
-            output.tofile(self.__file)
+            _tofile(output, self.__file)
             _size = output.size * output.itemsize
 
 
@@ -4803,34 +4883,75 @@ class HDUList(list, _Verify):
                        self._resize = 1
                    self._truncate = 0
  
-            # if the HDUList is resized, need to write it to a tmp file,
-            # delete the original file, and rename the tmp to the original file
-            if self._resize:
+            # if the HDUList is resized, need to write out the entire contents
+            # of the hdulist to the file.
+            if self._resize or isinstance(self.__file.getfile(), gzip.GzipFile):
                 oldName = self.__file.name
                 oldMemmap = self.__file.memmap
                 _name = _tmpName(oldName)
-                _hduList = open(_name, mode="append", 
-                                classExtensions=classExtensions)
-                if (verbose): print "open a temp file", _name
 
-                for hdu in self:
-                    (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = _hduList.__file.writeHDU(hdu)
-                _hduList.__file.close()
-                self.__file.close()
-                os.remove(self.__file.name)
-                if (verbose): print "delete the original file", oldName
+                if isinstance(self.__file.getfile(), file) or \
+                   isinstance(self.__file.getfile(), gzip.GzipFile):
+                    #
+                    # The underlying file is an acutal file object.
+                    # The HDUList is resized, so we need to write it to a tmp
+                    # file, delete the original file, and rename the tmp
+                    # file to the original file.
+                    #
+                    if isinstance(self.__file.getfile(), gzip.GzipFile):
+                        newFile = gzip.GzipFile(_name, mode='ab+')
+                    else:
+                        newFile = _name
 
-                # reopen the renamed new file with "update" mode
-                os.rename(_name, oldName)
+                    _hduList = open(newFile, mode="append", 
+                                    classExtensions=classExtensions)
+                    if (verbose): print "open a temp file", _name
 
-                if classExtensions.has_key(_File):
-                    ffo = classExtensions[_File](oldName, mode="update", 
-                                                   memmap=oldMemmap)
+                    for hdu in self:
+                        (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = _hduList.__file.writeHDU(hdu)
+                    _hduList.__file.close()
+                    self.__file.close()
+                    os.remove(self.__file.name)
+                    if (verbose): print "delete the original file", oldName
+
+                    # reopen the renamed new file with "update" mode
+                    os.rename(_name, oldName)
+
+                    if isinstance(newFile, gzip.GzipFile):
+                        oldFile = gzip.GzipFile(oldName, mode='rb+')
+                    else:
+                        oldFile = oldName
+
+                    if classExtensions.has_key(_File):
+                        ffo = classExtensions[_File](oldFile, mode="update", 
+                                                       memmap=oldMemmap)
+                    else:
+                        ffo = _File(oldFile, mode="update", memmap=oldMemmap)
+
+                    self.__file = ffo
+                    if (verbose): print "reopen the newly renamed file", oldName
                 else:
-                    ffo = _File(oldName, mode="update", memmap=oldMemmap)
+                    #
+                    # The underlying file is not a file object, it is a file
+                    # like object.  We can't write out to a file, we must
+                    # update the file like object in place.  To do this,
+                    # we write out to a temporary file, then delete the 
+                    # contents in our file like object, then write the 
+                    # contents of the temporary file to the now empty file
+                    # like object.
+                    #
+                    self.writeto(_name)
+                    _hduList = open(_name)
+                    ffo = self.__file
+                    ffo.getfile().truncate(0)
 
-                self.__file = ffo
-                if (verbose): print "reopen the newly renamed file", oldName
+                    for hdu in _hduList:
+                        (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = ffo.writeHDU(hdu)
+
+                    # Close the temporary file and delete it.
+
+                    _hduList.close()
+                    os.remove(_hduList.__file.name)
 
                 # reset the resize attributes after updating
                 self._resize = 0
@@ -4892,7 +5013,9 @@ class HDUList(list, _Verify):
                 classExtensions={}):
         """Write the HDUList to a new file.
 
-           name:  output FITS file name to be written to.
+           name:  output FITS file name to be written to, file object, or
+                  file like object 
+                  (if opened must be opened for append (ab+)).
            output_verify:  output verification option, default = 'exception'.
            clobber:  Overwrite the output file if exists, default = False.
            classExtensions: A dictionary that maps pyfits classes to extensions 
@@ -4912,13 +5035,50 @@ class HDUList(list, _Verify):
             output_verify = 'exception'
         self.verify(option=output_verify)
 
-        # check if the output file already exists
-        if os.path.exists(name):
-            if clobber:
-                warnings.warn( "Overwrite existing file '%s'." % name)
-                os.remove(name)
+        # check if the file object is closed
+        closed = True
+
+        if isinstance(name, file):
+            closed = name.closed
+            filename = name.name
+        elif isinstance(name, gzip.GzipFile):
+            if name.fileobj != None:
+                closed = name.fileobj.closed
+            filename = name.filename
+        elif isinstance(name, types.StringType):
+            filename = name
+        else:
+            if hasattr(name, 'closed'):
+                closed = name.closed
+
+            if hasattr(name, 'name'):
+                filename = name.name
+            elif hasattr(name, 'filename'):
+                filename = name.filename
+            elif hasattr(name, '__class__'):
+                filename = str(name.__class__)
             else:
-                raise IOError, "File '%s' already exist." % name
+                filename = str(type(name))
+
+        # check if the output file already exists
+        if (isinstance(name,types.StringType) or isinstance(name,file) or
+            isinstance(name,gzip.GzipFile)):
+            if (os.path.exists(filename) and os.path.getsize(filename) != 0):
+                if clobber:
+                    warnings.warn( "Overwrite existing file '%s'." % filename)
+                    if (isinstance(name,file) and not name.closed) or \
+                       (isinstance(name,gzip.GzipFile) and name.fileobj != None
+                        and not name.fileobj.closed):
+                       name.close()
+                    os.remove(filename)
+                else:
+                    raise IOError, "File '%s' already exist." % filename
+        elif (hasattr(name,'len') and name.len > 0):
+            if clobber:
+                warnings.warn( "Overwrite existing file '%s'." % filename)
+                name.truncate(0)
+            else:
+                raise IOError, "File '%s' already exist." % filename
 
         # make sure the EXTEND keyword is there if there is extension
         if len(self) > 1:
@@ -4927,13 +5087,16 @@ class HDUList(list, _Verify):
         hduList = open(name, mode="append", classExtensions=classExtensions)
         for hdu in self:
             hduList.__file.writeHDU(hdu)
-        hduList.close(output_verify=output_verify)
+        hduList.close(output_verify=output_verify,closed=closed)
 
-    def close(self, output_verify='exception', verbose=0):
+
+    def close(self, output_verify='exception', verbose=0, closed=1):
         """Close the associated FITS file and memmap object, if any.
 
            output_verify:  output verification option, default = 'exception'.
            verbose: print out verbose messages? default = 0.
+           closed:  flag to indicate if the underlying file object should
+                    be closed, default = 1 (close it) 
 
            This simply calls the close method of the _File class.  It has this
            two-tier calls because _File has ts own private attribute __file.
@@ -4942,7 +5105,9 @@ class HDUList(list, _Verify):
         if self.__file != None:
             if self.__file.mode in ['append', 'update']:
                 self.flush(output_verify=output_verify, verbose=verbose)
-            self.__file.close()
+
+            if closed:
+                self.__file.close()
 
         # close the memmap object, it is designed to use an independent
         # attribute of mmobject so if the HDUList object is created from files
@@ -4970,7 +5135,10 @@ class HDUList(list, _Verify):
 def open(name, mode="copyonwrite", memmap=0, classExtensions={}):
     """Factory function to open a FITS file and return an HDUList object.
 
-       name: Name of the FITS file to be opened or already opened file object.
+       name: Name of the FITS file, file object, or file like object to be
+             opened 
+             (if opened, mode must match the mode the file was opened with,
+              copyonwrite (rb), readonly (rb), update (rb+), or append (ab+)).
        mode: Open mode, 'readonly' (default), 'update', or 'append'.
        memmap: Is memmory mapping to be used? default=0.
        classExtensions: A dictionary that maps pyfits classes to extensions of
@@ -5001,6 +5169,12 @@ def open(name, mode="copyonwrite", memmap=0, classExtensions={}):
         except ValueError:
             warnings.warn('Warning:  Required keywords missing when trying to read HDU #%d.\n    There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList)+1))
             break
+        except IOError, e:
+            if isinstance(ffo.getfile(), gzip.GzipFile) and \
+               string.find(str(e),'on write-only GzipFile object'):
+                break
+            else:
+                raise e
 
     # initialize/reset attributes to be used in "update/append" mode
     # CardList needs its own _mod attribute since it has methods to change
@@ -5074,8 +5248,11 @@ def _getext(filename, mode, *ext1, **ext2):
 def getheader(filename, *ext, **extkeys):
     """Get the header from an extension of a FITS file.
 
-       @param filename: input FITS file name
-       @type: string
+       @type filename: string, file object, or file like object 
+       @param filename: name of the FITS file, or file object, or file like
+                        object
+                        (if opened, mode must be one of the following rb,
+                         rb+, or ab+).
        @keyword classExtensions: (optional) A dictionary that maps pyfits 
                classes to extensions of those classes.  When present in the 
                dictionary, the extension class will be constructed in place 
@@ -5087,17 +5264,48 @@ def getheader(filename, *ext, **extkeys):
        @return: header
     """
 
-    hdulist, _ext = _getext(filename, 'readonly', *ext, **extkeys)
+    # allow file object to already be opened in any of the valid modes
+    # and leave the file in the same state (opened or closed) as when
+    # the function was called
+
+    mode = 'readonly'
+    closed = True
+
+    if (isinstance(filename, file) and not filename.closed) or \
+       (isinstance(filename, gzip.GzipFile) and filename.fileobj != None and
+                                            not filename.fileobj.closed):
+
+        if isinstance(filename, gzip.GzipFile):
+            fileMode = filename.fileobj.mode
+        else:
+            fileMode = filename.mode
+
+        for key in _python_mode.keys():
+            if _python_mode[key] == fileMode:
+                mode = key
+                break
+
+    if hasattr(filename, 'closed'):
+        closed = filename.closed
+    elif hasattr(filename, 'fileobj'):
+        if filename.fileobj != None:
+           closed = filename.fileobj.closed
+
+    hdulist, _ext = _getext(filename, mode, *ext, **extkeys)
     hdu = hdulist[_ext]
     hdr = hdu.header
-    hdulist.close()
+
+    hdulist.close(closed=closed)
     return hdr
 
 def getdata(filename, *ext, **extkeys):
     """Get the data from an extension of a FITS file (and optionally the header).
 
-       @type filename: string
-       @param filename: input FITS file name
+       @type filename: string, file object, or file like object 
+       @param filename: name of the FITS file, or file object, or file like
+                        object
+                        (if opened, mode must be one of the following rb,
+                         rb+, or ab+).
 
        @keyword classExtensions: (optional) A dictionary that maps pyfits 
                classes to extensions of those classes.  When present in the 
@@ -5146,7 +5354,34 @@ def getdata(filename, *ext, **extkeys):
     else:
         _gethdr = False
 
-    hdulist, _ext = _getext(filename, 'readonly', *ext, **extkeys)
+    # allow file object to already be opened in any of the valid modes
+    # and leave the file in the same state (opened or closed) as when
+    # the function was called
+
+    mode = 'readonly'
+    closed = True
+
+    if (isinstance(filename, file) and not filename.closed) or \
+       (isinstance(filename, gzip.GzipFile) and filename.fileobj != None and
+                                            not filename.fileobj.closed):
+
+        if isinstance(filename, gzip.GzipFile):
+            fileMode = filename.fileobj.mode
+        else:
+            fileMode = filename.mode
+
+        for key in _python_mode.keys():
+            if _python_mode[key] == fileMode:
+                mode = key
+                break
+
+    if hasattr(filename, 'closed'):
+        closed = filename.closed
+    elif hasattr(filename, 'fileobj'):
+        if filename.fileobj != None:
+           closed = filename.fileobj.closed
+
+    hdulist, _ext = _getext(filename, mode, *ext, **extkeys)
     hdu = hdulist[_ext]
     _data = hdu.data
     if _data is None and isinstance(_ext, _Zero):
@@ -5159,7 +5394,7 @@ def getdata(filename, *ext, **extkeys):
         raise IndexError, 'No data in this HDU.'
     if _gethdr:
         _hdr = hdu.header
-    hdulist.close()
+    hdulist.close(closed=closed)
     if _gethdr:
         return _data, _hdr
     else:
@@ -5168,8 +5403,10 @@ def getdata(filename, *ext, **extkeys):
 def getval(filename, key, *ext, **extkeys):
     """Get a keyword's value from a header in a FITS file.
 
-    @type filename: string
-    @param filename: input FITS file name
+    @type filename: string, file object, or file like object 
+    @param filename: name of the FITS file, or file object
+                    (if opened, mode must be one of the following rb,
+                     rb+, or ab+).
     @type key: string
     @param key: keyword name
     @keyword classExtensions: (optional) A dictionary that maps pyfits 
@@ -5206,8 +5443,9 @@ def _makehdu(data, header, classExtensions={}):
 def writeto(filename, data, header=None, **keys):
     """Create a new FITS file using the supplied data/header.
 
-       @type filename: string
-       @param filename: name of the new FITS file to write to
+       @type filename: string, file object, or file like object 
+       @param filename: name of the new FITS file to write to, or file object
+                        (if opened must be opened for append (ab+)).
        @type data: array, record array, or groups data object
        @param data: data to write to the new file
        @type header: L{Header} object or None
@@ -5243,8 +5481,13 @@ def append(filename, data, header=None, classExtensions={}):
     
     If only data is supplied, a minimal header is created
 
-       @type filename: string
-       @param filename: name of the file to append to
+       @type filename: string, file object, or file like object 
+       @param filename: name of the FITS file to write to, or file object, or
+                        file like object
+                        If opened must be opened for update (rb+) unless it is
+                        a new file, then it must be opened for append (ab+).
+                        A file or GzipFile object opened for update will be 
+                        closed after return.
        @type data: array, table, or group data object
        @param data: the new data used for appending
        @type header: L{Header} object or None
@@ -5258,8 +5501,35 @@ def append(filename, data, header=None, classExtensions={}):
                                constructed in place of the pyfits class. 
     """
 
-    if not os.path.exists(filename):
-        writeto(filename, data, header, classExtensions=classExtensions)
+    closed = True
+    name = ''
+
+    if isinstance(filename, file):
+        closed = filename.closed
+        name = filename.name
+    elif isinstance(filename, gzip.GzipFile):
+        if filename.fileobj != None:
+            closed = filename.fileobj.closed
+        name = filename.filename
+    elif isinstance(filename, types.StringType):
+        name = filename
+    else:
+        if hasattr(filename, 'closed'):
+            closed = filename.closed
+
+        if hasattr(filename, 'name'):
+            name = filename.name
+        elif hasattr(filename, 'filename'):
+            name = filename.filename
+
+    if (name and ((not os.path.exists(name)) or (os.path.getsize(name)==0)) or
+        not name and filename.tell()==0):
+        #
+        # The input file or file like object either doesn't exits or is
+        # empty.  Use the writeto convenience function to write the 
+        # output to the empty object.
+        #
+        writeto(filename, data, header, classExtentsions=classExtensions)
     else:
         hdu=_makehdu(data, header, classExtensions)
         if isinstance(hdu, PrimaryHDU):
@@ -5270,11 +5540,18 @@ def append(filename, data, header=None, classExtensions={}):
 
         f = open(filename, mode='update', classExtensions=classExtensions)
         f.append(hdu)
-        f.close()
+
+        f.close(closed=closed)
 
 def update(filename, data, *ext, **extkeys):
     """Update the specified extension with the input data/header.
 
+       @type filename: string, file object, or file like object 
+       @param filename: name of the FITS file, or file object, or file like
+                        object
+                        If opened, mode must be update (rb+).  An opened
+                        file object or GzipFile object will be closed upon
+                        return.
        @type filename: string
        @param filename: name of the file to be updated
        data: the new data used for updating
@@ -5314,9 +5591,17 @@ def update(filename, data, *ext, **extkeys):
     classExtensions = extkeys.get('classExtensions', {})
 
     new_hdu=_makehdu(data, header, classExtensions)
+
+    if not isinstance(filename, file) and hasattr(filename, 'closed'):
+        closed = filename.closed
+    else:
+        closed = True
+
     hdulist, _ext = _getext(filename, 'update', *ext, **extkeys)
     hdulist[_ext] = new_hdu
-    hdulist.close()
+
+    hdulist.close(closed=closed)
+
 
 def info(filename, classExtensions={}):
     """Print the summary information on a FITS file.
@@ -5324,8 +5609,11 @@ def info(filename, classExtensions={}):
     This includes the name, type, length of header, data shape and type
     for each extension.
 
-    @type filename: string
-    @param filename: input FITS file name
+    @type filename: string, file object, or file like object 
+    @param filename: name of the FITS file to write to, or file object, or 
+                     file like object
+                     (if opened, mode must be one of the following rb,
+                      rb+, or ab+).
     @type classExtensions: dictionary
     @param classExtensions: A dictionary that maps pyfits classes to 
                             extensions of those classes.  When present in 
@@ -5333,9 +5621,36 @@ def info(filename, classExtensions={}):
                             constructed in place of the pyfits class. 
     """
 
-    f = open(filename,classExtensions=classExtensions)
+    # allow file object to already be opened in any of the valid modes
+    # and leave the file in the same state (opened or closed) as when
+    # the function was called
+
+    mode = 'copyonwrite'
+    closed = True
+
+    if not isinstance(filename, types.StringType):
+        if hasattr(filename, 'closed'):
+            closed = filename.closed
+        elif hasattr(filename, 'fileobj') and filename.fileobj != None:
+            closed = filename.fileobj.closed
+
+    if not closed and hasattr(filename, 'mode'):
+
+        if isinstance(filename, gzip.GzipFile):
+            fmode = filename.fileobj.mode
+        else:
+            fmode = filename.mode
+
+        for key in _python_mode.keys():
+            if _python_mode[key] == fmode:
+                mode = key
+                break
+
+    f = open(filename,mode=mode,classExtensions=classExtensions)
     f.info()
-    f.close()
+
+    if closed:
+        f.close()
 
 UNDEFINED = Undefined()
 
