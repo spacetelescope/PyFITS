@@ -2981,9 +2981,6 @@ class ColDefs(object):
     def __repr__(self):
         return 'ColDefs'+ `tuple(self.data)`
 
-    def __coerce__(self, other):
-        pass    # needed for __add__
-
     def __add__(self, other, option='left'):
         if isinstance(other, Column):
             b = [other]
@@ -3353,9 +3350,14 @@ class FITS_rec(rec.recarray):
         tmp = rec.recarray.__getitem__(self, key)
 
         if isinstance(key, slice) or isinstance(key,np.ndarray):
+            arrays = []
             out = tmp
             out._convert = [None]*len(self.dtype.names)
             for i in range(len(self.dtype.names)):
+                #
+                # Store the new arrays for the _coldefs object
+                #
+                arrays.append( self._coldefs._arrays[i][key])
 
                 # touch all fields to expand the original ._convert list
                 # so the sliced FITS_rec will view the same scaled columns as
@@ -3364,6 +3366,10 @@ class FITS_rec(rec.recarray):
                 if self._convert[i] is not None:
                     out._convert[i] = np.ndarray.__getitem__(self._convert[i], key)
             del dummy
+
+            out._coldefs._arrays = arrays
+            out._coldefs._shape = len(arrays[0])
+
             return out
 
         # if not a slice, do this because Record has no __getstate__.
