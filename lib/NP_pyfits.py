@@ -2268,6 +2268,10 @@ class _ImageBaseHDU(_ValidHDU):
 
         if self.data.dtype.type != _type:
             self.data = np.array(np.around(self.data), dtype=_type) #0.7.7.1
+        #
+        # Update the BITPIX Card to match the data
+        #
+        self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
 
 class PrimaryHDU(_ImageBaseHDU):
     """FITS primary HDU class."""
