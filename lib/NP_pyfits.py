@@ -3351,11 +3351,10 @@ class FITS_rec(rec.recarray):
         return self.__getitem__(key)
 
     def __getitem__(self, key):
-        tmp = rec.recarray.__getitem__(self, key)
-
         if isinstance(key, slice) or isinstance(key,np.ndarray):
+            out = rec.recarray.__getitem__(self, key)
+            out._coldefs = ColDefs(self._coldefs)
             arrays = []
-            out = tmp
             out._convert = [None]*len(self.dtype.names)
             for i in range(len(self.dtype.names)):
                 #
