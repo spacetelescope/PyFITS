@@ -162,7 +162,7 @@ class _ErrList(list):
 
         return result
 
-class _Verify:
+class _Verify(object):
     """Shared methods for verification."""
 
     def run_option(self, option="warn", err_text="", fix_text="Fixed.", fix = "pass", fixable=1):
@@ -411,6 +411,9 @@ class Card(_Verify):
             self._setvalue(val)
         elif name == 'comment':
             self._setcomment(val)
+        elif name == '__class__':
+            _Verify.__setattr__(self, name, val)
+            return
         else:
             raise AttributeError, name
 
@@ -509,7 +512,8 @@ class Card(_Verify):
         output = keyStr + eqStr + valStr + commentStr
 
         # need this in case card-with-continue's value is shortened
-        if not isinstance(self, _Hierarch):
+        if not isinstance(self, _Hierarch) and \
+           not isinstance(self, RecordValuedKeywordCard):
             self.__class__ = Card
         else:
             # does not support CONTINUE for HIERARCH
@@ -557,7 +561,7 @@ class Card(_Verify):
             self.__dict__['key'] = head.strip().upper()
 
     def _extractValueComment(self, name):
-        """Exatrct the keyword value or comment from the card image."""
+        """Extract the keyword value or comment from the card image."""
 
         # for commentary cards, no need to parse further
         if self.key in Card._commentaryKeys:
@@ -788,6 +792,478 @@ class Card(_Verify):
 
         return _err
 
+class RecordValuedKeywordCard(Card):
+    """
+    Class to manage record-valued keyword cards as described in the FITS WCS
+    Paper IV proposal for representing a more general distortion model.
+
+    Record-valued Keyword cards are string-valued cards where the string is
+    interpreted as a definition giving a record field name, and its floating
+    point value.  In a FITS header they have the following syntax:
+
+        keyword= 'field-specifier: float'
+
+    where keyword is a standard eight-character FITS keyword name, float is the
+    standard FITS ASCII representation of a floating point number, and these
+    are separated by a colon followed by a single blank.  The grammar for
+    field-specifier is:
+
+        field-specifier:
+            field
+            field-specifier.field
+
+        field:
+            identifier
+            identifier.index
+
+    where identifier is a sequence of letters (upper or lower case), 
+    underscores, and digits of which the first character must not be a digit,
+    and index is a sequence of digits.  No blank characters may occur in the
+    field-specifier.  The index is provided primarily for defining array
+    elements though it need not be used for that purpose.
+
+    Multiple record-valued keywords of the same name but differing values may
+    be present in a FITS header.  The field-specifier may be viewed as part
+    of the keyword name.
+
+    Some examples follow:
+
+        DP1     = 'NAXIS: 2'
+        DP1     = 'AXIS.1: 1'
+        DP1     = 'AXIS.2: 2'
+        DP1     = 'NAUX: 2'
+        DP1     = 'AUX.1.COEFF.0: 0'
+        DP1     = 'AUX.1.POWER.0: 1'
+        DP1     = 'AUX.1.COEFF.1: 0.00048828125'
+        DP1     = 'AUX.1.POWER.1: 1'
+    """
+    #
+    # A group of class level regular expression definitions that allow the
+    # extraction of the key, field-specifier, value, and comment from a
+    # card string.
+    #
+    identifier = r'[a-zA-Z_]\w*'
+    field = identifier + r'(\.\d+)?'
+    field_specifier_s = field + r'(\.' + field + r')*'
+    field_specifier_val = r'(?P<keyword>' + field_specifier_s + r'): (?P<val>' \
+                          + Card._numr_FSC + r')'
+    field_specifier_NFSC_val = r'(?P<keyword>' + field_specifier_s + \
+                               r'): (?P<val>' + Card._numr_NFSC + r')'
+    keyword_val = r'\'' + field_specifier_val + r'\''
+    keyword_NFSC_val = r'\'' + field_specifier_NFSC_val + r'\''
+    keyword_val_comm = r' +' + keyword_val + r' *(/ *(?P<comm>[ -~]*))?$'
+    keyword_NFSC_val_comm = r' +' + keyword_NFSC_val + \
+                            r' *(/ *(?P<comm>[ -~]*))?$'
+    #
+    # regular expression to extract the field specifier and value from
+    # a card image (ex. 'AXIS.1: 2')
+    #
+    field_specifier_val_RE = re.compile(field_specifier_val)
+    #
+    # regular expression to extract the field specifier and value from
+    # a card image ; the value may not be FITS Standard Complient 
+    # (ex. 'AXIS.1: 2.0e5')
+    #
+    field_specifier_NFSC_val_RE = re.compile(field_specifier_NFSC_val)
+    #
+    # regular expression to extract the key and the field specifier from a 
+    # string that is being used to index into a card list that contains
+    # record value keyword cards (ex. 'DP1.AXIS.1')
+    #
+    keyword_name_RE = re.compile(r'(?P<key>' + identifier + r')\.' + \
+                                 r'(?P<field_spec>' + field_specifier_s + r')$')
+    #
+    # regular expression to extract the field specifier and value and comment
+    # from the string value of a record value keyword card 
+    # (ex "'AXIS.1: 1' / a comment")
+    #
+    keyword_val_comm_RE = re.compile(keyword_val_comm)
+    #
+    # regular expression to extract the field specifier and value and comment
+    # from the string value of a record value keyword card  that is not FITS
+    # Standard Complient (ex "'AXIS.1: 1.0d12' / a comment")
+    #
+    keyword_NFSC_val_comm_RE = re.compile(keyword_NFSC_val_comm)
+
+    #
+    # class method definitins
+    #
+
+    def coerce(cls,card):
+        """
+        Class method to coerce an input Card object to a 
+        RecordValuedKeywordCard object if the value of the card meets the
+        requirements of this type of card.
+
+        :Parameters:
+            card: A Card object to coerec
+
+        :Returns:
+            Input card coercable: a new RecordValuedKeywordCard constructed
+                                  from the key, value, and comment of the 
+                                  input card
+            Input card not coercable: the input card 
+        """
+        mo = cls.field_specifier_NFSC_val_RE.match(card.value)
+        if mo:
+            return cls(card.key, card.value, card.comment)
+        else:
+            return card
+
+    coerce = classmethod(coerce)
+
+    def upperKey(cls, key):
+        """
+        Class method to convert a keyword value that may contain a 
+        field-specifier to upper case.  The effect is to raise the 
+        key to upper case and leave the field specifier in its original
+        case.
+
+        :Parameters:
+            key: A keyword value that could be an integer, a key, or
+                 a key.field-specifier value
+
+        :Returns:
+            Integer input: the original integer key
+
+            String input: the converted string
+        """
+        if isinstance(key, (int, long,np.integer)):
+            return key
+
+        mo = cls.keyword_name_RE.match(key)
+
+        if mo:
+            return mo.group('key').strip().upper() + '.' + \
+                   mo.group('field_spec')
+        else:
+            return key.strip().upper()
+        
+    upperKey = classmethod(upperKey)
+
+    def validKeyValue(cls, key, value=0):
+        """
+        Class method that will determine if the input key and value can
+        be used to form a valid RecordValuedKeywordCard object.  The
+        key parameter may contain the key only or both the key and 
+        field-specifier.  The value may be the value only or the 
+        field-specifier and the value together.  The value parameter
+        is optional, in which case the key parameter must contain both
+        the key and the field specifier.  Some examples follow:
+
+        validKeyValue('DP1','AXIS.1: 2')
+        validKeyValue('DP1.AXIS.1', 2)
+        validKeyValue('DP1.AXIS.1')
+
+        :Parameters:
+            key: string - The key to parse
+     
+            value: string or something that may be converted to a float -
+                   The value to parse
+
+        :Returns:
+            valid input - A list containing the key, field-specifier, value
+
+            invalid input - An empty list
+        """
+        rtnKey = rtnFieldSpec = rtnValue = ''
+        myKey = cls.upperKey(key)
+
+        if isinstance(myKey, str):
+            validKey = cls.keyword_name_RE.match(myKey)
+
+            if validKey:
+               try:
+                   rtnValue = float(value)
+               except ValueError:
+                   pass
+               else:
+                   rtnKey = validKey.group('key')
+                   rtnFieldSpec = validKey.group('field_spec')
+            else:
+                if isinstance(value, str) and \
+                Card._keywd_FSC_RE.match(myKey) and len(myKey) < 9:
+                    validValue = cls.field_specifier_NFSC_val_RE.match(value)
+                    if validValue:
+                        rtnFieldSpec = validValue.group('keyword')
+                        rtnValue = validValue.group('val')
+                        rtnKey = myKey
+
+        if rtnFieldSpec:
+            return [rtnKey, rtnFieldSpec, rtnValue] 
+        else:
+            return []
+
+    validKeyValue = classmethod(validKeyValue)
+
+    def createCard(cls, key='', value='', comment=''):
+        """
+        Class method that will create a card given the input key, value,
+        and comment.  If the input key and value qualify for a
+        RecordValuedKeywordCard then that is the object created.  Otherwise,
+        a standard Card object is created.
+
+        :Parameters:
+            key: string - The key
+
+            value: string - The value
+
+            comment: string - The comment
+
+        :Returns:
+            either a RecordValuedKeywordCard or a Card object                           """
+
+        if cls.validKeyValue(key, value):
+            objClass = cls
+        else:
+            objClass = Card
+
+        return objClass(key, value, comment)
+
+    createCard = classmethod(createCard)
+
+    def createCardFromString(cls, input):
+        """
+        Class method that will create a card given the input string.
+        If the input string can be parsed into a key and value that qualify
+        for a RecordValuedKeywordCard then that is the object created.
+        Otherwise, a standard Card object is created.
+
+        :Parameters:
+            input: string - The string representing the card
+
+        :Returns:
+            either a RecordValuedKeywordCard or a Card object
+        """
+
+        idx1 = string.find(input, "'")+1
+        idx2 = string.rfind(input, "'")
+
+        if idx2 > idx1 and idx1 >= 0 and \
+           cls.validKeyValue('',value=input[idx1:idx2]):
+            objClass = cls
+        else:
+            objClass = Card
+
+        return objClass().fromstring(input)
+
+    createCardFromString = classmethod(createCardFromString)
+
+    def __init__(self, key='', value='', comment=''):
+        """
+        Class initializer
+
+        :Parameters:
+            key: string - The key, either the simple key or one that contains
+                          a field-specifier
+
+            value: string - The value, either a simple value or one that
+                            contains a field-specifier
+
+            comment: string - The comment
+
+        :Returns:
+            None
+        """
+
+        mo = self.keyword_name_RE.match(key)
+
+        if mo:
+            self.__dict__['field_specifier'] = mo.group('field_spec')
+            key = mo.group('key')
+        else:
+            if isinstance(value, str):
+                if value != '':
+                    mo = self.field_specifier_NFSC_val_RE.match(value)
+
+                    if mo:
+                        self.__dict__['field_specifier'] = mo.group('keyword')
+                        value = float(mo.group('val'))
+                    else:
+                        raise ValueError, \
+                              "value %s must be in the form " % value + \
+                              "field_specifier: value (ex. 'NAXIS: 2')" 
+            else:
+                raise ValueError, 'value %s is not a string' % value
+
+        Card.__init__(self, key, value, comment)
+
+    def __getattr__(self, name):
+
+        if name == 'field_specifier':
+            self._extractValueComment('value')
+        else:
+            Card.__getattr__(self, name)
+
+        return getattr(self, name)
+
+    def __setattr__(self, name, val):
+        if name == 'field_specifier':
+            raise SyntaxError, 'field_specifier cannot be reset.'
+        else:
+            if not isinstance(val, float):
+                try:
+                    val = float(val)
+                except ValueError:
+                    raise ValueError, 'value %s is not a float' % val
+            Card.__setattr__(self,name,val)
+
+    def _ascardimage(self):
+        """
+        Generate a (new) card image from the attributes: key, value,
+        field_specifier, and comment.  Core code for ascardimage.
+        """
+
+        Card._ascardimage(self)
+        eqloc = self._cardimage.index("=")
+        slashloc = self._cardimage.find("/")
+
+        if '_valueModified' in self.__dict__ and self._valueModified:
+            valStr = _floatFormat(self.value)
+        else:
+            valStr = self._valuestring
+
+        valStr = "'" + self.field_specifier + ": " + valStr + "'"
+        valStr = '%-20s' % valStr
+
+        output = self._cardimage[:eqloc+2] + valStr 
+
+        if slashloc > 0:
+            output = output + self._cardimage[slashloc-1:]
+
+        if len(output) <= Card.length:
+            output = "%-80s" % output
+
+        self.__dict__['_cardimage'] = output
+
+
+    def _extractValueComment(self, name):
+        """Extract the keyword value or comment from the card image."""
+
+        valu = self._check(option='parse')
+
+        if name == 'value':
+            if valu is None:
+                raise ValueError, \
+                         "Unparsable card, fix it first with .verify('fix')."
+
+            self.__dict__['field_specifier'] = valu.group('keyword')
+            self.__dict__['value'] = \
+                           eval(valu.group('val').translate(_fix_table2, ' '))
+ 
+            if '_valuestring' not in self.__dict__:
+                self.__dict__['_valuestring'] = valu.group('val')
+            if '_valueModified' not in self.__dict__:
+                self.__dict__['_valueModified'] = 0
+
+        elif name == 'comment':
+            Card._extractValueComment(self, name)
+
+        
+    def strvalue(self):
+        """
+        Method to extract the field specifier and value from the 
+        card image.  This is what is reported to the user when requesting
+        the value of the Card using either an integer index or the card
+        key without any field specifier.
+
+        :Parameters: 
+            None
+
+        :Returns: 
+            None
+        """
+        mo = self.field_specifier_val_RE.search(self._cardimage)
+        return self._cardimage[mo.start():mo.end()]
+
+    def _fixValue(self, input):
+        """Fix the card image for fixable non-standard compliance."""
+
+        _valStr = None
+ 
+        if input is None:
+            tmp = self._getValueCommentString()
+
+            try:
+                slashLoc = tmp.index("/")
+            except:
+                slashLoc = len(tmp)
+
+            self.__dict__['_err_text'] = 'Illegal value %s' % tmp[:slashLoc]
+            self.__dict__['_fixable'] = 0
+            raise ValueError, self._err_text 
+        else:
+            self.__dict__['_valuestring'] = \
+                                 input.group('val').translate(_fix_table, ' ')
+            self._ascardimage()
+
+
+    def _check(self, option='ignore'):
+        """Verify the card image with the specified option. """
+
+        self.__dict__['_err_text'] = ''
+        self.__dict__['_fix_text'] = ''
+        self.__dict__['_fixable'] = 1
+
+        if option == 'ignore':
+            return
+        elif option == 'parse':
+            return self.keyword_NFSC_val_comm_RE.match(self._getValueCommentString())
+        else:
+            # verify the equal sign position
+
+            if self._cardimage.find('=') != 8:
+                if option in ['exception', 'warn']:
+                    self.__dict__['_err_text'] = 'Card image is not FITS ' + \
+                                       'standard (equal sign not at column 8).'
+                    raise ValueError, self._err_text + '\n%s' % self._cardimage
+                elif option in ['fix', 'silentfix']:
+                    result = self._check('parse')
+                    self._fixValue(result)
+
+                    if option == 'fix':
+                        self.__dict__['_fix_text'] = \
+                           'Fixed card to be FITS standard. : %s' % self.key
+
+            # verify the key
+           
+            self._checkKey(self.key)
+
+            # verify the value
+
+            result = \
+              self.keyword_val_comm_RE.match (self._getValueCommentString())
+
+            if result is not None:
+                return result
+            else:
+                if option in ['fix', 'silentfix']:
+                    result = self._check('parse')
+                    self._fixValue(result)
+
+                    if option == 'fix':
+                        self.__dict__['_fix_text'] = \
+                              'Fixed card to be FITS standard.: %s' % self.key
+                else:
+                    self.__dict__['_err_text'] = \
+                    'Card image is not FITS standard (unparsable value string).'
+                    raise ValueError, self._err_text + '\n%s' % self._cardimage
+
+            # verify the comment (string), it is never fixable
+            if result is not None:
+                _str = result.group('comm')
+                if _str is not None:
+                    self._checkText(_str)
+
+def createCard(key='', value='', comment=''):
+    return RecordValuedKeywordCard.createCard(key, value, comment)
+
+def createCardFromString(input):
+    return RecordValuedKeywordCard.createCardFromString(input)
+
+def upperKey(key):
+    return RecordValuedKeywordCard.upperKey(key)
+
 
 class _Hierarch(Card):
     """Cards begins with HIERARCH which allows keyword name longer than 8
@@ -960,7 +1436,18 @@ class Header:
 
     def __getitem__ (self, key):
         """Get a header keyword value."""
-        return self.ascard[key].value
+     
+        card = self.ascard[key]
+
+        if isinstance(card, RecordValuedKeywordCard) and \
+           (not isinstance(key, types.StringType) or string.find(key,'.') < 0):
+            returnVal = card.strvalue() 
+        elif isinstance(card, CardList):
+            returnVal = card
+        else:
+            returnVal = card.value
+
+        return returnVal
 
     def __setitem__ (self, key, value):
         """Set a header keyword value."""
@@ -1006,10 +1493,11 @@ class Header:
         """
 
         try:
-            key = key.strip().upper()
+            key = upperKey(key)
+
             if key[:8] == 'HIERARCH':
                 key = key[8:].strip()
-            _index = self.ascard._keylist.index(key)
+            _index = self.ascard[key]
             return 1
         except:
             return 0
@@ -1022,19 +1510,23 @@ class Header:
            force: if new key name already exist, force to have duplicate name.
         """
 
-        oldkey = oldkey.strip().upper()
-        newkey = newkey.strip().upper()
+        
+        oldkey = upperKey(oldkey)
+        newkey = upperKey(newkey)
+
         if newkey == 'CONTINUE':
             raise ValueError, 'Can not rename to CONTINUE'
         if newkey in Card._commentaryKeys or oldkey in Card._commentaryKeys:
             if not (newkey in Card._commentaryKeys and oldkey in Card._commentaryKeys):
                 raise ValueError, 'Regular and commentary keys can not be renamed to each other.'
-        elif (force == 0) and (newkey in self.ascard._keylist):
+        elif (force == 0) and self.has_key(newkey):
             raise ValueError, 'Intended keyword %s already exists in header.' % newkey
         _index = self.ascard.index_of(oldkey)
         _comment = self.ascard[_index].comment
         _value = self.ascard[_index].value
-        self.ascard[_index] = Card(newkey, _value, _comment)
+        self.ascard[_index] = createCard(newkey, _value, _comment)
+
+
 #        self.ascard[_index].__dict__['key']=newkey
 #        self.ascard[_index].ascardimage()
 #        self.ascard._keylist[_index] = newkey
@@ -1070,19 +1562,26 @@ class Header:
         after:    name of the keyword, or index of the Card  after which
                   the new card will be placed. default=None.
         """
+        
+        keylist = RecordValuedKeywordCard.validKeyValue(key,value)
 
-        if self.has_key(key):
-            j = self.ascard.index_of(key)
+        if keylist:
+            keyword = keylist[0] + '.' + keylist[1]
+        else:
+            keyword = key
+
+        if self.has_key(keyword):
+            j = self.ascard.index_of(keyword)
             if comment is not None:
                 _comment = comment
             else:
                 _comment = self.ascard[j].comment
-            self.ascard[j] = Card(key, value, _comment)
+            self.ascard[j] = createCard(key, value, _comment)
         elif before != None or after != None:
-            _card = Card(key, value, comment)
+            _card = createCard(key, value, comment)
             self.ascard._pos_insert(_card, before=before, after=after)
         else:
-            self.ascard.append(Card(key, value, comment))
+            self.ascard.append(createCard(key, value, comment))
 
         self._mod = 1
 
@@ -1231,7 +1730,7 @@ class CardList(list):
         # if the key list is not supplied (as in reading in the FITS file),
         # it will be constructed from the card list.
         if keylist is None:
-            self._keylist = [k.upper() for k in self.keys()]
+            self._keylist = [k.upper() for k in self._keys()]
         else:
             self._keylist = keylist
 
@@ -1239,10 +1738,55 @@ class CardList(list):
         self._blanks = 0
         self.count_blanks()
 
+    def _hasFilterChar(self, key):
+        """
+        Return True if the input key contains one of the special filtering
+        characters (*, ?, or ...).
+        """
+        if isinstance(key, types.StringType) and (key.endswith('...') or \
+           key.find('*') > 0 or key.find('?') > 0):
+            return True
+        else:
+            return False
+
+    def filterList(self, key):
+        """
+        Construct a CardList that contains references to all of the cards in
+        this CardList that match the input key value including any special
+        filter keys (*, ?, and ...).
+
+        :Parameters:
+            key - key value to filter the list with
+
+        :Returns:
+            A CardList object containing references to all the requested cards.
+        """
+        outCl = CardList()
+
+        mykey = upperKey(key)
+        reStr = string.replace(mykey,'*','\w*')+'$'
+        reStr = string.replace(reStr,'?','\w')
+        reStr = string.replace(reStr,'...','\S*')
+        match_RE = re.compile(reStr)
+
+        for card in self:
+            if isinstance(card, RecordValuedKeywordCard):
+                matchStr = card.key + '.' + card.field_specifier
+            else:
+                matchStr = card.key
+
+            if match_RE.match(matchStr):
+                outCl.append(card)
+                
+        return outCl
+
     def __getitem__(self, key):
         """Get a Card by indexing or by the keyword name."""
-        _key = self.index_of(key)
-        return super(CardList, self).__getitem__(_key)
+        if self._hasFilterChar(key):
+            return self.filterList(key)
+        else:
+            _key = self.index_of(key)
+            return super(CardList, self).__getitem__(_key)
 
     def __getslice__(self, start, end):
         _cards = super(CardList, self).__getslice__(start,end)
@@ -1265,11 +1809,25 @@ class CardList(list):
 
     def __delitem__(self, key):
         """Delete a Card from the CardList."""
-        _key = self.index_of(key)
-        super(CardList, self).__delitem__(_key)
-        del self._keylist[_key]  # update the keylist
-        self.count_blanks()
-        self._mod = 1
+        if self._hasFilterChar(key):
+            cardlist = self.filterList(key)
+
+            if len(cardlist) == 0:
+                raise KeyError, "Keyword '%s' not found/" % key
+    
+            for card in cardlist:
+                if isinstance(card, RecordValuedKeywordCard):
+                    mykey = card.key + '.' + card.field_specifier
+                else:
+                    mykey = card.key
+
+                del self[mykey]
+        else:
+            _key = self.index_of(key)
+            super(CardList, self).__delitem__(_key)
+            del self._keylist[_key]  # update the keylist
+            self.count_blanks()
+            self._mod = 1
 
     def count_blanks(self):
         """Find out how many blank cards are *directly* before the END card."""
@@ -1358,9 +1916,36 @@ class CardList(list):
                 del self[-1] # it also delete the keylist item
 
     def keys(self):
+        """
+        Return a list of all keywords from the CardList.
+        Keywords include field_specifier for RecordValuedKeywordCards
+        """
+
+        rtnVal = []
+
+        for card in self:
+            if isinstance(card, RecordValuedKeywordCard):
+                key = card.key+'.'+card.field_specifier
+            else:
+                key = card.key
+
+            rtnVal.append(key)
+
+        return rtnVal
+
+    def _keys(self):
         """Return a list of all keywords from the CardList."""
 
         return map(lambda x: getattr(x,'key'), self)
+
+    def values(self):
+        """ 
+        Return a list of the values of all cards in the CardList
+        For RecordValuedKeywordCards the value returned is the floating
+        point value, exclusive of the field_specifier.
+        """
+
+        return map(lambda x: getattr(x,'value'), self)
 
     def index_of(self, key, backward=0):
         """Get the index of a keyword in the CardList.
@@ -1382,18 +1967,35 @@ class CardList(list):
                 _keylist.reverse()
             try:
                 _indx = _keylist.index(_key)
-                if backward:
-                    _indx = len(_keylist) - _indx - 1
-                return _indx
             except ValueError:
-                raise KeyError, 'Keyword %s not found.' % `key`
+                requestedKey = RecordValuedKeywordCard.validKeyValue(key)
+                _indx = 0
+
+                while requestedKey:
+                    try:
+                        i = _keylist[_indx:].index(requestedKey[0].upper())
+                        _indx = i + _indx 
+
+                        if isinstance(self[_indx], RecordValuedKeywordCard) \
+                        and requestedKey[1] == self[_indx].field_specifier:
+                            break
+                    except ValueError:
+                        raise KeyError, 'Keyword %s not found.' % `key`
+
+                    _indx = _indx + 1
+                else:
+                    raise KeyError, 'Keyword %s not found.' % `key`
+
+            if backward:
+                _indx = len(_keylist) - _indx - 1
+            return _indx
         else:
             raise KeyError, 'Illegal key data type %s' % type(key)
 
     def copy(self):
         """Make a (deep)copy of the CardList."""
 
-        return CardList([Card('').fromstring(repr(c)) for c in self])
+        return CardList([createCardFromString(repr(c)) for c in self])
 
     def __repr__(self):
         """Format a list of cards into a string."""
@@ -1688,7 +2290,7 @@ class _TempHDU(_ValidHDU):
             raise IOError, 'Block does not begin with SIMPLE or XTENSION'
 
         for i in range(0, len(blocks), Card.length):
-            _card = Card('').fromstring(blocks[i:i+Card.length])
+            _card = createCardFromString(blocks[i:i+Card.length])
             _key = _card.key
 
             if _key == 'END':
@@ -2584,11 +3186,11 @@ def _get_index(nameList, key):
             if _count == 1:
                 indx = _list.index(_key)
             elif _count == 0:
-                raise NameError, "Key '%s' does not exist." % key
+                raise KeyError, "Key '%s' does not exist." % key
             else:              # multiple match
-                raise NameError, "Ambiguous key name '%s'." % key
+                raise KeyError, "Ambiguous key name '%s'." % key
     else:
-        raise NameError, "Illegal key '%s'." % `key`
+        raise KeyError, "Illegal key '%s'." % `key`
 
     return indx
 

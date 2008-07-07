@@ -9,13 +9,13 @@
 #If only one array package is installed, that package's version of pyfits
 #will be imported.  If both packages are installed the NUMERIX value is
 #used to decide between the packages.  If no NUMERIX value is set then 
-#the numarray version of pyfits will be imported.
+#the numpy version of pyfits will be imported.
 
 #Anything else is an exception.
 
 import os
 
-__version__ = '1.4dev'
+__version__ = '1.4'
 
 # Check the environment variables for NUMERIX
 try:
