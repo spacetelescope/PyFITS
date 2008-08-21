@@ -29,8 +29,8 @@ if (numerix == 'numarray'):
         from NA_pyfits import *
         import NA_pyfits as core
         __doc__ = NA_pyfits.__doc__
-    except ImportError:
-        raise ImportError, "Cannot import numarray version of PyFITS!"
+    except ImportError, e:
+        raise ImportError, `e` + ".  Cannot import numarray version of PyFITS!"
 else:
     try:
         try:
@@ -42,10 +42,10 @@ else:
                 from NA_pyfits import *
                 import NA_pyfits as core
                 doc__ = NA_pyfits.__doc__
-            except ImportError:
-                raise ImportError, "Cannot import either numpy or numarray."
-    except:
-        raise ImportError, "No usable array package has been found.  Cannot import either numpy or numarray."
+            except ImportError, e:
+                raise ImportError, `e` + ".  Cannot import either numpy or numarray."
+    except Exception, e:
+        raise ImportError, `e` + ".  No usable array package has been found.  Cannot import either numpy or numarray."
     
 _locals = locals().keys()
 for n in _locals[::-1]:
