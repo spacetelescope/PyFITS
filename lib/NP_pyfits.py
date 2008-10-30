@@ -864,7 +864,7 @@ class RecordValuedKeywordCard(Card):
     # a card image ; the value may not be FITS Standard Complient 
     # (ex. 'AXIS.1: 2.0e5')
     #
-    field_specifier_NFSC_val_RE = re.compile(field_specifier_NFSC_val)
+    field_specifier_NFSC_val_RE = re.compile(field_specifier_NFSC_val+'$')
     #
     # regular expression to extract the key and the field specifier from a 
     # string that is being used to index into a card list that contains
@@ -966,6 +966,7 @@ class RecordValuedKeywordCard(Card):
 
             invalid input - An empty list
         """
+
         rtnKey = rtnFieldSpec = rtnValue = ''
         myKey = cls.upperKey(key)
 
