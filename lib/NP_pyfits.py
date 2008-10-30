@@ -846,9 +846,9 @@ class RecordValuedKeywordCard(Card):
     field = identifier + r'(\.\d+)?'
     field_specifier_s = field + r'(\.' + field + r')*'
     field_specifier_val = r'(?P<keyword>' + field_specifier_s + r'): (?P<val>' \
-                          + Card._numr_FSC + r')'
+                          + Card._numr_FSC + r'\s*)'
     field_specifier_NFSC_val = r'(?P<keyword>' + field_specifier_s + \
-                               r'): (?P<val>' + Card._numr_NFSC + r')'
+                               r'): (?P<val>' + Card._numr_NFSC + r'\s*)'
     keyword_val = r'\'' + field_specifier_val + r'\''
     keyword_NFSC_val = r'\'' + field_specifier_NFSC_val + r'\''
     keyword_val_comm = r' +' + keyword_val + r' *(/ *(?P<comm>[ -~]*))?$'
@@ -856,12 +856,13 @@ class RecordValuedKeywordCard(Card):
                             r' *(/ *(?P<comm>[ -~]*))?$'
     #
     # regular expression to extract the field specifier and value from
-    # a card image (ex. 'AXIS.1: 2')
+    # a card image (ex. 'AXIS.1: 2'), the value may not be FITS Standard
+    # Complient
     #
-    field_specifier_val_RE = re.compile(field_specifier_val)
+    field_specifier_NFSC_image_RE = re.compile(field_specifier_NFSC_val)
     #
     # regular expression to extract the field specifier and value from
-    # a card image ; the value may not be FITS Standard Complient 
+    # a card value; the value may not be FITS Standard Complient 
     # (ex. 'AXIS.1: 2.0e5')
     #
     field_specifier_NFSC_val_RE = re.compile(field_specifier_NFSC_val+'$')
@@ -1174,7 +1175,8 @@ class RecordValuedKeywordCard(Card):
         :Returns: 
             None
         """
-        mo = self.field_specifier_val_RE.search(self._cardimage)
+
+        mo = self.field_specifier_NFSC_image_RE.search(self._cardimage)
         return self._cardimage[mo.start():mo.end()]
 
     def _fixValue(self, input):
