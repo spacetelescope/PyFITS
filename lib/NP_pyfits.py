@@ -4644,6 +4644,8 @@ class BinTableHDU(_TableBaseHDU):
             hdr[0] = self._xtn
             hdr.ascard[0].comment = 'binary table extension'
 
+        self.header._hdutype = BinTableHDU
+
 class StreamingHDU:
     """
     A class that provides the capability to stream data to a FITS file
