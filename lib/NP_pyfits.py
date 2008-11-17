@@ -2149,6 +2149,8 @@ class _ValidHDU(_AllHDU, _Verify):
             _index = None
         fixable = fix_value is not None
 
+        insert_pos = len(cards)+1
+
         # if pos is a string, it must be of the syntax of "> n",
         # where n is an int
         if isinstance(pos, str):
@@ -2932,8 +2934,12 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
 
     def _verify(self, option='warn'):
         """ImageHDU verify method."""
-        _err = _ExtensionHDU._verify(self, option=option)
-        self.req_cards('PCOUNT', None, _isInt+" and val == 0", 0, option, _err)
+        _err = _ValidHDU._verify(self, option=option)
+        naxis = self.header.get('NAXIS', 0)
+        self.req_cards('PCOUNT', '== '+`naxis+3`, _isInt+" and val == 0",
+                       0, option, _err)
+        self.req_cards('GCOUNT', '== '+`naxis+4`, _isInt+" and val == 1",
+                       1, option, _err)
         return _err
 
 
