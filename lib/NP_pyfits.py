@@ -2564,7 +2564,7 @@ class _ImageBaseHDU(_ValidHDU):
 #    NumCode = {8:'int8', 16:'int16', 32:'int32', 64:'int64', -32:'float32', -64:'float64'}
 #    ImgCode = {'<i2':8, '<i4':16, '<i8':32, '<i16':64, '<f8':-32, '<f16':-64}
     NumCode = {8:'uint8', 16:'int16', 32:'int32', 64:'int64', -32:'float32', -64:'float64'}
-    ImgCode = {'uint8':8, 'int16':16, 'int32':32, 'int64':64, 'float32':-32, 'float64':-64}
+    ImgCode = {'uint8':8, 'int16':16, 'uint16':16, 'int32':32, 'int64':64, 'float32':-32, 'float64':-64}
     
     def __init__(self, data=None, header=None):
         self._file, self._datLoc = None, None
@@ -2721,7 +2721,10 @@ class _ImageBaseHDU(_ValidHDU):
                 raw_data.dtype = raw_data.dtype.newbyteorder('>')
 
                 if (self._bzero != 0 or self._bscale != 1):
-                    if _bitpix > 16:  # scale integers to Float64
+                    if self._ffile.uint16 and _bitpix == 16 \
+                    and self._bzero == 32768 and self._bscale == 1:
+                        self.data = np.array(raw_data, dtype=np.uint16)
+                    elif _bitpix > 16:  # scale integers to Float64
                         self.data = np.array(raw_data, dtype=np.float64)
                     elif _bitpix > 0:  # scale integers to Float32
                         self.data = np.array(raw_data, dtype=np.float32)
@@ -4893,7 +4896,7 @@ urllib._urlopener.tempcache = {} # Initialize tempcache with an empty
 class _File:
     """A file I/O class"""
 
-    def __init__(self, name, mode='copyonwrite', memmap=0):
+    def __init__(self, name, mode='copyonwrite', memmap=0, uint16=0):
         if mode not in _python_mode.keys():
             raise "Mode '%s' not recognized" % mode
 
@@ -4923,6 +4926,7 @@ class _File:
 
         self.mode = mode
         self.memmap = memmap
+        self.uint16 = uint16
         self.code = None
         self.dims = None
         self.offset = 0
@@ -5093,6 +5097,13 @@ class _File:
     def writeHDUheader(self, hdu):
         """Write FITS HDU header part."""
 
+        # If the data is unsigned int 16 add BSCALE/BZERO cards to header
+
+        if hdu.data is not None and hdu.data.dtype == np.uint16:
+            hdu.header.update('BSCALE',1,
+                              after='NAXIS'+`hdu.header.get('NAXIS')`)  
+            hdu.header.update('BZERO',32768,after='BSCALE')  
+
         blocks = repr(hdu.header.ascard) + _pad('END')
         blocks = blocks + _padLength(len(blocks))*' '
 
@@ -5104,6 +5115,13 @@ class _File:
 
         # flush, to make sure the content is written
         self.__file.flush()
+
+        # If data is unsigned integer 16 remove the BSCALE/BZERO cards
+
+        if hdu.data is not None and hdu.data.dtype == np.uint16:
+            del hdu.header['BSCALE']
+            del hdu.header['BZERO']
+
         return loc
 
     def writeHDUdata(self, hdu):
@@ -5115,8 +5133,16 @@ class _File:
         _size = 0
         if hdu.data is not None:
 
+            # deal with unsigned integer 16 data
+            if hdu.data.dtype == np.uint16:
+                output = np.array(hdu.data-32768,dtype='i2')
+
+                if output.dtype.str[0] != '>':
+                    output = output.byteswap(True)
+                    output.dtype = output.dtype.newbyteorder('>')
+
             # if image, need to deal with byte order
-            if isinstance(hdu, _ImageBaseHDU):
+            elif isinstance(hdu, _ImageBaseHDU):
 
 #               if the data is littleendian
                 if hdu.data.dtype.str[0] != '>':
@@ -5754,7 +5780,7 @@ class HDUList(list, _Verify):
         print results
 
 
-def open(name, mode="copyonwrite", memmap=0, classExtensions={}):
+def open(name, mode="copyonwrite", memmap=0, classExtensions={}, uint16=0):
     """Factory function to open a FITS file and return an HDUList object.
 
        name: Name of the FITS file, file object, or file like object to be
@@ -5767,14 +5793,17 @@ def open(name, mode="copyonwrite", memmap=0, classExtensions={}):
                         those classes.  When present in the dictionary, the
                         extension class will be constructed in place of the
                         pyfits class. 
+       uint16: Interpret int16 data with BZERO = 32768 and BSCALE = 1 as
+               uint16 data? default=0 (False).
     """
 
     # instantiate a FITS file object (ffo)
 
     if classExtensions.has_key(_File):
-        ffo = classExtensions[_File](name, mode=mode, memmap=memmap)
+        ffo = classExtensions[_File](name, mode=mode, memmap=memmap, 
+                                     uint16=uint16)
     else:
-        ffo = _File(name, mode=mode, memmap=memmap)
+        ffo = _File(name, mode=mode, memmap=memmap, uint16=uint16)
 
     if classExtensions.has_key(HDUList):
         hduList = classExtensions[HDUList](file=ffo)
