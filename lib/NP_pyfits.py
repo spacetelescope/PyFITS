@@ -3702,6 +3702,13 @@ def _get_tbdata(hdu):
     if isinstance(hdu, GroupsHDU):
         tmp._recformats[-1] = `hdu._dimShape()[:-1]` + tmp._dat_format
     elif isinstance(hdu, TableHDU):
+        # determine if there are duplicate field names and if there
+        # are throw an exception
+        _dup = rec.find_duplicate(tmp.names)
+
+        if _dup:
+            raise ValueError, "Duplicate field names: %s" % _dup
+
         itemsize = tmp.spans[-1]+tmp.starts[-1]-1
         dtype = {}
 
