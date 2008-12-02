@@ -1547,7 +1547,8 @@ class Header:
         except KeyError:
             return default
 
-    def update(self, key, value, comment=None, before=None, after=None):
+    def update(self, key, value, comment=None, before=None, after=None,
+               savecomment=False):
         """Update one header card."""
 
         """
@@ -1564,6 +1565,11 @@ class Header:
                   precedence over `after' if both specified. default=None.
         after:    name of the keyword, or index of the Card  after which
                   the new card will be placed. default=None.
+        savecomment: when true, preserve the current comment for an existing
+                     keyword.  The argument 'savecomment' takes precedence over
+                     'comment' if both specified.  If 'comment' is not
+                     specified then the current comment will automatically be
+                     preserved.  default=False
         """
         
         keylist = RecordValuedKeywordCard.validKeyValue(key,value)
@@ -1575,7 +1581,7 @@ class Header:
 
         if self.has_key(keyword):
             j = self.ascard.index_of(keyword)
-            if comment is not None:
+            if not savecomment and comment is not None:
                 _comment = comment
             else:
                 _comment = self.ascard[j].comment
@@ -6081,6 +6087,93 @@ def getval(filename, key, *ext, **extkeys):
 
     _hdr = getheader(filename, *ext, **extkeys)
     return _hdr[key]
+
+def setval(filename, key, value="", comment=None, before=None, after=None,
+           savecomment=False, *ext, **extkeys):
+    """Set a keyword's value from a header in a FITS file.
+
+       If the keyword already exists, it's value/comment will be updated.
+       If it does not exist, a new card will be created and it will be
+       placed before or after the specified location.  If no "before"
+       or "after" is specified, it will be appended at the end.
+
+       When updating more than one keyword in a file, this convenience
+       function is a much less efficient approach compared with opening
+       the file for update, modifying the header, and closing the file.
+
+    @type filename: string, file object, or file like object 
+    @param filename: name of the FITS file, or file object
+                     If opened, mode must be update (rb+).  An opened
+                     file object or GzipFile object will be closed upon
+                     return.
+    @type key: string
+    @param key: keyword name
+    @type value: string, integer, float
+    @param value: Keyword value, default = ""
+    @type comment: string
+    @param comment: Keyword comment, default = None
+    @type before: string, integer
+    @param before: name of the keyword, or index of the Card before which
+                   the new card will be placed.  The argument `before' takes
+                   precedence over `after' if both specified. default=None.
+    @type after: string, integer
+    @param after: name of the keyword, or index of the Card  after which
+                  the new card will be placed. default=None.
+    @type savecomment: logical
+    @param savecomment: when true preserve the current comment for an existing
+                        keyword.  The argument 'savecomment' takes precedence
+                        over 'comment' if both specified.  If 'comment' is not
+                        specified then the current comment will automatically
+                        be preserved.  default=False
+    @keyword classExtensions: (optional) A dictionary that maps pyfits 
+            classes to extensions of those classes.  When present in the 
+            dictionary, the extension class will be constructed in place 
+            of the pyfits class. 
+    @param ext: The rest of the arguments are for extension specification.
+       See L{getdata} for explanations/examples.
+    @return: None
+    """
+
+    hdulist, ext = _getext(filename, mode='update', *ext, **extkeys)
+    hdulist[ext].header.update(key, value, comment, before, after, savecomment)
+
+    # Ensure that data will not be scaled when the file is closed
+
+    for hdu in hdulist:
+       hdu._bscale = 1
+       hdu._bzero = 0
+
+    hdulist.close()
+
+def delval(filename, key, *ext, **extkeys):
+    """Delete all instances of keyword from a header in a FITS file.
+
+    @type filename: string, file object, or file like object 
+    @param filename: name of the FITS file, or file object
+                     If opened, mode must be update (rb+).  An opened
+                     file object or GzipFile object will be closed upon
+                     return.
+    @type key: string, integer
+    @param key: keyword name or index
+    @keyword classExtensions: (optional) A dictionary that maps pyfits 
+            classes to extensions of those classes.  When present in the 
+            dictionary, the extension class will be constructed in place 
+            of the pyfits class. 
+    @param ext: The rest of the arguments are for extension specification.
+       See L{getdata} for explanations/examples.
+    @return: None
+    """
+
+    hdulist, ext = _getext(filename, mode='update', *ext, **extkeys)
+    del hdulist[ext].header[key]
+
+    # Ensure that data will not be scaled when the file is closed
+
+    for hdu in hdulist:
+       hdu._bscale = 1
+       hdu._bzero = 0
+
+    hdulist.close()
 
 def _makehdu(data, header, classExtensions={}):
     if header is None:
