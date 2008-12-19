@@ -573,7 +573,8 @@ class Card(_Verify):
 
         if name == 'value':
             if valu is None:
-                raise ValueError, "Unparsable card, fix it first with .verify('fix')."
+                raise ValueError, "Unparsable card (" + self.key + \
+                                  "), fix it first with .verify('fix')."
             if valu.group('bool') != None:
                 _val = valu.group('bool')=='T'
             elif valu.group('strg') != None:
