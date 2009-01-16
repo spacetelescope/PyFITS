@@ -1,0 +1,5 @@
+include stsci_distutils_hack.py
+include defsetup.py
+include test/*.fits
+include lib/LICENSE.txt
+include src/*.h

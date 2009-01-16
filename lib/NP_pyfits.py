@@ -52,6 +52,11 @@ import signal
 import threading
 import sys
 import warnings
+try:
+    import pyfitsComp
+    compressionSupported = 1
+except:
+    compressionSupported = 0
 
 # Module variables
 _blockLen = 2880         # the FITS block size
@@ -1411,6 +1416,9 @@ class Header:
            cards: A list of Cards, default=[].
         """
 
+        # populate the cardlist
+        self.ascard = CardList(cards)
+
         # decide which kind of header it belongs to
         try:
             if cards[0].key == 'SIMPLE':
@@ -1427,16 +1435,31 @@ class Header:
                 elif xtension == 'IMAGE':
                     self._hdutype = ImageHDU
                 elif xtension in ('BINTABLE', 'A3DTABLE'):
-                    self._hdutype = BinTableHDU
+                    try:
+                        if self.ascard['ZIMAGE'].value == True:
+                            global compressionSupported 
+
+                            if compressionSupported == 1:
+                                self._hdutype = CompImageHDU
+                            else:
+                                if compressionSupported == 0:
+                                    print "Failure creating a header for a " + \
+                                          "compressed image HDU."
+                                    print "The pyfitsComp module is not " + \
+                                          "available."
+                                    print "The HDU will be treated as a " + \
+                                          "Binary Table HDU."
+                                    compressionSupported = -1
+
+                                raise KeyError
+                    except KeyError:
+                        self._hdutype = BinTableHDU
                 else:
                     self._hdutype = _ExtensionHDU
             else:
                 self._hdutype = _ValidHDU
         except:
             self._hdutype = _CorruptedHDU
-
-        # populate the cardlist
-        self.ascard = CardList(cards)
 
     def __getitem__ (self, key):
         """Get a header keyword value."""
@@ -1595,6 +1618,18 @@ class Header:
 
         self._mod = 1
 
+        # If this header is associated with a compImageHDU then update
+        # the objects underlying header (_tableHeader) unless the update was
+        # made to a card that describes the data.
+
+        if self.__dict__.has_key('_tableHeader') and \
+           key not in ('XTENSION','BITPIX','PCOUNT','GCOUNT','TFIELDS',
+                       'ZIMAGE','ZBITPIX','ZCMPTYPE') and \
+           key[:4] not in ('ZVAL') and \
+           key[:5] not in ('NAXIS','TTYPE','TFORM','ZTILE','ZNAME') and \
+           key[:6] not in ('ZNAXIS'):
+            self._tableHeader.update(key,value,comment,before,after)
+
     def add_history(self, value, before=None, after=None):
         """Add a HISTORY card.
 
@@ -1603,6 +1638,12 @@ class Header:
            after: [same as in update()]
         """
         self._add_commentary('history', value, before=before, after=after)
+
+        # If this header is associated with a compImageHDU then update
+        # the objects underlying header (_tableHeader).
+
+        if self.__dict__.has_key('_tableHeader'):
+            self._tableHeader.add_history(value,before,after)
 
     def add_comment(self, value, before=None, after=None):
         """Add a COMMENT card.
@@ -1613,6 +1654,12 @@ class Header:
         """
         self._add_commentary('comment', value, before=before, after=after)
 
+        # If this header is associated with a compImageHDU then update
+        # the objects underlying header (_tableHeader).
+
+        if self.__dict__.has_key('_tableHeader'):
+            self._tableHeader.add_comment(value,before,after)
+
     def add_blank(self, value='', before=None, after=None):
         """Add a blank card.
 
@@ -1621,6 +1668,12 @@ class Header:
            after: [same as in update()]
         """
         self._add_commentary(' ', value, before=before, after=after)
+
+        # If this header is associated with a compImageHDU then update
+        # the objects underlying header (_tableHeader).
+
+        if self.__dict__.has_key('_tableHeader'):
+            self._tableHeader.add_blank(value,before,after)
 
     def get_history(self):
         """Get all histories as a list of string texts."""
@@ -1686,9 +1739,16 @@ class Header:
             del self['XTENSION']
             del self['BITPIX']
 
-            _naxis = self['NAXIS']
+            if self.has_key('NAXIS'):
+                _naxis = self['NAXIS']
+            else:
+                _naxis = 0
+
             if issubclass(self._hdutype, _TableBaseHDU):
-                _tfields = self['TFIELDS']
+                if self.has_key('TFIELDS'):
+                    _tfields = self['TFIELDS']
+                else:
+                    _tfields = 0
 
             del self['NAXIS']
             for i in range(_naxis):
@@ -2022,7 +2082,15 @@ class CardList(list):
 
 class _AllHDU(object):
     """Base class for all HDU (header data unit) classes."""
-    pass
+
+    def __getattr__(self, attr):
+        if attr == 'header':
+            return self.__dict__['_header']
+
+        try:
+            return self.__dict__[attr]
+        except KeyError:
+            raise AttributeError(attr)
 
 class _CorruptedHDU(_AllHDU):
     """A Corrupted HDU class."""
@@ -2040,7 +2108,7 @@ class _CorruptedHDU(_AllHDU):
 
     def __init__(self, data=None, header=None):
         self._file, self._offset, self._datLoc = None, None, None
-        self.header = header
+        self._header = header
         self.data = data
         self.name = None
         
@@ -2063,14 +2131,14 @@ class _ValidHDU(_AllHDU, _Verify):
     def size(self):
         """Size (in bytes) of the data portion of the HDU."""
         size = 0
-        naxis = self.header.get('NAXIS', 0)
+        naxis = self._header.get('NAXIS', 0)
         if naxis > 0:
             size = 1
             for j in range(naxis):
-                size = size * self.header['NAXIS'+`j+1`]
-            bitpix = self.header['BITPIX']
-            gcount = self.header.get('GCOUNT', 1)
-            pcount = self.header.get('PCOUNT', 0)
+                size = size * self._header['NAXIS'+`j+1`]
+            bitpix = self._header['BITPIX']
+            gcount = self._header.get('GCOUNT', 1)
+            pcount = self._header.get('PCOUNT', 0)
             size = abs(bitpix) * gcount * (pcount + size) / 8
         return size
 
@@ -2080,7 +2148,7 @@ class _ValidHDU(_AllHDU, _Verify):
             _data = self.data.copy()
         else:
             _data = None
-        return self.__class__(data=_data, header=self.header.copy())
+        return self.__class__(data=_data, header=self._header.copy())
 
     def writeto(self, name, output_verify='exception', clobber=False,
                 classExtensions={}):
@@ -2129,12 +2197,12 @@ class _ValidHDU(_AllHDU, _Verify):
         self.req_cards('BITPIX', '== 1', _isInt+" and "+isValid, 8, option, _err)
         self.req_cards('NAXIS', '== 2', _isInt+" and val >= 0 and val <= 999", 0, option, _err)
 
-        naxis = self.header.get('NAXIS', 0)
+        naxis = self._header.get('NAXIS', 0)
         if naxis < 1000:
             for j in range(3, naxis+3):
                 self.req_cards('NAXIS'+`j-2`, '== '+`j`, _isInt+" and val>= 0", 1, option, _err)
         # verify each card
-        for _card in self.header.ascard:
+        for _card in self._header.ascard:
             _err.append(_card._verify(option))
 
         return _err
@@ -2149,7 +2217,7 @@ class _ValidHDU(_AllHDU, _Verify):
 
         _err = errlist
         fix = ''
-        cards = self.header.ascard
+        cards = self._header.ascard
         try:
             _index = cards.index_of(keywd)
         except:
@@ -2174,7 +2242,7 @@ class _ValidHDU(_AllHDU, _Verify):
                 # use repr to accomodate both string and non-string types
                 # Boolean is also OK in this constructor
                 _card = "Card('%s', %s)" % (keywd, `fix_value`)
-                fix = "self.header.ascard.insert(%d, %s)" % (insert_pos, _card)
+                fix = "self._header.ascard.insert(%d, %s)" % (insert_pos, _card)
             _err.append(self.run_option(option, err_text=err_text, fix_text=fix_text, fix=fix, fixable=fixable))
         else:
 
@@ -2184,17 +2252,17 @@ class _ValidHDU(_AllHDU, _Verify):
                 if not eval(test_pos):
                     err_text = "'%s' card at the wrong place (card %d)." % (keywd, _index)
                     fix_text = "Fixed by moving it to the right place (card %d)." % insert_pos
-                    fix = "_cards=self.header.ascard; dummy=_cards[%d]; del _cards[%d];_cards.insert(%d, dummy)" % (_index, _index, insert_pos)
+                    fix = "_cards=self._header.ascard; dummy=_cards[%d]; del _cards[%d];_cards.insert(%d, dummy)" % (_index, _index, insert_pos)
                     _err.append(self.run_option(option, err_text=err_text, fix_text=fix_text, fix=fix))
 
             # if value checking is specified
             if test:
-                val = self.header[keywd]
+                val = self._header[keywd]
                 if not eval(test):
                     err_text = "'%s' card has invalid value '%s'." % (keywd, val)
                     fix_text = "Fixed by setting a new value '%s'." % fix_value
                     if fixable:
-                        fix = "self.header['%s'] = %s" % (keywd, `fix_value`)
+                        fix = "self._header['%s'] = %s" % (keywd, `fix_value`)
                     _err.append(self.run_option(option, err_text=err_text, fix_text=fix_text, fix=fix, fixable=fixable))
 
         return _err
@@ -2376,7 +2444,7 @@ class _ExtensionHDU(_ValidHDU):
 
     def __init__(self, data=None, header=None):
         self._file, self._offset, self._datLoc = None, None, None
-        self.header = header
+        self._header = header
         self.data = data
         self._xtn = ' '
 
@@ -2387,10 +2455,10 @@ class _ExtensionHDU(_ValidHDU):
             if not isinstance(value, str):
                 raise TypeError, 'bad value type'
             value = value.upper()
-            if self.header.has_key('EXTNAME'):
-                self.header['EXTNAME'] = value
+            if self._header.has_key('EXTNAME'):
+                self._header['EXTNAME'] = value
             else:
-                self.header.ascard.append(Card('EXTNAME', value, 'extension name'))
+                self._header.ascard.append(Card('EXTNAME', value, 'extension name'))
 
         _ValidHDU.__setattr__(self,attr,value)
 
@@ -2398,7 +2466,7 @@ class _ExtensionHDU(_ValidHDU):
         _err = _ValidHDU._verify(self, option=option)
 
         # Verify location and value of mandatory keywords.
-        naxis = self.header.get('NAXIS', 0)
+        naxis = self._header.get('NAXIS', 0)
         self.req_cards('PCOUNT', '== '+`naxis+3`, _isInt+" and val >= 0", 0, option, _err)
         self.req_cards('GCOUNT', '== '+`naxis+4`, _isInt+" and val == 1", 1, option, _err)
         return _err
@@ -2589,7 +2657,7 @@ class _ImageBaseHDU(_ValidHDU):
 
             # if the file is read the first time, no need to copy, and keep it unchanged
             else:
-                self.header = header
+                self._header = header
         else:
 
             # construct a list of cards of minimal header
@@ -2615,10 +2683,10 @@ class _ImageBaseHDU(_ValidHDU):
                 hcopy._strip()
                 _list.extend(hcopy.ascardlist())
 
-            self.header = Header(_list)
+            self._header = Header(_list)
 
-        self._bzero = self.header.get('BZERO', 0)
-        self._bscale = self.header.get('BSCALE', 1)
+        self._bzero = self._header.get('BZERO', 0)
+        self._bscale = self._header.get('BSCALE', 1)
 
         if (data is DELAYED): return
 
@@ -2626,25 +2694,25 @@ class _ImageBaseHDU(_ValidHDU):
 
         # update the header
         self.update_header()
-        self._bitpix = self.header['BITPIX']
+        self._bitpix = self._header['BITPIX']
 
         # delete the keywords BSCALE and BZERO
-        del self.header['BSCALE']
-        del self.header['BZERO']
+        del self._header['BSCALE']
+        del self._header['BZERO']
 
     def update_header(self):
         """Update the header keywords to agree with the data."""
 
-        old_naxis = self.header.get('NAXIS', 0)
+        old_naxis = self._header.get('NAXIS', 0)
 
         if isinstance(self.data, GroupData):
-            self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+            self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
             axes = list(self.data.data.getshape())[1:]
             axes.reverse()
             axes = [0] + axes
 
         elif isinstance(self.data, np.ndarray):
-            self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+            self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
             axes = list(self.data.shape)
             axes.reverse()
 
@@ -2653,43 +2721,43 @@ class _ImageBaseHDU(_ValidHDU):
         else:
             raise ValueError, "incorrect array type"
 
-        self.header['NAXIS'] = len(axes)
+        self._header['NAXIS'] = len(axes)
 
         # add NAXISi if it does not exist
         for j in range(len(axes)):
             try:
-                self.header['NAXIS'+`j+1`] = axes[j]
+                self._header['NAXIS'+`j+1`] = axes[j]
             except KeyError:
                 if (j == 0):
                     _after = 'naxis'
                 else :
                     _after = 'naxis'+`j`
-                self.header.update('naxis'+`j+1`, axes[j], after = _after)
+                self._header.update('naxis'+`j+1`, axes[j], after = _after)
 
         # delete extra NAXISi's
         for j in range(len(axes)+1, old_naxis+1):
             try:
-                del self.header.ascard['NAXIS'+`j`]
+                del self._header.ascard['NAXIS'+`j`]
             except KeyError:
                 pass
 
         if isinstance(self.data, GroupData):
-            self.header.update('GROUPS', True, after='NAXIS'+`len(axes)`)
-            self.header.update('PCOUNT', len(self.data.parnames), after='GROUPS')
-            self.header.update('GCOUNT', len(self.data), after='PCOUNT')
+            self._header.update('GROUPS', True, after='NAXIS'+`len(axes)`)
+            self._header.update('PCOUNT', len(self.data.parnames), after='GROUPS')
+            self._header.update('GCOUNT', len(self.data), after='PCOUNT')
             npars = len(self.data.parnames)
             (_scale, _zero)  = self.data._get_scale_factors(npars)[3:5]
             if _scale:
-                self.header.update('BSCALE', self.data._coldefs.bscales[npars])
+                self._header.update('BSCALE', self.data._coldefs.bscales[npars])
             if _zero:
-                self.header.update('BZERO', self.data._coldefs.bzeros[npars])
+                self._header.update('BZERO', self.data._coldefs.bzeros[npars])
             for i in range(npars):
-                self.header.update('PTYPE'+`i+1`, self.data.parnames[i])
+                self._header.update('PTYPE'+`i+1`, self.data.parnames[i])
                 (_scale, _zero)  = self.data._get_scale_factors(i)[3:5]
                 if _scale:
-                    self.header.update('PSCAL'+`i+1`, self.data._coldefs.bscales[i])
+                    self._header.update('PSCAL'+`i+1`, self.data._coldefs.bscales[i])
                 if _zero:
-                    self.header.update('PZERO'+`i+1`, self.data._coldefs.bzeros[i])
+                    self._header.update('PZERO'+`i+1`, self.data._coldefs.bzeros[i])
 
     def __getattr__(self, attr):
         """Get the data attribute."""
@@ -2697,15 +2765,15 @@ class _ImageBaseHDU(_ValidHDU):
             return Section(self)
         elif attr == 'data':
             self.__dict__[attr] = None
-            if self.header['NAXIS'] > 0:
-                _bitpix = self.header['BITPIX']
+            if self._header['NAXIS'] > 0:
+                _bitpix = self._header['BITPIX']
                 self._file.seek(self._datLoc)
                 if isinstance(self, GroupsHDU):
                     dims = self.size()*8/abs(_bitpix)
                 else:
                     dims = self._dimShape()
 
-                code = _ImageBaseHDU.NumCode[self.header['BITPIX']]
+                code = _ImageBaseHDU.NumCode[self._header['BITPIX']]
 
                 if self._ffile.memmap:
                     self._ffile.code = code
@@ -2748,11 +2816,14 @@ class _ImageBaseHDU(_ValidHDU):
                         self.data += self._bzero
 
                     # delete the keywords BSCALE and BZERO after scaling
-                    del self.header['BSCALE']
-                    del self.header['BZERO']
-                    self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+                    del self._header['BSCALE']
+                    del self._header['BZERO']
+                    self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
                 else:
                     self.data = raw_data
+        else:
+            return _AllHDU.__getattr__(self, attr)
+
         try:
             return self.__dict__[attr]
         except KeyError:
@@ -2760,10 +2831,10 @@ class _ImageBaseHDU(_ValidHDU):
 
     def _dimShape(self):
         """Returns a tuple of image dimensions, reverse the order of NAXIS."""
-        naxis = self.header['NAXIS']
+        naxis = self._header['NAXIS']
         axes = naxis*[0]
         for j in range(naxis):
-            axes[j] = self.header['NAXIS'+`j+1`]
+            axes[j] = self._header['NAXIS'+`j+1`]
         axes.reverse()
 #        print "axes in _dimShape line 2081:",axes
         return tuple(axes)
@@ -2797,24 +2868,24 @@ class _ImageBaseHDU(_ValidHDU):
         # if data is not touched yet, use header info.
         else:
             _shape = ()
-            for j in range(self.header['NAXIS']):
+            for j in range(self._header['NAXIS']):
                 if isinstance(self, GroupsHDU) and j == 0:
                     continue
-                _shape += (self.header['NAXIS'+`j+1`],)
-            _format = self.NumCode[self.header['BITPIX']]
+                _shape += (self._header['NAXIS'+`j+1`],)
+            _format = self.NumCode[self._header['BITPIX']]
 
         if isinstance(self, GroupsHDU):
-            _gcount = '   %d Groups  %d Parameters' % (self.header['GCOUNT'], self.header['PCOUNT'])
+            _gcount = '   %d Groups  %d Parameters' % (self._header['GCOUNT'], self._header['PCOUNT'])
         else:
             _gcount = ''
         return "%-10s  %-11s  %5d  %-12s  %s%s" % \
-            (self.name, type, len(self.header.ascard), _shape, _format, _gcount)
+            (self.name, type, len(self._header.ascard), _shape, _format, _gcount)
 
     def scale(self, type=None, option="old", bscale=1, bzero=0):
         """Scale image data by using BSCALE/BZERO.
 
         Call to this method will scale self.data and update the keywords
-        of BSCALE and BZERO in self.header.  This method should only be
+        of BSCALE and BZERO in self._header.  This method should only be
         used right before writing to the output file, as the data will be
         scaled and is therefore not very usable after the call.
 
@@ -2873,22 +2944,22 @@ class _ImageBaseHDU(_ValidHDU):
         # Do the scaling
         if _zero != 0:
             self.data += -_zero # 0.9.6.3 to avoid out of range error for BZERO = +32768
-            self.header.update('BZERO', _zero)
+            self._header.update('BZERO', _zero)
         else:
-            del self.header['BZERO']
+            del self._header['BZERO']
 
         if _scale != 1:
             self.data /= _scale
-            self.header.update('BSCALE', _scale)
+            self._header.update('BSCALE', _scale)
         else:
-            del self.header['BSCALE']
+            del self._header['BSCALE']
 
         if self.data.dtype.type != _type:
             self.data = np.array(np.around(self.data), dtype=_type) #0.7.7.1
         #
         # Update the BITPIX Card to match the data
         #
-        self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+        self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
 
 class PrimaryHDU(_ImageBaseHDU):
     """FITS primary HDU class."""
@@ -2906,10 +2977,10 @@ class PrimaryHDU(_ImageBaseHDU):
 
         # insert the keywords EXTEND
         if header is None:
-            dim = `self.header['NAXIS']`
+            dim = `self._header['NAXIS']`
             if dim == '0':
                 dim = ''
-            self.header.update('EXTEND', True, after='NAXIS'+dim)
+            self._header.update('EXTEND', True, after='NAXIS'+dim)
 
 
 class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
@@ -2929,17 +3000,17 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
         _ImageBaseHDU.__init__(self, data=data, header=header)
         self._xtn = 'IMAGE'
 
-        self.header._hdutype = ImageHDU
+        self._header._hdutype = ImageHDU
 
         # insert the require keywords PCOUNT and GCOUNT
-        dim = `self.header['NAXIS']`
+        dim = `self._header['NAXIS']`
         if dim == '0':
             dim = ''
 
 
         #  set extension name
-        if (name is None) and self.header.has_key('EXTNAME'):
-            name = self.header['EXTNAME']
+        if (name is None) and self._header.has_key('EXTNAME'):
+            name = self._header['EXTNAME']
         self.name = name
 
     def _verify(self, option='warn'):
@@ -2960,12 +3031,12 @@ class GroupsHDU(PrimaryHDU):
 
     def __init__(self, data=None, header=None, name=None):
         PrimaryHDU.__init__(self, data=data, header=header)
-        self.header._hdutype = GroupsHDU
+        self._header._hdutype = GroupsHDU
         self.name = name
 
-        if self.header['NAXIS'] <= 0:
-            self.header['NAXIS'] = 1
-        self.header.update('NAXIS1', 0, after='NAXIS')
+        if self._header['NAXIS'] <= 0:
+            self._header['NAXIS'] = 1
+        self._header.update('NAXIS1', 0, after='NAXIS')
 
 
     def __getattr__(self, attr):
@@ -2988,27 +3059,29 @@ class GroupsHDU(PrimaryHDU):
         elif attr == 'columns':
             _cols = []
             _pnames = []
-            _pcount = self.header['PCOUNT']
-            _format = GroupsHDU._dict[self.header['BITPIX']]
-            for i in range(self.header['PCOUNT']):
-                _bscale = self.header.get('PSCAL'+`i+1`, 1)
-                _bzero = self.header.get('PZERO'+`i+1`, 0)
-                _pnames.append(self.header['PTYPE'+`i+1`].lower())
+            _pcount = self._header['PCOUNT']
+            _format = GroupsHDU._dict[self._header['BITPIX']]
+            for i in range(self._header['PCOUNT']):
+                _bscale = self._header.get('PSCAL'+`i+1`, 1)
+                _bzero = self._header.get('PZERO'+`i+1`, 0)
+                _pnames.append(self._header['PTYPE'+`i+1`].lower())
                 _cols.append(Column(name='c'+`i+1`, format = _format, bscale = _bscale, bzero = _bzero))
             data_shape = self._dimShape()[:-1]
             dat_format = `int(np.array(data_shape).sum())` + _format
 
-            _bscale = self.header.get('BSCALE', 1)
-            _bzero = self.header.get('BZERO', 0)
+            _bscale = self._header.get('BSCALE', 1)
+            _bzero = self._header.get('BZERO', 0)
             _cols.append(Column(name='data', format = dat_format, bscale = _bscale, bzero = _bzero))
             _coldefs = ColDefs(_cols)
-            _coldefs._shape = self.header['GCOUNT']
+            _coldefs._shape = self._header['GCOUNT']
             _coldefs._dat_format = _fits2rec[_format]
             _coldefs._pnames = _pnames
             self.__dict__[attr] = _coldefs
 
         elif attr == '_theap':
             self.__dict__[attr] = 0
+        else:
+            return _AllHDU.__getattr__(self,attr)
 
         try:
             return self.__dict__[attr]
@@ -3019,16 +3092,16 @@ class GroupsHDU(PrimaryHDU):
     def size(self):
         """Returns the size (in bytes) of the HDU's data part."""
         size = 0
-        naxis = self.header.get('NAXIS', 0)
+        naxis = self._header.get('NAXIS', 0)
 
         # for random group image, NAXIS1 should be 0, so we skip NAXIS1.
         if naxis > 1:
             size = 1
             for j in range(1, naxis):
-                size = size * self.header['NAXIS'+`j+1`]
-            bitpix = self.header['BITPIX']
-            gcount = self.header.get('GCOUNT', 1)
-            pcount = self.header.get('PCOUNT', 0)
+                size = size * self._header['NAXIS'+`j+1`]
+            bitpix = self._header['BITPIX']
+            gcount = self._header.get('GCOUNT', 1)
+            pcount = self._header.get('PCOUNT', 0)
             size = abs(bitpix) * gcount * (pcount + size) / 8
         return size
 
@@ -3038,11 +3111,11 @@ class GroupsHDU(PrimaryHDU):
         # Verify locations and values of mandatory keywords.
         self.req_cards('NAXIS', '== 2', _isInt+" and val >= 1 and val <= 999", 1, option, _err)
         self.req_cards('NAXIS1', '== 3', _isInt+" and val == 0", 0, option, _err)
-        _after = self.header['NAXIS'] + 3
+        _after = self._header['NAXIS'] + 3
 
         # if the card EXTEND exists, must be after it.
         try:
-            _dum = self.header['EXTEND']
+            _dum = self._header['EXTEND']
             #_after += 1
         except KeyError:
             pass
@@ -3504,7 +3577,7 @@ class ColDefs(object):
 
 
         elif isinstance(input, _TableBaseHDU):
-            hdr = input.header
+            hdr = input._header
             _nfields = hdr['TFIELDS']
             self._width = hdr['NAXIS1']
             self._shape = hdr['NAXIS2']
@@ -3546,7 +3619,7 @@ class ColDefs(object):
         elif name == '_arrays':
             attr = [col.array for col in self.data]
         elif name == '_recformats':
-            if self._tbtype == 'BinTableHDU':
+            if self._tbtype in ('BinTableHDU', 'CompImageHDU'):
                 attr = [_convert_format(fmt) for fmt in self.formats]
             elif self._tbtype == 'TableHDU':
                 self._Formats = self.formats
@@ -4397,7 +4470,7 @@ class _TableBaseHDU(_ExtensionHDU):
 
             # if the file is read the first time, no need to copy, and keep it unchanged
             else:
-                self.header = header
+                self._header = header
         else:
 
             # construct a list of cards of minimal header
@@ -4420,7 +4493,7 @@ class _TableBaseHDU(_ExtensionHDU):
                 hcopy._strip()
                 _list.extend(hcopy.ascardlist())
 
-            self.header = Header(_list)
+            self._header = Header(_list)
 
         if (data is not DELAYED):
             if isinstance(data,np.ndarray) and not data.dtype.fields == None:
@@ -4432,9 +4505,9 @@ class _TableBaseHDU(_ExtensionHDU):
                     d = data.view(rec.recarray)
                     self.data = FITS_rec(d)
             
-                self.header['NAXIS1'] = self.data.itemsize
-                self.header['NAXIS2'] = self.data.shape[0]
-                self.header['TFIELDS'] = self.data._nfields
+                self._header['NAXIS1'] = self.data.itemsize
+                self._header['NAXIS2'] = self.data.shape[0]
+                self._header['TFIELDS'] = self.data._nfields
 
                 if self.data._coldefs == None:
                     #
@@ -4475,8 +4548,8 @@ class _TableBaseHDU(_ExtensionHDU):
                 raise TypeError, "table data has incorrect type"
 
         #  set extension name
-        if not name and self.header.has_key('EXTNAME'):
-            name = self.header['EXTNAME']
+        if not name and self._header.has_key('EXTNAME'):
+            name = self._header['EXTNAME']
         self.name = name
 
     def __getattr__(self, attr):
@@ -4499,9 +4572,11 @@ class _TableBaseHDU(_ExtensionHDU):
             self.__dict__[attr] = ColDefs(self, tbtype=class_name)
 
         elif attr == '_theap':
-            self.__dict__[attr] = self.header.get('THEAP', self.header['NAXIS1']*self.header['NAXIS2'])
+            self.__dict__[attr] = self._header.get('THEAP', self._header['NAXIS1']*self._header['NAXIS2'])
         elif attr == '_pcount':
-            self.__dict__[attr] = self.header.get('PCOUNT', 0)
+            self.__dict__[attr] = self._header.get('PCOUNT', 0)
+        else:
+            return _AllHDU.__getattr__(self,attr)
 
         try:
             return self.__dict__[attr]
@@ -4528,16 +4603,16 @@ class _TableBaseHDU(_ExtensionHDU):
         # if data is not touched yet, use header info.
         else:
             _shape = ()
-            _nrows = self.header['NAXIS2']
-            _ncols = self.header['TFIELDS']
+            _nrows = self._header['NAXIS2']
+            _ncols = self._header['TFIELDS']
             _format = '['
             for j in range(_ncols):
-                _format += self.header['TFORM'+`j+1`] + ', '
+                _format += self._header['TFORM'+`j+1`] + ', '
             _format = _format[:-2] + ']'
         _dims = "%dR x %dC" % (_nrows, _ncols)
 
         return "%-10s  %-11s  %5d  %-12s  %s" % \
-            (self.name, type, len(self.header.ascard), _dims, _format)
+            (self.name, type, len(self._header.ascard), _dims, _format)
 
     def get_coldefs(self):
         """Returns the table's column definitions."""
@@ -4545,8 +4620,8 @@ class _TableBaseHDU(_ExtensionHDU):
 
     def update(self):
         """ Update header keywords to reflect recent changes of columns."""
-        _update = self.header.update
-        _append = self.header.ascard.append
+        _update = self._header.update
+        _append = self._header.ascard.append
         _cols = self.columns
         _update('naxis1', self.data.itemsize, after='naxis')
         _update('naxis2', self.data.shape[0], after='naxis1')
@@ -4555,15 +4630,15 @@ class _TableBaseHDU(_ExtensionHDU):
         # Wipe out the old table definition keywords.  Mark them first,
         # then delete from the end so as not to confuse the indexing.
         _list = []
-        for i in range(len(self.header.ascard)-1,-1,-1):
-            _card = self.header.ascard[i]
+        for i in range(len(self._header.ascard)-1,-1,-1):
+            _card = self._header.ascard[i]
             _key = _tdef_re.match(_card.key)
             try: keyword = _key.group('label')
             except: continue                # skip if there is no match
             if (keyword in _keyNames):
                 _list.append(i)
         for i in _list:
-            del self.header.ascard[i]
+            del self._header.ascard[i]
         del _list
 
         # populate the new table definition keywords
@@ -4590,7 +4665,7 @@ class _TableBaseHDU(_ExtensionHDU):
         # touch the data, so it's defined (in the case of reading from a
         # FITS file)
         self.data
-        return new_table(self.columns, header=self.header, tbtype=self.columns._tbtype)
+        return new_table(self.columns, header=self._header, tbtype=self.columns._tbtype)
 
     def _verify(self, option='warn'):
         """_TableBaseHDU verify method."""
@@ -4598,7 +4673,7 @@ class _TableBaseHDU(_ExtensionHDU):
         self.req_cards('NAXIS', None, 'val == 2', 2, option, _err)
         self.req_cards('BITPIX', None, 'val == 8', 8, option, _err)
         self.req_cards('TFIELDS', '== 7', _isInt+" and val >= 0 and val <= 999", 0, option, _err)
-        tfields = self.header['TFIELDS']
+        tfields = self._header['TFIELDS']
         for i in range(tfields):
             self.req_cards('TFORM'+`i+1`, None, None, None, option, _err)
         return _err
@@ -4617,15 +4692,15 @@ class TableHDU(_TableBaseHDU):
 
         self._xtn = 'TABLE'
         _TableBaseHDU.__init__(self, data=data, header=header, name=name)
-        if self.header[0].rstrip() != self._xtn:
-            self.header[0] = self._xtn
-            self.header.ascard[0].comment = 'ASCII table extension'
+        if self._header[0].rstrip() != self._xtn:
+            self._header[0] = self._xtn
+            self._header.ascard[0].comment = 'ASCII table extension'
     '''
     def format(self):
         strfmt, strlen = '', 0
-        for j in range(self.header['TFIELDS']):
-            bcol = self.header['TBCOL'+`j+1`]
-            valu = self.header['TFORM'+`j+1`]
+        for j in range(self._header['TFIELDS']):
+            bcol = self._header['TBCOL'+`j+1`]
+            valu = self._header['TFORM'+`j+1`]
             fmt  = self.__format_RE.match(valu)
             if fmt:
                 code, width, prec = fmt.group('code', 'width', 'prec')
@@ -4644,7 +4719,7 @@ class TableHDU(_TableBaseHDU):
         """TableHDU verify method."""
         _err = _TableBaseHDU._verify(self, option=option)
         self.req_cards('PCOUNT', None, 'val == 0', 0, option, _err)
-        tfields = self.header['TFIELDS']
+        tfields = self._header['TFIELDS']
         for i in range(tfields):
             self.req_cards('TBCOL'+`i+1`, None, _isInt, None, option, _err)
         return _err
@@ -4662,13 +4737,921 @@ class BinTableHDU(_TableBaseHDU):
 
         self._xtn = 'BINTABLE'
         _TableBaseHDU.__init__(self, data=data, header=header, name=name)
-        hdr = self.header
+        hdr = self._header
         if hdr[0] != self._xtn:
             hdr[0] = self._xtn
             hdr.ascard[0].comment = 'binary table extension'
 
-        self.header._hdutype = BinTableHDU
+        self._header._hdutype = BinTableHDU
 
+if compressionSupported:
+    # If compression object library imports properly then define the
+    # CompImageHDU class.
+
+    class CompImageHDU(BinTableHDU):
+        """Compressed Image HDU class."""
+   
+        def __init__(self, data=None, header=None, name=None,
+                     compressionType='RICE_1',
+                     tileSize=None,
+                     noiseBits=4,
+                     hcompScale=1,
+                     hcompSmooth=0):
+            """data:            data of the image
+               header:          header to be associated with the image
+               name:            the EXTNAME value; if this value is None, then
+                                 the name from the input image header will be
+                                 used; if there is no name in the input image
+                                 header then the default name 'COMPRESSED_IMAGE'
+                                 is used
+               compressionType: compression algorithm 'RICE_1', 'PLIO_1', 
+                                 'GZIP_1', 'HCOMPRESS_1'
+               tileSize:        compression tile sizes default treats each row
+                                 of image as a tile
+               noiseBits:       number of noise bits for floating point
+                                 quantization
+               hcompScale:      HCOMPRESS scale parameter
+               hcompSmooth:     HCOMPRESS smooth parameter
+            """
+   
+            self._file, self._datLoc = None, None
+
+            if data is DELAYED:
+                # Reading the HDU from a file
+                BinTableHDU.__init__(self, data=data, header=header)
+            else:
+                # Create at least a skeleton HDU that matches the input
+                # header and data (if any were input)
+                BinTableHDU.__init__(self, data=None, header=header)
+
+                # Store the input image data
+                self.data = data
+                 
+                # Update the table header (_header) to the compressed
+                # image format and to match the input data (if any);
+                # Create the image header (_imageHeader) from the input
+                # image header (if any) and ensure it matches the input
+                # data; Create the initially empty table data array to 
+                # hold the compressed data.
+                self.updateHeaderData(header, name, compressionType,
+                                                  tileSize, noiseBits,
+                                                  hcompScale, hcompSmooth)
+
+            # store any scale factors from the table header
+            self._bzero = self._header.get('BZERO', 0)
+            self._bscale = self._header.get('BSCALE', 1)
+
+            # Maintain a reference to the table header in the image header.
+            # This reference will be used to update the table header whenever
+            # a card in the image header is updated.
+            self.header._tableHeader = self._header
+   
+        def updateHeaderData(self, imageHeader, 
+                             name=None,
+                             compressionType='RICE_1',
+                             tileSize=None,
+                             noiseBits=4,
+                             hcompScale=1,
+                             hcompSmooth=0):
+            """
+            Update the table header (_header) to the compressed image format
+            and to match the input data (if any).  Create the image header 
+            (_imageHeader) from the input image header (if any) and ensure
+            it matches the input data. Create the initially empty table data
+            array to hold the compressed data.
+
+            This method is mainly called internally, but a user may wish to 
+            call this method after assigning new data to the CompImageHDU
+            object that is of a different type.
+
+            imageHeader:     header to be associated with the image
+            name:            the EXTNAME value; if this value is None, then
+                              the name from the input image header will be
+                              used; if there is no name in the input image
+                              header then the default name 'COMPRESSED_IMAGE'
+                              is used
+            compressionType: compression algorithm 'RICE_1', 'PLIO_1', 
+                              'GZIP_1', 'HCOMPRESS_1'
+            tileSize:        compression tile sizes default treats each row
+                              of image as a tile
+            noiseBits:       number of noise bits for floating point
+                              quantization
+            hcompScale:      HCOMPRESS scale parameter
+            hcompSmooth:     HCOMPRESS smooth parameter
+            """
+
+            # Construct a _ImageBaseHDU object using the input header
+            # and data so that we can ensure that the input image header
+            # matches the input image data.  Store the header from this
+            # temporary HDU object as the image header for this object.
+
+            self._imageHeader = \
+              _ImageBaseHDU(data=self.data, header=imageHeader).header
+
+            # Update the extension name in the table header
+
+            if not name and not self._header.has_key('EXTNAME'):
+                name = 'COMPRESSED_IMAGE'
+
+            if name:
+                self._header.update('EXTNAME', name, 
+                                    'name of this binary table extension',
+                                    after='TFIELDS')
+                self.name = name
+            else:
+                self.name = self._header['EXTNAME']
+
+            # If the input image header had BSCALE/BZERO cards, then insert
+            # them in the table header.  Note that they will not be in the
+            # image header because the image data will be provided in scaled
+            # format.
+
+            if imageHeader:
+                bzero = imageHeader.get('BZERO', 0.0)
+                bscale = imageHeader.get('BSCALE', 1.0)
+
+                if bscale != 1.0 or bzero != 0.0:
+                    self._header.update('BSCALE',bscale,after='EXTNAME')
+                    self._header.update('BZERO',bzero,after='BSCALE')
+
+            # Set the label for the first column in the table
+
+            self._header.update('TTYPE1', 'COMPRESSED_DATA', 
+                                'label for field 1', after='TFIELDS')
+
+            # Set the data format for the first column.  It is dependent
+            # on the requested compression type.
+
+            if compressionType not in ['RICE_1','GZIP_1','PLIO_1',
+                                       'HCOMPRESS_1']:
+                warnings.warn('Warning: Unknown compression type provided.' + 
+                              '  Default RICE_1 compression used.')
+                compressionType = 'RICE_1'
+
+            if compressionType == 'PLIO_1':
+                tform1 = '1PI'
+            else:
+                tform1 = '1PB'
+
+            self._header.update('TFORM1', tform1, 
+                                'data format of field: variable length array',
+                                after='TTYPE1')
+
+            # Create the first column for the table.  This column holds the
+            # compressed data.
+            col1 = Column(name=self._header['TTYPE1'], format=tform1)
+
+            # Create the additional columns required for floating point
+            # data and calculate the width of the output table.
+
+            if self._imageHeader['BITPIX'] < 0:  
+                # floating point image has 'COMPRESSED_DATA', 
+                # 'UNCOMPRESSED_DATA', 'ZSCALE', and 'ZZERO' columns.
+                ncols = 4
+
+                # Set up the second column for the table that will hold
+                # any uncompressable data.
+                self._header.update('TTYPE2', 'UNCOMPRESSED_DATA', 
+                                    'label for field 2', after='TFORM1')
+
+                if self._imageHeader['BITPIX'] == -32:
+                    tform2 = '1PE'
+                else:
+                    tform2 = '1PD'
+
+                self._header.update('TFORM2', tform2,
+                                 'data format of field: variable length array',
+                                 after='TTYPE2')
+                col2 = Column(name=self._header['TTYPE2'],format=tform2)
+
+                # Set up the third column for the table that will hold
+                # the scale values for quantized data.
+                self._header.update('TTYPE3', 'ZSCALE', 
+                                    'label for field 3', after='TFORM2')
+                self._header.update('TFORM3', '1D',
+                                 'data format of field: 8-byte DOUBLE',
+                                 after='TTYPE3')
+                col3 = Column(name=self._header['TTYPE3'],
+                              format=self._header['TFORM3'])
+
+                # Set up the fourth column for the table that will hold 
+                # the zero values for the quantized data.
+                self._header.update('TTYPE4', 'ZZERO', 
+                                    'label for field 4', after='TFORM3')
+                self._header.update('TFORM4', '1D',
+                                 'data format of field: 8-byte DOUBLE',
+                                 after='TTYPE4')
+                after = 'TFORM4'
+                col4 = Column(name=self._header['TTYPE4'],
+                              format=self._header['TFORM4'])
+
+                # Create the ColDefs object for the table
+                cols = ColDefs([col1, col2, col3, col4])
+            else:
+                # default table has just one 'COMPRESSED_DATA' column
+                ncols = 1
+                after = 'TFORM1'
+
+                # Create the ColDefs object for the table
+                cols = ColDefs([col1])
+
+            # Update the table header with the width of the table, the
+            # number of fields in the table, the indicator for a compressed
+            # image HDU, the data type of the image data and the number of
+            # dimensions in the image data array.
+            self._header.update('NAXIS1', ncols*8, 'width of table in bytes')
+            self._header.update('TFIELDS', ncols, 
+                                'number of fields in each row')
+            self._header.update('ZIMAGE', True, 
+                                'extension contains compressed image',
+                                after = after)
+            self._header.update('ZBITPIX', self._imageHeader['BITPIX'],
+                                'data type of original image',
+                                after = 'ZIMAGE')
+            self._header.update('ZNAXIS', self._imageHeader['NAXIS'],
+                                'dimension of original image',
+                                after = 'ZBITPIX')
+
+            # Verify that any input tile size parameter is the appropriate
+            # size to match the HDU's data.
+
+            if not tileSize:
+                tileSize = []
+            elif len(tileSize) != self._imageHeader['NAXIS']:
+                warnings.warn('Warning: Provided tile size not appropriate ' +
+                              'for the data.  Default tile size will be used.')
+                tileSize = []
+
+            # Set default tile dimensions for HCOMPRESS_1 if no tile size was
+            # provided.
+
+            if not tileSize and compressionType == 'HCOMPRESS_1':
+
+                for i in range(0, min(2,self._imageHeader['NAXIS'])):
+                    if self._imageHeader['NAXIS'+`i+1`] <= 600:
+                        # use the full dimension of the image as the 
+                        # tile dimension
+              
+                        tileSize.append(self._imageHeader['NAXIS'+`i+1`])
+                    else:
+                        # find an even tile size in the range 200 - 600
+
+                        minspace = self._imageHeader['NAXIS'+`i+1`]
+                        tempsize = self._imageHeader['NAXIS'+`i+1`]
+
+                        for jj in range(600,199,-2):
+                            remain = self._imageHeader['NAXIS'+`i+1`] % jj
+
+                            if not remain:
+                                # found an even multiple tile size
+                                tempsize = jj
+                                break
+                            else:
+                                leftspace = jj - remain
+
+                                if leftspace < minspace:
+                                    # save the best case found so far
+                                    minspace = leftspace
+                                    tempsize = jj
+
+                        tileSize.append(tempsize) 
+
+            # Set up locations for writing the next cards in the header.
+            after = 'ZNAXIS'
+
+            if self._imageHeader['NAXIS'] > 0:
+                after1 = 'ZNAXIS1'
+            else:
+                after1 = 'ZNAXIS'
+
+            # Calculate the number of rows in the output table and
+            # write the ZNAXISn and ZTILEn cards to the table header.
+            nrows = 1
+
+            for i in range(0, self._imageHeader['NAXIS']):
+                if tileSize:
+                    ts = tileSize[i]
+                else:
+                    # Default tile size
+                    if not i:
+                        ts = self._imageHeader['NAXIS1']
+                    else:
+                        ts = 1
+
+                naxisn = self._imageHeader['NAXIS'+`i+1`]
+                nrows = nrows * ((naxisn - 1) / ts + 1)
+
+                self._header.update('ZNAXIS'+`i+1`, naxisn,
+                                    'length of original image axis',
+                                    after=after)
+                self._header.update('ZTILE'+`i+1`, ts,
+                                    'size of tiles to be compressed',
+                                    after=after1)
+                after = 'ZNAXIS'+`i+1`
+                after1 = 'ZTILE'+`i+1`
+
+            # Set the NAXIS2 header card in the table hdu to the number of
+            # rows in the table.
+            self._header.update('NAXIS2', nrows, 'number of rows in table')
+
+            # Create the record array to be used for the table data.
+            self.columns = cols
+            self.compData = FITS_rec(rec.array(None, 
+                                             formats=",".join(cols._recformats),
+                                             names=cols.names, shape=nrows))
+            self.compData._coldefs = self.columns
+            self.compData.formats = self.columns.formats
+
+            # Set up and initialize the variable length columns.  There will
+            # either be one (COMPRESSED_DATA) or two (COMPRESSED_DATA, 
+            # UNCOMPRESSED_DATA) depending on whether we have floating point
+            # data or not.  Note: the ZSCALE and ZZERO columns are fixed  
+            # length columns.
+            for i in range(min(2,len(cols))):
+                self.columns._arrays[i] = rec.recarray.field(self.compData,i)
+                rec.recarray.field(self.compData,i)[0:] = 0
+                self.compData._convert[i] = _makep(self.columns._arrays[i],
+                                            rec.recarray.field(self.compData,i),
+                                            self.columns._recformats[i]._dtype)
+
+            # Set the compression type in the table header.
+            self._header.update('ZCMPTYPE', compressionType,
+                                'compression algorithm',
+                                after=after1)
+
+            # Set the compression parameters in the table header.
+            if compressionType == 'RICE_1':
+                self._header.update('ZNAME1', 'BLOCKSIZE',
+                                    'compression block size',
+                                    after='ZCMPTYPE')
+                self._header.update('ZVAL1', 32,
+                                    'pixels per block',
+                                    after='ZNAME1')
+
+                if self._imageHeader['BITPIX'] < 0:  # floating point image
+                    self._header.update('ZNAME2', 'NOISEBIT',
+                                        'floating point quantization level',
+                                        after='ZVAL1')
+                    self._header.update('ZVAL2', noiseBits,
+                                        'floating point quantization level',
+                                        after='ZNAME2')
+            elif compressionType == 'HCOMPRESS_1':
+                self._header.update('ZNAME1', 'SCALE',
+                                    'HCOMPRESS scale factor',
+                                    after='ZCMPTYPE')
+                self._header.update('ZVAL1', hcompScale,
+                                    'HCOMPRESS scale factor',
+                                    after='ZNAME1')
+                self._header.update('ZNAME2', 'SMOOTH',
+                                    'HCOMPRESS smooth option',
+                                    after='ZVAL1')
+                self._header.update('ZVAL2', hcompSmooth,
+                                    'HCOMPRESS smooth option',
+                                    after='ZNAME2')
+ 
+                if self._imageHeader['BITPIX'] < 0:  # floating point image
+                    self._header.update('ZNAME3', 'NOISEBIT',
+                                        'floating point quantization level',
+                                        after='ZVAL2')
+                    self._header.update('ZVAL3', noiseBits,
+                                        'floating point quantization level',
+                                        after='ZNAME3')
+            else:
+                if self._imageHeader['BITPIX'] < 0:  # floating point image
+                    self._header.update('ZNAME1', 'NOISEBIT',
+                                        'floating point quantization level',
+                                        after='ZCMPTYPE')
+                    self._header.update('ZVAL1', noiseBits,
+                                        'floating point quantization level',
+                                        after='ZNAME1')
+
+        def __getattr__(self, attr):
+            """ Get an HDU attribute. """
+            if attr == 'data':
+                # The data attribute is the image data (not the table data).
+
+                # First we will get the table data (the compressed
+                # data) from the file, if there is any.
+                self.compData = BinTableHDU.__getattr__(self, attr)
+
+                # Now that we have the compressed data, we need to uncompress
+                # it into the image data.
+                dataList = []
+                naxesList = []
+                tileSizeList = []
+                zvalList = []
+                uncompressedDataList = []
+   
+                # Set up an array holding the integer value that represents
+                # undefined pixels.  This could come from the ZBLANK column
+                # from the table, or from the ZBLANK header card (if no
+                # ZBLANK column (all null values are the same for each tile)),
+                # or from the BLANK header card.
+                if not 'ZBLANK' in self.compData.names:
+                    if self._header.has_key('ZBLANK'):
+                        nullDvals = np.array(self._header['ZBLANK'],
+                                             dtype='int32')
+                        cn_zblank = -1 # null value is a constant
+                    elif self._header.has_key('BLANK'):
+                        nullDvals = np.array(self._header['BLANK'],
+                                             dtype='int32')
+                        cn_zblank = -1 # null value is a constant
+                    else:
+                        cn_zblank = 0 # no null value given so don't check
+                        nullDvals = np.array(0,dtype='int32')
+                else:
+                    cn_zblank = 1  # null value supplied as a column
+   
+                    #if sys.byteorder == 'little':
+                    #    nullDvals = self.compData.field('ZBLANK').byteswap()
+                    #else:
+                    #    nullDvals = self.compData.field('ZBLANK')
+                    nullDvals = self.compData.field('ZBLANK')
+   
+                # Set up an array holding the linear scale factor values
+                # This could come from the ZSCALE column from the table, or 
+                # from the ZSCALE header card (if no ZSCALE column (all 
+                # linear scale factor values are the same for each tile)),
+                # or from the BSCALE header card.
+                if not 'ZSCALE' in self.compData.names:
+                    if self._header.has_key('ZSCALE'):
+                        zScaleVals = np.array(self._header['ZSCALE'],
+                                              dtype='float64')
+                        cn_zscale = -1 # scale value is a constant
+                    elif self._header.has_key('BSCALE'):
+                        zScaleVals = np.array(self._header['BSCALE'],
+                                              dtype='float64')
+                        cn_zscale = -1 # scale value is a constant
+                    else:
+                        cn_zscale = 0 # no scale factor given so don't scale
+                        zScaleVals = np.array(1.0,dtype='float64')
+                else:
+                    cn_zscale = 1 # scale value supplied as a column
+   
+                    #if sys.byteorder == 'little':
+                    #    zScaleVals = self.compData.field('ZSCALE').byteswap()
+                    #else:
+                    #    zScaleVals = self.compData.field('ZSCALE')
+                    zScaleVals = self.compData.field('ZSCALE')
+   
+                # Set up an array holding the zero point offset values
+                # This could come from the ZZERO column from the table, or 
+                # from the ZZERO header card (if no ZZERO column (all 
+                # zero point offset values are the same for each tile)),
+                # or from the BZERO header card.
+                if not 'ZZERO' in self.compData.names:
+                    if self._header.has_key('ZZERO'):
+                        zZeroVals = np.array(self._header['ZZERO'],
+                                             dtype='float64')
+                        cn_zzero = -1 # zero value is a constant
+                    elif self._header.has_key('BZERO'):
+                        zZeroVals = np.array(self._header['BZERO'],
+                                             dtype='float64')
+                        cn_zzero = -1 # zero value is a constant
+                    else:
+                        cn_zzero = 0 # no zero value given so don't scale
+                        zZeroVals = np.array(1.0,dtype='float64')
+                else:
+                    cn_zzero = 1 # zero value supplied as a column
+   
+                    #if sys.byteorder == 'little':
+                    #    zZeroVals = self.compData.field('ZZERO').byteswap()
+                    #else:
+                    #    zZeroVals = self.compData.field('ZZERO')
+                    zZeroVals = self.compData.field('ZZERO')
+   
+                # Is uncompressed data supplied in a column?
+                if not 'UNCOMPRESSED_DATA' in self.compData.names:
+                    cn_uncompressed = 0 # no uncompressed data supplied
+                else:
+                    cn_uncompressed = 1 # uncompressed data supplied as column
+   
+                # Take the compressed data out of the array and put it into 
+                # a list as character bytes to pass to the decompression 
+                # routine.
+                for i in range(0,len(self.compData)):
+                    dataList.append(
+                         self.compData[i].field('COMPRESSED_DATA').tostring())
+   
+                    # If we have a column with uncompressed data then create
+                    # a list of lists of the data in the coulum.  Each 
+                    # underlying list contains the uncompressed data for a
+                    # pixel in the tile.  There are one of these lists for
+                    # each tile in the image.
+                    if 'UNCOMPRESSED_DATA' in self.compData.names:
+                        tileUncDataList = []
+   
+                        for j in range(0,
+                             len(self.compData.field('UNCOMPRESSED_DATA')[i])):
+                            tileUncDataList.append(
+                             self.compData.field('UNCOMPRESSED_DATA')[i][j])
+   
+                        uncompressedDataList.append(tileUncDataList)
+   
+                # Calculate the total number of elements (pixels) in the
+                # resulting image data array.  Create a list of the number
+                # of pixels along each axis in the image and a list of the
+                # number of pixels along each axis in the compressed tile.
+                nelem = 1
+
+                for i in range(0,self._header['ZNAXIS']):
+                    naxesList.append(self._header['ZNAXIS'+`i+1`])
+                    tileSizeList.append(self._header['ZTILE'+`i+1`])
+                    nelem = nelem * self._header['ZNAXIS'+`i+1`]
+   
+                # Create a list of image compression parameters.  
+                # The contents of this list is dependent on the compression
+                # type.
+                if self._header['ZCMPTYPE'] == 'RICE_1':
+                    if self._header['ZNAME1'] == 'BLOCKSIZE':
+                        zvalList.append(self._header['ZVAL1'])
+                    if cn_zscale > 0 and self._header['ZNAME2'] == 'NOISEBIT':
+                        zvalList.append(self._header['ZVAL2'])
+                elif self._header['ZCMPTYPE'] == 'HCOMPRESS_1':
+                    if self._header['ZNAME1'] == 'SCALE   ':
+                        zvalList.append(self._header['ZVAL1'])
+                    if self._header['ZNAME2'] == 'SMOOTH  ':
+                        zvalList.append(self._header['ZVAL2'])
+                    if cn_zscale > 0 and self._header['ZNAME3'] == 'NOISEBIT':
+                        zvalList.append(self._header['ZVAL2'])
+                elif cn_zscale > 0 and self._header['ZNAME1'] == 'NOISEBIT':
+                    zvalList.append(self._header['ZVAL1'])
+   
+                # Call the C decompression routine to decompress the data.
+                # Note that any errors in this routine will raise an 
+                # exception.
+                status, decompDataList = pyfitsComp.decompressData(dataList, 
+                                                 self._header['ZNAXIS'],
+                                                 naxesList, tileSizeList,
+                                                 zScaleVals, cn_zscale,
+                                                 zZeroVals, cn_zzero,
+                                                 nullDvals, cn_zblank,
+                                                 uncompressedDataList,
+                                                 cn_uncompressed,
+                                                 zvalList,
+                                                 self._header['ZCMPTYPE'],
+                                                 self.header['BITPIX'], 1,
+                                                 nelem, 0.0)
+                   
+                # Convert the decompressed data list into an array.  Assign
+                # this to the 'data' class attribute.
+                data = np.array(decompDataList,
+                             dtype=_ImageBaseHDU.NumCode[self.header['BITPIX']])
+                naxesList.reverse()
+                data.shape= tuple(naxesList)
+                self.__dict__[attr] = data
+   
+            elif attr == 'compData':
+                # In order to create the compressed data we will reference the
+                # image data.  Referencing the image data will cause the 
+                # compressed data to be read from the file.
+                data = self.data
+            elif attr == 'header':
+                # The header attribute is the header for the image data.  It
+                # is not actually stored in the object dictionary.  Instead,
+                # the _imageHeader is stored.  If the _imageHeader attribute
+                # has already been defined we just return it.  If not, we nust
+                # create it from the table header (the _header attribute).
+                if not hasattr(self, '_imageHeader'):
+                    # Start with a copy of the table header.
+                    self._imageHeader = self._header.copy()
+                    cardList = self._imageHeader.ascardlist()
+   
+                    try:
+                        # Set the extension type to IMAGE
+                        cardList['XTENSION'].value = 'IMAGE'
+                        cardList['XTENSION'].comment = 'extension type'
+                    except KeyError:
+                        pass
+   
+                    # Delete cards that are related to the table.  And move
+                    # the values of those cards that relate to the image from
+                    # their corresponding table cards.  These include 
+                    # ZBITPIX -> BITPIX, ZNAXIS -> NAXIS, and ZNAXISn -> NAXISn.
+                    try:
+                        del cardList['ZIMAGE']
+                    except KeyError:
+                        pass
+   
+                    try:
+                        del cardList['ZCMPTYPE']
+                    except KeyError:
+                        pass
+   
+                    try:
+                        del cardList['ZBITPIX']
+                        _bitpix = self._header['ZBITPIX']
+                        cardList['BITPIX'].value = self._header['ZBITPIX']
+    
+                        if (self._bzero != 0 or self._bscale != 1):
+                            if _bitpix > 16:  # scale integers to Float64
+                                cardList['BITPIX'].value = -64
+                            elif _bitpix > 0:  # scale integers to Float32
+                                cardList['BITPIX'].value = -32
+   
+                        cardList['BITPIX'].comment = 'array data type'
+                    except KeyError:
+                        pass
+   
+                    try:
+                        del cardList['ZNAXIS']
+                        cardList['NAXIS'].value = self._header['ZNAXIS']
+                        cardList['NAXIS'].comment = 'number of array dimensions'
+   
+                        for i in range(cardList['NAXIS'].value):
+                            del cardList['ZNAXIS'+`i+1`]
+                            self._imageHeader.update('NAXIS'+`i+1`,
+                                                   self._header['ZNAXIS'+`i+1`],
+                                                   'length of data axis', 
+                                                   after='NAXIS'+`i`)
+                    except KeyError:
+                        pass
+   
+                    try:
+                        for i in range(self._header['ZNAXIS']):
+                            del cardList['ZTILE'+`i+1`]
+     
+                    except KeyError:
+                        pass
+   
+                    try:
+                        cardList['PCOUNT'].value = 0
+                        cardList['PCOUNT'].comment = 'number of parameters'
+                    except KeyError:
+                        pass
+   
+                    try:
+                        del cardList['TFIELDS']
+    
+                        for i in range(self._header['TFIELDS']):
+                            del cardList['TFORM'+`i+1`]
+   
+                            if self._imageHeader.has_key('TTYPE'+`i+1`):
+                                del cardList['TTYPE'+`i+1`]
+   
+                    except KeyError:
+                        pass
+   
+                    i = 1
+   
+                    while 1:
+                        try:
+                            del cardList['ZNAME'+`i`]
+                            del cardList['ZVAL'+`i`]
+                            i = i + 1
+                        except KeyError:
+                            break
+   
+                    # delete the keywords BSCALE and BZERO
+   
+                    try:
+                        del cardList['BSCALE']
+                    except KeyError:
+                        pass
+   
+                    try:
+                        del cardList['BZERO']
+                    except KeyError:
+                        pass
+   
+                try:
+                    return self._imageHeader
+                except KeyError:
+                    raise AttributeError(attr)
+            else:
+                # Call the base class __getattr__ method.
+                return BinTableHDU.__getattr__(self,attr)
+   
+            try:
+                return self.__dict__[attr]
+            except KeyError:
+                raise AttributeError(attr)
+   
+        def __setattr__(self, attr, value):
+            """Set an HDU attribute."""
+
+            if attr == 'data':
+                if (value != None) and (not isinstance(value,np.ndarray) or 
+                                        value.dtype.fields != None):
+                    raise TypeError, "CompImageHDU data has incorrect type"
+
+            _ExtensionHDU.__setattr__(self,attr,value)
+
+        def _summary(self):
+            """Summarize the HDU: name, dimensions, and formats."""
+            class_name  = str(self.__class__)
+            type  = class_name[class_name.rfind('.')+1:-2]
+   
+            # if data is touched, use data info.
+
+            if 'data' in dir(self):
+                if self.data is None:
+                    _shape, _format = (), ''
+                else:
+   
+                    # the shape will be in the order of NAXIS's which is the
+                    # reverse of the numarray shape
+                    _shape = list(self.data.shape)
+                    _format = self.data.dtype.name
+                    _shape.reverse()
+                    _shape = tuple(_shape)
+                    _format = _format[_format.rfind('.')+1:]
+   
+            # if data is not touched yet, use header info.
+            else:
+                _shape = ()
+
+                for j in range(self.header['NAXIS']):
+                    _shape += (self.header['NAXIS'+`j+1`],)
+
+                _format = _ImageBaseHDU.NumCode[self.header['BITPIX']]
+   
+            return "%-10s  %-12s  %4d  %-12s  %s" % \
+               (self.name, type, len(self.header.ascard), _shape, _format)
+   
+        def updateCompressedData(self):
+            """ Compress the image data so that it may be written to a file. """
+            naxesList = []
+            tileSizeList = []
+            zvalList = []
+   
+            # Check to see that the imageHeader matches the image data
+            if self.header.get('NAXIS',0) != len(self.data.shape) or \
+               self.header.get('BITPIX',0) != \
+               _ImageBaseHDU.ImgCode[self.data.dtype.name]:
+                self.updateHeaderData(self.header)
+
+            # Create lists to hold the number of pixels along each axis of
+            # the image data and the number of pixels in each tile of the
+            # compressed image.
+            for i in range(0,self._header['ZNAXIS']):
+                naxesList.append(self._header['ZNAXIS'+`i+1`])
+                tileSizeList.append(self._header['ZTILE'+`i+1`])
+   
+            # Indicate if the linear scale factor is from a column, a single
+            # scale value, or not given.
+            if 'ZSCALE' in self.compData.names:
+                cn_zscale = 1 # there is a scaled column
+            elif self._header.has_key('ZSCALE'):
+                cn_zscale = -1 # scale value is a constant
+            else:
+                cn_zscale = 0 # no scale value given so don't scale
+   
+            # Indicate if the zero point offset value is from a column, a
+            # single value, or not given.
+            if 'ZZERO' in self.compData.names:
+                cn_zzero = 1 # there is a scaled column
+            elif self._header.has_key('ZZERO'):
+                cn_zzero = -1 # zero value is a constant
+            else:
+                cn_zzero = 0 # no zero value given so don't scale
+   
+            # Indicate if there is a UNCOMPRESSED_DATA column in the 
+            # compressed data table.
+            if 'UNCOMPRESSED_DATA' in self.compData.names:
+                cn_uncompressed = 1 # there is a uncompressed data column
+            else:
+                cn_uncompressed = 0 # there is no uncompressed data column
+   
+            # Create a list for the compression parameters.  The contents
+            # of the list is dependent on the compression type.
+            if self._header['ZCMPTYPE'] == 'RICE_1':
+                if self._header['ZNAME1'] == 'BLOCKSIZE':
+                    zvalList.append(self._header['ZVAL1'])
+                if cn_zscale > 0 and self._header['ZNAME2'] == 'NOISEBIT':
+                    zvalList.append(self._header['ZVAL2'])
+            elif self._header['ZCMPTYPE'] == 'HCOMPRESS_1':
+                if self._header['ZNAME1'] == 'SCALE   ':
+                    zvalList.append(self._header['ZVAL1'])
+                if self._header['ZNAME2'] == 'SMOOTH  ':
+                    zvalList.append(self._header['ZVAL2'])
+                if cn_zscale > 0 and self._header['ZNAME3'] == 'NOISEBIT':
+                    zvalList.append(self._header['ZVAL3'])
+            else:
+                if cn_zscale > 0 and self._header['ZNAME1'] == 'NOISEBIT':
+                    zvalList.append(self._header['ZVAL1'])
+               
+            # Indicate if the null value is a constant or if no null value
+            # is provided.
+            if self._header.has_key('ZBLANK'):
+                cn_zblank = -1 # null value is a constant
+                zblank = self._header['ZBLANK']
+            else:
+                cn_zblank = 0 # no null value so don't use
+                zblank = 0
+   
+            if self._header.has_key('BSCALE') and self.data.dtype.str[1] == 'f':
+                # If this is scaled data (ie it has a BSCALE value and it is
+                # floating point data) then pass in the BSCALE value so the C
+                # code can unscale it before compressing.
+                cn_bscale = self._header['BSCALE']
+            else:
+                cn_bscale = 1.0
+   
+            if self._header.has_key('BZERO') and self.data.dtype.str[1] == 'f':
+                cn_bzero = self._header['BZERO']
+            else:
+                cn_bzero = 0.0
+   
+            # put data in machine native byteorder on little endian machines
+
+            byteswapped = False
+
+            if self.data.dtype.str[0] == '>' and sys.byteorder == 'little':
+                byteswapped = True
+                self.data = self.data.byteswap(True)
+                self.data.dtype = self.data.dtype.newbyteorder('<')
+         
+            try:
+                # Compress the data.
+                status, compDataList, scaleList, zeroList, uncompDataList =  \
+                   pyfitsComp.compressData(self.data,  
+                                           self._header['ZNAXIS'],
+                                           naxesList, tileSizeList,
+                                           cn_zblank, zblank, 
+                                           cn_bscale, cn_bzero, cn_zscale,
+                                           cn_zzero, cn_uncompressed, zvalList,
+                                           self._header['ZCMPTYPE'],
+                                           self.header['BITPIX'], 1,
+                                           self.data.size)
+            finally:
+                # if data was byteswapped return it to its original order
+
+                if byteswapped:
+                    self.data = self.data.byteswap(True)
+                    self.data.dtype = self.data.dtype.newbyteorder('>')
+   
+            if status != 0:
+                raise RuntimeError, 'Unable to write compressed image'
+   
+            # Convert the compressed data from a list of byte strings to 
+            # an array and set it in the COMPRESSED_DATA filed of the table.
+            colDType = 'uint8'
+   
+            if self._header['ZCMPTYPE'] == 'PLIO_1':
+                colDType = 'i2'
+   
+            for i in range(0,len(compDataList)):
+                self.compData[i].setfield('COMPRESSED_DATA',np.fromstring(
+                                                            compDataList[i],
+                                                            dtype=colDType))
+   
+            # Convert the linear scale factor values from a list to an 
+            # array and set it in the ZSCALE field of the table.
+            if cn_zscale > 0:
+                for i in range (0,len(scaleList)):
+                    self.compData[i].setfield('ZSCALE',scaleList[i])
+   
+            # Convert the zero point offset values from a list to an
+            # array and set it in the ZZERO field of the table.
+            if cn_zzero > 0:
+                for i in range (0,len(zeroList)):
+                    self.compData[i].setfield('ZZERO',zeroList[i])
+   
+            # Convert the uncompressed data values from a list to an
+            # array and set it in the UNCOMPRESSED_DATA field of the table.
+            if cn_uncompressed > 0:
+                for i in range(0,len(uncompDataList)):
+                    self.compData[i].setfield('UNCOMPRESSED_DATA',
+                                              uncompDataList[i])
+   
+            # Update the table header cards to match the compressed data.
+            self.updateHeader()
+   
+        def updateHeader(self):
+            """Update the table header cards to match the compressed data."""
+   
+            # Get the _heapsize attribute to match the data.
+            self.compData._scale_back()
+   
+            # Check that TFIELDS and NAXIS2 match the data.
+            self._header['TFIELDS'] = self.compData._nfields
+            self._header['NAXIS2'] = self.compData.shape[0]
+   
+            # Calculate PCOUNT, for variable length tables.
+            _tbsize = self._header['NAXIS1']*self._header['NAXIS2']
+            _heapstart = self._header.get('THEAP', _tbsize)
+            self.compData._gap = _heapstart - _tbsize
+            _pcount = self.compData._heapsize + self.compData._gap
+
+            if _pcount > 0:
+                self._header['PCOUNT'] = _pcount
+   
+            # Update TFORM for variable length columns.
+            for i in range(self.compData._nfields):
+                if isinstance(self.compData._coldefs.formats[i], _FormatP):
+                    key = self._header['TFORM'+`i+1`]
+                    self._header['TFORM'+`i+1`] = key[:key.find('(')+1] + \
+                                              `hdu.compData.field(i)._max` + ')'
+else:
+    # Compression object library failed to import so define it as an
+    # empty BinTableHDU class.  This way the code will run when the object
+    # library is not present.
+
+    class CompImageHDU(BinTableHDU):
+        pass
+   
+   
 class StreamingHDU:
     """
     A class that provides the capability to stream data to a FITS file
@@ -4723,7 +5706,7 @@ class StreamingHDU:
         if isinstance(name, gzip.GzipFile):
             raise TypeError, 'StreamingHDU not supported for GzipFile objects'
 
-        self.header = header.copy()
+        self._header = header.copy()
 
         # handle a file object instead of a file name
 
@@ -4748,32 +5731,32 @@ class StreamingHDU:
             newFile = True
 
         if newFile:
-            if not self.header.has_key('SIMPLE'):
+            if not self._header.has_key('SIMPLE'):
                 hdulist = HDUList([PrimaryHDU()])
                 hdulist.writeto(name, 'exception')
         else:
-            if self.header.has_key('SIMPLE'):
+            if self._header.has_key('SIMPLE'):
 #
 #               This will not be the first extension in the file so we
 #               must change the Primary header provided into an image 
 #               extension header.
 #
-                self.header.update('XTENSION','IMAGE','Image extension',
+                self._header.update('XTENSION','IMAGE','Image extension',
                                    after='SIMPLE')
-                del self.header['SIMPLE']
+                del self._header['SIMPLE']
 
-                if not self.header.has_key('PCOUNT'):
-                    dim = self.header['NAXIS']
+                if not self._header.has_key('PCOUNT'):
+                    dim = self._header['NAXIS']
 
                     if dim == 0:
                         dim = ''
                     else:
                         dim = str(dim)
 
-                    self.header.update('PCOUNT', 0, 'number of parameters',                                            after='NAXIS'+dim)
+                    self._header.update('PCOUNT', 0, 'number of parameters',                                            after='NAXIS'+dim)
 
-                if not self.header.has_key('GCOUNT'):
-                    self.header.update('GCOUNT', 1, 'number of groups',                                                after='PCOUNT')
+                if not self._header.has_key('GCOUNT'):
+                    self._header.update('GCOUNT', 1, 'number of groups',                                                after='PCOUNT')
 
         self._ffo = _File(name, 'append')
         self._ffo.getfile().seek(0,2)
@@ -4822,7 +5805,7 @@ class StreamingHDU:
             raise IOError, \
             "Attempt to write more data to the stream than the header specified"
 
-        if _ImageBaseHDU.NumCode[self.header['BITPIX']] != data.dtype.name:
+        if _ImageBaseHDU.NumCode[self._header['BITPIX']] != data.dtype.name:
             raise TypeError, \
             "Supplied data does not match the type specified in the header."
 
@@ -4861,11 +5844,11 @@ class StreamingHDU:
         """
 
         size = 0
-        naxis = self.header.get('NAXIS', 0)
+        naxis = self._header.get('NAXIS', 0)
 
         if naxis > 0:
-            simple = self.header.get('SIMPLE','F')
-            randomGroups = self.header.get('GROUPS','F')
+            simple = self._header.get('SIMPLE','F')
+            randomGroups = self._header.get('GROUPS','F')
 
             if simple == 'T' and randomGroups == 'T':
                 groups = 1
@@ -4875,10 +5858,10 @@ class StreamingHDU:
             size = 1
 
             for j in range(groups,naxis):
-                size = size * self.header['NAXIS'+`j+1`]
-            bitpix = self.header['BITPIX']
-            gcount = self.header.get('GCOUNT', 1)
-            pcount = self.header.get('PCOUNT', 0)
+                size = size * self._header['NAXIS'+`j+1`]
+            bitpix = self._header['BITPIX']
+            gcount = self._header.get('GCOUNT', 1)
+            pcount = self._header.get('PCOUNT', 0)
             size = abs(bitpix) * gcount * (pcount + size) / 8
         return size
 
@@ -5106,6 +6089,8 @@ class _File:
 
         if isinstance(hdu, _ImageBaseHDU):
             hdu.update_header()
+        elif isinstance(hdu, CompImageHDU):
+            hdu.updateCompressedData() 
         return (self.writeHDUheader(hdu),) + self.writeHDUdata(hdu)
 
     def writeHDUheader(self, hdu):
@@ -5115,11 +6100,11 @@ class _File:
 
         if 'data' in dir(hdu) and hdu.data is not None \
         and hdu.data.dtype == np.uint16:
-            hdu.header.update('BSCALE',1,
-                              after='NAXIS'+`hdu.header.get('NAXIS')`)  
-            hdu.header.update('BZERO',32768,after='BSCALE')  
+            hdu._header.update('BSCALE',1,
+                              after='NAXIS'+`hdu.header.get('NAXIS')`)
+            hdu._header.update('BZERO',32768,after='BSCALE')
 
-        blocks = repr(hdu.header.ascard) + _pad('END')
+        blocks = repr(hdu._header.ascard) + _pad('END')
         blocks = blocks + _padLength(len(blocks))*' '
 
         if len(blocks)%_blockLen != 0:
@@ -5135,8 +6120,8 @@ class _File:
 
         if 'data' in dir(hdu) and hdu.data is not None \
         and hdu.data.dtype == np.uint16:
-            del hdu.header['BSCALE']
-            del hdu.header['BZERO']
+            del hdu._header['BSCALE']
+            del hdu._header['BZERO']
 
         return loc
 
@@ -5170,8 +6155,13 @@ class _File:
 
             # Binary table byteswap
             elif isinstance(hdu, BinTableHDU):
-                for i in range(hdu.data._nfields):
-                    coldata = hdu.data.field(i)
+                if isinstance(hdu, CompImageHDU):
+                    output = hdu.compData
+                else:
+                    output = hdu.data
+
+                for i in range(output._nfields):
+                    coldata = output.field(i)
                     
                     if not isinstance(coldata, chararray.chararray):
                             # only swap unswapped
@@ -5188,17 +6178,16 @@ class _File:
                                             j[:] = j.byteswap()
                                             j.dtype = j.dtype.newbyteorder('>')
 
-                                if rec.recarray.field(hdu.data,i)[k:k+1].dtype.str[0] != '>':
-                                    rec.recarray.field(hdu.data,i)[k:k+1].byteswap(True)
+                                if rec.recarray.field(output,i)[k:k+1].dtype.str[0] != '>':
+                                    rec.recarray.field(output,i)[k:k+1].byteswap(True)
                                 k = k + 1
                         else:
                             if coldata.itemsize > 1:
-                                if hdu.data.field(i).dtype.str[0] != '>':
-                                    hdu.data.field(i)[:] = hdu.data.field(i).byteswap() 
+                                if output.field(i).dtype.str[0] != '>':
+                                    output.field(i)[:] = output.field(i).byteswap() 
 
                 # In case the FITS_rec was created in a LittleEndian machine
-                hdu.data.dtype = hdu.data.dtype.newbyteorder('>')
-                output = hdu.data
+                output.dtype = output.dtype.newbyteorder('>')
             else:
                 output = hdu.data
 
@@ -5217,17 +6206,17 @@ class _File:
             # this has to be done after the "regular" data is written (above)
             _where = self.__file.tell()
             if isinstance(hdu, BinTableHDU):
-                self.__file.write(hdu.data._gap*'\0')
+                self.__file.write(output._gap*'\0')
 
-                for i in range(hdu.data._nfields):
-                    if isinstance(hdu.data._coldefs._recformats[i], _FormatP):
-                        for j in range(len(hdu.data.field(i))):
-                            coldata = hdu.data.field(i)[j]
+                for i in range(output._nfields):
+                    if isinstance(output._coldefs._recformats[i], _FormatP):
+                        for j in range(len(output.field(i))):
+                            coldata = output.field(i)[j]
                             if len(coldata) > 0:
                                 coldata.tofile(self.__file)
 
                 _shift = self.__file.tell() - _where
-                hdu.data._heapsize = _shift - hdu.data._gap
+                output._heapsize = _shift - output._gap
                 _size = _size + _shift
 
             # pad the FITS data block
@@ -5438,7 +6427,7 @@ class HDUList(list, _Verify):
         """Update all table HDU's for scaled fields."""
 
         for hdu in self:
-            if 'data' in dir(hdu):
+            if 'data' in dir(hdu) and not isinstance(hdu, CompImageHDU):
                 if isinstance(hdu, (GroupsHDU, _TableBaseHDU)) and hdu.data is not None:
                     hdu.data._scale_back()
                 if isinstance(hdu, _TableBaseHDU) and hdu.data is not None:
