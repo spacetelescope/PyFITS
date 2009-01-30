@@ -2092,6 +2092,14 @@ class _AllHDU(object):
         except KeyError:
             raise AttributeError(attr)
 
+    def __setattr__(self, attr, value):
+        """Set an HDU attribute."""
+
+        if attr == 'header':
+            self._header = value
+        else:
+            object.__setattr__(self,attr,value)
+
 class _CorruptedHDU(_AllHDU):
     """A Corrupted HDU class."""
 
