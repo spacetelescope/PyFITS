@@ -52,6 +52,7 @@ import signal
 import threading
 import sys
 import warnings
+import weakref
 try:
     import pyfitsComp
     compressionSupported = 1
@@ -240,7 +241,7 @@ class Undefined:
 class Delayed:
     """Delayed file-reading data."""
     def __init__(self, hdu=None, field=None):
-        self.hdu = hdu
+        self.hdu = weakref.ref(hdu)
         self.field = field
 
 # translation table for floating value string
@@ -3879,10 +3880,10 @@ def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
     for i in range(len(tmp)):
         _arr = tmp._arrays[i]
         if isinstance(_arr, Delayed):
-            if _arr.hdu.data == None:
+            if _arr.hdu().data == None:
                 tmp._arrays[i] = None
             else:
-                tmp._arrays[i] = rec.recarray.field(_arr.hdu.data,_arr.field)
+                tmp._arrays[i] = rec.recarray.field(_arr.hdu().data,_arr.field)
 
     # use the largest column shape as the shape of the record
     if nrows == 0:
