@@ -1411,16 +1411,29 @@ class _Card_with_continue(Card):
 class Header:
     """FITS header class."""
 
-    def __init__(self, cards=[]):
-        """Construct a Header from a CardList.
+    def __init__(self, cards=[], txtfile=None):
+        """Construct a Header from a CardList and/or text file.
 
            cards: A list of Cards, default=[].
+
+           txtfile: Input ASCII header parameters file supplied as a file name,
+                    file object, or file like object. 
         """
 
         # populate the cardlist
         self.ascard = CardList(cards)
 
-        # decide which kind of header it belongs to
+        if txtfile:
+            # get the cards from the input ASCII file
+            self.fromTxtFile(txtfile, not len(self.ascard))
+            self._mod = 0
+        else:
+            # decide which kind of header it belongs to
+            self._updateHDUtype()
+
+    def _updateHDUtype(self):
+        cards = self.ascard
+
         try:
             if cards[0].key == 'SIMPLE':
                 if 'GROUPS' in cards._keylist and cards['GROUPS'].value == True:
@@ -1784,6 +1797,167 @@ class Header:
 
         except KeyError:
             pass
+
+    def toTxtFile(self, outFile, clobber=False):
+        """
+        Output the header parameters to a file in ASCII format.
+
+        :Parameters:
+            outFile:  Output header parameters file supplied as a file name,
+                      file object, or file like object. 
+            clobber:  Overwrite the output file if it exists, default = False.
+
+        :Returns:
+            None
+        """
+
+        closeFile = False
+
+        # check if the output file already exists
+        if (isinstance(outFile,types.StringType)):
+            if (os.path.exists(outFile) and os.path.getsize(outFile) != 0):
+                if clobber:
+                    warnings.warn( "Overwrite existing file '%s'." % outFile)
+                    os.remove(outFile)
+                else:
+                    raise IOError, "File '%s' already exist." % outFile
+
+            outFile = __builtin__.open(outFile,'w')
+            closeFile = True
+
+        lines = []   # lines to go out to the header parameters file
+
+        # Add the card image for each card in the header to the lines list
+
+        for j in range(len(self.ascardlist())):
+            lines.append(self.ascardlist()[j].__str__()+'\n')
+
+        # Write the header parameter lines out to the ASCII header
+        # parameter file
+        outFile.writelines(lines)
+
+        if closeFile:
+            outFile.close()
+
+    def fromTxtFile(self, inFile, replace=False):
+        """
+        Input the header parameters from an ASCII file.
+
+        The input header cards will be used to update the current header.
+        Therefore, when an input card key matches a card key that already
+        exists in the header, that card will be updated in place.  Any 
+        input cards that do not already exist in the header will be added.
+        Cards will not be deleted from the header.
+
+        :Parameters:
+            inFile:  Input header parameters file supplied as a file name,
+                     file object, or file like object. 
+
+            replace: When True indicates that the entire header should be
+                     replaced with the contents of the ASCII file instead
+                     of just updating the current header.  Default = False.
+
+        :Returns:
+            None
+        """
+
+        closeFile = False
+
+        if isinstance(inFile, types.StringType):
+            inFile = __builtin__.open(inFile,'r')
+            closeFile = True
+
+        lines = inFile.readlines()
+
+        if closeFile:
+            inFile.close()
+
+        if len(self.ascardlist()) > 0 and not replace:
+            prevKey = 0
+        else:
+            if replace:
+                self.ascard = CardList([])
+
+            prevKey = 0
+
+        for line in lines:
+            card = Card().fromstring(line[:min(80,len(line)-1)])
+            card.verify('silentfix')
+
+            if card.key == 'SIMPLE':
+                if self.get('EXTENSION'):
+                    del self.ascardlist()['EXTENSION']
+
+                self.update(card.key, card.value, card.comment, before=0)
+                prevKey = 0
+            elif card.key == 'EXTENSION':
+                if self.get('SIMPLE'):
+                    del self.ascardlist()['SIMPLE']
+
+                self.update(card.key, card.value, card.comment, before=0)
+                prevKey = 0
+            elif card.key == 'HISTORY':
+                if not replace:
+                    items = self.items()
+                    idx = 0
+
+                    for item in items:
+                        if item[0] == card.key and item[1] == card.value:
+                            break
+                        idx += 1
+
+                    if idx == len(self.ascardlist()):
+                        self.add_history(card.value, after=prevKey)
+                        prevKey += 1
+                else:
+                    self.add_history(card.value, after=prevKey)
+                    prevKey += 1
+            elif card.key == 'COMMENT':
+                if not replace:
+                    items = self.items()
+                    idx = 0
+
+                    for item in items:
+                        if item[0] == card.key and item[1] == card.value:
+                            break
+                        idx += 1
+
+                    if idx == len(self.ascardlist()):
+                        self.add_comment(card.value, after=prevKey)
+                        prevKey += 1
+                else:
+                    self.add_comment(card.value, after=prevKey)
+                    prevKey += 1
+            elif card.key == '        ':
+                if not replace:
+                    items = self.items()
+                    idx = 0
+
+                    for item in items:
+                        if item[0] == card.key and item[1] == card.value:
+                            break
+                        idx += 1
+
+                    if idx == len(self.ascardlist()):
+                        self.add_blank(card.value, after=prevKey)
+                        prevKey += 1
+                else:
+                    self.add_blank(card.value, after=prevKey)
+                    prevKey += 1
+            else:
+                if isinstance(card, _Hierarch):
+                    prefix = 'hierarch '
+                else:
+                    prefix = ''
+
+                self.update(prefix + card.key,
+                                     card.value,
+                                     card.comment,
+                                     after=prevKey)
+                prevKey += 1
+
+        # update the hdu type of the header to match the parameters read in
+        self._updateHDUtype()
 
 
 class CardList(list):
@@ -4753,7 +4927,7 @@ class BinTableHDU(_TableBaseHDU):
 
         self._header._hdutype = BinTableHDU
 
-    def tdump(self, datafile=None, cdfile=None, pfile=None):
+    def tdump(self, datafile=None, cdfile=None, hfile=None, clobber=False):
         """
         Dump the table HDU to a file in ASCII format.  The table may be dumped
         in three separate files, one containing column definitions, one 
@@ -4769,9 +4943,11 @@ class BinTableHDU(_TableBaseHDU):
                       file object, or file like object.  The default is None,
                       no column definitions output is produced.
 
-            pfile:    Output header parameters file supplied as a file name,
+            hfile:    Output header parameters file supplied as a file name,
                       file object, or file like object.  The default is None,
                       no header parameters output is produced.
+
+            clobber:  Overwrite the output files if they exist, default = False.
 
         :Returns:
             None
@@ -4784,6 +4960,23 @@ class BinTableHDU(_TableBaseHDU):
 
             Output File Formats:
         """
+
+        # check if the output files already exist
+        exceptMessage = 'File '
+        files = [datafile, cdfile, hfile]
+
+        for f in files:
+            if (isinstance(f,types.StringType)):
+                if (os.path.exists(f) and os.path.getsize(f) != 0):
+                    if clobber:
+                        warnings.warn(" Overwrite existing file '%s'." % f)
+                        os.remove(f)
+                    else:
+                        exceptMessage = exceptMessage + "'%s', " % f
+
+        if exceptMessage != 'File ':
+            exceptMessage = exceptMessage[:-2] + ' already exist.'
+            raise IOError, exceptMessage
 
         # Process the data
 
@@ -4951,26 +5144,8 @@ class BinTableHDU(_TableBaseHDU):
 
         # Process the header parameters
 
-        if pfile:
-            closePfile = False
-
-            if isinstance(pfile, types.StringType):
-                pfile = __builtin__.open(pfile,'w')
-                closePfile = True
-
-            plines = []   # lines to go out to the header parameters file
-
-            # Add the card image for each card in the header to the plines list
-
-            for j in range(len(self.header.ascardlist())):
-                plines.append(self.header.ascardlist()[j].ascardimage()+'\n')
-
-            # Write the header parameter lines out to the ASCII header
-            # parameter file
-            pfile.writelines(plines)
-
-            if closePfile:
-                pfile.close()
+        if hfile:
+            self.header.toTxtFile(hfile)
 
     tdumpFileFormat = \
     """
@@ -5022,14 +5197,14 @@ class BinTableHDU(_TableBaseHDU):
                            is used to represent the case where no value is
                            provided.
                      
-                pfile:     Each line of the header parameters file provides
+                hfile:     Each line of the header parameters file provides
                            the definition of a single HDU header card as 
                            represented by the card image.  
     """
 
     tdump.__doc__ += tdumpFileFormat
 
-    def tcreate(self, datafile, cdfile=None, pfile=None):
+    def tcreate(self, datafile, cdfile=None, hfile=None, replace=False):
         """
         Create a table from the input ASCII files.  The input is from up to
         three separate files, one containing column definitions, one containing
@@ -5050,12 +5225,16 @@ class BinTableHDU(_TableBaseHDU):
                       Default = None.  If None, the Column definitions are
                       taken from the current values in this object.
 
-            pfile:    Input parameter definition file containing the header
+            hfile:    Input parameter definition file containing the header
                       paramater definitions to be associated with the table.
                       It is supplied as a file name, file object, or file like
                       object.  Default = None.  If None, the header parameter
                       definitions are taken from the current values in this
                       objects header.
+
+            replace: When True indicates that the entire header should be
+                     replaced with the contents of the ASCII file instead
+                     of just updating the current header.  Default = False.
 
         :Returns:
             None
@@ -5122,68 +5301,8 @@ class BinTableHDU(_TableBaseHDU):
 
         # Process the parameter file
 
-        if pfile:
-            closePfile = False
-
-            if isinstance(pfile, types.StringType):
-                pfile = __builtin__.open(pfile,'r')
-                closePfile = True
-
-            plines = pfile.readlines()
-
-            if closePfile:
-                pfile.close()
-
-            prevKey = 'XTENSION'
-
-            for line in plines:
-                card = Card().fromstring(line[:min(80,len(line)-1)])
-                card.verify('silentfix')
-
-                if card.key == 'HISTORY':
-                    items = self._header.items()
-                    idx = 0
-
-                    for item in items:
-                        if item[0] == card.key and item[1] == card.value:
-                            break
-                        idx += 1
-
-                    if idx == len(self._header.ascardlist()):
-                        self._header.add_history(card.value)
-                elif card.key == 'COMMENT':
-                    items = self._header.items()
-                    idx = 0
-
-                    for item in items:
-                        if item[0] == card.key and item[1] == card.value:
-                            break
-                        idx += 1
-
-                    if idx == len(self._header.ascardlist()):
-                        self._header.add_comment(card.value)
-                elif card.key == '        ':
-                    items = self._header.items()
-                    idx = 0
-
-                    for item in items:
-                        if item[0] == card.key and item[1] == card.value:
-                            break
-                        idx += 1
-
-                    if idx == len(self._header.ascardlist()):
-                        self._header.add_blank(card.value)
-                else:
-                    if isinstance(card, _Hierarch):
-                        prefix = 'hierarch '
-                    else:
-                        prefix = ''
-
-                    self._header.update(prefix + card.key,
-                                        card.value,
-                                        card.comment,
-                                        after=prevKey)
-                    prevKey = card.key
+        if hfile:
+            self._header.fromTxtFile(hfile, replace)
 
         # Process the data file
 
@@ -5201,10 +5320,12 @@ class BinTableHDU(_TableBaseHDU):
         arrays = []
         VLA_formats = []
         X_format_size = []
+        recFmts = []
 
         for i in range(len(self.columns.names)):
             arrayShape = len(dlines)
             recFmt = _convert_format(self.columns.formats[i])
+            recFmts.append(recFmt[0])
             X_format_size = X_format_size + [-1]
 
             if isinstance(recFmt, _FormatP):
@@ -5266,7 +5387,13 @@ class BinTableHDU(_TableBaseHDU):
                     arrays[i][lineNo] = words[idx:idx+arrays[i][lineNo].size]
                     idx += arrays[i][lineNo].size 
                 else:
-                    arrays[i][lineNo] = words[idx]
+                    if recFmts[i] == 'a':
+                        # make sure character arrays are blank filled
+                        arrays[i][lineNo] = words[idx]+(arrays[i].itemsize-
+                                                        len(words[idx]))*' '
+                    else:
+                        arrays[i][lineNo] = words[idx]
+
                     idx += 1
 
             lineNo += 1
@@ -7940,8 +8067,8 @@ def info(filename, classExtensions={}):
     if closed:
         f.close()
 
-def tdump(fitsFile, datafile=None, cdfile=None, pfile=None, ext=1, 
-          classExtensions={}):
+def tdump(fitsFile, datafile=None, cdfile=None, hfile=None, ext=1, 
+          clobber=False, classExtensions={}):
     """
         Dump a table HDU to a file in ASCII format.  The table may be dumped
         in three separate files, one containing column definitions, one 
@@ -7961,12 +8088,14 @@ def tdump(fitsFile, datafile=None, cdfile=None, pfile=None, ext=1,
                       file object, or file like object.  The default is None,
                       no column definitions output is produced.
 
-            pfile:    Output header parameters file supplied as a file name,
+            hfile:    Output header parameters file supplied as a file name,
                       file object, or file like object.  The default is None,
                       no header parameters output is produced.
 
             ext:      The number of the extension containing the table HDU
                       to be dumped.
+
+            clobber:  Overwrite the output files if they exist, default = False.
 
             classExtensions: A dictionary that maps pyfits classes to extensions
                              of those classes.  When present in the dictionary,
@@ -8019,14 +8148,14 @@ def tdump(fitsFile, datafile=None, cdfile=None, pfile=None, ext=1,
         datafile = root + '_' + `ext` + '.txt'
 
     # Dump the data from the HDU to the files
-    f[ext].tdump(datafile, cdfile, pfile) 
+    f[ext].tdump(datafile, cdfile, hfile, clobber) 
 
     if closed:
         f.close()
 
 tdump.__doc__ += BinTableHDU.tdumpFileFormat
 
-def tcreate(datafile, cdfile, pfile=None): 
+def tcreate(datafile, cdfile, hfile=None): 
     """
         Create a table from the input ASCII files.  The input is from up to
         three separate files, one containing column definitions, one containing
@@ -8044,7 +8173,7 @@ def tcreate(datafile, cdfile, pfile=None):
                       offsets associated with the columns in the table.  It is
                       supplied as a file name, file object, or file like object.
 
-            pfile:    Input parameter definition file containing the header
+            hfile:    Input parameter definition file containing the header
                       paramater definitions to be associated with the table.
                       It is supplied as a file name, file object, or file like
                       object.  Default = None.  If None, a minimal header is
@@ -8066,7 +8195,7 @@ def tcreate(datafile, cdfile, pfile=None):
     hdu = BinTableHDU()
 
     # Populate and return that HDU
-    hdu.tcreate(datafile, cdfile, pfile)
+    hdu.tcreate(datafile, cdfile, hfile, replace=True)
     return hdu
 
 tcreate.__doc__ += BinTableHDU.tdumpFileFormat
