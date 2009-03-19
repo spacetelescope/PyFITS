@@ -1407,9 +1407,49 @@ class _Card_with_continue(Card):
 
         return list
 
+class _Header_iter:
+    """Iterator class for a FITS header object.
+
+       Returns the key values of the cards in the header.  Duplicate
+       key values are not returned.
+    """
+
+    def __init__(self, header):
+        self._lastIndex = -1  # last index into the card list
+                              # accessed by the class iterator
+        self.keys = header.keys()  # the unique keys from the header
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        self._lastIndex += 1
+
+        if self._lastIndex >= len(self.keys):
+            self._lastIndex = -1
+            raise StopIteration()
+
+        return self.keys[self._lastIndex]
+
 
 class Header:
-    """FITS header class."""
+    """FITS header class.  The behavior of this class is to present the
+       header like a dictionary as opposed to a list of cards.  The attribute
+       ascard supplies the header like a list of cards.  The header
+       class uses the card's keyword as the dictionary key and the cards
+       value is the dictionary value.   The has_key, get, and keys methods
+       are implemented to provide the corresponding dictionary functionality.
+       The header may be indexed by keyword value and like a dictionary,
+       the associated value will be returned.  When the header contains
+       cards with duplicate keywords, only the value of the first card with
+       the given keyword will be returned.  The header may also be indexed
+       by card list index number.  In that case the value of the card at the
+       given index in the card list will be returned.  A delete method has
+       been implemented to allow deletion from the header.  When del is called
+       all cards with the given keyword are deleted from the header.  The
+       Header class has an associated iterator class _Header_iter which will
+       allow iteration over the unique keywords in the header dictionary.
+    """
 
     def __init__(self, cards=[], txtfile=None):
         """Construct a Header from a CardList and/or text file.
@@ -1440,8 +1480,10 @@ class Header:
                     self._hdutype = GroupsHDU
                 elif cards[0].value == True:
                     self._hdutype = PrimaryHDU
+                elif cards[0].value == False:
+                    self._hdutype = _NonstandardHDU
                 else:
-                    self._hdutype = _ValidHDU
+                    self._hdutype = _CorruptedHDU
             elif cards[0].key == 'XTENSION':
                 xtension = cards[0].value.rstrip()
                 if xtension == 'TABLE':
@@ -1474,6 +1516,12 @@ class Header:
                 self._hdutype = _ValidHDU
         except:
             self._hdutype = _CorruptedHDU
+
+    def __contains__(self, item):
+        return self.has_key(item)
+
+    def __iter__(self):
+        return _Header_iter(self)
 
     def __getitem__ (self, key):
         """Get a header keyword value."""
@@ -1571,6 +1619,18 @@ class Header:
 #        self.ascard[_index].__dict__['key']=newkey
 #        self.ascard[_index].ascardimage()
 #        self.ascard._keylist[_index] = newkey
+
+    def keys(self):
+        """ Return a list of keys with duplicates removed
+        """
+
+        rtnVal = []
+
+        for key in self.ascard.keys():
+            if not key in rtnVal:
+                rtnVal.append(key)
+
+        return rtnVal
 
     def get(self, key, default=None):
         """Get a keyword value from the CardList.
@@ -2258,6 +2318,14 @@ class CardList(list):
 class _AllHDU(object):
     """Base class for all HDU (header data unit) classes."""
 
+    def __init__(self, data=None, header=None):
+        self._header = header
+
+        if (data is DELAYED):
+            return
+        else:
+            self.data = data
+
     def __getattr__(self, attr):
         if attr == 'header':
             return self.__dict__['_header']
@@ -2290,9 +2358,8 @@ class _CorruptedHDU(_AllHDU):
     """
 
     def __init__(self, data=None, header=None):
+        super(_CorruptedHDU, self).__init__(data, header)
         self._file, self._offset, self._datLoc = None, None, None
-        self._header = header
-        self.data = data
         self.name = None
         
     def size(self):
@@ -2305,6 +2372,82 @@ class _CorruptedHDU(_AllHDU):
 
     def verify(self):
         pass
+
+
+class _NonstandardHDU(_AllHDU, _Verify):
+    """
+    A Non-standard HDU class.
+
+    This class is used for a Primary HDU when the SIMPLE Card has a value
+    of False.  A non-standard HDU comes from a file that resembles
+    a FITS file but departs from the standards in some significant way.  One
+    example would be files where the numbers are in the DEC VAX internal
+    storage format rather than the standard FITS most significant byte first.
+    The header for this HDU should be valid.  The data for this HDU is read
+    from the file as a byte stream that begins at the first byte after the
+    header END card and continues until the end of the file.
+    """
+
+    def __init__(self, data=None, header=None):
+        super(_NonstandardHDU, self).__init__(data, header)
+        self._file, self._offset, self._datLoc = None, None, None
+        self.name = None
+
+    def size(self):
+        """Returns the size (in bytes) of the HDU's data part."""
+        self._file.seek(0, 2)
+        return self._file.tell() - self._datLoc
+
+    def _summary(self):
+        return "%-7s  %-11s  %5d" % (self.name, "NonstandardHDU",
+                                     len(self._header.ascard))
+
+    def __getattr__(self, attr):
+        """Get the data attribute."""
+        if attr == 'data':
+            self.__dict__[attr] = None
+            self._file.seek(self._datLoc)
+            self.data = self._file.read()
+        else:
+            return _AllHDU.__getattr__(self, attr)
+
+        try:
+            return self.__dict__[attr]
+        except KeyError:
+            raise AttributeError(attr)
+
+    def _verify(self, option='warn'):
+        _err = _ErrList([], unit='Card')
+
+        # verify each card
+        for _card in self._header.ascard:
+            _err.append(_card._verify(option))
+
+        return _err
+
+    def writeto(self, name, output_verify='exception', clobber=False,
+                classExtensions={}):
+        """Write the HDU to a new file.  This is a convenience method
+           to provide a user easier output interface if only one HDU
+           needs to be written to a file.
+
+           name:  output FITS file name to be written to, file object, or
+                  file like object (if opened must be opened for append (ab+)).
+           output_verify:  output verification option, default='exception'.
+           clobber:  Overwrite the output file if exists, default = False.
+           classExtensions: A dictionary that maps pyfits classes to extensions
+                            of those classes.  When present in the dictionary,
+                            the extension class will be constructed in place of
+                            the pyfits class.
+        """
+
+        if classExtensions.has_key(HDUList):
+            hdulist = classExtensions[HDUList]([self])
+        else:
+            hdulist = HDUList([self])
+
+        hdulist.writeto(name, output_verify, clobber=clobber,
+                        classExtensions=classExtensions)
 
 
 class _ValidHDU(_AllHDU, _Verify):
@@ -2626,9 +2769,8 @@ class _ExtensionHDU(_ValidHDU):
     """
 
     def __init__(self, data=None, header=None):
+        super(_ExtensionHDU, self).__init__(data, header)
         self._file, self._offset, self._datLoc = None, None, None
-        self._header = header
-        self.data = data
         self._xtn = ' '
 
     def __setattr__(self, attr, value):
@@ -6750,7 +6892,7 @@ class _File:
             self.__file.seek(hdu._datSpan, 1)
 
             if self.__file.tell() > self._size:
-                warnings.warn('Warning: File size is smaller than specified data size.  File may have been truncated.')
+                warnings.warn('Warning: File may have been truncated: actual file length (%i) is smaller than the expected size (%i)'  % (self._size, self.__file.tell()))
 
         return hdu
 
@@ -6771,6 +6913,7 @@ class _File:
         # If the data is unsigned int 16 add BSCALE/BZERO cards to header
 
         if 'data' in dir(hdu) and hdu.data is not None \
+        and not isinstance(hdu, _NonstandardHDU) \
         and hdu.data.dtype == np.uint16:
             hdu._header.update('BSCALE',1,
                               after='NAXIS'+`hdu.header.get('NAXIS')`)
@@ -6791,6 +6934,7 @@ class _File:
         # If data is unsigned integer 16 remove the BSCALE/BZERO cards
 
         if 'data' in dir(hdu) and hdu.data is not None \
+        and not isinstance(hdu, _NonstandardHDU) \
         and hdu.data.dtype == np.uint16:
             del hdu._header['BSCALE']
             del hdu._header['BZERO']
@@ -6804,7 +6948,15 @@ class _File:
         self.__file.flush()
         loc = self.__file.tell()
         _size = 0
-        if hdu.data is not None:
+        if isinstance(hdu, _NonstandardHDU) and hdu.data is not None:
+            self.__file.write(hdu.data)
+
+            # flush, to make sure the content is written
+            self.__file.flush()
+
+            # return both the location and the size of the data area
+            return loc, len(hdu.data)
+        elif hdu.data is not None:
 
             # deal with unsigned integer 16 data
             if hdu.data.dtype == np.uint16:
@@ -7010,7 +7162,8 @@ class HDUList(list, _Verify):
         _err = _ErrList([], unit='HDU')
 
         # the first (0th) element must be a primary HDU
-        if len(self) > 0 and (not isinstance(self[0], PrimaryHDU)):
+        if len(self) > 0 and (not isinstance(self[0], PrimaryHDU)) and \
+                             (not isinstance(self[0], _NonstandardHDU)):
             err_text = "HDUList's 0th element is not a primary HDU."
             fix_text = 'Fixed by inserting one as 0th HDU.'
             fix = "self.insert(0, PrimaryHDU())"
