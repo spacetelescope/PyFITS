@@ -430,6 +430,8 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
    int             cn_uncompressed;
    double          cn_bscale;
    double          cn_bzero;
+   double          quantize_level;
+   double          hcomp_scale;
    long*           naxes = 0;
    long            nelem;
 
@@ -442,12 +444,12 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
 
    /* Get Python arguments */
 
-   if (!PyArg_ParseTuple(args, "O!iOOiiddiiiOsiii:pyfitsComp.compressData",
+   if (!PyArg_ParseTuple(args, "O!iOOiiddiiiddOsiil:pyfitsComp.compressData",
                          &PyArray_Type, &array, &naxis, &naxesObj,
                          &tileSizeObj, &cn_zblank, &zblank, &cn_bscale, 
                          &cn_bzero, &cn_zscale, &cn_zzero, &cn_uncompressed,
-                         &zvalObj, &compressTypeStr, &bitpix, &firstelem,
-                         &nelem))
+                         &quantize_level, &hcomp_scale, &zvalObj,
+                         &compressTypeStr, &bitpix, &firstelem, &nelem))
    {
       PyErr_SetString(PyExc_TypeError,"Couldn't parse agruments");
       return NULL;
@@ -464,7 +466,7 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
          datatype = TSHORT;
          break;
       case LONG_IMG:
-         datatype = TLONG;
+         datatype = TINT;
          break;
       case LONGLONG_IMG:
          datatype = TLONGLONG;
@@ -521,8 +523,9 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
       /* Set up the fitsfile object */
       /* Store the compression type and compression parameters */
 
-      (theFile.Fptr)->hcomp_scale = 0;
-      (theFile.Fptr)->rice_blocksize = 0;
+      (theFile.Fptr)->hcomp_smooth = 0;
+      (theFile.Fptr)->rice_blocksize = 32;
+      (theFile.Fptr)->rice_bytepix = 4;
 
       if (strcmp(compressTypeStr, "RICE_1") == 0)
       {
@@ -532,9 +535,10 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
          {
             (theFile.Fptr)->rice_blocksize = zval[0];
 
-            if (cn_zscale > 0)
+            if (numzVals > 1)
             {
-               (theFile.Fptr)->noise_nbits = zval[1];
+               (theFile.Fptr)->rice_bytepix = zval[1];
+ 
             }
          }
       }
@@ -542,34 +546,20 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
       {
          (theFile.Fptr)->compress_type = GZIP_1;
 
-         if (cn_zscale > 0)
-         {
-            (theFile.Fptr)->noise_nbits = zval[0];
-         }
       }
       else if (strcmp(compressTypeStr, "HCOMPRESS_1") == 0)
       {
          (theFile.Fptr)->compress_type = HCOMPRESS_1;
 
-         if (numzVals > 1)
+         if (numzVals > 0)
          {
-            (theFile.Fptr)->hcomp_scale = zval[0];
-            (theFile.Fptr)->hcomp_smooth = zval[1];
-
-            if (cn_zscale > 0)
-            {
-               (theFile.Fptr)->noise_nbits = zval[2];
-            }
+           (theFile.Fptr)->hcomp_smooth = zval[1];
          }
       }
       else if (strcmp(compressTypeStr, "PLIO_1") == 0)
       {
          (theFile.Fptr)->compress_type = PLIO_1;
 
-         if (cn_zscale > 0)
-         {
-            (theFile.Fptr)->noise_nbits = zval[0];
-         }
       }
       else
       {
@@ -585,6 +575,8 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
       (theFile.Fptr)->cn_bzero = cn_bzero;
       (theFile.Fptr)->cn_zscale = cn_zscale;
       (theFile.Fptr)->cn_zzero = cn_zzero;
+      (theFile.Fptr)->quantize_level = quantize_level;
+      (theFile.Fptr)->hcomp_scale = hcomp_scale;
 
       /* Initialize arrays */
 
@@ -768,6 +760,8 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
    double*         bscale;
    double*         bzero;
    double*         array = 0;
+   double          quantize_level;
+   double          hcomp_scale;
    long*           nullDVals;
    unsigned char** inData = 0;
    void**          uncompressedData = 0;
@@ -797,15 +791,15 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
    /* Get Python arguments */
 
    if (!PyArg_ParseTuple(args, 
-                         "OiOOO!iO!iO!iOiOsiiid:pyfitsComp.decompressData",
+                         "OiOOO!iO!iO!iOiddOsiild:pyfitsComp.decompressData",
                          &inDataObj, 
                          &naxis, &naxesObj, &tileSizeObj, &PyArray_Type, 
                          &bscaleArray, &cn_zscale, &PyArray_Type, &bzeroArray,
                          &cn_zzero, &PyArray_Type, &nullDvalsArray, 
                          &cn_zblank, &uncompressedDataObj,
-                         &cn_uncompressed, &zvalObj,
-                         &compressTypeStr, &bitpix, &firstelem, &nelem,
-                         &nulval))
+                         &cn_uncompressed, &quantize_level, &hcomp_scale,
+                         &zvalObj, &compressTypeStr, &bitpix, &firstelem,
+                         &nelem, &nulval))
    {
       PyErr_SetString(PyExc_TypeError,"Couldn't parse arguments");
       return NULL;
@@ -883,7 +877,7 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
          datatype = TSHORT;
          break;
       case LONG_IMG:
-         datatype = TLONG;
+         datatype = TINT;
          break;
       case LONGLONG_IMG:
          datatype = TLONGLONG;
@@ -965,79 +959,40 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
 
    theFile.Fptr = &fileParms;
 
+   (theFile.Fptr)->rice_blocksize = 32;
+   (theFile.Fptr)->hcomp_smooth = 0;
+   (theFile.Fptr)->rice_bytepix = 4;
+
    if (strcmp(compressTypeStr, "RICE_1") == 0)
    {
       (theFile.Fptr)->compress_type = RICE_1;
 
       if (numzVals > 0)
       {
-          (theFile.Fptr)->rice_blocksize = zval[0];
+         (theFile.Fptr)->rice_blocksize = zval[0];
 
-          if (cn_zscale > 0)
-          {
-              (theFile.Fptr)->noise_nbits = zval[1];
-          }
-          else
-          {
-              (theFile.Fptr)->noise_nbits = 0;
-          }
-      }
-      else
-      {
-          (theFile.Fptr)->rice_blocksize = 0;
-          (theFile.Fptr)->noise_nbits = 0;
+         if (numzVals > 1)
+         {
+            (theFile.Fptr)->rice_bytepix = zval[1];
+         }
       }
    }
    else if (strcmp(compressTypeStr, "GZIP_1") == 0)
    {
       (theFile.Fptr)->compress_type = GZIP_1;
-
-      if (cn_zscale > 0)
-      {
-          (theFile.Fptr)->noise_nbits = zval[0];
-      }
-      else
-      {
-          (theFile.Fptr)->noise_nbits = 0;
-      }
    }
    else if (strcmp(compressTypeStr, "HCOMPRESS_1") == 0)
    {
       (theFile.Fptr)->compress_type = HCOMPRESS_1;
 
-      if (numzVals > 1)
+      if (numzVals > 0)
       {
-          (theFile.Fptr)->hcomp_scale = zval[0];
-          (theFile.Fptr)->hcomp_smooth = zval[1];
-
-          if (cn_zscale > 0)
-          {
-              (theFile.Fptr)->noise_nbits = zval[2];
-          }
-          else
-          {
-              (theFile.Fptr)->noise_nbits = 0;
-          }
-      }
-      else
-      {
-          (theFile.Fptr)->hcomp_scale = 0;
-          (theFile.Fptr)->hcomp_smooth = 0;
-          (theFile.Fptr)->noise_nbits = 0;
+        (theFile.Fptr)->hcomp_smooth = zval[1];
       }
    }
    else if (strcmp(compressTypeStr, "PLIO_1") == 0)
    {
       (theFile.Fptr)->compress_type = PLIO_1;
-
-      if (cn_zscale > 0)
-      {
-          (theFile.Fptr)->noise_nbits = zval[0];
-      }
-      else
-      {
-          (theFile.Fptr)->noise_nbits = 0;
-      }
    }
    else
    {
@@ -1052,6 +1007,8 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
 
    (theFile.Fptr)->bscale = bscale;
    (theFile.Fptr)->cn_zscale = cn_zscale;
+   (theFile.Fptr)->quantize_level = quantize_level;
+   (theFile.Fptr)->hcomp_scale = hcomp_scale;
 
    if (cn_zscale == -1)
    {
@@ -1148,7 +1105,7 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
                PyList_Append(outList, PyInt_FromLong(((short*)array)[i]));
                break;
             case LONG_IMG:
-               PyList_Append(outList, PyLong_FromLong(((long*)array)[i]));
+               PyList_Append(outList, PyInt_FromLong(((int*)array)[i]));
                break;
             case LONGLONG_IMG:
                PyList_Append(outList, 

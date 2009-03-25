@@ -154,6 +154,8 @@
     typedef long long LONGLONG; 
 #endif
 
+#elif defined( __BORLANDC__)  /* for the Borland 5.5 compiler, in particular */
+    typedef __int64 LONGLONG;
 #else
     typedef long long LONGLONG; 
 #endif
@@ -199,6 +201,7 @@
 #define GZIP_1      21
 #define PLIO_1      31
 #define HCOMPRESS_1 41
+#define NOCOMPRESS  0
 
 #ifndef TRUE
 #define TRUE 1
@@ -237,8 +240,9 @@ typedef struct      /* structure used to store basic FITS file information */
     long* blank;          /* value for null pixels for each tile in the image */
     int zblank;             /* value for null pixels, if not a column */
     int rice_blocksize;     /* first compression parameter */
-    int noise_nbits;        /* floating point noise  parameter */
-    int hcomp_scale;        /* 1st hcompress compression parameter */
+    int rice_bytepix;       /* 2nd compression parameter: bytes/pixel */
+    float quantize_level;   /* floating point quantization level */
+    float hcomp_scale;      /* 1st hcompress compression parameter */
     int hcomp_smooth;       /* 2nd hcompress compression parameter */
 } FITSfile;
 
@@ -439,6 +443,8 @@ int ffgpvui(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
            int *status);
 int ffgpvi(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
            short nulval, short *array, int *anynul, int *status);
+int ffgpvk(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
+           int nulval, int *array, int *anynul, int *status);
 int ffgpvj(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
            long nulval, long *array, int *anynul, int *status);
 int ffgpvjj(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
@@ -455,6 +461,8 @@ int ffppri(fitsfile *fptr, long group, LONGLONG firstelem,
            LONGLONG nelem, short *array, int *status);
 int ffpprj(fitsfile *fptr, long group, LONGLONG firstelem,
            LONGLONG nelem, long *array, int *status);
+int ffpprk(fitsfile *fptr, long group, LONGLONG firstelem,
+           LONGLONG nelem, int *array, int *status);
 int ffppre(fitsfile *fptr, long group, LONGLONG firstelem,
            LONGLONG nelem, float *array, int *status);
 int ffpprd(fitsfile *fptr, long group, LONGLONG firstelem,
@@ -475,21 +483,60 @@ int fits_hdecompress64(unsigned char *input, int smooth, LONGLONG *a, int *nx,
        int *ny, int *scale, int *status);
 
 int ffpxsz(int datatype);
+int fffi1i1(unsigned char *input, long ntodo, double scale, double zero,
+            int nullcheck, unsigned char tnull, unsigned char nullval, char
+             *nullarray, int *anynull, unsigned char *output, int *status);
+int fffi2i1(short *input, long ntodo, double scale, double zero,
+            int nullcheck, short tnull, unsigned char nullval, char *nullarray,
+            int *anynull, unsigned char *output, int *status);
 int fffi4i1(INT32BIT *input, long ntodo, double scale, double zero,
             int nullcheck, INT32BIT tnull, unsigned char nullval,
             char *nullarray, int *anynull, unsigned char *output, int *status);
 int fffi4u2(INT32BIT *input, long ntodo, double scale, double zero,
             int nullcheck, INT32BIT tnull, unsigned short nullval,
             char *nullarray, int *anynull, unsigned short *output, int *status);
+int fffi1i2(unsigned char *input, long ntodo, double scale, double zero,
+            int nullcheck, unsigned char tnull, short nullval, char *nullarray,
+            int *anynull, short *output, int *status);
+int fffi2i2(short *input, long ntodo, double scale, double zero,
+            int nullcheck, short tnull, short nullval, char *nullarray,
+            int *anynull, short *output, int *status);
 int fffi4i2(INT32BIT *input, long ntodo, double scale, double zero,
             int nullcheck, INT32BIT tnull, short nullval, char *nullarray,
             int *anynull, short *output, int *status);
+int fffi1int(unsigned char *input, long ntodo, double scale, double zero,
+            int nullcheck, unsigned char tnull, int nullval, char *nullarray,
+            int *anynull, int *output, int *status);
+int fffi2int(short *input, long ntodo, double scale, double zero,
+            int nullcheck, short tnull, int nullval, char *nullarray,
+            int *anynull, int *output, int *status);
+int fffi4int(INT32BIT *input, long ntodo, double scale, double zero,
+            int nullcheck, INT32BIT tnull, int nullval, char *nullarray,
+            int *anynull, int *output, int *status);
+int fffi1i4(unsigned char *input, long ntodo, double scale, double zero,
+            int nullcheck, unsigned char tnull, long nullval, char *nullarray,
+            int *anynull, long *output, int *status);
+int fffi2i4(short *input, long ntodo, double scale, double zero,
+            int nullcheck, short tnull, long nullval, char *nullarray,
+            int *anynull, long *output, int *status);
 int fffi4i4(INT32BIT *input, long ntodo, double scale, double zero,
             int nullcheck, INT32BIT tnull, long nullval, char *nullarray,
             int *anynull, long *output, int *status);
+int fffi1r4(unsigned char *input, long ntodo, double scale, double zero,
+            int nullcheck, unsigned char tnull, float nullval, char *nullarray,
+            int *anynull, float *output, int *status);
+int fffi2r4(short *input, long ntodo, double scale, double zero,
+            int nullcheck, short tnull, float nullval, char *nullarray,
+            int *anynull, float *output, int *status);
 int fffi4r4(INT32BIT *input, long ntodo, double scale, double zero,
             int nullcheck, INT32BIT tnull, float nullval, char *nullarray,
             int *anynull, float *output, int *status);
+int fffi1r8(unsigned char *input, long ntodo, double scale, double zero,
+            int nullcheck, unsigned char tnull, double nullval, char *nullarray,
+            int *anynull, double *output, int *status);
+int fffi2r8(short *input, long ntodo, double scale, double zero,
+            int nullcheck, short tnull, double nullval, char *nullarray,
+            int *anynull, double *output, int *status);
 int fffi4r8(INT32BIT *input, long ntodo, double scale, double zero,
             int nullcheck, INT32BIT tnull, double nullval, char *nullarray,
             int *anynull, double *output, int *status);
@@ -556,17 +603,26 @@ int imcomp_copy_overlap (char *tile, int pixlen, int ndim,
 int imcomp_merge_overlap (char *tile, int pixlen, int ndim,
          long *tfpixel, long *tlpixel, char *bnullarray, char *image,
          long *fpixel, long *lpixel, int nullcheck, int *status);
-
-int fits_quantize_float (float fdata[], int nx, float in_null_value,
-           int noise_bits, int idata[], double *bscale, double *bzero,
-           int *iminval, int *imaxval);
-int fits_quantize_double (double fdata[], int nx, double in_null_value,
-           int noise_bits, int idata[], double *bscale, double *bzero,
-           int *iminval, int *imaxval);
+int imcomp_decompress_img(fitsfile *infptr, fitsfile *outfptr, int datatype,
+         int  *status);
+int fits_quantize_float (float fdata[], long nx, long ny, int nullcheck,
+         float in_null_value,
+         float quantize_level, int idata[], double *bscale, double *bzero,
+         int *iminval, int *imaxval);
+int fits_quantize_double (double fdata[], long nx, long ny, int nullcheck,
+         double in_null_value,
+         float quantize_level, int idata[], double *bscale, double *bzero,
+         int *iminval, int *imaxval);
 int fits_rcomp(int a[], int nx, unsigned char *c, int clen,int nblock);
+int fits_rcomp_short(short a[], int nx, unsigned char *c, int clen,int nblock);
+int fits_rcomp_byte(signed char a[], int nx, unsigned char *c, int clen,
+         int nblock);
 int fits_rdecomp (unsigned char *c, int clen, unsigned int array[], int nx,
              int nblock);
-
+int fits_rdecomp_short (unsigned char *c, int clen, unsigned short array[],
+             int nx, int nblock);
+int fits_rdecomp_byte (unsigned char *c, int clen, unsigned char array[],
+             int nx, int nblock);
 int pl_p2li (int *pxsrc, int xs, short *lldst, int npix);
 int pl_l2pi (short *ll_src, int xs, int *px_dst, int npix);
 

@@ -274,6 +274,254 @@ int ffgpvb( fitsfile *fptr,   /* I - FITS file pointer                       */
             nullcheck, &nullvalue, array, NULL, anynul, status);
     return(*status);
 }
+/*--------------------------------------------------------------------------*/
+int fffi1i1(unsigned char *input, /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            unsigned char tnull,  /* I - value of FITS TNULLn keyword if any */
+            unsigned char nullval,/* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            unsigned char *output,/* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+    double dvalue;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {              /* this routine is normally not called in this case */
+           memcpy(output, input, ntodo );
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                dvalue = input[ii] * scale + zero;
+
+                if (dvalue < DUCHAR_MIN)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = 0;
+                }
+                else if (dvalue > DUCHAR_MAX)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = UCHAR_MAX;
+                }
+                else
+                    output[ii] = (unsigned char) dvalue;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    dvalue = input[ii] * scale + zero;
+
+                    if (dvalue < DUCHAR_MIN)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = 0;
+                    }
+                    else if (dvalue > DUCHAR_MAX)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = UCHAR_MAX;
+                    }
+                    else
+                        output[ii] = (unsigned char) dvalue;
+                }
+            }
+        }
+    }
+    return(*status);
+}
+/*--------------------------------------------------------------------------*/
+int fffi2i1(short *input,         /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            short tnull,          /* I - value of FITS TNULLn keyword if any */
+            unsigned char nullval,/* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            unsigned char *output,/* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+    double dvalue;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] < 0)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = 0;
+                }
+                else if (input[ii] > UCHAR_MAX)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = UCHAR_MAX;
+                }
+                else
+                    output[ii] = (unsigned char) input[ii];
+            }
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                dvalue = input[ii] * scale + zero;
+
+                if (dvalue < DUCHAR_MIN)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = 0;
+                }
+                else if (dvalue > DUCHAR_MAX)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = UCHAR_MAX;
+                }
+                else
+                    output[ii] = (unsigned char) dvalue;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+
+                else
+                {
+                    if (input[ii] < 0)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = 0;
+                    }
+                    else if (input[ii] > UCHAR_MAX)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = UCHAR_MAX;
+                    }
+                    else
+                        output[ii] = (unsigned char) input[ii];
+                }
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    dvalue = input[ii] * scale + zero;
+
+                    if (dvalue < DUCHAR_MIN)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = 0;
+                    }
+                    else if (dvalue > DUCHAR_MAX)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = UCHAR_MAX;
+                    }
+                    else
+                        output[ii] = (unsigned char) dvalue;
+                }
+            }
+        }
+    }
+    return(*status);
+}
 /*---------------------------------------------------------------------------*/
 int fffi4i1(INT32BIT *input,      /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
@@ -446,6 +694,174 @@ int ffgpvd( fitsfile *fptr,   /* I - FITS file pointer                       */
             nullcheck, &nullvalue, array, NULL, anynul, status);
     return(*status);
 }
+/*--------------------------------------------------------------------------*/
+int fffi1r8(unsigned char *input, /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            unsigned char tnull,  /* I - value of FITS TNULLn keyword if any */
+            double nullval,       /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            double *output,       /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+                output[ii] = (double) input[ii]; /* copy input to output */
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                output[ii] = input[ii] * scale + zero;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = (double) input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    output[ii] = input[ii] * scale + zero;
+                }
+            }
+        }
+    }
+    return(*status);
+}
+/*--------------------------------------------------------------------------*/
+int fffi2r8(short *input,         /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            short tnull,          /* I - value of FITS TNULLn keyword if any */
+            double nullval,       /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            double *output,       /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+                output[ii] = (double) input[ii]; /* copy input to output */
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                output[ii] = input[ii] * scale + zero;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = (double) input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    output[ii] = input[ii] * scale + zero;
+                }
+            }
+        }
+    }
+    return(*status);
+}
 /*---------------------------------------------------------------------------*/
 int fffi4r8(INT32BIT *input,      /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
@@ -566,6 +982,174 @@ int ffgpve( fitsfile *fptr,   /* I - FITS file pointer                       */
             nullcheck, &nullvalue, array, NULL, anynul, status);
     return(*status);
 }
+/*--------------------------------------------------------------------------*/
+int fffi1r4(unsigned char *input, /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            unsigned char tnull,  /* I - value of FITS TNULLn keyword if any */
+            float nullval,        /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            float *output,        /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+                output[ii] = (float) input[ii];  /* copy input to output */
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                output[ii] = (float) (( (double) input[ii] ) * scale + zero);
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = (float) input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    output[ii] = (float) (( (double) input[ii] ) * scale + zero);
+                }
+            }
+        }
+    }
+    return(*status);
+}
+/*--------------------------------------------------------------------------*/
+int fffi2r4(short *input,         /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            short tnull,          /* I - value of FITS TNULLn keyword if any */
+            float nullval,        /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            float *output,        /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+                output[ii] = (float) input[ii];  /* copy input to output */
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                output[ii] = (float) (input[ii] * scale + zero);
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = (float) input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    output[ii] = (float) (input[ii] * scale + zero);
+                }
+            }
+        }
+    }
+    return(*status);
+}
 /*---------------------------------------------------------------------------*/
 int fffi4r4(INT32BIT *input,      /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
@@ -681,8 +1265,230 @@ int ffgpvi( fitsfile *fptr,   /* I - FITS file pointer                       */
     short nullvalue;
 
     nullvalue = nulval;  /* set local variable */
+    
     fits_read_compressed_pixels(fptr, TSHORT, firstelem, nelem,
             nullcheck, &nullvalue, array, NULL, anynul, status);
+    return(*status);
+}
+/*--------------------------------------------------------------------------*/
+int fffi1i2(unsigned char *input, /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            unsigned char tnull,  /* I - value of FITS TNULLn keyword if any */
+            short nullval,        /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            short *output,        /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+    double dvalue;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+                output[ii] = (short) input[ii];  /* copy input to output */
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                dvalue = input[ii] * scale + zero;
+
+                if (dvalue < DSHRT_MIN)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = SHRT_MIN;
+                }
+                else if (dvalue > DSHRT_MAX)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = SHRT_MAX;
+                }
+                else
+                    output[ii] = (short) dvalue;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = (short) input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    dvalue = input[ii] * scale + zero;
+
+                    if (dvalue < DSHRT_MIN)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = SHRT_MIN;
+                    }
+                    else if (dvalue > DSHRT_MAX)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = SHRT_MAX;
+                    }
+                    else
+                        output[ii] = (short) dvalue;
+                }
+            }
+        }
+    }
+    return(*status);
+}
+/*--------------------------------------------------------------------------*/
+int fffi2i2(short *input,         /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            short tnull,          /* I - value of FITS TNULLn keyword if any */
+            short nullval,        /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            short *output,        /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+    double dvalue;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            memcpy(output, input, ntodo * sizeof(short) );
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                dvalue = input[ii] * scale + zero;
+
+                if (dvalue < DSHRT_MIN)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = SHRT_MIN;
+                }
+                else if (dvalue > DSHRT_MAX)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = SHRT_MAX;
+                }
+                else
+                    output[ii] = (short) dvalue;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    dvalue = input[ii] * scale + zero;
+
+                    if (dvalue < DSHRT_MIN)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = SHRT_MIN;
+                    }
+                    else if (dvalue > DSHRT_MAX)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = SHRT_MAX;
+                    }
+                    else
+                        output[ii] = (short) dvalue;
+                }
+            }
+        }
+    }
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
@@ -826,6 +1632,376 @@ int fffi4i2(INT32BIT *input,      /* I - array of values to be converted     */
 /*****************************************************************************/
 /*                                                                           */
 /* The following code was copied and modified from the FITSIO source code    */
+/* file getcolk.c.                                                           */
+/*                                                                           */
+/*****************************************************************************/
+
+/*--------------------------------------------------------------------------*/
+int ffgpvk( fitsfile *fptr,   /* I - FITS file pointer                       */
+            long  group,      /* I - group to read (1 = 1st group)           */
+            LONGLONG  firstelem,  /* I - first vector element to read (1 = 1st)  */
+            LONGLONG  nelem,      /* I - number of values to read                */
+            int   nulval,     /* I - value for undefined pixels              */
+            int   *array,     /* O - array of values that are returned       */
+            int  *anynul,     /* O - set to 1 if any values are null; else 0 */
+            int  *status)     /* IO - error status                           */
+/*
+  Read an array of values from the primary array. Data conversion
+  and scaling will be performed if necessary (e.g, if the datatype of
+  the FITS array is not the same as the array being read).
+  Undefined elements will be set equal to NULVAL, unless NULVAL=0
+  in which case no checking for undefined values will be performed.
+  ANYNUL is returned with a value of .true. if any pixels are undefined.
+*/
+{
+    int nullcheck = 1;
+    int nullvalue;
+
+    nullvalue = nulval;  /* set local variable */
+
+    fits_read_compressed_pixels(fptr, TINT, firstelem, nelem,
+            nullcheck, &nullvalue, array, NULL, anynul, status);
+    return(*status);
+}
+
+/*--------------------------------------------------------------------------*/
+int fffi1int(unsigned char *input,/* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            unsigned char tnull,  /* I - value of FITS TNULLn keyword if any */
+            int  nullval,         /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            int  *output,         /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+    double dvalue;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+                output[ii] = (int) input[ii];  /* copy input to output */
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                dvalue = input[ii] * scale + zero;
+
+                if (dvalue < DINT_MIN)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = INT_MIN;
+                }
+                else if (dvalue > DINT_MAX)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = INT_MAX;
+                }
+                else
+                    output[ii] = (int) dvalue;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = (int) input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    dvalue = input[ii] * scale + zero;
+
+                    if (dvalue < DINT_MIN)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = INT_MIN;
+                    }
+                    else if (dvalue > DINT_MAX)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = INT_MAX;
+                    }
+                    else
+                        output[ii] = (int) dvalue;
+                }
+            }
+        }
+    }
+    return(*status);
+}
+/*--------------------------------------------------------------------------*/
+int fffi2int(short *input,        /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            short tnull,          /* I - value of FITS TNULLn keyword if any */
+            int  nullval,         /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            int  *output,         /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+    double dvalue;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+                output[ii] = (int) input[ii];   /* copy input to output */
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                dvalue = input[ii] * scale + zero;
+
+                if (dvalue < DINT_MIN)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = INT_MIN;
+                }
+                else if (dvalue > DINT_MAX)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = INT_MAX;
+                }
+                else
+                    output[ii] = (int) dvalue;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = (int) input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    dvalue = input[ii] * scale + zero;
+
+                    if (dvalue < DINT_MIN)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = INT_MIN;
+                    }
+                    else if (dvalue > DINT_MAX)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = INT_MAX;
+                    }
+                    else
+                        output[ii] = (int) dvalue;
+                }
+            }
+        }
+    }
+    return(*status);
+}
+/*--------------------------------------------------------------------------*/
+int fffi4int(INT32BIT *input,     /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            INT32BIT tnull,       /* I - value of FITS TNULLn keyword if any */
+            int  nullval,         /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            int  *output,         /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+    double dvalue;
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+                output[ii] = (int) input[ii];   /* copy input to output */
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                dvalue = input[ii] * scale + zero;
+
+                if (dvalue < DINT_MIN)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = INT_MIN;
+                }
+                else if (dvalue > DINT_MAX)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = INT_MAX;
+                }
+                else
+                    output[ii] = (int) dvalue;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = (int) input[ii];
+
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    dvalue = input[ii] * scale + zero;
+
+                    if (dvalue < DINT_MIN)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = INT_MIN;
+                    }
+                    else if (dvalue > DINT_MAX)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = INT_MAX;
+                    }
+                    else
+                        output[ii] = (int) dvalue;
+                }
+            }
+        }
+    }
+    return(*status);
+}
+
+/*****************************************************************************/
+/*                                                                           */
+/* The following code was copied and modified from the FITSIO source code    */
 /* file getcolj.c.                                                           */
 /*                                                                           */
 /*****************************************************************************/
@@ -856,6 +2032,229 @@ int ffgpvj( fitsfile *fptr,   /* I - FITS file pointer                       */
 
     fits_read_compressed_pixels(fptr, TLONG, firstelem, nelem,
             nullcheck, &nullvalue, array, NULL, anynul, status);
+    return(*status);
+}
+
+/*--------------------------------------------------------------------------*/
+int fffi1i4(unsigned char *input, /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            unsigned char tnull,  /* I - value of FITS TNULLn keyword if any */
+            long nullval,         /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            long *output,         /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+    double dvalue;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+                output[ii] = (long) input[ii];  /* copy input to output */
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                dvalue = input[ii] * scale + zero;
+
+                if (dvalue < DLONG_MIN)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = LONG_MIN;
+                }
+                else if (dvalue > DLONG_MAX)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = LONG_MAX;
+                }
+                else
+                    output[ii] = (long) dvalue;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = (long) input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    dvalue = input[ii] * scale + zero;
+
+                    if (dvalue < DLONG_MIN)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = LONG_MIN;
+                    }
+                    else if (dvalue > DLONG_MAX)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = LONG_MAX;
+                    }
+                    else
+                        output[ii] = (long) dvalue;
+                }
+            }
+        }
+    }
+    return(*status);
+}
+/*--------------------------------------------------------------------------*/
+int fffi2i4(short *input,         /* I - array of values to be converted     */
+            long ntodo,           /* I - number of elements in the array     */
+            double scale,         /* I - FITS TSCALn or BSCALE value         */
+            double zero,          /* I - FITS TZEROn or BZERO  value         */
+            int nullcheck,        /* I - null checking code; 0 = don't check */
+                                  /*     1:set null pixels = nullval         */
+                                  /*     2: if null pixel, set nullarray = 1 */
+            short tnull,          /* I - value of FITS TNULLn keyword if any */
+            long nullval,         /* I - set null pixels, if nullcheck = 1   */
+            char *nullarray,      /* I - bad pixel array, if nullcheck = 2   */
+            int  *anynull,        /* O - set to 1 if any pixels are null     */
+            long *output,         /* O - array of converted pixels           */
+            int *status)          /* IO - error status                       */
+/*
+  Copy input to output following reading of the input from a FITS file.
+  Check for null values and do datatype conversion and scaling if required.
+  The nullcheck code value determines how any null values in the input array
+  are treated.  A null value is an input pixel that is equal to tnull.  If
+  nullcheck = 0, then no checking for nulls is performed and any null values
+  will be transformed just like any other pixel.  If nullcheck = 1, then the
+  output pixel will be set = nullval if the corresponding input pixel is null.
+  If nullcheck = 2, then if the pixel is null then the corresponding value of
+  nullarray will be set to 1; the value of nullarray for non-null pixels
+  will = 0.  The anynull parameter will be set = 1 if any of the returned
+  pixels are null, otherwise anynull will be returned with a value = 0;
+*/
+{
+    long ii;
+    double dvalue;
+
+    if (nullcheck == 0)     /* no null checking required */
+    {
+        if (scale == 1. && zero == 0.)      /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+                output[ii] = (long) input[ii];   /* copy input to output */
+        }
+        else             /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                dvalue = input[ii] * scale + zero;
+
+                if (dvalue < DLONG_MIN)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = LONG_MIN;
+                }
+                else if (dvalue > DLONG_MAX)
+                {
+                    *status = OVERFLOW_ERR;
+                    output[ii] = LONG_MAX;
+                }
+                else
+                    output[ii] = (long) dvalue;
+            }
+        }
+    }
+    else        /* must check for null values */
+    {
+        if (scale == 1. && zero == 0.)  /* no scaling */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                    output[ii] = (long) input[ii];
+            }
+        }
+        else                  /* must scale the data */
+        {
+            for (ii = 0; ii < ntodo; ii++)
+            {
+                if (input[ii] == tnull)
+                {
+                    *anynull = 1;
+                    if (nullcheck == 1)
+                        output[ii] = nullval;
+                    else
+                        nullarray[ii] = 1;
+                }
+                else
+                {
+                    dvalue = input[ii] * scale + zero;
+
+                    if (dvalue < DLONG_MIN)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = LONG_MIN;
+                    }
+                    else if (dvalue > DLONG_MAX)
+                    {
+                        *status = OVERFLOW_ERR;
+                        output[ii] = LONG_MAX;
+                    }
+                    else
+                        output[ii] = (long) dvalue;
+                }
+            }
+        }
+    }
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
@@ -1059,6 +2458,15 @@ int ffgpv(  fitsfile *fptr,   /* I - FITS file pointer                       */
         ffgpvi(fptr, 1, firstelem, nelem, *(short *) nulval,
                (short *) array, anynul, status);
     }
+    else if (datatype == TINT)
+    {
+      if (nulval == 0)
+        ffgpvk(fptr, 1, firstelem, nelem, 0,
+               (int *) array, anynul, status);
+      else
+        ffgpvk(fptr, 1, firstelem, nelem, *(int *) nulval,
+               (int *) array, anynul, status);
+    }
     else if (datatype == TLONG)
     {
       if (nulval == 0)
@@ -1250,6 +2658,42 @@ int ffppri( fitsfile *fptr,  /* I - FITS file pointer                       */
 /*****************************************************************************/
 /*                                                                           */
 /* The following code was copied and modified from the FITSIO source code    */
+/* file putcolk.c.                                                            */
+/*                                                                           */
+/*****************************************************************************/
+
+/*--------------------------------------------------------------------------*/
+int ffpprk( fitsfile *fptr,  /* I - FITS file pointer                       */
+            long  group,     /* I - group to write(1 = 1st group)           */
+            LONGLONG  firstelem, /* I - first vector element to write       */
+                                 /* (1 = 1st)                               */
+            LONGLONG  nelem,     /* I - number of values to write           */
+            int   *array,    /* I - array of values that are written        */
+            int  *status)    /* IO - error status                           */
+/*
+  Write an array of values to the primary array. Data conversion
+  and scaling will be performed if necessary (e.g, if the datatype of
+  the FITS array is not the same as the array being written).
+*/
+{
+    int nullvalue;
+
+    /*
+      the primary array is represented as a binary table:
+      each group of the primary array is a row in the table,
+      where the first column contains the group parameters
+      and the second column contains the image itself.
+    */
+
+    fits_write_compressed_pixels(fptr, TINT, firstelem, nelem,
+            0, array, &nullvalue, status);
+        return(*status);
+    return(*status);
+}
+
+/*****************************************************************************/
+/*                                                                           */
+/* The following code was copied and modified from the FITSIO source code    */
 /* file putcolj.c.                                                            */
 /*                                                                           */
 /*****************************************************************************/
@@ -1347,6 +2791,10 @@ int ffppr(  fitsfile *fptr,  /* I - FITS file pointer                       */
     {
       ffppri(fptr, group, firstelem, nelem, (short *) array, status);
     }
+    else if (datatype == TINT)
+    {
+      ffpprk(fptr, group, firstelem, nelem, (int *) array, status);
+    }
     else if (datatype == TLONG)
     {
       ffpprj(fptr, group, firstelem, nelem, (long *) array, status);
@@ -1378,6 +2826,15 @@ int ffppr(  fitsfile *fptr,  /* I - FITS file pointer                       */
 /*                                                                           */
 /*****************************************************************************/
 
+#define NULL_VALUE -2147483647 /* value used to represent undefined pixels */
+#define N_RESERVED_VALUES 1   /* number of reserved values, starting with */
+                               /* and including NULL_VALUE.  These values */
+                               /* may not be used to represent the quantized */
+                               /* and scaled floating point pixel values */
+
+/* nearest integer function */
+# define NINT(x)  ((x >= 0.) ? (int) (x + 0.5) : (int) (x - 0.5))
+
 /* ######################################################################## */
 /* ###                 Image Compression Routines                       ### */
 /* ######################################################################## */
@@ -1394,15 +2851,22 @@ int imcomp_calc_max_elem (int comptype, int nx, int zbitpix, int blocksize)
 {
     if (comptype == RICE_1)
     {
-        return (sizeof(float) * nx + nx / blocksize + 2 + 4);
+        if (zbitpix == 16)
+            return (sizeof(short) * nx + nx / blocksize + 2 + 4);
+        else
+            return (sizeof(float) * nx + nx / blocksize + 2 + 4);
     }
     else if (comptype == GZIP_1)
     {
-        /* gzip usually compressed by at least a factor of 2 */
+        /* gzip usually compressed by at least a factor of 2 for I*4 images */
+        /* and somewhat less for I*2 images */
         /* If this size turns out to be too small, then the gzip */
         /* compression routine will allocate more space as required */
 
-        return(nx * sizeof(int) / 2);
+        if (zbitpix == 16 || zbitpix == 8)
+            return(nx * sizeof(short) / 1.3);
+        else
+            return(nx * sizeof(int) / 2);
     }
     else if (comptype == HCOMPRESS_1)
     {
@@ -1447,20 +2911,20 @@ int imcomp_compress_tile (fitsfile *outfptr,
    If the tile cannot be quantized than the raw float or double values
    are written to the output table.
 
-
-   The input tiledata array must only be of type TINT, TFLOAT, or TDOUBLE.
-   Shorter integer types will be type converted to TINT, under the assumption
-   that the input array was allocated with enough scratch space to do this
-   in place in memory.
-
-   This array may be modified by this routine.  If the array is of type TINT
+   This input array may be modified by this routine.  If the array is of type TINT
    or TFLOAT, and the compression type is HCOMPRESS, then it must have been
    allocated to be twice as large (8 bytes per pixel) to provide scratch space.
+
+  Note that this routine does not fully support the implicit datatype conversion that
+  is supported when writing to normal FITS images.  The datatype of the input array
+  must have the same datatype (either signed or unsigned) as the output (compressed)
+  FITS image in most cases.
 */
 {
-    int *idata = 0;             /* quantized integer data */
+    int *idata, *itemp;         /* quantized integer data */
     short *cbuf;        /* compressed data */
     short *sbuff;
+    unsigned int *uintbuff, uintflagval;
     int clen;           /* size of cbuf */
     int flag = 1; /* true by default; only = 0 if float data couldn't be */
                   /* quantized                                           */
@@ -1472,9 +2936,11 @@ int imcomp_compress_tile (fitsfile *outfptr,
     long ii, hcomp_len;
     LONGLONG *lldata;
     unsigned char *usbbuff;
-    int hcompscale, cn_zblank, zbitpix, nullval, flagval = 0;
-    float floatnull;
-    double doublenull;
+    int ihcompscale, cn_zblank, zbitpix, nullval, flagval, gotnulls;
+    int intlength;  /* size of integers to be compressed */
+    float floatnull, hcompscale;
+    float fminval, fmaxval, delta, zeropt, *fdata, *ftemp;
+    double doublenull, noise3;
 
     if (*status > 0)
         return(*status);
@@ -1508,70 +2974,262 @@ int imcomp_compress_tile (fitsfile *outfptr,
     scale = (outfptr->Fptr)->cn_bscale;
     zero  = (outfptr->Fptr)->cn_bzero;
 
-
-    /*  convert input tile array in place to 4-byte ints for compression */
-    /*  Note that the calling routine must have allocated the array big  */
-    /*  enough to be able to do this.                                    */
-
+    /* =================================================================== */
+    /*  Convert input tile array in place to 4 or 8-byte ints for          */
+    /*  compression, if needed.  Do null value substitution if needed      */
+    /*  Note that the calling routine must have allocated the array big    */
+    /*  enough to be able to do this.                                      */
 
     if (datatype == TSHORT)
     {
-       sbuff = (short *) tiledata;
-       if (nullcheck == 1)
-           flagval = *(short *) (nullflagval);
+       /* datatype of input array is TSHORT.  We only support writing this 
+          datatype to a FITS image with BITPIX = 16 and with BZERO = 0 and 
+          BSCALE = 1.  */
 
-       for (ii = tilelen-1; ii >= 0; ii--)
-          idata[ii] = (int) (sbuff[ii]);
+       if (zbitpix != SHORT_IMG || scale != 1.0 || zero != 0.0) {
+           ffpmsg("Datatype conversion/scaling is not supported when writing to compressed images");
+           return(*status = DATA_COMPRESSION_ERR);
+       }
+
+       sbuff = (short *) tiledata;
+
+       if (((outfptr->Fptr)->compress_type == RICE_1 || 
+            (outfptr->Fptr)->compress_type == GZIP_1))
+       {
+           /* don't have to convert to int if using gzip or Rice compression */
+           intlength = 2;
+
+           if (nullcheck == 1) {
+               /* reset pixels equal to flagval to the FITS null value, prior to compression */
+               flagval = *(short *) (nullflagval);
+               if (flagval != nullval) {
+                  for (ii = tilelen - 1; ii >= 0; ii--) {
+                    if (sbuff[ii] == (short) flagval)
+                       sbuff[ii] = (short) nullval;
+                  }
+               }
+           }
+       } else {
+           /* have to convert to int if using HCOMPRESS or PLIO */
+           intlength = 4;
+
+           if (nullcheck == 1) {
+               /* reset pixels equal to flagval to the FITS null value, prior to compression */
+               flagval = *(short *) (nullflagval);
+               for (ii = tilelen - 1; ii >= 0; ii--) {
+                    if (sbuff[ii] == (short) flagval)
+                       idata[ii] = nullval;
+                    else
+                       idata[ii] = (int) sbuff[ii];
+               }
+           } else {  /* just do the data type conversion to int */
+               for (ii = tilelen - 1; ii >= 0; ii--)
+                   idata[ii] = (int) sbuff[ii];
+           }
+       }
+    }
+    else if (datatype == TINT || (datatype == TLONG && sizeof(long) == 4))
+    {
+       /* datatype of input array is int.  We only support writing this datatype
+          to a FITS image with BITPIX = 32 and with BZERO = 0 and BSCALE = 1.
+       */
+
+       if (zbitpix != LONG_IMG || scale != 1.0 || zero != 0.) {
+           ffpmsg("Implicit datatype conversion is not supported when writing to compressed images");
+           return(*status = DATA_COMPRESSION_ERR);
+       }
+
+       intlength = 4;
+
+       if (nullcheck == 1) {
+               /* no datatype conversion is required for any of the compression
+                  algorithms, except possibly for HCOMPRESS (to I*8), which is
+                  handled later.  Just reset pixels equal to flagval to the
+                  FITS null value */
+               flagval = *(int *) (nullflagval);
+               if (flagval != nullval) {
+                  for (ii = tilelen - 1; ii >= 0; ii--) {
+                    if (idata[ii] == flagval)
+                       idata[ii] = nullval;
+                  }
+               }
+       }
     }
     else if (datatype == TBYTE)
     {
+       /* datatype of input array is unsigned byte.  We only support writing
+          this datatype to a FITS image with BITPIX = 8 and with BZERO = 0 and
+          BSCALE = 1.  */
+
+       if (zbitpix != BYTE_IMG || scale != 1.0 || zero != 0.) {
+           ffpmsg("Implicit datatype conversion is not supported when writing to compressed images");
+           return(*status = DATA_COMPRESSION_ERR);
+       }
+
        usbbuff = (unsigned char *) tiledata;
-       if (nullcheck == 1)
-           flagval = *(unsigned char *) (nullflagval);
-       for (ii = tilelen-1; ii >= 0; ii--)
-            idata[ii] = (int) (usbbuff[ii]);
+
+       if (((outfptr->Fptr)->compress_type == RICE_1 ||
+            (outfptr->Fptr)->compress_type == GZIP_1))
+       {
+           /* don't have to convert to int if using gzip or Rice compression */
+           intlength = 1;
+
+           if (nullcheck == 1) {
+               /* reset pixels equal to flagval to the FITS null value, prior
+                  to compression */
+               flagval = *(unsigned char *) (nullflagval);
+               if (flagval != nullval) {
+                  for (ii = tilelen - 1; ii >= 0; ii--) {
+                    if (usbbuff[ii] == (unsigned char) flagval)
+                       usbbuff[ii] = (unsigned char) nullval;
+                    }
+               }
+           }
+       } else {
+           /* have to convert to int if using HCOMPRESS or PLIO */
+           intlength = 4;
+
+           if (nullcheck == 1) {
+               /* reset pixels equal to flagval to the FITS null value, prior
+                  to compression */
+               flagval = *(unsigned char *) (nullflagval);
+               for (ii = tilelen - 1; ii >= 0; ii--) {
+                    if (usbbuff[ii] == (unsigned char) flagval)
+                       idata[ii] = nullval;
+                    else
+                       idata[ii] = (int) usbbuff[ii];
+               }
+           } else {  /* just do the data type conversion to int */
+               for (ii = tilelen - 1; ii >= 0; ii--)
+                   idata[ii] = (int) usbbuff[ii];
+           }
+       }
     }
-    else if (datatype == TLONG)
+    else if (datatype == TLONG && sizeof(long) == 8)
     {
-       if (nullcheck == 1)
-           flagval = *(long *) (nullflagval);
+           ffpmsg("Integer*8 Long datatype is not supported when writing to compressed images");
+           return(*status = DATA_COMPRESSION_ERR);
     }
     else if (datatype == TFLOAT)
     {
+           intlength = 4;
+
           /* if the tile-compressed table contains zscale and zzero columns */
           /* then scale and quantize the input floating point data.    */
           /* Otherwise, just truncate the floats to (scaled) integers.     */
-          if ((outfptr->Fptr)->cn_zscale > 0)
-          {
+          if ((outfptr->Fptr)->cn_zscale > 0) {
             if (nullcheck == 1)
               floatnull = *(float *) (nullflagval);
             else
-              floatnull = FLOATNULLVALUE;
+              floatnull = FLOATNULLVALUE;  /* NaNs are represented by this, by
+                                              default */
 
-            /* quantize the float values into integers */
-            flag = fits_quantize_float ((float *) tiledata, tilelen,
-               floatnull, (outfptr->Fptr)->noise_nbits, idata,
-               bscale, bzero, &iminval, &imaxval);
+            if ((outfptr->Fptr)->quantize_level < 0)  {
 
-            /* adjust the hcompress scale by the same scaling factor */
-            if (hcompscale > 1) hcompscale = (int) (hcompscale / bscale[0]);
+              /* negative value represents the absolute quantization level. */
+              /* We don't have to calculate the noise in the image, so do */
+              /* this simple linear scaling in line (here) for efficiency, */
+              /* instead of calling fits_quantize_float */
 
+              delta = ((outfptr->Fptr)->quantize_level) * -1.;
+
+              fdata = tiledata;
+              gotnulls = 0;
+
+              /* set min and max value = first valid pixel value */
+              ftemp = fdata;
+              for (ii = 0; ii < tilelen; ftemp++, ii++) {
+                  if (*fdata != floatnull) {
+                      fminval = *ftemp;
+                      fmaxval = *ftemp;
+                      break;
+                  }
+              }
+
+              /* find min and max values */
+              ftemp = fdata;
+              for (ii = 0; ii < tilelen; ftemp++, ii++) {
+                  if (*ftemp == floatnull) {
+                      gotnulls = 1;
+                  } else if (*ftemp < fminval) {
+                      fminval = *ftemp;
+                  } else if (*ftemp > fmaxval) {
+                      fmaxval = *ftemp;
+                  }
+              }
+
+              /* check that the range of quantized levels is not > range of int
+              */
+              if ((fmaxval - fminval) / delta > 2. * 2147483647. -
+                  N_RESERVED_VALUES ) {
+                  flag = 0;                     /* don't quantize */
+              } else {
+
+                  flag = 1;
+                  if (!gotnulls) {   /* don't have to check for nulls */
+                  /* return all positive values, if possible since some */
+                  /* compression algorithms either only work for positive */
+                  /* integers, or are more efficient.  */
+                      if ((fmaxval - fminval) / delta < 2147483647. - 
+                          N_RESERVED_VALUES ) {
+                          zeropt = fminval;
+                          ftemp = fdata;
+                          itemp = idata;
+                          for (ii = 0;  ii < tilelen;  ftemp++, itemp++, ii++) {
+                              *itemp = (int) (((*ftemp - zeropt) / delta) + 
+                                              0.5f);
+                          }
+                       } else {
+                          /* center the quantized levels around zero */
+                          zeropt = (fminval + fmaxval) / 2.;
+                          for (ii = 0;  ii < tilelen;  ii++) {
+                              idata[ii] = NINT((fdata[ii] - zeropt) / delta);
+                          }
+                      }
+                  } else {
+                      /* data contains null values; shift the range to be */
+                      /* close to the value used to represent null values */
+                     zeropt = fminval - delta*(NULL_VALUE + N_RESERVED_VALUES);
+
+                      for (ii = 0;  ii < tilelen;  ii++) {
+                          if (fdata[ii] != floatnull) {
+                              idata[ii] = NINT ((fdata[ii] - zeropt) / delta);
+                          } else  {
+                              idata[ii] = NULL_VALUE;
+                          }
+                      }
+                 }
+
+                 /* calc min and max values of the integer array */
+
+                 bscale[0] = delta;
+                 bzero[0]  = zeropt;
+              }
+            } else {
+                /* quantize level is positive, so we have to calculate the */
+                /* noise quantize the float values into integers */
+                flag = fits_quantize_float ((float *) tiledata, tilenx, tileny,
+                   nullcheck, floatnull, (outfptr->Fptr)->quantize_level, idata,
+                   bscale, bzero, &iminval, &imaxval);
+            }
           }
-          else  /* input float data is implicitly converted to integer image */
+          else  /* input float data is implicitly converted (truncated) to
+                   integers */
           {
             if ((scale != 1. || zero != 0.))  /* must scale the values */
-            {
+            if ((scale != 1. || zero != 0.))  /* must scale the values */
                imcomp_nullscalefloats((float *) tiledata, tilelen, idata,
-                   scale, zero,
-                   nullcheck, *(float *) (nullflagval), nullval, status);
-            }
-            else
+                   scale, zero, nullcheck, *(float *) (nullflagval), nullval,
+                   status);
+             else
                imcomp_nullfloats((float *) tiledata, tilelen, idata,
                    nullcheck, *(float *) (nullflagval), nullval,  status);
           }
     }
     else if (datatype == TDOUBLE)
     {
+           intlength = 4;
+
           /* if the tile-compressed table contains zscale and zzero columns */
           /* then scale and quantize the input floating point data.    */
           /* Otherwise, just truncate the floats to integers.          */
@@ -1584,21 +3242,18 @@ int imcomp_compress_tile (fitsfile *outfptr,
               doublenull = DOUBLENULLVALUE;
 
             /* quantize the double values into integers */
-            flag = fits_quantize_double ((double *) tiledata, tilelen,
-               doublenull, (outfptr->Fptr)->noise_nbits, idata,
+            flag = fits_quantize_double ((double *) tiledata, tilenx, tileny,
+               nullcheck, doublenull, (outfptr->Fptr)->quantize_level, idata,
                bscale, bzero, &iminval, &imaxval);
-
-            /* adjust the hcompress scale by the same scaling factor */
-            if (hcompscale > 1) hcompscale = (int) (hcompscale / bscale[0]);
-
           }
-          else
+          else  /* input double data is implicitly converted (truncated) to
+                   integers */
           {
-            if ((scale != 1. || zero != 0.))  /* must scale the values */
+             if ((scale != 1. || zero != 0.))  /* must scale the values */
                imcomp_nullscaledoubles((double *) tiledata, tilelen, idata,
-                   scale, zero,
-                   nullcheck, *(double *) (nullflagval), nullval, status);
-            else
+                   scale, zero, nullcheck, *(double *) (nullflagval), nullval,
+                   status);
+             else
                imcomp_nulldoubles((double *) tiledata, tilelen, idata,
                    nullcheck, *(double *) (nullflagval), nullval,  status);
           }
@@ -1609,28 +3264,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
           return(*status = BAD_DATATYPE);
     }
 
-    if (datatype < TFLOAT) {  /* see if we need to test for null values, or */
-                              /* scale the data values before compression */
-
-        if (zbitpix < 0 )  /* If writing an integer input array to a float */
-                           /* or double                                    */
-             nullval = -2147483647;  /* choose an arbitrary value for null */
-                                     /* pixels.                            */
-
-        if (nullval == flagval)  /* If the flag value is the same as the */
-            nullcheck = 0;          /*  null value, then no need to test */
-                                    /*  nulls.                           */
-
-        if ((nullcheck ==1)  && (scale != 1. || zero != 0.))  /* do both */
-           imcomp_nullscale(idata, tilelen, flagval, nullval,
-               scale, zero, status);
-
-        else if (nullcheck == 1)   /* just do null value substitution */
-           imcomp_nullvalues(idata, tilelen, flagval, nullval, status);
-
-        else if (scale != 1. || zero != 0.)   /* just do scaling */
-           imcomp_scalevalues(idata, tilelen, scale, zero, status);
-    }
+    /* ==================================================================== */
 
     if (flag)   /* we can now compress the int array */
     {
@@ -1644,11 +3278,23 @@ int imcomp_compress_tile (fitsfile *outfptr,
             return (*status = MEMORY_ALLOCATION);
         }
 
+    /* =================================================================== */
+
         /* Compress the integer data, then write the compressed bytes */
         if ( (outfptr->Fptr)->compress_type == RICE_1)
         {
+            if (intlength == 2) {
+                nelem = fits_rcomp_short ((short *)idata, tilelen,
+                       (unsigned char *) cbuf,
+                       clen, (outfptr->Fptr)->rice_blocksize);
+            } else if (intlength == 1) {
+                nelem = fits_rcomp_byte ((signed char *)idata, tilelen,
+                       (unsigned char *) cbuf,
+                       clen, (outfptr->Fptr)->rice_blocksize);
+            } else {
                 nelem = fits_rcomp (idata, tilelen, (unsigned char *) cbuf,
                        clen, (outfptr->Fptr)->rice_blocksize);
+            }
 
                 /* Write the compressed byte stream. */
 
@@ -1658,12 +3304,14 @@ int imcomp_compress_tile (fitsfile *outfptr,
         }
         else if ( (outfptr->Fptr)->compress_type == PLIO_1)
         {
-                if (iminval < 0 || imaxval > 16777215)
+              for (ii = 0; ii < tilelen; ii++)  {
+                if (idata[ii] < 0 || idata[ii] > 16777215)
                 {
                    /* plio algorithn only supports positive 24 bit ints */
                    ffpmsg("data out of range for PLIO compression (0 - 2**24)");
-                   return(*status = DATA_DECOMPRESSION_ERR);
+                   return(*status = DATA_COMPRESSION_ERR);
                 }
+              }
 
                 nelem = pl_p2li (idata, 1, cbuf, tilelen);
 
@@ -1676,11 +3324,26 @@ int imcomp_compress_tile (fitsfile *outfptr,
         {
 
 #if BYTESWAPPED
-               ffswap4(idata, tilelen); /* reverse order of bytes */
+           if (intlength == 2)
+               ffswap2((short *) idata, tilelen);
+           else if (intlength == 4)
+               ffswap4(idata, tilelen);
 #endif
+
+           if (intlength == 2) {
+                 compress2mem_from_mem((char *) idata, tilelen * sizeof(short),
+                 (char **) &cbuf, (size_t *) &clen, realloc,
+                 &gzip_nelem, status);
+           } else if (intlength == 1) {
+                compress2mem_from_mem((char *) idata, 
+                 tilelen * sizeof(unsigned char),
+                 (char **) &cbuf, (size_t *) &clen, realloc,
+                 &gzip_nelem, status);
+           } else {
                 compress2mem_from_mem((char *) idata, tilelen * sizeof(int),
                  (char **) &cbuf, (size_t *) &clen, realloc,
                  &gzip_nelem, status);
+           }
 
                 /* Write the compressed byte stream. */
 
@@ -1689,25 +3352,44 @@ int imcomp_compress_tile (fitsfile *outfptr,
         }
         else if ( (outfptr->Fptr)->compress_type == HCOMPRESS_1)
         {
+            /*
+              if hcompscale is positive, then we have to multiply
+              the value by the RMS background noise to get the
+              absolute scale value.  If negative, then it gives the
+              absolute scale value directly.
+            */
+            hcompscale = (outfptr->Fptr)->hcomp_scale;
+
+            if (hcompscale > 0.) {
+               fits_img_stats_int(idata, tilenx, tileny, nullcheck,
+                        nullval, 0,0,0,0,0,0,&noise3,status);
+
+                hcompscale = hcompscale * noise3;
+
+            } else if (hcompscale < 0.) {
+
+                hcompscale = hcompscale * -1.0;
+            }
+
+            ihcompscale = (int) (hcompscale + 0.5);
+
             hcomp_len = clen;  /* allocated size of the buffer */
 
-            if ((outfptr->Fptr)->zbitpix == BYTE_IMG ||
-                (outfptr->Fptr)->zbitpix == SHORT_IMG) {
-
+            if (zbitpix == BYTE_IMG || zbitpix == SHORT_IMG) {
                 fits_hcompress(idata, tilenx, tileny,
-                  hcompscale, (char *) cbuf, &hcomp_len, status);
+                  ihcompscale, (char *) cbuf, &hcomp_len, status);
 
             } else {
                  /* have to convert idata to an I*8 array, in place */
                  /* idata must have been allocated large enough to do this */
                 lldata = (LONGLONG *) idata;
 
-                for (ii = tilelen; ii >= 0; ii--) {
+                for (ii = tilelen - 1; ii >= 0; ii--) {
                     lldata[ii] = idata[ii];;
                 }
 
                 fits_hcompress64(lldata, tilenx, tileny,
-                  hcompscale, (char *) cbuf, &hcomp_len, status);
+                  ihcompscale, (char *) cbuf, &hcomp_len, status);
             }
 
             /* Write the compressed byte stream. */
@@ -1729,7 +3411,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
               /* write the linear scaling parameters */
               (outfptr->Fptr)->c_zscale[row-1] = bscale[0];
               (outfptr->Fptr)->c_zzero[row-1] = bzero[0];
-         }
+        }
     }
     else     /* floating point data couldn't be quantized */
     {
@@ -1886,7 +3568,6 @@ int imcomp_nullfloats(
 /*
    do null value substitution  of the float array.
    If array value = nullflagval, then set the output value to FLOATNULLVALUE.
-   Otherwise, inverse scale the integer value.
 */
 {
     long ii;
@@ -2208,22 +3889,6 @@ int fits_write_compressed_img(fitsfile *fptr,   /* I - FITS file pointer     */
     if (*status > 0)
         return(*status);
 
-    /* get temporary space for uncompressing one image tile */
-    /*  Need at least 4-byte per pixel, and in some cases 8-bytes per pixel, */
-
-    buffpixsiz = 4;
-    if ( (fptr->Fptr)->compress_type == HCOMPRESS_1 &&
-                ((fptr->Fptr)->zbitpix != BYTE_IMG &&
-                 (fptr->Fptr)->zbitpix != SHORT_IMG) ){
-
-              buffpixsiz = 8;
-    }
-    if (datatype == TDOUBLE)
-         buffpixsiz = 8;
-
-    /* cast to double to force alignment on 8-byte addresses */
-    buffer = (double *) calloc ((fptr->Fptr)->maxtilelen, buffpixsiz);
-
     if (datatype == TSHORT || datatype == TUSHORT)
     {
        pixlen = sizeof(short);
@@ -2253,6 +3918,40 @@ int fits_write_compressed_img(fitsfile *fptr,   /* I - FITS file pointer     */
         ffpmsg("unsupported datatype for compressing image");
         return(*status = BAD_DATATYPE);
     }
+
+    /* allocate scratch space for processing one tile of the image */
+    buffpixsiz = pixlen;  /* this is the minimum pixel size */
+
+    if ( (fptr->Fptr)->compress_type == HCOMPRESS_1) { 
+        /* need 4 or 8 bytes per pixel */
+        if ((fptr->Fptr)->zbitpix == BYTE_IMG ||
+            (fptr->Fptr)->zbitpix == SHORT_IMG )
+                buffpixsiz = maxvalue(buffpixsiz, 4);
+        else
+                buffpixsiz = 8;
+    }
+    else if ( (fptr->Fptr)->compress_type == PLIO_1) {
+                /* need 4 bytes per pixel */
+                buffpixsiz = maxvalue(buffpixsiz, 4);
+    }
+    else if ( (fptr->Fptr)->compress_type == RICE_1  ||
+              (fptr->Fptr)->compress_type == GZIP_1) { 
+         /* need 1, 2, or 4 bytes per pixel */
+        if ((fptr->Fptr)->zbitpix == BYTE_IMG)
+            buffpixsiz = maxvalue(buffpixsiz, 1);
+        else if ((fptr->Fptr)->zbitpix == SHORT_IMG)
+            buffpixsiz = maxvalue(buffpixsiz, 2);
+        else
+            buffpixsiz = maxvalue(buffpixsiz, 4);
+    }
+    else
+    {
+        ffpmsg("unsupported image compression algorithm");
+        return(*status = BAD_DATATYPE);
+    }
+
+    /* cast to double to force alignment on 8-byte addresses */
+    buffer = (double *) calloc ((fptr->Fptr)->maxtilelen, buffpixsiz);
 
     if (buffer == NULL)
     {
@@ -2412,7 +4111,7 @@ int fits_write_compressed_pixels(fitsfile *fptr, /* I - FITS file pointer   */
         lastcoord[ii] = 0;
     }
 
-    /*  determine the dimensions of the image to be read */
+    /*  determine the dimensions of the image to be written */
     naxis = (fptr->Fptr)->zndim;
 
     for ( ii = 0; ii < (fptr->Fptr)->zndim; ii++)
@@ -2661,6 +4360,7 @@ int fits_read_compressed_img(fitsfile *fptr,   /* I - FITS file pointer      */
     int ii, i5, i4, i3, i2, i1, i0, ndim, irow, pixlen, tilenul;
     void *buffer;
     char *bnullarray = 0;
+    double testnullval = 0.;
 
     if (*status > 0)
         return(*status);
@@ -2668,48 +4368,66 @@ int fits_read_compressed_img(fitsfile *fptr,   /* I - FITS file pointer      */
     /* get temporary space for uncompressing one image tile */
     if (datatype == TSHORT)
     {
-       buffer =  calloc ((fptr->Fptr)->maxtilelen, sizeof (short));
+       buffer =  malloc ((fptr->Fptr)->maxtilelen * sizeof (short));
        pixlen = sizeof(short);
+       if (nullval)
+           testnullval = *(short *) nullval;
     }
     else if (datatype == TINT)
     {
-       buffer =  calloc ((fptr->Fptr)->maxtilelen, sizeof (int));
+       buffer =  malloc ((fptr->Fptr)->maxtilelen * sizeof (int));
        pixlen = sizeof(int);
+       if (nullval)
+           testnullval = *(int *) nullval;
     }
     else if (datatype == TLONG)
     {
-       buffer =  calloc ((fptr->Fptr)->maxtilelen, sizeof (long));
+       buffer =  malloc ((fptr->Fptr)->maxtilelen * sizeof (long));
        pixlen = sizeof(long);
+       if (nullval)
+           testnullval = *(long *) nullval;
     }
     else if (datatype == TFLOAT)
     {
-       buffer =  calloc ((fptr->Fptr)->maxtilelen, sizeof (float));
+       buffer =  malloc ((fptr->Fptr)->maxtilelen * sizeof (float));
        pixlen = sizeof(float);
+       if (nullval)
+           testnullval = *(float *) nullval;
     }
     else if (datatype == TDOUBLE)
     {
-       buffer =  calloc ((fptr->Fptr)->maxtilelen, sizeof (double));
+       buffer =  malloc ((fptr->Fptr)->maxtilelen * sizeof (double));
        pixlen = sizeof(double);
+       if (nullval)
+           testnullval = *(double *) nullval;
     }
     else if (datatype == TUSHORT)
     {
-       buffer =  calloc ((fptr->Fptr)->maxtilelen, sizeof (unsigned short));
+       buffer =  malloc ((fptr->Fptr)->maxtilelen * sizeof (unsigned short));
        pixlen = sizeof(short);
+       if (nullval)
+           testnullval = *(unsigned short *) nullval;
     }
     else if (datatype == TUINT)
     {
-       buffer =  calloc ((fptr->Fptr)->maxtilelen, sizeof (unsigned int));
+       buffer =  malloc ((fptr->Fptr)->maxtilelen * sizeof (unsigned int));
        pixlen = sizeof(int);
+       if (nullval)
+           testnullval = *(unsigned int *) nullval;
     }
     else if (datatype == TULONG)
     {
-       buffer =  calloc ((fptr->Fptr)->maxtilelen, sizeof (unsigned long));
+       buffer =  malloc ((fptr->Fptr)->maxtilelen * sizeof (unsigned long));
        pixlen = sizeof(long);
+       if (nullval)
+           testnullval = *(unsigned long *) nullval;
     }
     else if (datatype == TBYTE || datatype == TSBYTE)
     {
-       buffer =  calloc ((fptr->Fptr)->maxtilelen, sizeof (char));
+       buffer =  malloc ((fptr->Fptr)->maxtilelen * sizeof (char));
        pixlen = 1;
+       if (nullval)
+           testnullval = *(unsigned char *) nullval;
     }
     else
     {
@@ -2717,11 +4435,17 @@ int fits_read_compressed_img(fitsfile *fptr,   /* I - FITS file pointer      */
         return(*status = BAD_DATATYPE);
     }
 
+    /* If nullcheck ==1 and nullval == 0, then this means that the */
+    /* calling routine does not want to check for null pixels in the array */
+    if (nullcheck == 1 && testnullval == 0.)
+        nullcheck = 0;
+
     if (buffer == NULL)
     {
         ffpmsg("Out of memory (fits_read_compress_img)");
         return (*status = MEMORY_ALLOCATION);
     }
+
     /* allocate memory for a null flag array, if needed */
     if (nullcheck == 2)
     {
@@ -2839,6 +4563,7 @@ int fits_read_compressed_img(fitsfile *fptr,   /* I - FITS file pointer      */
               /* read and uncompress this row (tile) of the table */
               /* also do type conversion and undefined pixel substitution */
               /* at this point */
+
               imcomp_decompress_tile(fptr, irow, thistilesize[0],
                     datatype, nullcheck, nullval, buffer, bnullarray, &tilenul,
                     status);
@@ -3166,11 +4891,12 @@ int imcomp_decompress_tile (fitsfile *infptr,
 
 /* This routine decompresses one tile of the image */
 {
-    int *idata = 0;          /* uncompressed integer data */
+    static int *idata = 0;     /* this variable must persist */
+    int tiledatatype, pixlen;          /* uncompressed integer data */
     LONGLONG *lldata = 0;
     size_t idatalen, tilebytesize;
     int ii, tnull = 0;        /* value in the data which represents nulls */
-    short *sbuf = 0;
+    short *sbuf;
     int blocksize;
     double bscale, bzero, dummy = 0;    /* scaling parameters */
     long nelem = 0;      /* number of bytes */
@@ -3239,6 +4965,21 @@ int imcomp_decompress_tile (fitsfile *infptr,
         /* read the linear scale and offset values for this row */
         bscale = ((infptr->Fptr)->bscale)[nrow-1];
         bzero = ((infptr->Fptr)->bzero)[nrow-1];
+
+        /* test if floating-point FITS image also has non-default BSCALE and */
+        /* BZERO keywords.  If so, we have to combine the 2 linear scaling   */
+        /* factors.                                                          */
+
+        if ( ((infptr->Fptr)->zbitpix == FLOAT_IMG ||
+              (infptr->Fptr)->zbitpix == DOUBLE_IMG )
+            &&
+              ((infptr->Fptr)->cn_bscale != 1.0 ||
+               (infptr->Fptr)->cn_bzero  != 0.0 )    )
+            {
+               bscale = bscale * (infptr->Fptr)->cn_bscale;
+               bzero  = bzero  * (infptr->Fptr)->cn_bscale + 
+                        (infptr->Fptr)->cn_bzero;
+            }
     }
 
     if (bscale == 1.0 && bzero == 0.0 )
@@ -3268,19 +5009,45 @@ int imcomp_decompress_tile (fitsfile *infptr,
 
     /* ************************************************************* */
 
-    /* allocate memory for uncompressed integers */
+    /* allocate memory for the uncompressed array of tile integers */
 
     if ((infptr->Fptr)->compress_type == HCOMPRESS_1 &&
           ((infptr->Fptr)->zbitpix != BYTE_IMG &&
            (infptr->Fptr)->zbitpix != SHORT_IMG) ) {
 
-        /*  must allocate 8 bytes per pixel of scratch space */
-        lldata = (LONGLONG*) calloc (tilelen, sizeof (LONGLONG));
-        idata = (int *) lldata;
+           /*  must allocate 8 bytes per pixel of scratch space */
+           lldata = (LONGLONG*) malloc (tilelen * sizeof (LONGLONG));
+           idata = (int *) lldata;
+    } else if ( (infptr->Fptr)->compress_type == RICE_1 &&
+               (infptr->Fptr)->zbitpix == BYTE_IMG &&
+               (infptr->Fptr)->rice_bytepix == 1) {
 
+           /*  must allocate 1 byte per pixel of scratch space */
+           idatalen = tilelen;
+           idata = (int *) malloc (idatalen);
+    } else if ( (infptr->Fptr)->compress_type == RICE_1 &&
+               (infptr->Fptr)->zbitpix == SHORT_IMG &&
+               (infptr->Fptr)->rice_bytepix == 2) {
+
+           /*  must allocate 2 bytes per pixel of scratch space */
+           idatalen = tilelen * sizeof(short);
+           idata = (int *) malloc (idatalen);
+     } else if ( (infptr->Fptr)->compress_type == GZIP_1 &&
+               (infptr->Fptr)->zbitpix == SHORT_IMG ) {
+
+           /*  must allocate 2 bytes per pixel of scratch space */
+           idatalen = tilelen * sizeof(short);
+           idata = (int *) malloc (idatalen);
+    } else if ((infptr->Fptr)->compress_type == GZIP_1 &&
+               (infptr->Fptr)->zbitpix == BYTE_IMG ) {
+
+           /*  must allocate 1 byte per pixel of scratch space */
+           idatalen = tilelen * sizeof(char);
+           idata = (int *) malloc (idatalen);
     } else {
-
-        idata = (int*) calloc (tilelen, sizeof (int));
+           /* all other cases have int pixels */
+           idatalen = tilelen * sizeof(int);
+           idata = (int*) malloc (idatalen);
     }
 
     if (idata == NULL)
@@ -3290,20 +5057,49 @@ int imcomp_decompress_tile (fitsfile *infptr,
     }
 
     /* ************************************************************* */
+    /*    call the algorithm-specific code to uncompress the tile */
+
+    /* default uncomopressed pixels have int data type */
+    tiledatatype = TINT;
 
     if ((infptr->Fptr)->compress_type == RICE_1)
     {
 
         /* uncompress the data */
         blocksize = (infptr->Fptr)->rice_blocksize;
-        if ((*status = fits_rdecomp (((infptr->Fptr)->data)[nrow-1],
-                                     ((infptr->Fptr)->dataLen)[nrow-1],
-                                     (unsigned int *)idata,
-                                     tilelen, blocksize)))
-        {
-            free(idata); idata = 0;
-            return (*status);
+
+         if ((infptr->Fptr)->rice_bytepix == 1 ) {
+            if ((*status = fits_rdecomp_byte (((infptr->Fptr)->data)[nrow-1],
+                ((infptr->Fptr)->dataLen)[nrow-1],
+                (unsigned char *)idata,
+                tilelen, blocksize)))
+            {
+                free(idata);
+                return (*status);
+            }
+            tiledatatype = TBYTE;
+        } else if ((infptr->Fptr)->rice_bytepix == 2 ) {
+            if ((*status = fits_rdecomp_short (((infptr->Fptr)->data)[nrow-1],
+                ((infptr->Fptr)->dataLen)[nrow-1],
+                (unsigned short *)idata,
+                tilelen, blocksize)))
+            {
+                free(idata);
+                return (*status);
+            }
+            tiledatatype = TSHORT;
+        } else {
+            if ((*status = fits_rdecomp (((infptr->Fptr)->data)[nrow-1],
+                ((infptr->Fptr)->dataLen)[nrow-1],
+                (unsigned int *)idata,
+                tilelen, blocksize)))
+            {
+                free(idata);
+                return (*status);
+            }
+            tiledatatype = TINT;
         }
+
     }
 
     /* ************************************************************* */
@@ -3360,7 +5156,7 @@ int imcomp_decompress_tile (fitsfile *infptr,
     else if ((infptr->Fptr)->compress_type == GZIP_1)
     {
         /* uncompress the data */
-        idatalen = tilelen * sizeof(int);
+
         if (uncompress2mem_from_mem ((char *)((infptr->Fptr)->data)[nrow-1],
                                      ((infptr->Fptr)->dataLen)[nrow-1],
              (char **) &idata, &idatalen, realloc, &tilebytesize, status))
@@ -3370,14 +5166,30 @@ int imcomp_decompress_tile (fitsfile *infptr,
             return (*status);
         }
 
+        if (tilebytesize == tilelen * 2) {
+            /* this is a short I*2 array */
+            tiledatatype = TSHORT;
+
+#if BYTESWAPPED
+            ffswap2((short *) idata, tilelen);
+#endif
+
+        } else if (tilebytesize == tilelen * 4) {
+            /* this is a int I*4 array */
+            tiledatatype = TINT;
+
 #if BYTESWAPPED
          ffswap4(idata, tilelen); /* reverse order of bytes */
 #endif
 
-        if (idatalen != tilebytesize)
-        {
+        } else if (tilebytesize == tilelen) {
+
+            /* this is an unsigned char I*1 array */
+            tiledatatype = TBYTE;
+
+        } else {
             ffpmsg("error: uncompressed tile has wrong size");
-            free(idata); idata = 0;
+            free(idata);
             return (*status = DATA_DECOMPRESSION_ERR);
         }
     }
@@ -3399,33 +5211,102 @@ int imcomp_decompress_tile (fitsfile *infptr,
 
     if (datatype == TSHORT)
     {
-            fffi4i2(idata, tilelen, bscale, bzero, nullcheck, tnull,
-             *(short *) nulval, bnullarray, anynul,
-             (short *) buffer, status);
+        pixlen = sizeof(short);
+
+        if (tiledatatype == TINT)
+          fffi4i2(idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(short *) nulval, bnullarray, anynul,
+          (short *) buffer, status);
+        else if (tiledatatype == TSHORT)
+        {
+          fffi2i2((short *)idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(short *) nulval, bnullarray, anynul,
+          (short *) buffer, status);
+        }
+        else if (tiledatatype == TBYTE)
+          fffi1i2((unsigned char *)idata, tilelen, bscale, bzero, nullcheck,
+           tnull, *(short *) nulval, bnullarray, anynul,
+           (short *) buffer, status);
+    }
+    else if (datatype == TINT)
+    {
+        pixlen = sizeof(int);
+        if (tiledatatype == TINT)
+          fffi4int(idata, (long) tilelen, bscale, bzero, nullcheck, tnull,
+           *(int *) nulval, bnullarray, anynul,
+           (int *) buffer, status);
+        else if (tiledatatype == TSHORT)
+          fffi2int((short *)idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(int *) nulval, bnullarray, anynul,
+           (int *) buffer, status);
+        else if (tiledatatype == TBYTE)
+          fffi1int((unsigned char *)idata, tilelen, bscale, bzero, nullcheck,
+           tnull, *(int *) nulval, bnullarray, anynul,
+           (int *) buffer, status);
     }
     else if (datatype == TLONG)
     {
-        fffi4i4(idata, tilelen, bscale, bzero, nullcheck, tnull,
-         *(long *) nulval, bnullarray, anynul,
-          (long *) buffer, status);
+        pixlen = sizeof(long);
+        if (tiledatatype == TINT)
+          fffi4i4(idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(long *) nulval, bnullarray, anynul,
+            (long *) buffer, status);
+        else if (tiledatatype == TSHORT)
+          fffi2i4((short *)idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(long *) nulval, bnullarray, anynul,
+            (long *) buffer, status);
+        else if (tiledatatype == TBYTE)
+          fffi1i4((unsigned char *)idata, tilelen, bscale, bzero, nullcheck,
+            tnull, *(long *) nulval, bnullarray, anynul,
+            (long *) buffer, status);
     }
     else if (datatype == TFLOAT)
     {
-        fffi4r4(idata, tilelen, bscale, bzero, nullcheck, tnull,
-         *(float *) nulval, bnullarray, anynul,
-          (float *) buffer, status);
+        pixlen = sizeof(float);
+        if (tiledatatype == TINT)
+          fffi4r4(idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(float *) nulval, bnullarray, anynul,
+            (float *) buffer, status);
+        else if (tiledatatype == TSHORT)
+          fffi2r4((short *)idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(float *) nulval, bnullarray, anynul,
+            (float *) buffer, status);
+        else if (tiledatatype == TBYTE)
+          fffi1r4((unsigned char *)idata, tilelen, bscale, bzero, nullcheck,
+            tnull, *(float *) nulval, bnullarray, anynul,
+            (float *) buffer, status);
     }
     else if (datatype == TDOUBLE)
     {
-        fffi4r8(idata, tilelen, bscale, bzero, nullcheck, tnull,
-         *(double *) nulval, bnullarray, anynul,
-          (double *) buffer, status);
+        pixlen = sizeof(double);
+        if (tiledatatype == TINT)
+          fffi4r8(idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(double *) nulval, bnullarray, anynul,
+            (double *) buffer, status);
+        else if (tiledatatype == TSHORT)
+          fffi2r8((short *)idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(double *) nulval, bnullarray, anynul,
+            (double *) buffer, status);
+        else if (tiledatatype == TBYTE)
+          fffi1r8((unsigned char *)idata, tilelen, bscale, bzero, nullcheck,
+            tnull, *(double *) nulval, bnullarray, anynul,
+            (double *) buffer, status);
     }
     else if (datatype == TBYTE)
     {
-        fffi4i1(idata, tilelen, bscale, bzero, nullcheck, tnull,
-         *(unsigned char *) nulval, bnullarray, anynul,
-          (unsigned char *) buffer, status);
+        pixlen = sizeof(char);
+        if (tiledatatype == TINT)
+          fffi4i1(idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(unsigned char *) nulval, bnullarray, anynul,
+            (unsigned char *) buffer, status);
+        else if (tiledatatype == TSHORT)
+          fffi2i1((short *)idata, tilelen, bscale, bzero, nullcheck, tnull,
+           *(unsigned char *) nulval, bnullarray, anynul,
+            (unsigned char *) buffer, status);
+        else if (tiledatatype == TBYTE)
+          fffi1i1((unsigned char *)idata, tilelen, bscale, bzero, nullcheck,
+            tnull, *(unsigned char *) nulval, bnullarray, anynul,
+            (unsigned char *) buffer, status);
     }
     else
     {
