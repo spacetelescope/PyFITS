@@ -73,6 +73,19 @@ ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
                         # this can be reset by user.
 _isInt = "isinstance(val, (int, long, np.integer))"
     
+# The following variable and function are used to support case sensitive
+# values for the value of a EXTNAME card in an extension header.  By default,
+# pyfits converts the value of EXTNAME cards to upper case when reading from
+# a file.  By calling setExtensionNameCaseSensitive() the user may circumvent
+# this process so that the EXTNAME value remains in the same case as it is
+# in the file.
+
+_extensionNameCaseSensitive = False
+
+def setExtensionNameCaseSensitive(value=True):
+    global _extensionNameCaseSensitive 
+    _extensionNameCaseSensitive = value
+
 # Warnings routines
 
 _showwarning = warnings.showwarning
@@ -2779,7 +2792,8 @@ class _ExtensionHDU(_ValidHDU):
         if attr == 'name' and value:
             if not isinstance(value, str):
                 raise TypeError, 'bad value type'
-            value = value.upper()
+            if not _extensionNameCaseSensitive:
+                value = value.upper()
             if self._header.has_key('EXTNAME'):
                 self._header['EXTNAME'] = value
             else:
