@@ -1524,7 +1524,7 @@ class Header:
                     except KeyError:
                         self._hdutype = BinTableHDU
                 else:
-                    self._hdutype = _ExtensionHDU
+                    self._hdutype = _NonstandardExtHDU
             else:
                 self._hdutype = _ValidHDU
         except:
@@ -2809,6 +2809,64 @@ class _ExtensionHDU(_ValidHDU):
         self.req_cards('PCOUNT', '== '+`naxis+3`, _isInt+" and val >= 0", 0, option, _err)
         self.req_cards('GCOUNT', '== '+`naxis+4`, _isInt+" and val == 1", 1, option, _err)
         return _err
+
+class _NonstandardExtHDU(_ExtensionHDU):
+    """
+    A Non-standard Extension HDU class.
+
+    This class is used for an Extension HDU when the XTENSION Card has a 
+    non-standard value.  In this case, pyfits can figure out how big the data
+    is but not what it is.  The data for this HDU is read from the file as a
+    byte stream that begins at the first byte after the header END card and
+    continues until the beginning of the next header or the end of the file.
+    """
+
+    def __init__(self, data=None, header=None):
+        super(_NonstandardExtHDU, self).__init__(data, header)
+        self._file, self._offset, self._datLoc = None, None, None
+        self.name = None
+
+    def _summary(self):
+        return "%-6s  %-10s  %3d" % (self.name, "NonstandardExtHDU",
+                                     len(self._header.ascard))
+
+    def __getattr__(self, attr):
+        """Get the data attribute."""
+        if attr == 'data':
+            self.__dict__[attr] = None
+            self._file.seek(self._datLoc)
+            self.data = self._file.read(self.size())
+        else:
+            return _ValidHDU.__getattr__(self, attr)
+
+        try:
+            return self.__dict__[attr]
+        except KeyError:
+            raise AttributeError(attr)
+
+    def writeto(self, name, output_verify='exception', clobber=False,
+                classExtensions={}):
+        """Write the HDU to a new file.  This is a convenience method
+           to provide a user easier output interface if only one HDU
+           needs to be written to a file.
+
+           name:  output FITS file name to be written to, file object, or
+                  file like object (if opened must be opened for append (ab+)).
+           output_verify:  output verification option, default='exception'.
+           clobber:  Overwrite the output file if exists, default = False.
+           classExtensions: A dictionary that maps pyfits classes to extensions
+                            of those classes.  When present in the dictionary,
+                            the extension class will be constructed in place of
+                            the pyfits class.
+        """
+
+        if classExtensions.has_key(HDUList):
+            hdulist = classExtensions[HDUList]([PrimaryHDU(),self])
+        else:
+            hdulist = HDUList([PrimaryHDU(),self])
+
+        hdulist.writeto(name, output_verify, clobber=clobber,
+                        classExtensions=classExtensions)
 
 
 # 0.8.8
@@ -4337,7 +4395,7 @@ class FITS_record(object):
 
         return self.array.field(key)[self.row]
         
-    def __setitem__(self,fieldname,value):
+    def __setitem__(self,fieldName,value):
         
         self.array.field(fieldName)[self.row] = value
 
@@ -7431,6 +7489,7 @@ class _File:
 
         if 'data' in dir(hdu) and hdu.data is not None \
         and not isinstance(hdu, _NonstandardHDU) \
+        and not isinstance(hdu, _NonstandardExtHDU) \
         and hdu.data.dtype == np.uint16:
             hdu._header.update('BSCALE',1,
                               after='NAXIS'+`hdu.header.get('NAXIS')`)
@@ -7452,6 +7511,7 @@ class _File:
 
         if 'data' in dir(hdu) and hdu.data is not None \
         and not isinstance(hdu, _NonstandardHDU) \
+        and not isinstance(hdu, _NonstandardExtHDU) \
         and hdu.data.dtype == np.uint16:
             del hdu._header['BSCALE']
             del hdu._header['BZERO']
@@ -7473,6 +7533,18 @@ class _File:
 
             # return both the location and the size of the data area
             return loc, len(hdu.data)
+        elif isinstance(hdu, _NonstandardExtHDU) and hdu.data is not None:
+            self.__file.write(hdu.data)
+            _size = len(hdu.data)
+
+            # pad the fits data block
+            self.__file.write(_padLength(_size)*'\0')
+
+            # flush, to make sure the content is written
+            self.__file.flush()
+
+            # return both the location and the size of the data area
+            return loc, _size+_padLength(_size)
         elif hdu.data is not None:
 
             # deal with unsigned integer 16 data
