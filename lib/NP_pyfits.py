@@ -90,12 +90,12 @@ def setExtensionNameCaseSensitive(value=True):
 
 _showwarning = warnings.showwarning
 
-def showwarning(message, category, filename, lineno, file=None):
+def showwarning(message, category, filename, lineno, file=None, line=None):
     if file is None:
         file = sys.stdout
     _showwarning(message, category, filename, lineno, file)
 
-def formatwarning(message, category, filename, lineno):
+def formatwarning(message, category, filename, lineno, line=None):
     return str(message)+'\n'
 
 warnings.showwarning = showwarning
