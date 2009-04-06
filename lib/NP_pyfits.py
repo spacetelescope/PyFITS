@@ -6502,10 +6502,16 @@ if compressionSupported:
                             hcompScale = self._header['ZVAL'+`i`]
                         i += 1
 
+                # Create an array to hold the decompressed data.
+                naxesList.reverse()
+                data = np.empty(shape=naxesList,
+                           dtype=_ImageBaseHDU.NumCode[self._header['ZBITPIX']])
+                naxesList.reverse()
+
                 # Call the C decompression routine to decompress the data.
                 # Note that any errors in this routine will raise an 
                 # exception.
-                status, decompDataList = pyfitsComp.decompressData(dataList, 
+                status = pyfitsComp.decompressData(dataList, 
                                                  self._header['ZNAXIS'],
                                                  naxesList, tileSizeList,
                                                  zScaleVals, cn_zscale,
@@ -6518,20 +6524,20 @@ if compressionSupported:
                                                  zvalList,
                                                  self._header['ZCMPTYPE'],
                                                  self._header['ZBITPIX'], 1,
-                                                 nelem, 0.0)
-                   
-                # Convert the decompressed data list into an array.  Assign
-                # this to the 'data' class attribute.
-                data = np.array(decompDataList,
-                             dtype=_ImageBaseHDU.NumCode[self.header['BITPIX']])
+                                                 nelem, 0.0, data)
 
-                if self._bscale != 1:
-                    np.multiply(data, self._bscale, data)
-                if self._bzero != 0:
-                    data += self._bzero
+                # Scale the data if necessary
+                if (self._bzero != 0 or self._bscale != 1):
+                    if self.header['BITPIX'] == -32:
+                        data = np.array(data,dtype=np.float32)
+                    else:
+                        data = np.array(data,dtype=np.float64)
 
-                naxesList.reverse()
-                data.shape= tuple(naxesList)
+                    if self._bscale != 1:
+                        np.multiply(data, self._bscale, data)
+                    if self._bzero != 0:
+                        data += self._bzero
+
                 self.__dict__[attr] = data
    
             elif attr == 'compData':

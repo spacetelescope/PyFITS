@@ -783,6 +783,7 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
    PyArrayObject*  bscaleArray;
    PyArrayObject*  bzeroArray;
    PyArrayObject*  nullDvalsArray;
+   PyArrayObject*  decompDataArray;
 
    PyArrayObject*  bscaleArray1 = 0;
    PyArrayObject*  bzeroArray1 = 0;
@@ -791,7 +792,7 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
    /* Get Python arguments */
 
    if (!PyArg_ParseTuple(args, 
-                         "OiOOO!iO!iO!iOiddOsiild:pyfitsComp.decompressData",
+                         "OiOOO!iO!iO!iOiddOsiildO!:pyfitsComp.decompressData",
                          &inDataObj, 
                          &naxis, &naxesObj, &tileSizeObj, &PyArray_Type, 
                          &bscaleArray, &cn_zscale, &PyArray_Type, &bzeroArray,
@@ -799,7 +800,7 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
                          &cn_zblank, &uncompressedDataObj,
                          &cn_uncompressed, &quantize_level, &hcomp_scale,
                          &zvalObj, &compressTypeStr, &bitpix, &firstelem,
-                         &nelem, &nulval))
+                         &nelem, &nulval, &PyArray_Type, &decompDataArray))
    {
       PyErr_SetString(PyExc_TypeError,"Couldn't parse arguments");
       return NULL;
@@ -1070,63 +1071,14 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
        (theFile.Fptr)->ucDataLen = numUncompressedVals;
    }
 
-   /* Allocate memory for the uncompressed array */
-
-   array = (double*) PyMem_Malloc(nelem * sizeof(double));
-
-   if (!array)
-   {
-      goto error;
-   }
-
    /* Call the C function */
 
    status = 0;
-
    status = fits_read_img(&theFile, datatype, firstelem,
-                          nelem, &nulval, array, &anynul, &status);
+                          nelem, &nulval, decompDataArray->data,
+                          &anynul, &status);
 
-   if (status == 0)
-   {
-      /* Move uncompressed data from the C array to a list that */
-      /* gets returned to python.                               */
-
-      outList = PyList_New(0);
-
-      for (i=0; i < nelem; i++)
-      {
-         switch (bitpix)
-         {
-            case BYTE_IMG:
-               PyList_Append(outList,
-                             PyInt_FromLong(((unsigned char*)array)[i]));
-               break;
-            case SHORT_IMG:
-               PyList_Append(outList, PyInt_FromLong(((short*)array)[i]));
-               break;
-            case LONG_IMG:
-               PyList_Append(outList, PyInt_FromLong(((int*)array)[i]));
-               break;
-            case LONGLONG_IMG:
-               PyList_Append(outList, 
-                             PyLong_FromLongLong(((LONGLONG*)array)[i]));
-               break;
-            case FLOAT_IMG:
-               PyList_Append(outList, PyFloat_FromDouble(((float*)array)[i]));
-               break;
-            case DOUBLE_IMG:
-               PyList_Append(outList, PyFloat_FromDouble(((double*)array)[i]));
-               break;
-         }
-      }
-
-      /* Package the return values into a tuple */
-
-      returnTuple = PyTuple_New(2);
-      PyTuple_SetItem(returnTuple, 0, Py_BuildValue("i",status));
-      PyTuple_SetItem(returnTuple, 1, outList);
-   }
-   else
+   if (status != 0)
    {
       processStatusErr(status);
    }
@@ -1137,7 +1089,6 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
       PyMem_Free(naxes);
       PyMem_Free(tileSize);
       PyMem_Free(zval);
-      PyMem_Free(array);
 
       if (cn_uncompressed == 1)
       {
@@ -1165,15 +1116,13 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
          Py_DECREF(nullDvalsArray1);
       }
    
-      if (returnTuple == 0)
+      if (status != 0)
       {
-         /* An error occurred */
-
          return NULL;
       }
       else
       {
-         return returnTuple;
+         return Py_BuildValue("i",status);
       }
 }
 
