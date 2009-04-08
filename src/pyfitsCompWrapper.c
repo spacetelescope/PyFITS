@@ -759,7 +759,6 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
    double          nulval;
    double*         bscale;
    double*         bzero;
-   double*         array = 0;
    double          quantize_level;
    double          hcomp_scale;
    long*           nullDVals;
@@ -773,8 +772,6 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
    PyObject*       naxesObj;
    PyObject*       tileSizeObj;
    PyObject*       uncompressedDataObj;
-   PyObject*       outList;
-   PyObject*       returnTuple = 0;
    PyObject*       zvalObj;
 
    FITSfile        fileParms;

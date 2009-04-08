@@ -2346,7 +2346,7 @@ int plane_val;
 static void
 read_bdirect(unsigned char *infile, int a[], int n, int nqx, int nqy, unsigned char scratch[], int bit)
 {
-int i;
+/*int i; */
 
 	/*
 	 * read bit image packed 4 pixels/nybble
@@ -2367,7 +2367,7 @@ int i;
 static void
 read_bdirect64(unsigned char *infile, LONGLONG a[], int n, int nqx, int nqy, unsigned char scratch[], int bit)
 {
-int i;
+/*int i; */
 
 	/*
 	 * read bit image packed 4 pixels/nybble

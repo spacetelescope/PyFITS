@@ -123,9 +123,6 @@ static int FnNoise1_float(float *array, long nx, long ny,
 static int FnNoise1_double(double *array, long nx, long ny, 
    int nullcheck, double nullvalue, double *noise, int *status);       
 
-static int FnCompare_short (const void *, const void *);
-static int FnCompare_int (const void *, const void *);
-static int FnCompare_float (const void *, const void *);
 static int FnCompare_double (const void *, const void *);
 static float quick_select_float(float arr[], int n);
 static short quick_select_short(short arr[], int n);
@@ -1414,6 +1411,8 @@ row of the image.
 	if (minval || maxval) do_range = 1;
 	
         /* allocate arrays used to compute the median and noise estimates */
+        differences = 0;
+        diffs = 0;
 	if (noise) {
 	    differences = calloc(nx, sizeof(float));
 	    if (!differences) {
@@ -1624,6 +1623,8 @@ row of the image.
 	if (minval || maxval) do_range = 1;
 	
         /* allocate arrays used to compute the median and noise estimates */
+        differences = 0;
+        diffs = 0;
 	if (noise) {
 	    differences = calloc(nx, sizeof(double));
 	    if (!differences) {
@@ -2255,45 +2256,6 @@ row of the image.
 	free(differences);
 
 	return(*status);
-}
-/*--------------------------------------------------------------------------*/
-static int FnCompare_short(const void *v1, const void *v2)
-{
-   const short *i1 = v1;
-   const short *i2 = v2;
-   
-   if (*i1 < *i2)
-     return(-1);
-   else if (*i1 > *i2)
-     return(1);
-   else
-     return(0);
-}
-/*--------------------------------------------------------------------------*/
-static int FnCompare_int(const void *v1, const void *v2)
-{
-   const int *i1 = v1;
-   const int *i2 = v2;
-   
-   if (*i1 < *i2)
-     return(-1);
-   else if (*i1 > *i2)
-     return(1);
-   else
-     return(0);
-}
-/*--------------------------------------------------------------------------*/
-static int FnCompare_float(const void *v1, const void *v2)
-{
-   const float *i1 = v1;
-   const float *i2 = v2;
-   
-   if (*i1 < *i2)
-     return(-1);
-   else if (*i1 > *i2)
-     return(1);
-   else
-     return(0);
 }
 /*--------------------------------------------------------------------------*/
 static int FnCompare_double(const void *v1, const void *v2)

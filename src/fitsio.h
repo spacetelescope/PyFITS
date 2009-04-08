@@ -472,6 +472,12 @@ int ffpprjj(fitsfile *fptr, long group, LONGLONG firstelem,
 int ffpcli(fitsfile *fptr, int colnum, LONGLONG firstrow, LONGLONG firstelem,
            LONGLONG nelem, short *array, int *status);
 
+/*--------------------- group template parser routines ------------------*/
+
+int fits_img_stats_int(int *array,long nx, long ny, int nullcheck,
+    int nullvalue,long *ngoodpix, int *minvalue, int *maxvalue, double *mean,
+    double *sigma, double *noise1, double *noise3, int *status);
+
 /* H-compress routines */
 int fits_hcompress(int *a, int nx, int ny, int scale, char *output, 
     long *nbytes, int *status);

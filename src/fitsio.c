@@ -1790,7 +1790,6 @@ int fffi2int(short *input,        /* I - array of values to be converted     */
             int  *output,         /* O - array of converted pixels           */
             int *status)          /* IO - error status                       */
 /*
-/*
   Copy input to output following reading of the input from a FITS file.
   Check for null values and do datatype conversion and scaling if required.
   The nullcheck code value determines how any null values in the input array
@@ -2924,7 +2923,6 @@ int imcomp_compress_tile (fitsfile *outfptr,
     int *idata, *itemp;         /* quantized integer data */
     short *cbuf;        /* compressed data */
     short *sbuff;
-    unsigned int *uintbuff, uintflagval;
     int clen;           /* size of cbuf */
     int flag = 1; /* true by default; only = 0 if float data couldn't be */
                   /* quantized                                           */
@@ -3138,6 +3136,8 @@ int imcomp_compress_tile (fitsfile *outfptr,
 
               /* set min and max value = first valid pixel value */
               ftemp = fdata;
+              fminval = 0;
+              fmaxval = 0;
               for (ii = 0; ii < tilelen; ftemp++, ii++) {
                   if (*fdata != floatnull) {
                       fminval = *ftemp;
@@ -3216,7 +3216,6 @@ int imcomp_compress_tile (fitsfile *outfptr,
           else  /* input float data is implicitly converted (truncated) to
                    integers */
           {
-            if ((scale != 1. || zero != 0.))  /* must scale the values */
             if ((scale != 1. || zero != 0.))  /* must scale the values */
                imcomp_nullscalefloats((float *) tiledata, tilelen, idata,
                    scale, zero, nullcheck, *(float *) (nullflagval), nullval,
