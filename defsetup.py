@@ -6,7 +6,7 @@ pkg = "pyfits"
 
 try:
     import numpy
-    ext_modules = [distutils.extension.Extension(pkg+".pyfitsCompmodule",
+    ext_modules = [distutils.extension.Extension(pkg+".pyfitsComp",
                      ["src/compress.c", "src/fits_hcompress.c",
                       "src/fits_hdecompress.c", "src/fitsio.c",
                       "src/pliocomp.c", "src/pyfitsCompWrapper.c",
@@ -18,7 +18,7 @@ except ImportError:
     logging.warn("NUMPY was not found.  It may not be installed or it may") 
     logging.warn("not be in your PYTHONPATH")
     logging.warn("optional extension module "+pkg+
-                 ".pyfitsCompmodule failed to build")
+                 ".pyfitsComp failed to build")
 
 # Reimplement distutils build_ext class to allow us to continue
 # setup even if the extension fails to build.
