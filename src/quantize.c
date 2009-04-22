@@ -541,8 +541,8 @@ int fits_img_stats_short(short *array, /*  2 dimensional array of image pixels *
     Compute statistics of the input short integer image.
 */
 {
-	long ngood;
-	short minval, maxval;
+	long ngood = 0;
+	short minval = 0, maxval = 0;
 	double xmean = 0., xsigma = 0., xnoise = 0;
 
 	/* need to calculate mean and/or sigma and/or limits? */
@@ -596,8 +596,8 @@ int fits_img_stats_int(int *array, /*  2 dimensional array of image pixels */
     Compute statistics of the input short integer image.
 */
 {
-	long ngood;
-	int minval, maxval;
+	long ngood = 0;
+	int minval = 0, maxval = 0;
 	double xmean = 0., xsigma = 0., xnoise = 0;
 
 	/* need to calculate mean and/or sigma and/or limits? */

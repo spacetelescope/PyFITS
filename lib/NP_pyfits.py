@@ -7507,6 +7507,10 @@ class _File:
         if len(blocks)%_blockLen != 0:
             raise IOError
         self.__file.flush()
+
+        if self.__file.mode == 'ab+':
+            self.__file.seek(0,2)
+
         loc = self.__file.tell()
         self.__file.write(blocks)
 

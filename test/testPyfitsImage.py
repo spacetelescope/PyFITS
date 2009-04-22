@@ -54,12 +54,16 @@ class TestPyfitsImageFunctions(unittest.TestCase):
     def testFloatingPointNumber(self):
         # floating point number
         c=pyfits.Card('floatnum', -467374636747637647347374734737437.)
-        self.assertEqual(str(c),"FLOATNUM= -4.673746367476376E+32                                                ")
+
+        if str(c) != "FLOATNUM= -4.673746367476376E+32                                                " and str(c) != "FLOATNUM= -4.673746367476376E+032                                               ":
+            self.assertEqual(str(c),"FLOATNUM= -4.673746367476376E+32                                                ")
 
     def testComplexValue(self):
         # complex value
         c=pyfits.Card('abc',1.2345377437887837487e88+6324767364763746367e-33j)
-        self.assertEqual(str(c),"ABC     = (1.234537743788784E+88, 6.324767364763747E-15)                        ")
+
+        if str(c) != "ABC     = (1.234537743788784E+88, 6.324767364763747E-15)                        " and str(c) != "ABC     = (1.234537743788784E+088, 6.324767364763747E-015)                      ":
+            self.assertEqual(str(c),"ABC     = (1.234537743788784E+88, 6.324767364763747E-15)                        ")
 
     def testCardImageConstructedTooLong(self):
         tmpfile = open(jfile,'w')
@@ -295,7 +299,9 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
 
         # append (using "update()") a new card
         r[0].header.update('xxx',1.234e56)
-        self.assertEqual(str(r[0].header.ascard[-3:]),"EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                \nFILENAME= 'vtest3.fits'        / File name                                      \nXXX     =            1.234E+56                                                  ")
+
+        if str(r[0].header.ascard[-3:]) != "EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                \nFILENAME= 'vtest3.fits'        / File name                                      \nXXX     =            1.234E+56                                                  " and str(r[0].header.ascard[-3:]) != "EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                \nFILENAME= 'vtest3.fits'        / File name                                      \nXXX     =           1.234E+056                                                  ":
+            self.assertEqual(str(r[0].header.ascard[-3:]),"EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                \nFILENAME= 'vtest3.fits'        / File name                                      \nXXX     =            1.234E+56                                                  ")
 
         # rename a keyword
         r[0].header.rename_key('filename','fname')
@@ -383,6 +389,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         u.writeto('test_new.fits')
 
         # Remove temporary files created by this test
+        u.close()
         os.remove('test_new.fits')
         os.remove('test_update.fits')
 

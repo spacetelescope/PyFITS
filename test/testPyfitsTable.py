@@ -158,6 +158,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         f2 = pyfits.open('tableout1.fits')
         temp = f2[1].data.field(7)
         self.assertEqual(str(temp[0]),"[ True  True False  True False  True  True  True False False  True]")
+        f2.close()
         os.remove('tableout1.fits')
 
 
@@ -250,6 +251,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdu.writeto('toto.fits',clobber=True)
         hdul = pyfits.open('toto.fits')
         self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
+        hdul.close()
         os.remove('toto.fits')
         
 
@@ -263,6 +265,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         toto = pyfits.open('toto.fits')
         q = toto[1].data.field('QUAL_SPE') 
         self.assertEqual(q[0][4:8].all(),num.array([0,0,0,0],dtype=numpy.uint8).all())
+        toto.close()
         os.remove('toto.fits')
     
     def testEndianness(self):
@@ -279,6 +282,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         data = rfiHDU.data
         channelsOut = data.field('Channels')[0]
         self.assertEqual(channelsIn.all(),channelsOut.all())
+        hduL.close()
         os.remove('testendian.fits')
 
     def testPyfitsRecarrayToBinTableHDU(self):
@@ -292,6 +296,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdu.writeto('toto.fits', clobber=True)
         hdul = pyfits.open('toto.fits')
         self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
+        hdul.close()
         os.remove('toto.fits')
 
     def testNumpyNdarrayToBinTableHDU(self):
@@ -306,6 +311,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdu.writeto('toto.fits', clobber=True)
         hdul = pyfits.open('toto.fits')
         self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
+        hdul.close()
         os.remove('toto.fits')
 
     def testNewTableFromPyfitsRecarray(self):
@@ -334,6 +340,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(hdul[1].data[0][3],'A1V')
         self.assertEqual(hdul[1].data[1][3],'F0Ib')
 
+        hdul.close()
         os.remove('toto.fits')
         hdu=pyfits.new_table(bright,nrows=2)
         tmp=pyfits.rec.array([(1,'Serius',-1.45,'A1V'),\
@@ -344,6 +351,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdu.writeto('toto.fits', clobber=True)
         hdul = pyfits.open('toto.fits')
         self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
+        hdul.close()
         os.remove('toto.fits')
 
 if __name__ == '__main__':

@@ -387,7 +387,7 @@ void processStatusErr(int status)
    {
       PyErr_SetString(exceptType,errMsg);
    }
-   else if (defErrMsg)
+   else if (*defErrMsg)
    {
       PyErr_SetString(exceptType,defErrMsg);
    }
