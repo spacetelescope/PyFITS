@@ -4476,7 +4476,7 @@ class FITS_rec(rec.recarray):
         # if not a slice, do this because Record has no __getstate__.
         # also more efficient.
         else:
-            if key >= len(self):
+            if isinstance(key, int) and key >= len(self):
                 raise IndexError("index out of bounds")
             
             newrecord = FITS_record(self,key)
