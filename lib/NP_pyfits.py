@@ -8636,7 +8636,7 @@ def writeto(filename, data, header=None, **keys):
 
     classExtensions = keys.get('classExtensions', {})
     hdu=_makehdu(data, header, classExtensions)
-    if not isinstance(hdu, PrimaryHDU):
+    if not isinstance(hdu, PrimaryHDU) and not isinstance(hdu, _TableBaseHDU):
         if classExtensions.has_key(PrimaryHDU):
             hdu = classExtensions[PrimaryHDU](data, header=header)
         else:

@@ -15,7 +15,7 @@
 
 import os
 
-__version__ = '2.1.1dev458'
+__version__ = '2.1.1dev461'
 
 # Check the environment variables for NUMERIX
 try:
