@@ -7785,6 +7785,18 @@ class HDUList(list, _Verify):
                     _err.append(_result)
         return _err
 
+    def insert (self, index, hdu):
+        if not isinstance(hdu, _AllHDU):
+            raise ValueError, "%s is not an HDU." % hdu
+
+        super(HDUList, self).insert(index,hdu)
+        self._resize = 1
+        self._truncate = 0
+
+        # make sure the EXTEND keyword is in primary HDU if there is extension
+        if len(self) > 1:
+            self.update_extend()
+
     def append(self, hdu):
         """Append a new HDU to the HDUList."""
         if isinstance(hdu, _AllHDU):
