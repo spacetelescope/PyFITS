@@ -1887,7 +1887,8 @@ class Header:
         closeFile = False
 
         # check if the output file already exists
-        if (isinstance(outFile,types.StringType)):
+        if (isinstance(outFile,types.StringType) or
+            isinstance(outFile,types.UnicodeType)):
             if (os.path.exists(outFile) and os.path.getsize(outFile) != 0):
                 if clobber:
                     warnings.warn( "Overwrite existing file '%s'." % outFile)
@@ -1936,7 +1937,8 @@ class Header:
 
         closeFile = False
 
-        if isinstance(inFile, types.StringType):
+        if isinstance(inFile, types.StringType) or \
+           isinstance(inFile, types.UnicodeType):
             inFile = __builtin__.open(inFile,'r')
             closeFile = True
 
@@ -5183,7 +5185,8 @@ class BinTableHDU(_TableBaseHDU):
         files = [datafile, cdfile, hfile]
 
         for f in files:
-            if (isinstance(f,types.StringType)):
+            if (isinstance(f,types.StringType) or
+                isinstance(f,types.UnicodeType)):
                 if (os.path.exists(f) and os.path.getsize(f) != 0):
                     if clobber:
                         warnings.warn(" Overwrite existing file '%s'." % f)
@@ -5203,7 +5206,8 @@ class BinTableHDU(_TableBaseHDU):
 
         closeDfile = False
 
-        if isinstance(datafile, types.StringType):
+        if isinstance(datafile, types.StringType) or \
+           isinstance(datafile, types.UnicodeType):
             datafile = __builtin__.open(datafile,'w')
             closeDfile = True
 
@@ -5306,7 +5310,8 @@ class BinTableHDU(_TableBaseHDU):
         if cdfile:
             closeCdfile = False
 
-            if isinstance(cdfile, types.StringType):
+            if isinstance(cdfile, types.StringType) or \
+               isinstance(cdfile, types.UnicodeType):
                 cdfile = __builtin__.open(cdfile,'w')
                 closeCdfile = True
 
@@ -5470,7 +5475,8 @@ class BinTableHDU(_TableBaseHDU):
         if cdfile:
             closeCdfile = False
 
-            if isinstance(cdfile, types.StringType):
+            if isinstance(cdfile, types.StringType) or \
+               isinstance(cdfile, types.UnicodeType):
                 cdfile = __builtin__.open(cdfile,'r')
                 closeCdfile = True
 
@@ -5525,7 +5531,8 @@ class BinTableHDU(_TableBaseHDU):
 
         closeDfile = False
 
-        if isinstance(datafile, types.StringType):
+        if isinstance(datafile, types.StringType) or \
+           isinstance(datafile, types.UnicodeType):
             datafile = __builtin__.open(datafile,'r')
             closeDfile = True
 
@@ -7110,7 +7117,8 @@ class StreamingHDU:
 
         if isinstance(name, file):
            filename = name.name
-        elif isinstance(name, types.StringType):
+        elif isinstance(name, types.StringType) or \
+             isinstance(name, types.UnicodeType):
             filename = name
         else:
             filename = ''
@@ -7298,7 +7306,8 @@ class _File:
         
         if isinstance(name, file):
             self.name = name.name
-        elif isinstance(name, types.StringType):
+        elif isinstance(name, types.StringType) or \
+             isinstance(name, types.UnicodeType):
             if mode != 'append' and not os.path.exists(name) and \
             not os.path.splitdrive(name)[0]:
                 #
@@ -7352,7 +7361,8 @@ class _File:
                     self.__file=__builtin__.open(self.name, _python_mode[mode])
                 else:
                     self.__file=gzip.open(self.name, _python_mode[mode])
-            elif isinstance(name, types.StringType):
+            elif isinstance(name, types.StringType) or \
+                 isinstance(name, types.UnicodeType):
                 if os.path.splitext(self.name)[1] == '.gz':
                     # Handle gzip files
                     if mode in ['update', 'append']:
@@ -8140,7 +8150,8 @@ class HDUList(list, _Verify):
             if name.fileobj != None:
                 closed = name.fileobj.closed
             filename = name.filename
-        elif isinstance(name, types.StringType):
+        elif isinstance(name, types.StringType) or \
+             isinstance(name, types.UnicodeType):
             filename = name
         else:
             if hasattr(name, 'closed'):
@@ -8156,7 +8167,8 @@ class HDUList(list, _Verify):
                 filename = str(type(name))
 
         # check if the output file already exists
-        if (isinstance(name,types.StringType) or isinstance(name,file) or
+        if (isinstance(name,types.StringType) or 
+            isinstance(name,types.UnicodeType) or isinstance(name,file) or
             isinstance(name,gzip.GzipFile)):
             if (os.path.exists(filename) and os.path.getsize(filename) != 0):
                 if clobber:
@@ -8696,7 +8708,8 @@ def append(filename, data, header=None, classExtensions={}):
         if filename.fileobj != None:
             closed = filename.fileobj.closed
         name = filename.filename
-    elif isinstance(filename, types.StringType):
+    elif isinstance(filename, types.StringType) or \
+         isinstance(filename, types.UnicodeType):
         name = filename
     else:
         if hasattr(filename, 'closed'):
@@ -8813,7 +8826,8 @@ def info(filename, classExtensions={}):
     mode = 'copyonwrite'
     closed = True
 
-    if not isinstance(filename, types.StringType):
+    if not isinstance(filename, types.StringType) and \
+       not isinstance(filename, types.UnicodeType):
         if hasattr(filename, 'closed'):
             closed = filename.closed
         elif hasattr(filename, 'fileobj') and filename.fileobj != None:
@@ -8891,7 +8905,8 @@ def tdump(fitsFile, datafile=None, cdfile=None, hfile=None, ext=1,
     mode = 'copyonwrite'
     closed = True
 
-    if not isinstance(fitsFile, types.StringType):
+    if not isinstance(fitsFile, types.StringType) and \
+       not isinstance(fitsFile, types.UnicodeType):
         if hasattr(fitsFile, 'closed'):
             closed = fitsFile.closed
         elif hasattr(fitsFile, 'fileobj') and fitsFile.fileobj != None:
