@@ -7453,6 +7453,9 @@ class _File:
                 break
         hdu._raw += block
 
+        if not end_RE.search(block):
+            raise IOError, "Header missing END card."
+
         _size, hdu.name = hdu._getsize(hdu._raw)
 
         # get extname and extver
