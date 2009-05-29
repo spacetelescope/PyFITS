@@ -7299,7 +7299,7 @@ urllib._urlopener.tempcache = {} # Initialize tempcache with an empty
 class _File:
     """A file I/O class"""
 
-    def __init__(self, name, mode='copyonwrite', memmap=0, uint16=0):
+    def __init__(self, name, mode='copyonwrite', memmap=0, **parms):
         if mode not in _python_mode.keys():
             raise "Mode '%s' not recognized" % mode
 
@@ -7330,11 +7330,20 @@ class _File:
 
         self.mode = mode
         self.memmap = memmap
-        self.uint16 = uint16
         self.code = None
         self.dims = None
         self.offset = 0
-        
+
+        if parms.has_key('ignore_missing_end'):
+            self.ignore_missing_end = parms['ignore_missing_end']
+        else:
+            self.ignore_missing_end = 0
+
+        if parms.has_key('uint16'):
+            self.uint16 = parms['uint16']
+        else:
+            self.uint16 = 0
+
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
         else:
@@ -7463,7 +7472,7 @@ class _File:
                 break
         hdu._raw += block
 
-        if not end_RE.search(block):
+        if not end_RE.search(block) and not self.ignore_missing_end:
             raise IOError, "Header missing END card."
 
         _size, hdu.name = hdu._getsize(hdu._raw)
@@ -8239,7 +8248,7 @@ class HDUList(list, _Verify):
         print results
 
 
-def open(name, mode="copyonwrite", memmap=0, classExtensions={}, uint16=0):
+def open(name, mode="copyonwrite", memmap=0, classExtensions={}, **parms):
     """Factory function to open a FITS file and return an HDUList object.
 
        name: Name of the FITS file, file object, or file like object to be
@@ -8252,17 +8261,21 @@ def open(name, mode="copyonwrite", memmap=0, classExtensions={}, uint16=0):
                         those classes.  When present in the dictionary, the
                         extension class will be constructed in place of the
                         pyfits class. 
+
+       parms: optional keyword arguments, possible values are:
        uint16: Interpret int16 data with BZERO = 32768 and BSCALE = 1 as
-               uint16 data? default=0 (False).
+               uint16 data. default=0 (False).
+       ignore_missing_end: Do not issue an exception when opening a file 
+                           that is missing an END card in the last header.
+                           default=0 (False).
     """
 
     # instantiate a FITS file object (ffo)
 
     if classExtensions.has_key(_File):
-        ffo = classExtensions[_File](name, mode=mode, memmap=memmap, 
-                                     uint16=uint16)
+        ffo = classExtensions[_File](name, mode=mode, memmap=memmap, **parms)
     else:
-        ffo = _File(name, mode=mode, memmap=memmap, uint16=uint16)
+        ffo = _File(name, mode=mode, memmap=memmap, **parms) 
 
     if classExtensions.has_key(HDUList):
         hduList = classExtensions[HDUList](file=ffo)
@@ -8276,8 +8289,8 @@ def open(name, mode="copyonwrite", memmap=0, classExtensions={}, uint16=0):
         except EOFError:
             break
         # check in the case there is extra space after the last HDU or corrupted HDU
-        except ValueError:
-            warnings.warn('Warning:  Required keywords missing when trying to read HDU #%d.\n    There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList)+1))
+        except ValueError, e:
+            warnings.warn('Warning:  Required keywords missing when trying to read HDU #%d.\n          %s\n          There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList),e))
             break
         except IOError, e:
             if isinstance(ffo.getfile(), gzip.GzipFile) and \
@@ -8305,12 +8318,18 @@ class _Zero(int):
 def _getext(filename, mode, *ext1, **ext2):
     """Open the input file, return the HDUList and the extension."""
 
+    hdulist = open(filename, mode=mode, **ext2)
+
+    # delete these from the variable keyword argument list so the extension
+    # will properly validate
     if ext2.has_key('classExtensions'):
-        hdulist = open(filename, mode=mode, 
-                       classExtensions=ext2['classExtensions'])
         del ext2['classExtensions']
-    else:
-        hdulist = open(filename, mode=mode)
+
+    if ext2.has_key('ignore_missing_end'):
+        del ext2['ignore_missing_end']
+
+    if ext2.has_key('uint16'):
+        del ext2['uint16']
 
     n_ext1 = len(ext1)
     n_ext2 = len(ext2)
@@ -8801,7 +8820,7 @@ def update(filename, data, *ext, **extkeys):
     hdulist.close(closed=closed)
 
 
-def info(filename, classExtensions={}):
+def info(filename, classExtensions={}, **parms):
     """Print the summary information on a FITS file.
     
     This includes the name, type, length of header, data shape and type
@@ -8817,6 +8836,13 @@ def info(filename, classExtensions={}):
                             extensions of those classes.  When present in 
                             the dictionary, the extension class will be 
                             constructed in place of the pyfits class. 
+
+    parms: optional keyword arguments, possible values are:
+       uint16: Interpret int16 data with BZERO = 32768 and BSCALE = 1 as
+               uint16 data. default=0 (False).
+       ignore_missing_end: Do not issue an exception when opening a file 
+                           that is missing an END card in the last header.
+                           default=1 (True).
     """
 
     # allow file object to already be opened in any of the valid modes
@@ -8845,7 +8871,11 @@ def info(filename, classExtensions={}):
                 mode = key
                 break
 
-    f = open(filename,mode=mode,classExtensions=classExtensions)
+    # Set the default value for the ignore_missing_end parameter
+    if not parms.has_key('ignore_missing_end'):
+        parms['ignore_missing_end'] = True
+
+    f = open(filename,mode=mode,classExtensions=classExtensions, **parms)
     f.info()
 
     if closed:
