@@ -2,6 +2,8 @@
 
 # $Id$
 
+from __future__ import division
+
 """
 A module for reading and writing FITS files and manipulating their contents.
 
@@ -797,7 +799,7 @@ class Card(_Verify):
         return self
 
     def _ncards(self):
-        return len(self._cardimage) / Card.length
+        return len(self._cardimage) // Card.length
 
     def _verify(self, option='warn'):
         """Card class verification method."""
@@ -1308,7 +1310,7 @@ class _Card_with_continue(Card):
 
         kard = self._cardimage
         output = ''
-        for i in range(len(kard)/80):
+        for i in range(len(kard)//80):
             output += kard[i*80:(i+1)*80] + '\n'
         return output[:-1]
 
@@ -1374,7 +1376,6 @@ class _Card_with_continue(Card):
             comm = self.comment
         commfmt = "%-s"
         if not comm == '':
-            nlines = len(comm) / comm_len + 1
             comm_list = self._words_group(comm, comm_len)
             for i in comm_list:
                 commstr = "CONTINUE  '&' / " + commfmt % i
@@ -1391,7 +1392,7 @@ class _Card_with_continue(Card):
 
         list = []
         _nblanks = input.count(' ')
-        nmax = max(_nblanks, len(input)/strlen+1)
+        nmax = max(_nblanks, len(input)//strlen+1)
         arr = chararray.array(input+' ', itemsize=1)
 
         # locations of the blanks
@@ -2480,7 +2481,7 @@ class _ValidHDU(_AllHDU, _Verify):
             bitpix = self._header['BITPIX']
             gcount = self._header.get('GCOUNT', 1)
             pcount = self._header.get('PCOUNT', 0)
-            size = abs(bitpix) * gcount * (pcount + size) / 8
+            size = abs(bitpix) * gcount * (pcount + size) // 8
         return size
 
     def copy(self):
@@ -2687,7 +2688,7 @@ class _TempHDU(_ValidHDU):
                 pos = mo.end(0)
                 dims[int(mo.group(1))-1] = int(mo.group(2))
             datasize = reduce(operator.mul, dims[groups:])
-        size = abs(bitpix) * gcount * (pcount + datasize) / 8
+        size = abs(bitpix) * gcount * (pcount + datasize) // 8
 
         if simple and not groups:
             name = 'PRIMARY'
@@ -2889,7 +2890,7 @@ def _iswholeline(indx, naxis):
             if indx.step == 1:
                 return _LineSlice(indx.stop-indx.start, indx.start)
             else:
-                return _SteppedSlice((indx.stop-indx.start)/indx.step, indx.start)
+                return _SteppedSlice((indx.stop-indx.start)//indx.step, indx.start)
     else:
         raise IndexError, 'Illegal index %s' % indx
 
@@ -3013,7 +3014,7 @@ class Section:
         # Now, get the data (does not include bscale/bzero for now XXX)
         _bitpix = self.hdu.header['BITPIX']
         code = _ImageBaseHDU.NumCode[_bitpix]
-        self.hdu._file.seek(self.hdu._datLoc+offset*abs(_bitpix)/8)
+        self.hdu._file.seek(self.hdu._datLoc+offset*abs(_bitpix)//8)
         nelements = 1
         for dim in dims: 
             nelements = nelements*dim
@@ -3168,7 +3169,7 @@ class _ImageBaseHDU(_ValidHDU):
                 _bitpix = self._header['BITPIX']
                 self._file.seek(self._datLoc)
                 if isinstance(self, GroupsHDU):
-                    dims = self.size()*8/abs(_bitpix)
+                    dims = self.size()*8//abs(_bitpix)
                 else:
                     dims = self._dimShape()
 
@@ -3501,7 +3502,7 @@ class GroupsHDU(PrimaryHDU):
             bitpix = self._header['BITPIX']
             gcount = self._header.get('GCOUNT', 1)
             pcount = self._header.get('PCOUNT', 0)
-            size = abs(bitpix) * gcount * (pcount + size) / 8
+            size = abs(bitpix) * gcount * (pcount + size) // 8
         return size
 
     def _verify(self, option='warn'):
@@ -3595,7 +3596,7 @@ def _convert_format(input_format, reverse=0):
                 output_format = _repeat+_fits2rec[dtype]
 
         elif dtype == 'X':
-            nbytes = ((repeat-1) / 8) + 1
+            nbytes = ((repeat-1) // 8) + 1
             # use an array, even if it is only ONE u1 (i.e. use tuple always)
             output_format = _FormatX(`(nbytes,)`+'u1')
             output_format._nx = repeat
@@ -3694,7 +3695,7 @@ def _unwrapx(input, output, nx):
     """
 
     pow2 = [128, 64, 32, 16, 8, 4, 2, 1]
-    nbytes = ((nx-1) / 8) + 1
+    nbytes = ((nx-1) // 8) + 1
     for i in range(nbytes):
         _min = i*8
         _max = min((i+1)*8, nx)
@@ -3710,7 +3711,7 @@ def _wrapx(input, output, nx):
     """
 
     output[...] = 0 # reset the output
-    nbytes = ((nx-1) / 8) + 1
+    nbytes = ((nx-1) // 8) + 1
     unused = nbytes*8 - nx
     for i in range(nbytes):
         _min = i*8
@@ -4829,7 +4830,7 @@ class GroupData(FITS_rec):
                     raise ValueError, "parameter value must be a sequence with %d arrays/numbers." % len(indx)
 
     def _getitem(self, offset):
-        row = (offset - self._byteoffset) / self._strides[0]
+        row = (offset - self._byteoffset) // self._strides[0]
         return _Group(self, row)
 
 
@@ -6195,7 +6196,7 @@ if compressionSupported:
                     ts = self._header['ZTILE'+`i+1`]
 
                 naxisn = self._imageHeader['NAXIS'+`i+1`]
-                nrows = nrows * ((naxisn - 1) / ts + 1)
+                nrows = nrows * ((naxisn - 1) // ts + 1)
 
                 self._header.update('ZNAXIS'+`i+1`, naxisn,
                                     'length of original image axis',
@@ -7268,7 +7269,7 @@ class StreamingHDU:
             bitpix = self._header['BITPIX']
             gcount = self._header.get('GCOUNT', 1)
             pcount = self._header.get('PCOUNT', 0)
-            size = abs(bitpix) * gcount * (pcount + size) / 8
+            size = abs(bitpix) * gcount * (pcount + size) // 8
         return size
 
     def close(self):

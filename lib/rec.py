@@ -1,4 +1,5 @@
 # All of the functions allow formats to be a dtype
+from __future__ import division
 __all__ = ['record', 'recarray', 'format_parser']
 
 import numpy.core.numeric as sb
@@ -444,7 +445,7 @@ def fromstring(datastring, dtype=None, shape=None, offset=0, formats=None,
 
     itemsize = descr.itemsize
     if (shape is None or shape == 0 or shape == -1):
-        shape = (len(datastring)-offset) / itemsize
+        shape = (len(datastring)-offset) // itemsize
 
     _array = recarray(shape, descr, buf=datastring, offset=offset)
     return _array
@@ -505,7 +506,7 @@ def fromfile(fd, dtype=None, shape=None, offset=0, formats=None,
     shapesize = shapeprod*itemsize
     if shapesize < 0:
         shape = list(shape)
-        shape[ shape.index(-1) ] = size / -shapesize
+        shape[ shape.index(-1) ] = size // -shapesize
         shape = tuple(shape)
         shapeprod = sb.array(shape).prod()
 
