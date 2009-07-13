@@ -7534,8 +7534,11 @@ class _File:
             raise IOError
         self.__file.flush()
 
-        if self.__file.mode == 'ab+':
-            self.__file.seek(0,2)
+        try:
+           if self.__file.mode == 'ab+':
+               self.__file.seek(0,2)
+        except AttributeError:
+           pass
 
         loc = self.__file.tell()
         self.__file.write(blocks)

@@ -10,6 +10,7 @@ import os
 import sys
 import warnings
 import numpy as np
+import StringIO
 
 ndarray = sb.ndarray
 
@@ -454,7 +455,15 @@ def get_remaining_size(fd):
     try:
         fn = fd.fileno()
     except AttributeError:
-        return os.path.getsize(fd.name) - fd.tell()
+        try:
+           return os.path.getsize(fd.name) - fd.tell()
+        except AttributeError:
+           cp = fd.tell()
+           fd.seek(0,2)
+           size = fd.tell() - cp
+           fd.seek(cp)
+           return size
+ 
     st = os.fstat(fn)
     size = st.st_size - fd.tell()
     return size
@@ -517,7 +526,12 @@ def fromfile(fd, dtype=None, shape=None, offset=0, formats=None,
                 "Not enough bytes left in file for specified shape and type")
 
     # create the array
-    arr = np.fromfile(fd,dtype=descr,count=shape[0]) 
+    if isinstance (fd, file):
+       arr = np.fromfile(fd,dtype=descr,count=shape[0]) 
+    else:
+       read_size = np.dtype(descr).itemsize * shape[0]
+       st=fd.read(read_size)
+       arr = np.fromstring(st, dtype=descr, count=shape[0])
     _array = recarray(shape, descr, arr.data)
 
     if name:
@@ -571,7 +585,7 @@ def array(obj, dtype=None, shape=None, offset=0, strides=None, formats=None,
             new = new.copy()
         return new
 
-    elif isinstance(obj, file):
+    elif isinstance(obj, file) or isinstance(obj, StringIO.StringIO):
         return fromfile(obj, dtype=dtype, shape=shape, offset=offset)
 
     elif isinstance(obj, ndarray):
