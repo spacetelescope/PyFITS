@@ -2924,6 +2924,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
     short *cbuf;        /* compressed data */
     short *sbuff;
     int clen;           /* size of cbuf */
+    size_t gzip_clen;
     int flag = 1; /* true by default; only = 0 if float data couldn't be */
                   /* quantized                                           */
     int iminval = 0, imaxval = 0;  /* min and max quantized integers */
@@ -3329,18 +3330,19 @@ int imcomp_compress_tile (fitsfile *outfptr,
                ffswap4(idata, tilelen);
 #endif
 
+           gzip_clen = clen;
            if (intlength == 2) {
                  compress2mem_from_mem((char *) idata, tilelen * sizeof(short),
-                 (char **) &cbuf, (size_t *) &clen, realloc,
+                 (char **) &cbuf, (size_t *) &gzip_clen, realloc,
                  &gzip_nelem, status);
            } else if (intlength == 1) {
                 compress2mem_from_mem((char *) idata, 
                  tilelen * sizeof(unsigned char),
-                 (char **) &cbuf, (size_t *) &clen, realloc,
+                 (char **) &cbuf, (size_t *) &gzip_clen, realloc,
                  &gzip_nelem, status);
            } else {
                 compress2mem_from_mem((char *) idata, tilelen * sizeof(int),
-                 (char **) &cbuf, (size_t *) &clen, realloc,
+                 (char **) &cbuf, (size_t *) &gzip_clen, realloc,
                  &gzip_nelem, status);
            }
 
