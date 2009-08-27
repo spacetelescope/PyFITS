@@ -3106,8 +3106,9 @@ class _ImageBaseHDU(_ValidHDU):
         old_naxis = self._header.get('NAXIS', 0)
 
         if isinstance(self.data, GroupData):
-            self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
-            axes = list(self.data.data.getshape())[1:]
+            self._header['BITPIX'] = _ImageBaseHDU.ImgCode[
+                      self.data.dtype.fields[self.data.dtype.names[0]][0].name]
+            axes = list(self.data.data.shape)[1:]
             axes.reverse()
             axes = [0] + axes
 
@@ -3257,7 +3258,8 @@ class _ImageBaseHDU(_ValidHDU):
                 # reverse of the numarray shape
                 if isinstance(self, GroupsHDU):
                     _shape = list(self.data.data.shape)[1:]
-                    _format = self.data._parent.field(0).dtype.name
+                    _format = \
+                       self.data.dtype.fields[self.data.dtype.names[0]][0].name
                 else:
                     _shape = list(self.data.shape)
                     _format = self.data.dtype.name
@@ -4693,7 +4695,7 @@ class GroupData(FITS_rec):
 
     def __new__(subtype, input=None, bitpix=None, pardata=None, parnames=[],
                  bscale=None, bzero=None, parbscales=None, parbzeros=None):
-        """input: input data, either the group data itself (a numarray) or
+        """input: input data, either the group data itself (a numpy.ndarray) or
                   a record array (FITS_rec) which will contain both group
                   parameter info and the data.  The rest of the arguments are
                   used only for the first case.
@@ -4735,50 +4737,47 @@ class GroupData(FITS_rec):
             _formats += data_fmt
             gcount = input.shape[0]
             for i in range(npars):
-                _cols.append(Column(name='c'+`i+1`, format = fits_fmt, bscale = parbscales[i], bzero = parbzeros[i]))
-            _cols.append(Column(name='data', format = fits_fmt, bscale = bscale, bzero = bzero))
-            subtype._coldefs = ColDefs(_cols)
-            subtype.parnames = [i.lower() for i in parnames]
+                _cols.append(Column(name='c'+`i+1`,
+                                    format = fits_fmt,
+                                    bscale = parbscales[i],
+                                    bzero = parbzeros[i]))
+            _cols.append(Column(name='data',
+                                format = fits_fmt,
+                                bscale = bscale,
+                                bzero = bzero))
+            _coldefs = ColDefs(_cols)
             
-            # need to inherit from FITS rec.  What is being done here?
- #           tmp = FITS_rec(rec.array(None, formats=_formats, shape=gcount, names= self._coldefs.names))
- #           self.__setstate__(tmp.__getstate__())
-            
-            self = FITS_rec(rec.array(None, formats=_formats, names=self._coldefs.names, shape=gcount))
+            self = FITS_rec.__new__(subtype,
+                                    rec.array(None,
+                                              formats=_formats,
+                                              names=_coldefs.names,
+                                              shape=gcount))
+            self._coldefs = _coldefs
+            self.parnames = [i.lower() for i in parnames]
             
             for i in range(npars):
                 (_scale, _zero)  = self._get_scale_factors(i)[3:5]
                 if _scale or _zero:
                     self._convert[i] = pardata[i]
                 else:
-#                    self._parent.field(i)[:] = pardata[i]
                     rec.recarray.field(self,i)[:] = pardata[i]
             (_scale, _zero)  = self._get_scale_factors(npars)[3:5]
             if _scale or _zero:
                 self._convert[npars] = input
             else:
-#                self._parent.field(npars)[:] = input
                 rec.recarray.field(self,npars)[:] = input
         else:
-#            self.__setstate__(input.__getstate__())
              self = FITS_rec.__new__(subtype,input)
         return self
 
-    def __str__(self):
-
-        # Byteswap temporarily the byte order for presentation (if needed)
-        outlist = []
-        for i in self:
-            outlist.append(FITS_record.__str__(i))
-
-        # When finished, restore the byte order (if needed)
-        return "RecArray[ \n" + ",\n".join(outlist) + "\n]"
-
+    def __getattribute__(self, attr):
+        if attr == 'data':
+            return self.field('data')
+        else:
+            return super(GroupData, self).__getattribute__(attr)
 
     def __getattr__(self, attr):
-        if attr == 'data':
-            self.__dict__[attr] = self.field('data')
-        elif attr == '_unique':
+        if attr == '_unique':
             _unique = {}
             for i in range(len(self.parnames)):
                 _name = self.parnames[i]
@@ -4810,45 +4809,102 @@ class GroupData(FITS_rec):
 
         return result
 
-    def setpar(self, parName, value):
-        """Set the group parameter values."""
+    def _getitem(self, key):
+        row = (offset - self._byteoffset) // self._strides[0]
+        return _Group(self, row)
+
+    def __getitem__(self, key):
+        return _Group(self,key,self.parnames)
+
+class _Group(FITS_record):
+    """One group of the random group data."""
+
+    def __init__(self, input, row, parnames):
+        super(_Group, self).__init__(input, row)
+        self.parnames = parnames
+
+    def __getattr__(self, attr):
+        if attr == '_unique':
+            _unique = {}
+            for i in range(len(self.parnames)):
+                _name = self.parnames[i]
+                if _name in _unique:
+                    _unique[_name].append(i)
+                else:
+                    _unique[_name] = [i]
+            self.__dict__[attr] = _unique
+        try:
+             return self.__dict__[attr]
+        except KeyError:
+            raise AttributeError(attr)
+
+    def __str__(self):
+        """Print one row."""
+
+        if isinstance(self.row, slice):
+            if self.row.step:
+                step = self.row.step
+            else:
+                step = 1
+
+            if self.row.stop > len(self.array):
+                stop = len(self.array)
+            else:
+                stop = self.row.stop
+
+            outlist = []
+
+            for i in range(self.row.start, stop, step):
+                rowlist = []
+
+                for j in range(self.array._nfields):
+                    rowlist.append(`self.array.field(j)[i]`)
+             
+                outlist.append(" (" + ", ".join(rowlist) + ")")
+                
+            return "[" + ",\n".join(outlist) + "]"
+        else:
+            return super(_Group, self).__str__()
+
+    def par(self, parName):
+        """Get the group parameter value."""
 
         if isinstance(parName, (int, long, np.integer)):
-            self.field(parName)[:] = value
+            result = self.array[self.row][parName]
         else:
-            indx = self._unique[parName]
+            indx = self._unique[parName.lower()]
             if len(indx) == 1:
-                self.field(indx[0])[:] = value
+                result = self.array[self.row][indx[0]]
+
+            # if more than one group parameter have the same name
+            else:
+                result = self.array[self.row][indx[0]].astype('f8')
+                for i in indx[1:]:
+                    result += self.array[self.row][i]
+
+        return result
+
+
+    def setpar(self, parName, value):
+        """Set the group parameter value."""
+
+        if isinstance(parName, (int, long, np.integer)):
+            self.array[self.row][parName] = value
+        else:
+            indx = self._unique[parName.lower()]
+            if len(indx) == 1:
+                self.array[self.row][indx[0]] = value
 
             # if more than one group parameter have the same name, the
             # value must be a list (or tuple) containing arrays
             else:
                 if isinstance(value, (list, tuple)) and len(indx) == len(value):
                     for i in range(len(indx)):
-                        self.field(indx[i])[:] = value[i]
+                        self.array[self.row][indx[i]] = value[i]
                 else:
-                    raise ValueError, "parameter value must be a sequence with %d arrays/numbers." % len(indx)
+                    raise ValueError, "parameter value must be a sequence " + \
+                                      "with %d arrays/numbers." % len(indx)
 
-    def _getitem(self, offset):
-        row = (offset - self._byteoffset) // self._strides[0]
-        return _Group(self, row)
-
-
-class _Group(rec.record):
-    """One group of the random group data."""
-
-    def __init__(self, input, row=0):
-        rec.Record.__init__(self, input, row)
-
-    def par(self, fieldName):
-        """Get the group parameter value."""
-
-        return self.array.par(fieldName)[self.row]
-
-    def setpar(self, fieldName, value):
-        """Set the group parameter value."""
-
-        self.array[self.row:self.row+1].setpar(fieldName, value)
 
 
 class _TableBaseHDU(_ExtensionHDU):
@@ -7596,9 +7652,13 @@ class _File:
 
             # if image, need to deal with byte order
             elif isinstance(hdu, _ImageBaseHDU):
+                if isinstance(hdu.data, GroupData):
+                    byteorder = \
+                       hdu.data.dtype.fields[hdu.data.dtype.names[0]][0].str[0]
+                else:
+                    byteorder = hdu.data.dtype.str[0]
 
-#               if the data is littleendian
-                if hdu.data.dtype.str[0] != '>':
+                if byteorder != '>':
                     byteswapped = True
                     output = hdu.data.byteswap(True)
                     output.dtype = output.dtype.newbyteorder('>')
