@@ -8169,7 +8169,10 @@ class HDUList(list, _Verify):
             if keyboardInterruptSent:
                 raise KeyboardInterrupt
             
-            signal.signal(signal.SIGINT,old_handler)
+            if old_handler != None:
+                signal.signal(signal.SIGINT,old_handler)
+            else:
+                signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     def update_extend(self):
         """Make sure if the primary header needs the keyword EXTEND or if
