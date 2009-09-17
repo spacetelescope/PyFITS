@@ -55,6 +55,7 @@ import threading
 import sys
 import warnings
 import weakref
+import datetime
 try:
     import pyfitsComp
     compressionSupported = 1
@@ -2442,7 +2443,7 @@ class _NonstandardHDU(_AllHDU, _Verify):
         return _err
 
     def writeto(self, name, output_verify='exception', clobber=False,
-                classExtensions={}):
+                classExtensions={}, checksum=False):
         """Write the HDU to a new file.  This is a convenience method
            to provide a user easier output interface if only one HDU
            needs to be written to a file.
@@ -2455,6 +2456,8 @@ class _NonstandardHDU(_AllHDU, _Verify):
                             of those classes.  When present in the dictionary,
                             the extension class will be constructed in place of
                             the pyfits class.
+           checksum: When True adds both DATASUM and CHECKSUM cards to the
+                     header of the HDU when written to the file.
         """
 
         if classExtensions.has_key(HDUList):
@@ -2463,7 +2466,7 @@ class _NonstandardHDU(_AllHDU, _Verify):
             hdulist = HDUList([self])
 
         hdulist.writeto(name, output_verify, clobber=clobber,
-                        classExtensions=classExtensions)
+                        checksum=checksum, classExtensions=classExtensions)
 
 
 class _ValidHDU(_AllHDU, _Verify):
@@ -2493,7 +2496,7 @@ class _ValidHDU(_AllHDU, _Verify):
         return self.__class__(data=_data, header=self._header.copy())
 
     def writeto(self, name, output_verify='exception', clobber=False,
-                classExtensions={}):
+                classExtensions={}, checksum=False):
         """Write the HDU to a new file.  This is a convenience method
            to provide a user easier output interface if only one HDU
            needs to be written to a file.
@@ -2506,6 +2509,8 @@ class _ValidHDU(_AllHDU, _Verify):
                             of those classes.  When present in the dictionary, 
                             the extension class will be constructed in place of 
                             the pyfits class. 
+           checksum: When True adds both DATASUM and CHECKSUM cards to the
+                     header of the HDU when written to the file.
         """
 
         if isinstance(self, _ExtensionHDU):
@@ -2519,7 +2524,7 @@ class _ValidHDU(_AllHDU, _Verify):
             else:
                 hdulist = HDUList([self])
         hdulist.writeto(name, output_verify, clobber=clobber,
-                        classExtensions=classExtensions)
+                        checksum=checksum, classExtensions=classExtensions)
 
     def _verify(self, option='warn'):
         _err = _ErrList([], unit='Card')
@@ -2608,6 +2613,272 @@ class _ValidHDU(_AllHDU, _Verify):
                     _err.append(self.run_option(option, err_text=err_text, fix_text=fix_text, fix=fix, fixable=fixable))
 
         return _err
+
+    def _compute_checksum(self, bytes, sum32=0):
+        """
+        Compute the ones complement checksum of a sequence of bytes.
+
+        @param bytes:   a memory region to checksum
+        @type bytes:    numpy array dtype='byte'
+
+        @param sum32:   incremental checksum value from another region
+        @type  sum32:   numpy scalar dtype='uint32'
+
+        @returns:       ones complement checksum
+        @rtype:         numpy scalar dtype='uint32'
+        """
+
+        # Use uint32 literals as a hedge against type promotion to int64.
+        u8 = np.array(8, dtype='uint32')
+        u16 = np.array(16, dtype='uint32')
+        uFFFF = np.array(0xFFFF, dtype='uint32')
+
+        b0 = bytes[0::4].astype('uint32') << u8
+        b1 = bytes[1::4].astype('uint32')
+        b2 = bytes[2::4].astype('uint32') << u8
+        b3 = bytes[3::4].astype('uint32')
+
+        hi = np.array(sum32, dtype='uint32') >> u16
+        lo = np.array(sum32, dtype='uint32') & uFFFF
+
+        hi += np.add.reduce((b0 + b1)).astype('uint32')
+        lo += np.add.reduce((b2 + b3)).astype('uint32')
+
+        hicarry = hi >> u16
+        locarry = lo >> u16
+
+        while int(hicarry) or int(locarry):
+            hi = (hi & uFFFF) + locarry
+            lo = (lo & uFFFF) + hicarry
+            hicarry = hi >> u16
+            locarry = lo >> u16
+
+        return (hi << u16) + lo
+
+
+    # _MASK and _EXCLUDE used for encoding the checksum value into a character
+    # string.
+    _MASK = [ 0xFF000000,
+              0x00FF0000,
+              0x0000FF00,
+              0x000000FF ]
+
+    _EXCLUDE = [ 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40,
+                 0x5b, 0x5c, 0x5d, 0x5e, 0x5f, 0x60 ]
+
+    def _encode_byte(self, byte):
+        "Encode a single byte."
+
+        quotient = byte / 4 + ord('0')
+        remainder = byte % 4
+
+        ch = np.array(
+            [(quotient + remainder), quotient, quotient, quotient],
+            dtype='int32')
+
+        check = True
+        while check:
+            check = False
+            for x in self._EXCLUDE:
+                for j in [0, 2]:
+                    if ch[j] == x or ch[j+1] == x:
+                        ch[j]   += 1
+                        ch[j+1] -= 1
+                        check = True
+        return ch
+
+    def _char_encode(self, value):
+        """
+        Encodes the checksum 'value' using the algorithm described
+        in SPR section A.7.2 and returns it as a 16 character string.
+
+        @param value:   a checksum
+        @type  value:   uint32
+
+        @returns:  ascii encoded checksum
+        @rtype:    str[16]
+        """
+        value = np.array(value, dtype='uint32')
+
+        asc = np.zeros((16,), dtype='byte')
+        ascii = np.zeros((16,), dtype='byte')
+
+        for i in range(4):
+            byte = (value & self._MASK[i]) >> ((3 - i) * 8)
+            ch = self._encode_byte(byte)
+            for j in range(4):
+                asc[4*j+i] = ch[j]
+
+        for i in range(16):
+            ascii[i] = asc[(i+15) % 16]
+
+        return ascii.tostring()
+
+    def _datetime_str(self):
+        "Time of now formatted like: 2007-05-30T19:05:11"
+        now = str(datetime.datetime.now()).split()
+        return now[0] + "T" + now[1].split(".")[0]
+
+    def _calculate_datasum(self):
+        "Calculate the value for the DATASUM card in the HDU."
+        if (not self.__dict__.has_key('data')):
+            # This is the case where the data has not been read from the file
+            # yet.  We find the data in the file, read it, and calculate the 
+            # datasum.
+            if self.size() > 0:
+                self._file.seek(self._datLoc)
+                raw_data = _fromfile(self._file, dtype='ubyte',
+                                     count=self._datSpan, sep="")
+                return self._compute_checksum(raw_data,0)
+            else:
+                return 0
+        elif (self.data != None):
+            return self._compute_checksum(
+                                 np.fromstring(self.data, dtype='ubyte'),0)
+        else:
+            return 0
+
+    def _calculate_checksum(self, datasum):
+        "Calculate the value of the CHECKSUM card in the HDU."
+        oldChecksum = self.header['CHECKSUM']
+        self.header.update('CHECKSUM', '0'*16);
+
+        # Convert the header to a string.
+        s = repr(self._header.ascard) + _pad('END')
+        s = s + _padLength(len(s))*' '
+
+        # Calculate the checksum of the Header and data.
+        cs = self._compute_checksum(np.fromstring(s, dtype='ubyte'),datasum)
+
+        # Encode the checksum into a string.
+        s = self._char_encode(~cs)
+
+        # Return the header card value.
+        self.header.update("CHECKSUM", oldChecksum);
+
+        return s
+
+    def add_datasum(self, when=None):
+        """
+        Add the DATASUM card to this HDU with the value set to the checksum
+        calculated for the data.
+
+        @param when:   comment string for the card that by default represents
+                       the time when the checksum was calculated
+        @type  when:   str
+
+        @returns:      the calculated checksum
+        @rtype:        numpy scalar dtype='uint32'
+
+        Note: For testing purposes, provide a when argument to enable the 
+              comment value in the card to remain consistent.  This will 
+              enable the generation of a CHECKSUM card with a consistent
+              value.
+        """
+        cs = self._calculate_datasum()
+
+        if when is None:
+           when = "data unit checksum updated " + self._datetime_str()
+
+        self.header.update("DATASUM", str(cs), when);
+        return cs
+
+    def add_checksum(self, when=None, override_datasum=False):
+        """
+        Add the CHECKSUM and DATASUM cards to this HDU with the values set to
+        the checksum calculated for the HDU and the data respectively.  The
+        addition of the DATASUM card may be overridden.
+
+        @param when:   comment string for the cards; by default the comments
+                       will represent the time when the checksum was calculated
+        @type  when:   str
+
+        @param override_datasum: add the CHECKSUM card only
+        @type  override_datasum: bool
+
+        @returns:      None
+        @rtype:        None
+
+        Note: For testing purposes, first call add_datasum with a when argument,
+              then call add_checksum with a when argument and override_datasum
+              set to True.  This will provide consistent comments for both
+              cards and enable the generation of a CHECKSUM card with a
+              consistent value.
+        """
+        
+        if not override_datasum:
+           # Calculate and add the data checksum to the header.
+           data_cs = self.add_datasum(when)
+        else:
+           # Just calculate the data checksum
+           data_cs = self._calculate_datasum()
+
+        if when is None:
+            when = "HDU checksum updated " + self._datetime_str()
+
+        # Add the CHECKSUM card to the header with a value of all zeros.
+        if self.header.has_key("DATASUM"):
+            self.header.update("CHECKSUM", "0"*16, when, before='DATASUM');
+        else:
+            self.header.update("CHECKSUM", "0"*16, when);
+
+        s = self._calculate_checksum(data_cs)
+
+        # Update the header card.
+        self.header.update("CHECKSUM", s, when);
+
+    def verify_datasum(self):
+        """
+        Verify that the value in the DATASUM keyword matches the value 
+        calculated for the DATASUM of the current HDU data.
+
+        @returns:       0 - failure
+                        1 - success
+                        2 - no DATASUM keyword present
+        @rtype:         int
+        """
+
+        if self.header.has_key('DATASUM'):
+            if self._calculate_datasum() == int(self.header['DATASUM']):
+                return 1
+            else:
+                return 0
+        else:
+            return 2
+
+    def verify_checksum(self):
+        """
+        Verify that the value in the CHECKSUM and DATASUM keywords match the
+        values calculated for the current HDU CHECKSUM and the DATASUM of the
+        current HDU data.
+
+        @returns:       0 - failure
+                        1 - success
+                        2 - no CHECKSUM keyword present
+                        3 - no DATASUM keyword present
+        @rtype:         int
+        """
+
+        if self._header.has_key('DATASUM'):
+            datasum = self._calculate_datasum()
+
+            #print "CHECKSUM card value = ", self._checksum
+            #print "Calculated checksum = ", self._calculate_checksum(datasum)
+            #print "DATASUM card value = ", self._datasum
+            #print "Calculated datasum = ", datasum
+
+            if datasum == int(self._header['DATASUM']):
+                if self._checksum:
+                    if self._calculate_checksum(datasum) == self._checksum:
+                        return 1
+                    else:
+                        return 0
+                else:
+                    return 2
+            else:
+                return 0
+        else:
+            return 3
 
 
 class _TempHDU(_ValidHDU):
@@ -2848,7 +3119,7 @@ class _NonstandardExtHDU(_ExtensionHDU):
             raise AttributeError(attr)
 
     def writeto(self, name, output_verify='exception', clobber=False,
-                classExtensions={}):
+                classExtensions={}, checksum=False):
         """Write the HDU to a new file.  This is a convenience method
            to provide a user easier output interface if only one HDU
            needs to be written to a file.
@@ -2861,6 +3132,8 @@ class _NonstandardExtHDU(_ExtensionHDU):
                             of those classes.  When present in the dictionary,
                             the extension class will be constructed in place of
                             the pyfits class.
+           checksum: When True adds both DATASUM and CHECKSUM cards to the
+                     header of the HDU when written to the file.
         """
 
         if classExtensions.has_key(HDUList):
@@ -2869,7 +3142,7 @@ class _NonstandardExtHDU(_ExtensionHDU):
             hdulist = HDUList([PrimaryHDU(),self])
 
         hdulist.writeto(name, output_verify, clobber=clobber,
-                        classExtensions=classExtensions)
+                        checksum=checksum, classExtensions=classExtensions)
 
 
 # 0.8.8
@@ -3363,6 +3636,42 @@ class _ImageBaseHDU(_ValidHDU):
         #
         self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
 
+    def _calculate_datasum(self):
+        "Calculate the value for the DATASUM card in the HDU."
+        if self.__dict__.has_key('data') and self.data != None:
+            # We have the data to be used.
+            d = self.data
+
+            # First handle the special case where the data is unsigned integer
+            # 16.
+            if self.data.dtype == np.uint16:
+                d = np.array(self.data-32768,dtype='i2')
+
+            # Check the byte order of the data.  If it is little endian we
+            # must swap it before calculating the datasum.
+            if d.dtype.str[0] != '>':
+                byteswapped = True
+                d = d.byteswap(True)
+                d.dtype = d.dtype.newbyteorder('>')
+            else:
+                byteswapped = False
+
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),0)
+
+            # If the data was byteswapped in this method then return it to 
+            # its original little-endian order.
+            if byteswapped and self.data.dtype != np.uint16:
+                d.byteswap(True)
+                d.dtype = d.dtype.newbyteorder('<')
+
+            return cs
+        else:
+            # This is the case where the data has not been read from the file
+            # yet.  We can handle that in a generic manner so we do it in the
+            # base class.  The other possibility is that there is no data at
+            # all.  This can also be handled in a gereric manner.
+            return super(_ImageBaseHDU,self)._calculate_datasum()
+
 class PrimaryHDU(_ImageBaseHDU):
     """FITS primary HDU class."""
 
@@ -3394,7 +3703,7 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
            data: the data in the HDU, default=None.
            header: the header to be used (as a template), default=None.
                    If header=None, a minimal Header will be provided.
-           name: The name of the HDU, will be the value of the keywod EXTNAME,
+           name: The name of the HDU, will be the value of the keyword EXTNAME,
                  default=None.
         """
 
@@ -3526,6 +3835,39 @@ class GroupsHDU(PrimaryHDU):
         self.req_cards('PCOUNT', _pos, _isInt, 0, option, _err)
         self.req_cards('GROUPS', _pos, 'val == True', True, option, _err)
         return _err
+
+    def _calculate_datasum(self):
+        "Calculate the value for the DATASUM card in the HDU."
+        if self.__dict__.has_key('data') and self.data != None:
+            # We have the data to be used.
+            # Check the byte order of the data.  If it is little endian we
+            # must swap it before calculating the datasum.
+            byteorder = \
+                     self.data.dtype.fields[self.data.dtype.names[0]][0].str[0]
+
+            if byteorder != '>':
+                byteswapped = True
+                d = self.data.byteswap(True)
+                d.dtype = d.dtype.newbyteorder('>')
+            else:
+                byteswapped = False
+                d = self.data
+
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),0)
+
+            # If the data was byteswapped in this method then return it to 
+            # its original little-endian order.
+            if byteswapped:
+                d.byteswap(True)
+                d.dtype = d.dtype.newbyteorder('<')
+
+            return cs
+        else:
+            # This is the case where the data has not been read from the file
+            # yet.  We can handle that in a generic manner so we do it in the
+            # base class.  The other possibility is that there is no data at
+            # all.  This can also be handled in a gereric manner.
+            return super(GroupsHDU,self)._calculate_datasum()
 
 
 # --------------------------Table related code----------------------------------
@@ -5173,6 +5515,26 @@ class TableHDU(_TableBaseHDU):
         return strfmt
     '''
 
+    def _calculate_datasum(self):
+        "Calculate the value for the DATASUM card in the HDU."
+        if self.__dict__.has_key('data') and self.data != None:
+            # We have the data to be used.
+            # We need to pad the data to a block length before calculating
+            # the datasum.
+
+            if self.size() > 0:
+                d = np.append(np.fromstring(self.data, dtype='ubyte'),
+                              np.fromstring(_padLength(self.size())*' ',
+                                            dtype='ubyte'))
+            
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),0)
+            return cs
+        else:
+            # This is the case where the data has not been read from the file
+            # yet.  We can handle that in a generic manner so we do it in the
+            # base class.  The other possibility is that there is no data at
+            # all.  This can also be handled in a gereric manner.
+            return super(TableHDU,self)._calculate_datasum()
 
     def _verify(self, option='warn'):
         """TableHDU verify method."""
@@ -5202,6 +5564,57 @@ class BinTableHDU(_TableBaseHDU):
             hdr.ascard[0].comment = 'binary table extension'
 
         self._header._hdutype = BinTableHDU
+
+    def _calculate_datasum_from_data(self, data):
+        "Calculate the value for the DATASUM card given the input data" 
+
+        # Check the byte order of the data.  If it is little endian we
+        # must swap it before calculating the datasum.
+        for i in range(data._nfields):
+            coldata = data.field(i)
+
+            if not isinstance(coldata, chararray.chararray):
+                if isinstance(coldata, _VLF):
+                    k = 0
+                    for j in coldata:
+                        if not isinstance(j, chararray.chararray):
+                            if j.itemsize > 1:
+                                if j.dtype.str[0] != '>':
+                                    j[:] = j.byteswap()
+                                    j.dtype = j.dtype.newbyteorder('>')
+                        if rec.recarray.field(data,i)[k:k+1].dtype.str[0]!='>':
+                            rec.recarray.field(data,i)[k:k+1].byteswap(True)
+                        k = k + 1
+                else:
+                    if coldata.itemsize > 1:
+                        if data.field(i).dtype.str[0] != '>':
+                            data.field(i)[:] = data.field(i).byteswap()
+        data.dtype = data.dtype.newbyteorder('>')
+
+        dout=np.fromstring(data, dtype='ubyte')
+
+        for i in range(data._nfields):
+            if isinstance(data._coldefs._recformats[i], _FormatP):
+                for j in range(len(data.field(i))):
+                    coldata = data.field(i)[j]
+                    if len(coldata) > 0:
+                        dout = np.append(dout, 
+                                    np.fromstring(coldata,dtype='ubyte'))
+
+        cs = self._compute_checksum(dout,0)
+        return cs
+
+    def _calculate_datasum(self):
+        "Calculate the value for the DATASUM card in the HDU."
+        if self.__dict__.has_key('data') and self.data != None:
+            # We have the data to be used.
+            return self._calculate_datasum_from_data(self.data)
+        else:
+            # This is the case where the data has not been read from the file
+            # yet.  We can handle that in a generic manner so we do it in the
+            # base class.  The other possibility is that there is no data at
+            # all.  This can also be handled in a gereric manner.
+            return super(BinTableHDU,self)._calculate_datasum()
 
     def tdump(self, datafile=None, cdfile=None, hfile=None, clobber=False):
         """
@@ -6006,6 +6419,12 @@ if compressionSupported:
                 if bzero != 0.0:
                     self._header.update('BZERO',bzero,after=afterCard)
 
+                bitpix_comment = imageHeader.ascardlist()['BITPIX'].comment
+                naxis_comment =  imageHeader.ascardlist()['NAXIS'].comment
+            else:
+                bitpix_comment = 'data type of original image'
+                naxis_comment = 'dimension of original image'
+
             # Set the label for the first column in the table
 
             self._header.update('TTYPE1', 'COMPRESSED_DATA', 
@@ -6100,10 +6519,10 @@ if compressionSupported:
                                 'extension contains compressed image',
                                 after = after)
             self._header.update('ZBITPIX', self._imageHeader['BITPIX'],
-                                'data type of original image',
+                                bitpix_comment,
                                 after = 'ZIMAGE')
             self._header.update('ZNAXIS', self._imageHeader['NAXIS'],
-                                'dimension of original image',
+                                naxis_comment,
                                 after = 'ZBITPIX')
 
             # Strip the table header of all the ZNAZISn and ZTILEn keywords
@@ -6254,9 +6673,15 @@ if compressionSupported:
                 naxisn = self._imageHeader['NAXIS'+`i+1`]
                 nrows = nrows * ((naxisn - 1) // ts + 1)
 
-                self._header.update('ZNAXIS'+`i+1`, naxisn,
-                                    'length of original image axis',
-                                    after=after)
+                if imageHeader:
+                    self._header.update('ZNAXIS'+`i+1`, naxisn,
+                              imageHeader.ascardlist()['NAXIS'+`i+1`].comment,
+                              after=after)
+                else:
+                    self._header.update('ZNAXIS'+`i+1`, naxisn,
+                              'length of original image axis',
+                              after=after)
+                    
                 self._header.update('ZTILE'+`i+1`, ts,
                                     'size of tiles to be compressed',
                                     after=after1)
@@ -6379,6 +6804,108 @@ if compressionSupported:
                 self._header.update('ZVAL'+`i`, quantizeLevel,
                                     'floating point quantization level',
                                     after='ZNAME'+`i`)
+
+            if imageHeader:
+                # Move SIMPLE card from the image header to the 
+                # table header as ZSIMPLE card.
+ 
+                if imageHeader.has_key('SIMPLE'):
+                    self._header.update('ZSIMPLE',
+                            imageHeader['SIMPLE'],
+                            imageHeader.ascardlist()['SIMPLE'].comment)
+
+                # Move EXTEND card from the image header to the 
+                # table header as ZEXTEND card.
+ 
+                if imageHeader.has_key('EXTEND'):
+                    self._header.update('ZEXTEND',
+                            imageHeader['EXTEND'],
+                            imageHeader.ascardlist()['EXTEND'].comment)
+
+                # Move BLOCKED card from the image header to the 
+                # table header as ZBLOCKED card.
+ 
+                if imageHeader.has_key('BLOCKED'):
+                    self._header.update('ZBLOCKED',
+                            imageHeader['BLOCKED'],
+                            imageHeader.ascardlist()['BLOCKED'].comment)
+
+                # Move XTENSION card from the image header to the 
+                # table header as ZTENSION card.
+ 
+                if imageHeader.has_key('XTENSION'):
+                    self._header.update('ZTENSION',
+                            imageHeader['XTENSION'],
+                            imageHeader.ascardlist()['XTENSION'].comment)
+
+                # Move PCOUNT and GCOUNT cards from image header to the table
+                # header as ZPCOUNT and ZGCOUNT cards.
+
+                if imageHeader.has_key('PCOUNT'):
+                    self._header.update('ZPCOUNT',
+                            imageHeader['PCOUNT'],
+                            imageHeader.ascardlist()['PCOUNT'].comment)
+                
+                if imageHeader.has_key('GCOUNT'):
+                    self._header.update('ZGCOUNT',
+                            imageHeader['GCOUNT'],
+                            imageHeader.ascardlist()['GCOUNT'].comment)
+                
+                # Move CHECKSUM and DATASUM cards from the image header to the
+                # table header as XHECKSUM and XDATASUM cards.
+
+                if imageHeader.has_key('CHECKSUM'):
+                    self._header.update('ZHECKSUM',
+                            imageHeader['CHECKSUM'],
+                            imageHeader.ascardlist()['CHECKSUM'].comment)
+                
+                if imageHeader.has_key('DATASUM'):
+                    self._header.update('ZDATASUM',
+                            imageHeader['DATASUM'],
+                            imageHeader.ascardlist()['DATASUM'].comment)
+            else:
+                # Move XTENSION card from the image header to the 
+                # table header as ZTENSION card.
+ 
+                if self._imageHeader.has_key('XTENSION'):
+                    self._header.update('ZTENSION',
+                            self._imageHeader['XTENSION'],
+                            self._imageHeader.ascardlist()['XTENSION'].comment)
+
+                # Move PCOUNT and GCOUNT cards from image header to the table
+                # header as ZPCOUNT and ZGCOUNT cards.
+
+                if self._imageHeader.has_key('PCOUNT'):
+                    self._header.update('ZPCOUNT',
+                            self._imageHeader['PCOUNT'],
+                            self._imageHeader.ascardlist()['PCOUNT'].comment)
+                
+                if self._imageHeader.has_key('GCOUNT'):
+                    self._header.update('ZGCOUNT',
+                            self._imageHeader['GCOUNT'],
+                            self._imageHeader.ascardlist()['GCOUNT'].comment)
+                
+
+            # When we have an image checksum we need to ensure that the same
+            # number of blank cards exist in the table header as there were in
+            # the image header.  This allows those blank cards to be carried
+            # over to the image header when the hdu is uncompressed.
+
+            if self._header.has_key('ZHECKSUM'):
+                imageHeader.ascardlist().count_blanks()
+                self._imageHeader.ascardlist().count_blanks()
+                self._header.ascardlist().count_blanks()
+                requiredBlankCount = imageHeader.ascardlist()._blanks
+                imageBlankCount = self._imageHeader.ascardlist()._blanks
+                tableBlankCount = self._header.ascardlist()._blanks
+
+                for i in range(requiredBlankCount - imageBlankCount):
+                    self._imageHeader.add_blank()
+                    tableBlankCount = tableBlankCount + 1
+
+                for i in range(requiredBlankCount - tableBlankCount):
+                    self._header.add_blank()
+
 
         def __getattr__(self, attr):
             """ Get an HDU attribute. """
@@ -6655,21 +7182,29 @@ if compressionSupported:
                             elif _bitpix > 0:  # scale integers to Float32
                                 cardList['BITPIX'].value = -32
    
-                        cardList['BITPIX'].comment = 'array data type'
+                        cardList['BITPIX'].comment = \
+                                   self._header.ascardlist()['ZBITPIX'].comment
                     except KeyError:
                         pass
    
                     try:
                         del cardList['ZNAXIS']
                         cardList['NAXIS'].value = self._header['ZNAXIS']
-                        cardList['NAXIS'].comment = 'number of array dimensions'
+                        cardList['NAXIS'].comment = \
+                                 self._header.ascardlist()['ZNAXIS'].comment
    
                         for i in range(cardList['NAXIS'].value):
                             del cardList['ZNAXIS'+`i+1`]
                             self._imageHeader.update('NAXIS'+`i+1`,
-                                                   self._header['ZNAXIS'+`i+1`],
-                                                   'length of data axis', 
-                                                   after='NAXIS'+`i`)
+                              self._header['ZNAXIS'+`i+1`],
+                              self._header.ascardlist()['ZNAXIS'+`i+1`].comment,
+                              after='NAXIS'+`i`)
+                            lastNaxisCard = 'NAXIS'+`i+1`
+
+                        if lastNaxisCard == 'NAXIS1':
+                            # There is only one axis in the image data so we
+                            # need to delete the extra NAXIS2 card.
+                            del cardList['NAXIS2']
                     except KeyError:
                         pass
    
@@ -6681,8 +7216,41 @@ if compressionSupported:
                         pass
    
                     try:
-                        cardList['PCOUNT'].value = 0
-                        cardList['PCOUNT'].comment = 'number of parameters'
+                        del cardList['ZPCOUNT']
+                        self._imageHeader.update('PCOUNT',
+                                 self._header['ZPCOUNT'],
+                                 self._header.ascardlist()['ZPCOUNT'].comment)
+                    except KeyError:
+                        try:
+                            del cardList['PCOUNT']
+                        except KeyError:
+                            pass
+   
+                    try:
+                        del cardList['ZGCOUNT']
+                        self._imageHeader.update('GCOUNT',
+                                 self._header['ZGCOUNT'],
+                                 self._header.ascardlist()['ZGCOUNT'].comment)
+                    except KeyError:
+                        try:
+                            del cardList['GCOUNT']
+                        except KeyError:
+                            pass
+   
+                    try:
+                        del cardList['ZEXTEND']
+                        self._imageHeader.update('EXTEND',
+                                 self._header['ZEXTEND'],
+                                 self._header.ascardlist()['ZEXTEND'].comment,
+                                 after = lastNaxisCard)
+                    except KeyError:
+                        pass
+
+                    try:
+                        del cardList['ZBLOCKED']
+                        self._imageHeader.update('BLOCKED',
+                                 self._header['ZBLOCKED'],
+                                 self._header.ascardlist()['ZBLOCKED'].comment)
                     except KeyError:
                         pass
    
@@ -6719,7 +7287,62 @@ if compressionSupported:
                         del cardList['BZERO']
                     except KeyError:
                         pass
+
+                    # Move the ZHECKSUM and ZDATASUM cards to the image header
+                    # as CHECKSUM and DATASUM
+                    try:
+                        del cardList['ZHECKSUM']
+                        self._imageHeader.update('CHECKSUM',
+                                self._header['ZHECKSUM'],
+                                self._header.ascardlist()['ZHECKSUM'].comment)
+                    except KeyError:
+                        pass
    
+                    try:
+                        del cardList['ZDATASUM']
+                        self._imageHeader.update('DATASUM',
+                                self._header['ZDATASUM'],
+                                self._header.ascardlist()['ZDATASUM'].comment)
+                    except KeyError:
+                        pass
+   
+                    try:
+                        del cardList['ZSIMPLE']
+                        self._imageHeader.update('SIMPLE',
+                                self._header['ZSIMPLE'],
+                                self._header.ascardlist()['ZSIMPLE'].comment,
+                                before=1)
+                        del cardList['XTENSION']
+                    except KeyError:
+                        pass
+
+                    try:
+                        del cardList['ZTENSION']
+                        self._imageHeader.update('XTENSION',
+                                self._header['ZTENSION'],
+                                self._header.ascardlist()['ZTENSION'].comment)
+                    except KeyError:
+                        pass
+
+                    # Remove the EXTNAME card if the value in the table header
+                    # is the default value of COMPRESSED_IMAGE.
+
+                    if self._header.has_key('EXTNAME') and \
+                       self._header['EXTNAME'] == 'COMPRESSED_IMAGE':
+                           del cardList['EXTNAME']
+
+                    # Look to see if there are any blank cards in the table
+                    # header.  If there are, there should be the same number
+                    # of blank cards in the image header.  Add blank cards to
+                    # the image header to make it so.
+                    self._header.ascardlist().count_blanks()
+                    tableHeaderBlankCount = self._header.ascardlist()._blanks
+                    self._imageHeader.ascardlist().count_blanks()
+                    imageHeaderBlankCount=self._imageHeader.ascardlist()._blanks
+
+                    for i in range(tableHeaderBlankCount-imageHeaderBlankCount):
+                        self._imageHeader.add_blank()
+
                 try:
                     return self._imageHeader
                 except KeyError:
@@ -7103,6 +7726,19 @@ if compressionSupported:
                 self.header.update('BSCALE', _scale)
             else:
                 del self.header['BSCALE']
+
+        def _calculate_datasum(self):
+            "Calculate the value for the DATASUM card in the HDU."
+            if self.__dict__.has_key('data') and self.data != None:
+                # We have the data to be used.
+                return self._calculate_datasum_from_data(self.compData)
+            else:
+                # This is the case where the data has not been read from the
+                # file yet.  We can handle that in a generic manner so we do
+                # it in the base class.  The other possibility is that there
+                # is no data at all.  This can also be handled in a gereric
+                # manner.
+                return super(CompImageHDU,self)._calculate_datasum()
 
  
 else:
@@ -7559,7 +8195,7 @@ class _File:
 
         return hdu
 
-    def writeHDU(self, hdu):
+    def writeHDU(self, hdu, checksum=False):
         """Write *one* FITS HDU.  Must seek to the correct location before
            calling this method.
         """
@@ -7568,9 +8204,9 @@ class _File:
             hdu.update_header()
         elif isinstance(hdu, CompImageHDU):
             hdu.updateCompressedData() 
-        return (self.writeHDUheader(hdu),) + self.writeHDUdata(hdu)
+        return (self.writeHDUheader(hdu,checksum),) + self.writeHDUdata(hdu)
 
-    def writeHDUheader(self, hdu):
+    def writeHDUheader(self, hdu, checksum=False):
         """Write FITS HDU header part."""
 
         # If the data is unsigned int 16 add BSCALE/BZERO cards to header
@@ -7582,6 +8218,21 @@ class _File:
             hdu._header.update('BSCALE',1,
                               after='NAXIS'+`hdu.header.get('NAXIS')`)
             hdu._header.update('BZERO',32768,after='BSCALE')
+
+        # Handle checksum
+        if hdu._header.has_key('CHECKSUM'):
+            del hdu.header['CHECKSUM']
+
+        if hdu._header.has_key('DATASUM'):
+            del hdu.header['DATASUM']
+
+        if checksum == 'datasum':
+            hdu.add_datasum()
+        elif checksum == 'test':
+            hdu.add_datasum(hdu._datasum_comment)
+            hdu.add_checksum(hdu._checksum_comment,True)
+        elif checksum:
+            hdu.add_checksum()
 
         blocks = repr(hdu._header.ascard) + _pad('END')
         blocks = blocks + _padLength(len(blocks))*' '
@@ -8017,7 +8668,13 @@ class HDUList(list, _Verify):
 
                 # only append HDU's which are "new"
                 if hdu._new:
-                    self.__file.writeHDU(hdu)
+                    # only output the checksum if flagged to do so
+                    if hasattr(hdu, '_output_checksum'):
+                        checksum = hdu._output_checksum
+                    else:
+                        checksum = False
+
+                    self.__file.writeHDU(hdu, checksum=checksum)
                     if (verbose):
                         print "append HDU", hdu.name, _extver
                     hdu._new = 0
@@ -8086,7 +8743,14 @@ class HDUList(list, _Verify):
                     if (verbose): print "open a temp file", _name
 
                     for hdu in self:
-                        (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = _hduList.__file.writeHDU(hdu)
+                        # only output the checksum if flagged to do so
+                        if hasattr(hdu, '_output_checksum'):
+                            checksum = hdu._output_checksum
+                        else:
+                            checksum = False
+
+                        (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = \
+                               _hduList.__file.writeHDU(hdu, checksum=checksum)
                     _hduList.__file.close()
                     self.__file.close()
                     os.remove(self.__file.name)
@@ -8124,7 +8788,14 @@ class HDUList(list, _Verify):
                     ffo.getfile().truncate(0)
 
                     for hdu in _hduList:
-                        (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = ffo.writeHDU(hdu)
+                        # only output the checksum if flagged to do so
+                        if hasattr(hdu, '_output_checksum'):
+                            checksum = hdu._output_checksum
+                        else:
+                            checksum = False
+
+                        (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = \
+                                            ffo.writeHDU(hdu, checksum=checksum)
 
                     # Close the temporary file and delete it.
 
@@ -8147,8 +8818,14 @@ class HDUList(list, _Verify):
                         try: _extver = `hdu.header['extver']`
                         except: _extver = ''
                     if hdu.header._mod or hdu.header.ascard._mod:
+                        # only output the checksum if flagged to do so
+                        if hasattr(hdu, '_output_checksum'):
+                            checksum = hdu._output_checksum
+                        else:
+                            checksum = False
+
                         hdu._file.seek(hdu._hdrLoc)
-                        self.__file.writeHDUheader(hdu)
+                        self.__file.writeHDUheader(hdu,checksum=checksum)
                         if (verbose):
                             print "update header in place: Name =", hdu.name, _extver
                     if 'data' in dir(hdu):
@@ -8191,7 +8868,7 @@ class HDUList(list, _Verify):
                 hdr.update('extend', True, after='naxis'+`n`)
 
     def writeto(self, name, output_verify='exception', clobber=False,
-                classExtensions={}):
+                classExtensions={}, checksum=False):
         """Write the HDUList to a new file.
 
            name:  output FITS file name to be written to, file object, or
@@ -8203,6 +8880,8 @@ class HDUList(list, _Verify):
                             of those classes.  When present in the dictionary, 
                             the extension class will be constructed in place of 
                             the pyfits class. 
+           checksum: When True adds both DATASUM and CHECKSUM cards to the
+                     headers of all HDU's written to the file.
         """
 
         if (len(self) == 0):
@@ -8269,7 +8948,7 @@ class HDUList(list, _Verify):
 
         hduList = open(name, mode="append", classExtensions=classExtensions)
         for hdu in self:
-            hduList.__file.writeHDU(hdu)
+            hduList.__file.writeHDU(hdu, checksum)
         hduList.close(output_verify=output_verify,closed=closed)
 
 
@@ -8335,6 +9014,9 @@ def open(name, mode="copyonwrite", memmap=0, classExtensions={}, **parms):
        ignore_missing_end: Do not issue an exception when opening a file 
                            that is missing an END card in the last header.
                            default=0 (False).
+       checksum: If True verifies that both DATASUM and CHECKSUM card values
+                 (when present in the HDU header) match the header and data
+                 of all HDU's in the file.
     """
 
     # instantiate a FITS file object (ffo)
@@ -8365,6 +9047,44 @@ def open(name, mode="copyonwrite", memmap=0, classExtensions={}, **parms):
                 break
             else:
                 raise e
+
+    # For each HDU, verify the checksum/datasum value if the cards exist in
+    # the header and we are opening with checksum=True.  Always remove the
+    # checksum/datasum cards from the header.
+    i = 0
+    for hdu in hduList:
+        if hdu._header.has_key('CHECKSUM'):
+             hdu._checksum = hdu._header['CHECKSUM']
+             hdu._checksum_comment =hdu._header.ascardlist()['CHECKSUM'].comment
+             hdu._datasum = hdu._header['DATASUM']
+             hdu._datasum_comment = hdu._header.ascardlist()['DATASUM'].comment
+
+             if 'checksum' in parms and parms['checksum'] and \
+             not hdu.verify_checksum():
+                 warnings.warn('Warning:  Checksum verification failed for '
+                               'HDU #%d.\n' % i)
+
+             del hdu.header['CHECKSUM']
+             del hdu.header['DATASUM']
+        elif hdu._header.has_key('DATASUM'):
+             hdu._checksum = None
+             hdu._checksum_comment = None
+             hdu._datasum = hdu.header['DATASUM']
+             hdu._datasum_comment = hdu.header.ascardlist()['DATASUM'].comment
+
+             if 'checksum' in parms and parms['checksum'] and \
+             not hdu.verify_datasum():
+                 warnings.warn('Warning:  Datasum verification failed for '
+                               'HDU #%d.\n' % (len(hduList)))
+
+             del hdu.header['DATASUM']
+        else:
+             hdu._checksum = None 
+             hdu._checksum_comment = None
+             hdu._datasum = None
+             hdu._datasum_comment = None
+
+        i=i+1
 
     # initialize/reset attributes to be used in "update/append" mode
     # CardList needs its own _mod attribute since it has methods to change
@@ -8741,6 +9461,8 @@ def writeto(filename, data, header=None, **keys):
                of the pyfits class. 
        @keyword clobber: (optional) if True and if filename already exists, it
                will overwrite the file.  Default is False.
+       @keyword checksum: (optional) if True adds both DATASUM and CHECKSUM 
+               cards to the headers of all HDU's written to the file.
     """
 
     if header is None:
@@ -8756,10 +9478,11 @@ def writeto(filename, data, header=None, **keys):
             hdu = PrimaryHDU(data, header=header)
     clobber = keys.get('clobber', False)
     output_verify = keys.get('output_verify', 'exception')
+    checksum = keys.get('checksum', False)
     hdu.writeto(filename, clobber=clobber, output_verify=output_verify,
-                classExtensions=classExtensions)
+                checksum=checksum, classExtensions=classExtensions)
 
-def append(filename, data, header=None, classExtensions={}):
+def append(filename, data, header=None, classExtensions={}, checksum=False):
     """Append the header/data to FITS file if filename exists, create if not.
     
     If only data is supplied, a minimal header is created
@@ -8782,6 +9505,8 @@ def append(filename, data, header=None, classExtensions={}):
                                extensions of those classes.  When present in 
                                the dictionary, the extension class will be 
                                constructed in place of the pyfits class. 
+       @param checksum: When True adds both DATASUM and CHECKSUM cards to the
+                        header of the HDU when written to the file.
     """
 
     closed = True
@@ -8813,7 +9538,8 @@ def append(filename, data, header=None, classExtensions={}):
         # empty.  Use the writeto convenience function to write the 
         # output to the empty object.
         #
-        writeto(filename, data, header, classExtentsions=classExtensions)
+        writeto(filename, data, header, classExtentsions=classExtensions,
+                checksum=checksum)
     else:
         hdu=_makehdu(data, header, classExtensions)
         if isinstance(hdu, PrimaryHDU):
@@ -8824,6 +9550,10 @@ def append(filename, data, header=None, classExtensions={}):
 
         f = open(filename, mode='update', classExtensions=classExtensions)
         f.append(hdu)
+
+        # Set a flag in the HDU so that only this HDU gets a checksum
+        # when writing the file.
+        hdu._output_checksum = checksum
 
         f.close(closed=closed)
 
