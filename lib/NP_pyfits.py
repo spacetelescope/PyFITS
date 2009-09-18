@@ -4540,9 +4540,9 @@ def _get_tbdata(hdu):
             data_type = 'S'+str(tmp.spans[j])
 
             if j == len(tmp)-1:
-                if hdu.header['NAXIS1'] > itemsize:
+                if hdu._header['NAXIS1'] > itemsize:
                     data_type = 'S'+str(tmp.spans[j]+ \
-                                hdu.header['NAXIS1']-itemsize)
+                                hdu._header['NAXIS1']-itemsize)
             dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
 
     if hdu._ffile.memmap:
@@ -4571,7 +4571,7 @@ def _get_tbdata(hdu):
     # pass datLoc, for P format
     _data._heapoffset = hdu._theap + hdu._datLoc
     _data._file = hdu._file
-    _tbsize = hdu.header['NAXIS1']*hdu.header['NAXIS2']
+    _tbsize = hdu._header['NAXIS1']*hdu._header['NAXIS2']
     _data._gap = hdu._theap - _tbsize
     # comment out to avoid circular reference of _pcount
 
