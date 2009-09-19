@@ -6318,6 +6318,7 @@ if compressionSupported:
             # store any scale factors from the table header
             self._bzero = self._header.get('BZERO', 0)
             self._bscale = self._header.get('BSCALE', 1)
+            self._bitpix = self._header['ZBITPIX']
 
             # Maintain a reference to the table header in the image header.
             # This reference will be used to update the table header whenever
@@ -7660,7 +7661,7 @@ if compressionSupported:
   
             # Determine the destination (numpy) data type
             if type is None:
-                type = self.NumCode[self._bitpix]
+                type = _ImageBaseHDU.NumCode[self._bitpix]
             _type = getattr(np, type)
   
             # Determine how to scale the data
