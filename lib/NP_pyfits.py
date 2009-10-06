@@ -4245,8 +4245,9 @@ class Column:
                     if fsize > array.itemsize:
                         l = []
                         for i in range(len(array)):
+                            al = len(array[i])
                             l.append(array[i][:min(fsize,array.itemsize)]+
-                                     ' '*(fsize-array.itemsize))
+                                     ' '*(fsize-al))
                         return chararray.array(l)
                     else:
                         return array
