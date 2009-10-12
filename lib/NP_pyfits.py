@@ -6664,7 +6664,7 @@ if compressionSupported:
                 naxisn = self._imageHeader['NAXIS'+`i+1`]
                 nrows = nrows * ((naxisn - 1) // ts + 1)
 
-                if imageHeader:
+                if imageHeader and imageHeader.has_key('NAXIS'+`i+1`):
                     self._header.update('ZNAXIS'+`i+1`, naxisn,
                               imageHeader.ascardlist()['NAXIS'+`i+1`].comment,
                               after=after)
