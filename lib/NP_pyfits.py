@@ -7118,10 +7118,16 @@ if compressionSupported:
                     else:
                         data = np.array(data,dtype=np.float64)
 
+                    if cn_zblank:
+                        blanks = (data == nullDvals)
+
                     if self._bscale != 1:
                         np.multiply(data, self._bscale, data)
                     if self._bzero != 0:
                         data += self._bzero
+
+                    if cn_zblank:
+                        data = np.where(blanks, np.nan, data)
 
                 self.__dict__[attr] = data
 
