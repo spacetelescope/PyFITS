@@ -15,7 +15,7 @@ try:
 
 except ImportError:
     ext_modules = ''
-    logging.warn("NUMPY was not found.  It may not be installed or it may") 
+    logging.warn("NUMPY was not found.  It may not be installed or it may")
     logging.warn("not be in your PYTHONPATH")
     logging.warn("optional extension module "+pkg+
                  ".pyfitsComp failed to build")
@@ -35,15 +35,15 @@ class build_ext(_build_ext):
               distutils.log.warn(str(sys.exc_info()[1]))
               warn = "optional extension module %s failed to build" % (ext.name)
               logging.warn(warn)
-              
 
-setupargs = { 
-    'version' :     		"2.2.2",
-    'description' :     	"General Use Python Tools",
-    'author' :     		    "J. C. Hsu, Paul Barrett, Christopher Hanley and James Taylor",
-    'maintainer_email' :   	"help@stsci.edu",
-    'license' :     		"http://www.stsci.edu/resources/software_hardware/pyraf/LICENSE",
-    'platforms' :     		["Linux","Solaris","Mac OS X","Win"],
+
+setupargs = {
+    'version' :                 "2.2.2",
+    'description' :             "General Use Python Tools",
+    'author' :                  "J. C. Hsu, Paul Barrett, Christopher Hanley, James Taylor, Michael Droettboom",
+    'maintainer_email' :        "help@stsci.edu",
+    'license' :                 "http://www.stsci.edu/resources/software_hardware/pyraf/LICENSE",
+    'platforms' :               ["Linux","Solaris","Mac OS X","Win"],
     'ext_modules' :             ext_modules,
     'cmdclass' :                {'build_ext': build_ext,},
 }
