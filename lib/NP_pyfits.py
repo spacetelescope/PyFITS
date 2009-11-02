@@ -8900,7 +8900,7 @@ class _File:
                         else:
                             if coldata.itemsize > 1:
                                 if output.field(i).dtype.str[0] != '>':
-                                    output.field(i)[:] = output.field(i).byteswap()
+                                    rec.recarray.field(output, i).byteswap(True)
 
                 # In case the FITS_rec was created in a LittleEndian machine
                 output.dtype = output.dtype.newbyteorder('>')
