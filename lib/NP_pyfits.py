@@ -4638,16 +4638,13 @@ class Column:
                     # left justified in the field with trailing blanks
                     # added to complete the format requirements.
                     fsize=eval(_convert_format(format)[1:])
+                    l = []
 
-                    if fsize > array.itemsize:
-                        l = []
-                        for i in range(len(array)):
-                            al = len(array[i])
-                            l.append(array[i][:min(fsize,array.itemsize)]+
-                                     ' '*(fsize-al))
-                        return chararray.array(l)
-                    else:
-                        return array
+                    for i in range(len(array)):
+                        al = len(array[i])
+                        l.append(array[i][:min(fsize,array.itemsize)]+
+                                 ' '*(fsize-al))
+                    return chararray.array(l)
                 else:
                     numpyFormat = _convert_format(format)
                     return array.astype(numpyFormat)
