@@ -361,14 +361,14 @@ class Card(_Verify):
 
         Parameters
         ----------
-        key
-            keyword name, default=''.
+        key : str, optional
+            keyword name
 
-        value
-            keyword value, default=''.
+        value : str, optional
+            keyword value
 
-        comment
-            comment, default=''.
+        comment : str, optional
+            comment
         """
 
         if key != '' or value != '' or comment != '':
@@ -475,8 +475,10 @@ class Card(_Verify):
 
         Parameters
         ----------
-        option
-            verification option, default=silentfix.
+        option : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  See `verify` for more info.
         """
 
         # Only if the card image already exist (to avoid infinite loop),
@@ -819,8 +821,8 @@ class Card(_Verify):
         """
         Construct a `Card` object from a (raw) string. It will pad the
         string if it is not the length of a card image (80 columns).
-        If the card image is longer than 80, assume it contains
-        ``CONTINUE`` card(s).
+        If the card image is longer than 80 columns, assume it
+        contains ``CONTINUE`` card(s).
         """
         self.__dict__['_cardimage'] = _pad(input)
 
@@ -957,23 +959,26 @@ class RecordValuedKeywordCard(Card):
 
     def coerce(cls,card):
         """
-        `classmethod` to coerce an input `Card` object to a
-        `RecordValuedKeywordCard` object if the value of the card
-        meets the requirements of this type of card.
+        Coerces an input `Card` object to a `RecordValuedKeywordCard`
+        object if the value of the card meets the requirements of this
+        type of card.
 
         Parameters
         ----------
-        card
+        card : `Card` object
             A `Card` object to coerce
 
         Returns
         -------
-        Input card coercible
-            a new `RecordValuedKeywordCard` constructed from the
-            `key`, `value`, and `comment` of the input card.
+        card
+            - If the input card is coercible:
 
-        Input card not coercible
-            the input card
+                a new `RecordValuedKeywordCard` constructed from the
+                `key`, `value`, and `comment` of the input card.
+
+            - If the input card is not coercible:
+
+                the input card
         """
         mo = cls.field_specifier_NFSC_val_RE.match(card.value)
         if mo:
@@ -992,7 +997,7 @@ class RecordValuedKeywordCard(Card):
 
         Parameters
         ----------
-        key
+        key : int or str
             A keyword value that could be an integer, a key, or a
             `key.field-specifier` value
 
@@ -1019,20 +1024,20 @@ class RecordValuedKeywordCard(Card):
 
     def validKeyValue(cls, key, value=0):
         """
-        `classmethod` that will determine if the input key and value
-        can be used to form a valid `RecordValuedKeywordCard` object.
-        The `key` parameter may contain the key only or both the key and
-        field-specifier.  The `value` may be the value only or the
-        field-specifier and the value together.  The `value` parameter
-        is optional, in which case the `key` parameter must contain both
-        the key and the field specifier.
+        Determine if the input key and value can be used to form a
+        valid `RecordValuedKeywordCard` object.  The `key` parameter
+        may contain the key only or both the key and field-specifier.
+        The `value` may be the value only or the field-specifier and
+        the value together.  The `value` parameter is optional, in
+        which case the `key` parameter must contain both the key and
+        the field specifier.
 
         Parameters
         ----------
-        key : string
+        key : str
             The key to parse
 
-        value : string or something that may be converted to a float
+        value : str or float-like, optional
             The value to parse
 
         Returns
@@ -1044,9 +1049,9 @@ class RecordValuedKeywordCard(Card):
         Examples
         --------
 
-        validKeyValue('DP1','AXIS.1: 2')
-        validKeyValue('DP1.AXIS.1', 2)
-        validKeyValue('DP1.AXIS.1')
+        >>> validKeyValue('DP1','AXIS.1: 2')
+        >>> validKeyValue('DP1.AXIS.1', 2)
+        >>> validKeyValue('DP1.AXIS.1')
         """
 
         rtnKey = rtnFieldSpec = rtnValue = ''
@@ -1081,25 +1086,26 @@ class RecordValuedKeywordCard(Card):
 
     def createCard(cls, key='', value='', comment=''):
         """
-        `classmethod` that will create a card given the input `key`,
-        `value`, and `comment`.  If the input key and value qualify
-        for a `RecordValuedKeywordCard` then that is the object
-        created.  Otherwise, a standard `Card` object is created.
+        Create a card given the input `key`, `value`, and `comment`.
+        If the input key and value qualify for a
+        `RecordValuedKeywordCard` then that is the object created.
+        Otherwise, a standard `Card` object is created.
 
         Parameters
         ----------
-        key : string
+        key : str, optional
             The key
 
-        value : string
+        value : str, optional
             The value
 
-        comment : string
+        comment : str, optional
             The comment
 
         Returns
         -------
-        either a `RecordValuedKeywordCard` or a `Card` object.
+        card
+            Either a `RecordValuedKeywordCard` or a `Card` object.
         """
         if cls.validKeyValue(key, value):
             objClass = cls
@@ -1112,19 +1118,20 @@ class RecordValuedKeywordCard(Card):
 
     def createCardFromString(cls, input):
         """
-        `classmethod` that will create a card given the `input` string.
-        If the `input` string can be parsed into a key and value that qualify
-        for a `RecordValuedKeywordCard` then that is the object created.
+        Create a card given the `input` string.  If the `input` string
+        can be parsed into a key and value that qualify for a
+        `RecordValuedKeywordCard` then that is the object created.
         Otherwise, a standard `Card` object is created.
 
         Parameters
         ----------
-        input : string
+        input : str
             The string representing the card
 
         Returns
         -------
-        either a `RecordValuedKeywordCard` or a `Card` object
+        card
+            either a `RecordValuedKeywordCard` or a `Card` object
         """
         idx1 = string.find(input, "'")+1
         idx2 = string.rfind(input, "'")
@@ -1141,24 +1148,18 @@ class RecordValuedKeywordCard(Card):
 
     def __init__(self, key='', value='', comment=''):
         """
-        Class initializer.
-
         Parameters
         ----------
-        key : string
+        key : str, optional
             The key, either the simple key or one that contains
             a field-specifier
 
-        value : string
+        value : str, optional
             The value, either a simple value or one that contains a
             field-specifier
 
-        comment : string
+        comment : str, optional
             The comment
-
-        Returns
-        -------
-        `None`
         """
 
         mo = self.keyword_name_RE.match(key)
@@ -1349,13 +1350,16 @@ class RecordValuedKeywordCard(Card):
 
 def createCard(key='', value='', comment=''):
     return RecordValuedKeywordCard.createCard(key, value, comment)
+createCard.__doc__ = RecordValuedKeywordCard.createCard.__doc__
 
 def createCardFromString(input):
     return RecordValuedKeywordCard.createCardFromString(input)
+createCardFromString.__doc__ = \
+    RecordValuedKeywordCard.createCardFromString.__doc__
 
 def upperKey(key):
     return RecordValuedKeywordCard.upperKey(key)
-
+upperKey.__doc__ = RecordValuedKeywordCard.upperKey.__doc__
 
 class _Hierarch(Card):
     """
@@ -1522,7 +1526,7 @@ class Header:
     """
     FITS header class.
 
-    The behavior of this class is to present the header like a
+    The purpose of this class is to present the header like a
     dictionary as opposed to a list of cards.
 
     The attribute `ascard` supplies the header like a list of cards.
@@ -1555,11 +1559,11 @@ class Header:
 
         Parameters
         ----------
-        cards : A list of Cards, default=[].
+        cards : A list of `Card` objects, optional
+            The cards to initialize the header with.
 
-        txtfile
-            Input ASCII header parameters file supplied as a file name,
-            file object, or file like object.
+        txtfile : file path, file object or file-like object, optional
+            Input ASCII header parameters file.
         """
 
         # populate the cardlist
@@ -1671,7 +1675,7 @@ class Header:
 
     def ascardlist(self):
         """
-        Returns a `CardList`.
+        Returns a `CardList` object.
         """
         return self.ascard
 
@@ -1690,12 +1694,13 @@ class Header:
 
         Parameters
         ----------
-        key : keyword name.
-            If given an index, always returns 0.
+        key : str or int
+           Keyword name.  If given an index, always returns 0.
 
         Returns
         -------
-        Returns 1 if found, otherwise, 0.
+        has_key : bool
+            Returns `True` if found, otherwise, `False`.
         """
         try:
             key = upperKey(key)
@@ -1703,9 +1708,9 @@ class Header:
             if key[:8] == 'HIERARCH':
                 key = key[8:].strip()
             _index = self.ascard[key]
-            return 1
+            return True
         except:
-            return 0
+            return False
 
     def rename_key(self, oldkey, newkey, force=0):
         """
@@ -1713,14 +1718,15 @@ class Header:
 
         Parameters
         ----------
-        oldkey : old keyword
-            can be a name or index.
+        oldkey : str or int
+            old keyword
 
-        newkey : new keyword
-            must be a string.
+        newkey : str
+            new keyword
 
-        force :
-            if new key name already exists, force to have duplicate name.
+        force : bool
+            When `True`, if new key name already exists, force to have
+            duplicate name.
         """
         oldkey = upperKey(oldkey)
         newkey = upperKey(newkey)
@@ -1761,9 +1767,10 @@ class Header:
 
         Parameters
         ----------
-        key : keyword name or index
+        key : str or int
+            keyword name or index
 
-        default
+        default : object, optional
             if no keyword is found, the value to be returned.
         """
 
@@ -1777,36 +1784,38 @@ class Header:
         """
         Update one header card.
 
-        If the keyword already exists, it's value/comment will be updated.
-        If it does not exist, a new card will be created and it will be
-        placed before or after the specified location.  If no `before`
-        or `after` is specified, it will be appended at the end.
+        If the keyword already exists, it's value and/or comment will
+        be updated.  If it does not exist, a new card will be created
+        and it will be placed before or after the specified location.
+        If no `before` or `after` is specified, it will be appended at
+        the end.
 
         Parameters
         ----------
-        key : keyword name
+        key : str
+            keyword
 
-        value : keyword value
-            to be used for updating
+        value : str
+            value to be used for updating
 
-        comment : keyword comment
+        comment : str, optional
             to be used for updating, default=None.
 
-        before
+        before : str or int, optional
             name of the keyword, or index of the `Card` before which
             the new card will be placed.  The argument `before` takes
-            precedence over `after` if both specified. default=None.
+            precedence over `after` if both specified.
 
-        after
+        after : str or int, optional
             name of the keyword, or index of the `Card` after which
-            the new card will be placed. default=None.
+            the new card will be placed.
 
-        savecomment
-            when `True`, preserve the current comment for an existing
+        savecomment : bool, optional
+            When `True`, preserve the current comment for an existing
             keyword.  The argument `savecomment` takes precedence over
             `comment` if both specified.  If `comment` is not
             specified then the current comment will automatically be
-            preserved.  default=False
+            preserved.
         """
         keylist = RecordValuedKeywordCard.validKeyValue(key,value)
 
@@ -1848,14 +1857,14 @@ class Header:
 
         Parameters
         ----------
-        value
-            History text to be added.
+        value : str
+            history text to be added.
 
-        before
-            same as in `update`
+        before : str or int, optional
+            same as in `Header.update`
 
-        after
-            same as in `update`
+        after : str or int, optional
+            same as in `Header.update`
         """
         self._add_commentary('history', value, before=before, after=after)
 
@@ -1871,14 +1880,14 @@ class Header:
 
         Parameters
         ----------
-        value
+        value : str
             text to be added.
 
-        before
-            same as in `update`
+        before : str or int, optional
+            same as in `Header.update`
 
-        after
-            same as in `update`
+        after : str or int, optional
+            same as in `Header.update`
         """
         self._add_commentary('comment', value, before=before, after=after)
 
@@ -1894,14 +1903,14 @@ class Header:
 
         Parameters
         ----------
-        value
+        value : str, optional
             text to be added.
 
-        before
-            same as in `update`
+        before : str or int, optional
+            same as in `Header.update`
 
-        after
-            same as in `update`
+        after : str or int, optional
+            same as in `Header.update`
         """
         self._add_commentary(' ', value, before=before, after=after)
 
@@ -1913,7 +1922,7 @@ class Header:
 
     def get_history(self):
         """
-        Get all histories as a list of string texts.
+        Get all history cards as a list of string texts.
         """
         output = []
         for _card in self.ascardlist():
@@ -1923,7 +1932,7 @@ class Header:
 
     def get_comment(self):
         """
-        Get all comments as a list of string texts.
+        Get all comment cards as a list of string texts.
         """
         output = []
         for _card in self.ascardlist():
@@ -2034,12 +2043,11 @@ class Header:
 
         Parameters
         ----------
-        outFile
-            Output header parameters file supplied as a file name,
-            file object, or file like object.
+        outFile : file path, file object or file-like object
+            Output header parameters file.
 
-        clobber
-            Overwrite the output file if it exists, default = False.
+        clobber : bool
+            When `True`, overwrite the output file if it exists.
         """
 
         closeFile = False
@@ -2084,14 +2092,13 @@ class Header:
 
         Parameters
         ----------
-        inFile
-            Input header parameters file supplied as a file name, file
-            object, or file like object.
+        inFile : file path, file object or file-like object
+            Input header parameters file.
 
-        replace
+        replace : bool, optional
             When `True`, indicates that the entire header should be
             replaced with the contents of the ASCII file instead of
-            just updating the current header.  Default = `False`.
+            just updating the current header.
         """
 
         closeFile = False
@@ -2201,12 +2208,12 @@ class CardList(list):
 
     def __init__(self, cards=[], keylist=None):
         """
-        Construct the `CardList` object from a list of `Card`s.
+        Construct the `CardList` object from a list of `Card` objects.
 
         Parameters
         ----------
         cards
-            A list of `Card`s, default=[].
+            A list of `Card` objects.
         """
 
         list.__init__(self, cards)
@@ -2238,17 +2245,18 @@ class CardList(list):
         """
         Construct a `CardList` that contains references to all of the cards in
         this `CardList` that match the input key value including any special
-        filter keys (``*``, ``?``, and ...).
+        filter keys (``*``, ``?``, and ``...``).
 
         Parameters
         ----------
-        key
+        key : str
             key value to filter the list with
 
         Returns
         -------
-        A `CardList` object containing references to all the requested
-        cards.
+        cardlist :
+            A `CardList` object containing references to all the
+            requested cards.
         """
         outCl = CardList()
 
@@ -2326,35 +2334,36 @@ class CardList(list):
 
     def count_blanks(self):
         """
-        Find out how many blank cards are *directly* before the ``END`` card.
+        Returns how many blank cards are *directly* before the ``END``
+        card.
         """
         for i in range(1, len(self)):
             if str(self[-i]) != ' '*Card.length:
                 self._blanks = i - 1
                 break
 
-    def append(self, card, useblanks=1, bottom=0):
+    def append(self, card, useblanks=True, bottom=False):
         """
         Append a `Card` to the `CardList`.
 
         Parameters
         ----------
-        card
+        card : `Card` object
             The `Card` to be appended.
 
-        useblanks
-            Use any *extra* blank cards? default=1.
+        useblanks : bool, optional
+            Use any *extra* blank cards?
 
-            If `useblanks` != 0, and if there are blank cards directly
-            before ``END``, it will use this space first, instead of
-            appending after these blank cards, so the total space will
-            not increase (default).  When `useblanks` == 0, the card
-            will be appended at the end, even if there are blank cards
-            in front of ``END``.
+            If `useblanks` is `True`, and if there are blank cards
+            directly before ``END``, it will use this space first,
+            instead of appending after these blank cards, so the total
+            space will not increase.  When `useblanks` is `False`, the
+            card will be appended at the end, even if there are blank
+            cards in front of ``END``.
 
-        bottom
-           If == 0 (default) the card will be appended after the last
-           non-commentary card.  If = 1, the card will be appended
+        bottom : bool, optional
+           If `False` the card will be appended after the last
+           non-commentary card.  If `True` the card will be appended
            after the last non-blank card.
         """
 
@@ -2390,26 +2399,26 @@ class CardList(list):
             loc = self.index_of(after)
             self.insert(loc+1, card, useblanks=useblanks)
 
-    def insert(self, pos, card, useblanks=1):
+    def insert(self, pos, card, useblanks=True):
         """
         Insert a `Card` to the `CardList`.
 
-        pos
+        Parameters
+        ----------
+        pos : int
             The position (index, keyword name will not be allowed) to
             insert. The new card will be inserted before it.
 
-        card
-            The `Card` to be inserted.
+        card : `Card` object
+            The card to be inserted.
 
-        useblanks
-            Use any *extra* blank cards? default = 1.
-
-            If `useblanks` != 0, and if there are blank cards directly
-            before ``END``, it will use this space first, instead of
-            appending after these blank cards, so the total space will
-            not increase (default).  When `useblanks` == 0, the card
-            will be appended at the end, even if there are blank cards
-            in front of ``END``.
+        useblanks : bool, optional
+            If `useblanks` is `True`, and if there are blank cards
+            directly before ``END``, it will use this space first,
+            instead of appending after these blank cards, so the total
+            space will not increase.  When `useblanks` is `False`, the
+            card will be appended at the end, even if there are blank
+            cards in front of ``END``.
         """
 
         if isinstance (card, Card):
@@ -2434,7 +2443,7 @@ class CardList(list):
         Return a list of all keywords from the `CardList`.
 
         Keywords include ``field_specifier`` for
-        `RecordValuedKeywordCards`.
+        `RecordValuedKeywordCard` objects.
         """
         rtnVal = []
 
@@ -2458,25 +2467,29 @@ class CardList(list):
         """
         Return a list of the values of all cards in the `CardList`.
 
-        For `RecordValuedKeywordCards` the value returned is the
-        floating point value, exclusive of the ``field_specifier``.
+        For `RecordValuedKeywordCard` objects, the value returned is
+        the floating point value, exclusive of the
+        ``field_specifier``.
         """
-
         return map(lambda x: getattr(x,'value'), self)
 
-    def index_of(self, key, backward=0):
+    def index_of(self, key, backward=False):
         """
         Get the index of a keyword in the `CardList`.
 
         Parameters
         ----------
-        key
-            the keyword name (a string) or the index (an integer).
+        key : str or int
+            The keyword name (a string) or the index (an integer).
 
-        backward
-            search the index from the ``END``,
-            i.e. backward. default=0. If `backward` = 1, search from
-            the end.
+        backward : bool, optional
+            When `True`, search the index from the ``END``, i.e.,
+            backward.
+
+        Returns
+        -------
+        index : int
+            The index of the `Card` with the given keyword.
         """
         if isinstance(key, (int, long,np.integer)):
             return key
@@ -3516,6 +3529,8 @@ class _SteppedSlice(_KeyType):
 class Section:
     """
     Image section.
+
+    TODO: elaborate
     """
     def __init__(self, hdu):
         self.hdu = hdu
@@ -3983,12 +3998,12 @@ class PrimaryHDU(_ImageBaseHDU):
 
         Parameters
         ----------
-        data
-            the data in the HDU, default=None.
+        data : array or DELAYED, optional
+            The data in the HDU.
 
-        header
-            the header to be used (as a template), default=None.  If
-            header=None, a minimal `Header` will be provided.
+        header : Header instance, optional
+            The header to be used (as a template).  If `header` is
+            `None`, a minimal header will be provided.
         """
 
         _ImageBaseHDU.__init__(self, data=data, header=header)
@@ -4013,16 +4028,16 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
 
         Parameters
         ----------
-        data
-            the data in the HDU, default=None.
+        data : array
+            The data in the HDU.
 
-        header
-            the header to be used (as a template), default=None.  If
-            header=None, a minimal Header will be provided.
+        header : Header instance
+            The header to be used (as a template).  If `header` is
+            `None`, a minimal header will be provided.
 
-        name
+        name : str, optional
             The name of the HDU, will be the value of the keyword
-            ``EXTNAME``, default=None.
+            ``EXTNAME``.
         """
 
         # no need to run _ExtensionHDU.__init__ since it is not doing anything.
@@ -4063,6 +4078,9 @@ class GroupsHDU(PrimaryHDU):
     _dict = {8:'B', 16:'I', 32:'J', 64:'K', -32:'E', -64:'D'}
 
     def __init__(self, data=None, header=None, name=None):
+        """
+        TODO: Write me
+        """
         PrimaryHDU.__init__(self, data=data, header=header)
         self._header._hdutype = GroupsHDU
         self.name = name
@@ -4503,9 +4521,9 @@ class _VLF(np.ndarray):
 
 class Column:
     """
-    `Column` class which contains the definition of one column, e.g.
-    `ttype`, `tform`, etc. and the array.  Does not support `theap`
-    yet.
+    Class which contains the definition of one column, e.g.  `ttype`,
+    `tform`, etc. and the array containing values for the column.
+    Does not support `theap` yet.
     """
     def __init__(self, name=None, format=None, unit=None, null=None, \
                        bscale=None, bzero=None, disp=None, start=None, \
@@ -4516,32 +4534,32 @@ class Column:
 
         Parameters
         ----------
-        name
+        name : str, optional
             column name, corresponding to ``TTYPE`` keyword
 
-        format
+        format : str, optional
             column format, corresponding to ``TFORM`` keyword
 
-        unit
+        unit : str, optional
             column unit, corresponding to ``TUNIT`` keyword
 
-        null
+        null : str, optional
             null value, corresponding to ``TNULL`` keyword
 
-        bscale
+        bscale : int-like, optional
             bscale value, corresponding to ``TSCAL`` keyword
 
-        bzero
+        bzero : int-like, optional
             bzero value, corresponding to ``TZERO`` keyword
 
-        disp
+        disp : str, optional
             display format, corresponding to ``TDISP`` keyword
 
-        start
+        start : int, optional
             column starting position (ASCII table only), corresponding
             to ``TBCOL`` keyword
 
-        dim
+        dim : str, optional
             column dimension corresponding to ``TDIM`` keyword
         """
         # any of the input argument (except array) can be a Card or just
@@ -4666,6 +4684,9 @@ class Column:
         return text[:-1]
 
     def copy(self):
+        """
+        Return a copy of this `Column`.
+        """
         tmp = Column(format='I') # just use a throw-away format
         tmp.__dict__=self.__dict__.copy()
         return tmp
@@ -4673,23 +4694,24 @@ class Column:
 
 class ColDefs(object):
     """
-    Column definitions class.  It has attributes corresponding to the
-    `Column` attributes (e.g. `ColDefs` has the attribute
-    `~ColDefs.names` while `Column` has `~Column.name`). Each
-    attribute in `ColDefs` is a list of corresponding attribute values
-    from all `Column`s.
+    Column definitions class.
+
+    It has attributes corresponding to the `Column` attributes
+    (e.g. `ColDefs` has the attribute `~ColDefs.names` while `Column`
+    has `~Column.name`). Each attribute in `ColDefs` is a list of
+    corresponding attribute values from all `Column` objects.
     """
     def __init__(self, input, tbtype='BinTableHDU'):
         """
         Parameters
         ----------
 
-        input
-            a list of Columns, an (table) HDU
+        input : sequence of `Column` objects
+            an (table) HDU
 
-        tbtype
-            which table HDU, 'BinTableHDU' (default) or 'TableHDU'
-            (text table).
+        tbtype : str, optional
+            which table HDU, ``"BinTableHDU"`` (default) or
+            ``"TableHDU"`` (text table).
         """
         ascii_fmt = {'A':'A1', 'I':'I10', 'E':'E14.6', 'F':'F16.7', 'D':'D24.16'}
         self._tbtype = tbtype
@@ -4859,6 +4881,9 @@ class ColDefs(object):
     def del_col(self, col_name):
         """
         Delete (the definition of) one `Column`.
+
+        col_name : str or int
+            The column's name or index
         """
         indx = _get_index(self.names, col_name)
 
@@ -4872,6 +4897,15 @@ class ColDefs(object):
     def change_attrib(self, col_name, attrib, new_value):
         """
         Change an attribute (in the commonName list) of a `Column`.
+
+        col_name : str or int
+            The column name or index to change
+
+        attrib : str
+            The attribute name
+
+        value : object
+            The new value for the attribute
         """
         indx = _get_index(self.names, col_name)
         getattr(self, attrib+'s')[indx] = new_value
@@ -4879,6 +4913,12 @@ class ColDefs(object):
     def change_name(self, col_name, new_name):
         """
         Change a `Column`'s name.
+
+        col_name : str
+            The current name of the column
+
+        new_name : str
+            The new name of the column
         """
         if new_name != col_name and new_name in self.names:
             raise ValueError, 'New name %s already exists.' % new_name
@@ -4888,6 +4928,12 @@ class ColDefs(object):
     def change_unit(self, col_name, new_unit):
         """
         Change a `Column`'s unit.
+
+        col_name : str or int
+            The column name or index
+
+        new_unit : str
+            The new unit for the column
         """
         self.change_attrib(col_name, 'unit', new_unit)
 
@@ -4895,10 +4941,19 @@ class ColDefs(object):
         """
         Get attribute(s) information of the column definition.
 
-        The `attrib` can be one or more of the attributes listed in
-        `_commonNames`.  The default is "all" which will print out all
-        attributes.  It forgives plurals and blanks.  If there are two
-        or more attribute names, they must be separated by comma(s).
+        Parameters
+        ----------
+        attrib : str
+           Can be one or more of the attributes listed in
+           `_commonNames`.  The default is ``"all"`` which will print
+           out all attributes.  It forgives plurals and blanks.  If
+           there are two or more attribute names, they must be
+           separated by comma(s).
+
+        Note
+        ----
+        This function doesn't return anything, it just prints to
+        stdout.
         """
 
         if attrib.strip().lower() in ['all', '']:
@@ -4988,28 +5043,28 @@ def _get_tbdata(hdu):
 
     return FITS_rec(_data)
 
-def new_table (input, header=None, nrows=0, fill=0, tbtype='BinTableHDU'):
+def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     """
     Create a new table from the input column definitions.
 
     Parameters
     ----------
-    input
-        a list of `Column` or a `ColDefs` objects.
+    input : sequence of Column or ColDefs objects
+        The data to create a table from.
 
-    header
-        header to be used to populate the non-required keywords
+    header : Header instance
+        Header to be used to populate the non-required keywords.
 
-    nrows
-        number of rows in the new table
+    nrows : int
+        Number of rows in the new table.
 
-    fill
-        If = 1, will fill all cells with zeros or blanks.  If = 0,
-        copy the data from input, undefined cells will still be filled
-        with zeros/blanks.
+    fill : bool
+        If `True`, will fill all cells with zeros or blanks.  If
+        `False`, copy the data from input, undefined cells will still
+        be filled with zeros/blanks.
 
-    tbtype
-        table type to be created ("BinTableHDU" or "TableHDU")
+    tbtype : str
+        Table type to be created ("BinTableHDU" or "TableHDU").
     """
     # construct a table HDU
     hdu = eval(tbtype)(header=header)
@@ -5131,6 +5186,13 @@ class FITS_record(object):
     class expects a `FITS_rec` object as input.
     """
     def __init__(self, input, row=0):
+        """
+        input : array
+           The array to wrap.
+
+        row : int, optional
+           The starting logical row of the array.
+        """
         self.array = input
         self.row = row
 
@@ -5172,7 +5234,7 @@ class FITS_rec(rec.recarray):
     FITS record array class.
 
     `FITS_rec` is the data part of a table HDU's data part.  This is a
-    layer over the recarray, so we can deal with scaled columns.
+    layer over the `recarray`, so we can deal with scaled columns.
     """
 
     def __new__(subtype, input):
@@ -5471,33 +5533,32 @@ class GroupData(FITS_rec):
         """
         Parameters
         ----------
-        input
+        input : array or FITS_rec instance
             input data, either the group data itself (a
             `numpy.ndarray`) or a record array (`FITS_rec`) which will
             contain both group parameter info and the data.  The rest
             of the arguments are used only for the first case.
 
-        bitpix
-
+        bitpix : int
             data type as expressed in FITS ``BITPIX`` value (8, 16, 32,
             64, -32, or -64)
 
-        pardata
+        pardata : sequence of arrays
             parameter data, as a list of (numeric) arrays.
 
-        parnames
+        parnames : sequence of str
             list of parameter names.
 
-        bscale
+        bscale : int
             ``BSCALE`` of the data
 
-        bzero
+        bzero : int
             ``BZERO`` of the data
 
-        parbscales
+        parbscales : sequence of int
             list of bscales for the parameters
 
-        parbzeros
+        parbzeros : sequence of int
             list of bzeros for the parameters
         """
         if not isinstance(input, FITS_rec):
@@ -5705,13 +5766,13 @@ class _TableBaseHDU(_ExtensionHDU):
         """
         Parameters
         ----------
-        header
+        header : Header instance
             header to be used
 
-        data
+        data : array
             data to be used
 
-        name
+        name : str
             name to be populated in ``EXTNAME`` keyword
         """
 
@@ -5959,13 +6020,13 @@ class TableHDU(_TableBaseHDU):
         """
         Parameters
         ----------
-        data
+        data : array
             data of the table
 
-        header
+        header : Header instance
             header to be used for the HDU
 
-        name
+        name : str
             the ``EXTNAME`` value
         """
         self._xtn = 'TABLE'
@@ -6035,13 +6096,13 @@ class BinTableHDU(_TableBaseHDU):
         """
         Parameters
         ----------
-        data
+        data : array
             data of the table
 
-        header
+        header : Header instance
             header to be used for the HDU
 
-        name
+        name : str
             the ``EXTNAME`` value
         """
 
@@ -6116,24 +6177,21 @@ class BinTableHDU(_TableBaseHDU):
 
         Parameters
         ----------
-        datafile
-            Output data file supplied as a file name, file object, or
-            file like object.  The default is the root name of the
+        datafile : file path, file object or file-like object, optional
+            Output data file.  The default is the root name of the
             fits file associated with this HDU appended with the
             extension ``.txt``.
 
-        cdfile
-            Output column definitions file supplied as a file name,
-            file object, or file like object.  The default is `None`,
-            no column definitions output is produced.
+        cdfile : file path, file object or file-like object, optional
+            Output column definitions file.  The default is `None`, no
+            column definitions output is produced.
 
-        hfile
-            Output header parameters file supplied as a file name,
-            file object, or file like object.  The default is `None`,
+        hfile : file path, file object or file-like object, optional
+            Output header parameters file.  The default is `None`,
             no header parameters output is produced.
 
-        clobber
-            Overwrite the output files if they exist, default = `False`.
+        clobber : bool
+            Overwrite the output files if they exist.
 
         Notes
         -----
@@ -6333,55 +6391,48 @@ class BinTableHDU(_TableBaseHDU):
 
     tdumpFileFormat = """
 
-Notes
------
+- **datafile:** Each line of the data file represents one row of table
+  data.  The data is output one column at a time in column order.  If
+  a column contains an array, each element of the column array in the
+  current row is output before moving on to the next column.  Each row
+  ends with a new line.
 
-:datafile:
+  Integer data is output right-justified in a 21-character field
+  followed by a blank.  Floating point data is output right justified
+  using 'g' format in a 21-character field with 15 digits of
+  precision, followed by a blank.  String data that does not contain
+  whitespace is output left-justified in a field whose width matches
+  the width specified in the ``TFORM`` header parameter for the
+  column, followed by a blank.  When the string data contains
+  whitespace characters, the string is enclosed in quotation marks
+  (``""``).  For the last data element in a row, the trailing blank in
+  the field is replaced by a new line character.
 
-Each line of the data file represents one row of table data.  The data
-is output one column at a time in column order.  If a column contains
-an array, each element of the column array in the current row is
-output before moving on to the next column.  Each row ends with a new
-line.
+  For column data containing variable length arrays ('P' format), the
+  array data is preceded by the string ``'VLA_Length= '`` and the
+  integer length of the array for that row, left-justified in a
+  21-character field, followed by a blank.
 
-Integer data is output right-justified in a 21 character field
-followed by a blank.  Floating point data is output right justified
-using 'g' format in a 21 character field with 15 digits of precision
-followed by a blank.  String data that does not contain whitespace is
-output left justified in a field whose width matches the width
-specified in the ``TFORM`` header parameter for the column followed by
-a blank.  When the string data contains whitespace characters, the
-string is enclosed in quotation marks ("").  For the last data element
-in a row the trailing blank in the field is replaced by a new line.
+  For column data representing a bit field ('X' format), each bit
+  value in the field is output right-justified in a 21-character field
+  as 1 (for true) or 0 (for false).
 
-For column data containing variable length arrays ('P' format), the
-array data is preceded by the string ``'VLA_Length= '`` and the
-integer length of the array for that row, left justified in a 21
-character field followed by a blank.
+- **cdfile:** Each line of the column definitions file provides the
+  definitions for one column in the table.  The line is broken up into
+  8, sixteen-character fields.  The first field provides the column
+  name (``TTYPEn``).  The second field provides the column format
+  (``TFORMn``).  The third field provides the display format
+  (``TDISPn``).  The fourth field provides the physical units
+  (``TUNITn``).  The fifth field provides the dimensions for a
+  multidimensional array (``TDIMn``).  The sixth field provides the
+  value that signifies an undefined value (``TNULLn``).  The seventh
+  field provides the scale factor (``TSCALn``).  The eighth field
+  provides the offset value (``TZEROn``).  A field value of ``""`` is
+  used to represent the case where no value is provided.
 
-For column data representing a bit field ('X' format), each bit value
-in the field is output right-justified in a 21 character field as 1
-(for true) or 0 (for false).
-
-:cdfile:
-
-Each line of the column definitions file provides the definitions for
-one column in the table.  The line is broken up into 8,
-sixteen-character fields.  The first field provides the column name
-(``TTYPEn``).  The second field provides the column format
-(``TFORMn``).  The third field provides the display format
-(``TDISPn``).  The fourth field provides the physical units
-(``TUNITn``).  The fifth field provides the dimensions for a
-multidimensional array (``TDIMn``).  The sixth field provides the
-value that signifies an undefined value (``TNULLn``).  The seventh
-field provides the scale factor (``TSCALn``).  The eighth field
-provides the offset value (``TZEROn``).  A field value of ``""`` is
-used to represent the case where no value is provided.
-
-:hfile:
-
-Each line of the header parameters file provides the definition of a
-single HDU header card as represented by the card image.
+- **hfile:** Each line of the header parameters file provides the
+  definition of a single HDU header card as represented by the card
+  image.
 """
 
     tdump.__doc__ += tdumpFileFormat.replace("\n", "\n        ")
@@ -6397,31 +6448,27 @@ single HDU header card as represented by the card image.
 
         Parameters
         ----------
-        datafile : type
-            Input data file containing the table data in ASCII format
-            supplied as a file name, file object, or file like object.
+        datafile : file path, file object or file-like object
+            Input data file containing the table data in ASCII format.
 
-        cdfile : type
+        cdfile : file path, file object, file-like object, optional
             Input column definition file containing the names,
             formats, display formats, physical units, multidimensional
             array dimensions, undefined values, scale factors, and
-            offsets associated with the columns in the table.  It is
-            supplied as a file name, file object, or file like object.
-            Default = `None`.  If `None`, the `Column` definitions are taken
-            from the current values in this object.
+            offsets associated with the columns in the table.  If
+            `None`, the column definitions are taken from the current
+            values in this object.
 
-        hfile : type
+        hfile : file path, file object, file-like object, optional
             Input parameter definition file containing the header
-            parameter definitions to be associated with the table.  It
-            is supplied as a file name, file object, or file like
-            object.  Default = `None`.  If `None`, the header parameter
-            definitions are taken from the current values in this
-            objects header.
+            parameter definitions to be associated with the table.  If
+            `None`, the header parameter definitions are taken from
+            the current values in this objects header.
 
-        replace : type
+        replace : bool
             When `True`, indicates that the entire header should be
             replaced with the contents of the ASCII file instead of
-            just updating the current header.  Default = `False`.
+            just updating the current header.
 
         Notes
         -----
@@ -6626,35 +6673,35 @@ if compressionSupported:
             """
             Parameters
             ----------
-            data
+            data : array, optional
                 data of the image
 
-            header
+            header : Header instance, optional
                 header to be associated with the image; when reading
                 the HDU from a file (`data`="DELAYED"), the header read
                 from the file
 
-            name
+            name : str, optional
                 the ``EXTNAME`` value; if this value is `None`, then
                 the name from the input image header will be used; if
                 there is no name in the input image header then the
                 default name ``COMPRESSED_IMAGE`` is used.
 
-            compressionType
+            compressionType : str, optional
                 compression algorithm 'RICE_1', 'PLIO_1', 'GZIP_1',
                 'HCOMPRESS_1'
 
-            tileSize
-                compression tile sizes default treats each row of
+            tileSize : int, optional
+                compression tile sizes.  Default treats each row of
                 image as a tile.
 
-            hcompScale
+            hcompScale : float
                 HCOMPRESS scale parameter
 
-            hcompSmooth
+            hcompSmooth : float
                 HCOMPRESS smooth parameter
 
-            quantizeLevel
+            quantizeLevel : float
                 floating point quantization level; see note below
 
             Notes
@@ -6692,7 +6739,7 @@ if compressionSupported:
                    sections of the image without having to uncompress
                    the entire image.
 
-            The pyfits module supports 3 general-purpose compression
+            The `pyfits` module supports 3 general-purpose compression
             algorithms plus one other special-purpose compression
             technique that is designed for data masks with positive
             integer pixel values.  The 3 general purpose algorithms
@@ -6714,10 +6761,10 @@ if compressionSupported:
             image dimensions are not required to be an integer
             multiple of the tile dimensions; if not, then the tiles at
             the edges of the image will be smaller than the other
-            tiles.  The tileSize parameter may be provided as a list
+            tiles.  The `tileSize` parameter may be provided as a list
             of tile sizes, one for each dimension in the image.  For
-            example a tileSize value of [100,100] would divide a 300 X
-            300 image into 9 100 X 100 tiles.
+            example a `tileSize` value of ``[100,100]`` would divide a
+            300 X 300 image into 9 100 X 100 tiles.
 
             The 4 supported image compression algorithms are all
             'loss-less' when applied to integer FITS images; the pixel
@@ -6726,20 +6773,20 @@ if compressionSupported:
             addition, the HCOMPRESS algorithm supports a 'lossy'
             compression mode that will produce larger amount of image
             compression.  This is achieved by specifying a non-zero
-            value for the hcompScale parameter.  Since the amount of
+            value for the `hcompScale` parameter.  Since the amount of
             compression that is achieved depends directly on the RMS
             noise in the image, it is usually more convenient to
-            specify the hcompScale factor relative to the RMS noise.
-            Setting `hcompScale` = 2.5 means use a scale factor that is
-            2.5 times the calculated RMS noise in the image tile.  In
-            some cases it may be desireable to specify the exact
+            specify the `hcompScale` factor relative to the RMS noise.
+            Setting `hcompScale` = 2.5 means use a scale factor that
+            is 2.5 times the calculated RMS noise in the image tile.
+            In some cases it may be desirable to specify the exact
             scaling to be used, instead of specifying it relative to
             the calculated noise value.  This may be done by
             specifying the negative of the desired scale value
             (typically in the range -2 to -100).
 
             Very high compression factors (of 100 or more) can be
-            achieved by using large hcompScale values, however, this
+            achieved by using large `hcompScale` values, however, this
             can produce undesireable 'blocky' artifacts in the
             compressed image.  A variation of the HCOMPRESS algorithm
             (called HSCOMPRESS) can be used in this case to apply a
@@ -6763,7 +6810,7 @@ if compressionSupported:
             the whole FITS file, but it also means that the original
             floating point value pixel values are not exactly
             perserved.  When done properly, this integer scaling
-            technique will only discards the insignificant noise while
+            technique will only discard the insignificant noise while
             still preserving all the real imformation in the image.
             The amount of precision that is retained in the pixel
             values is controlled by the `quantizeLevel` parameter.
@@ -6792,7 +6839,7 @@ if compressionSupported:
             be used, instead of specifying it relative to the
             calculated noise value.  This may be done by specifying
             the negative of desired quantization level for the value
-            of quantizeLevel.  In the previous example, one could
+            of `quantizeLevel`.  In the previous example, one could
             specify `quantizeLevel`=-2.0 so that the quantized integer
             levels differ by 2.0.  Larger negative values for
             `quantizeLevel` means that the levels are more
@@ -6853,38 +6900,38 @@ if compressionSupported:
 
             Parameters
             ----------
-            imageHeader
+            imageHeader : Header instance
                 header to be associated with the image
 
-            name
+            name : str, optional
                 the ``EXTNAME`` value; if this value is `None`, then
                 the name from the input image header will be used; if
                 there is no name in the input image header then the
                 default name 'COMPRESSED_IMAGE' is used
 
-            compressionType
+            compressionType : str, optional
                 compression algorithm 'RICE_1', 'PLIO_1', 'GZIP_1',
                 'HCOMPRESS_1'; if this value is `None`, use value
                 already in the header; if no value already in the
                 header, use 'RICE_1'
 
-            tileSize
+            tileSize : sequence of int, optional
                 compression tile sizes as a list; if this value is
                 `None`, use value already in the header; if no value
                 already in the header, treat each row of image as a
                 tile
 
-            hcompScale
+            hcompScale : float, optional
                 HCOMPRESS scale parameter; if this value is `None`,
                 use the value already in the header; if no value
                 already in the header, use 1
 
-            hcompSmooth
+            hcompSmooth : float, optional
                 HCOMPRESS smooth parameter; if this value is `None`,
                 use the value already in the header; if no value
                 already in the header, use 0
 
-            quantizeLevel
+            quantizeLevel : float, optional
                 floating point quantization level; if this value
                 is `None`, use the value already in the header; if
                 no value already in header, use 16
@@ -8172,9 +8219,9 @@ if compressionSupported:
 
         def scale(self, type=None, option="old", bscale=1, bzero=0):
             """
-            Scale image data by using ``BSCALE``/``BZERO``.
+            Scale image data by using ``BSCALE`` and ``BZERO``.
 
-            Call to this method will scale `self.data` and update the
+            Calling this method will scale `self.data` and update the
             keywords of ``BSCALE`` and ``BZERO`` in `self._header` and
             `self._imageHeader`.  This method should only be used
             right before writing to the output file, as the data will
@@ -8183,19 +8230,19 @@ if compressionSupported:
             Parameters
             ----------
 
-            type : string
+            type : mumpy type descriptor or None
                 destination data type, use numpy attribute format,
-                (e.g. 'uint8', 'int16', 'float32' etc.).  If is `None`,
-                use the current data type.
+                (e.g. 'uint8', 'int16', 'float32' etc.).  If it is
+                `None`, use the current data type.
 
-            option
-                how to scale the data: if "old", use the original
+            option : str, optional
+                how to scale the data: if ``"old"``, use the original
                 ``BSCALE`` and ``BZERO`` values when the data was
-                read/created. If "minmax", use the minimum and maximum
+                read/created. If ``"minmax"``, use the minimum and maximum
                 of the data to scale.  The option will be overwritten
                 by any user-specified bscale/bzero values.
 
-            bscale/bzero
+            bscale, bzero : int, optional
                 user specified ``BSCALE`` and ``BZERO`` values.
             """
 
@@ -8321,11 +8368,12 @@ class StreamingHDU:
 
         Parameters
         ----------
-        name : string, file object, or file like object
-            The file to which the header and data will be streamed (if
-            opened file object must be opened for append (ab+)).
+        name : file path, file object, or file like object
+            The file to which the header and data will be streamed.
+            If opened, the file object must be opened for append
+            (ab+).
 
-        header : `Header`
+        header : `Header` instance
             The header object associated with the data to be written
             to the file.
 
@@ -8333,15 +8381,15 @@ class StreamingHDU:
         -----
         The file will be opened and the header appended to the end of
         the file.  If the file does not already exist, it will be
-        created and if the header represents a Primary header, it will
-        be written to the beginning of the file.  If the file does not
-        exist and the provided header is not a Primary header, a
-        default Primary HDU will be inserted at the beginning of the
-        file and the provided header will be added as the first
-        extension.  If the file does already exist, but the provided
-        header represents a Primary header, the header will be
-        modified to an image extension header and appended to the end
-        of the file.
+        created, and if the header represents a Primary header, it
+        will be written to the beginning of the file.  If the file
+        does not exist and the provided header is not a Primary
+        header, a default Primary HDU will be inserted at the
+        beginning of the file and the provided header will be added as
+        the first extension.  If the file does already exist, but the
+        provided header represents a Primary header, the header will
+        be modified to an image extension header and appended to the
+        end of the file.
         """
 
         if isinstance(name, gzip.GzipFile):
@@ -8423,7 +8471,7 @@ class StreamingHDU:
 
         Returns
         -------
-        writeComplete : integer
+        writeComplete : int
             Flag that when `True` indicates that all of the required
             data has been written to the stream.
 
@@ -8476,16 +8524,6 @@ class StreamingHDU:
     def size(self):
         """
         Return the size (in bytes) of the data portion of the HDU.
-
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        size : integer
-            The number of bytes of data required to fill the stream
-            per the header provided in the constructor.
         """
 
         size = 0
@@ -8512,7 +8550,7 @@ class StreamingHDU:
 
     def close(self):
         """
-        Close the 'physical' FITS file.
+        Close the physical FITS file.
         """
 
         self._ffo.close()
@@ -8967,13 +9005,12 @@ class HDUList(list, _Verify):
 
         Parameters
         ----------
-        hdus
-            Input, can be a list of HDU's or a single HDU. Default = `None`,
-            i.e. an empty `HDUList`.
+        hdus : sequence of HDU objects or single HDU, optional
+            The HDU object(s) to comprise the `HDUList`.  Should be
+            instances of `_AllHDU`.
 
-        file
+        file : file object, optional
             The opened physical file associated with the `HDUList`.
-            Default = `None`.
         """
         self.__file = file
         if hdus is None:
@@ -9087,7 +9124,18 @@ class HDUList(list, _Verify):
                     _err.append(_result)
         return _err
 
-    def insert (self, index, hdu):
+    def insert(self, index, hdu):
+        """
+        Insert an HDU into the `HDUList` at the given `index`.
+
+        Parameters
+        ----------
+        index : int
+            Index before which to insert the new HDU.
+
+        hdu : _AllHDU instance
+            The HDU object to insert
+        """
         if not isinstance(hdu, _AllHDU):
             raise ValueError, "%s is not an HDU." % hdu
 
@@ -9102,6 +9150,11 @@ class HDUList(list, _Verify):
     def append(self, hdu):
         """
         Append a new HDU to the `HDUList`.
+
+        Parameters
+        ----------
+        hdu : instance of _AllHDU
+            HDU to add to the `HDUList`.
         """
         if isinstance(hdu, _AllHDU):
             super(HDUList, self).append(hdu)
@@ -9117,8 +9170,19 @@ class HDUList(list, _Verify):
 
     def index_of(self, key):
         """
-        Get the index of an HDU from the `HDUList`.  The key can be an
-        integer, a string, or a tuple of (string, integer).
+        Get the index of an HDU from the `HDUList`.
+
+        Parameters
+        ----------
+        key : int, str or tuple of (string, int)
+           The key identifying the HDU.  If `key` is a tuple, it is of
+           the form (`key`, `ver`) where `ver` is an ``EXTVER`` value
+           that must match the HDU being searched for.
+
+        Returns
+        -------
+        index : int
+           The index of the HDU in the `HDUList`.
         """
 
         if isinstance(key, (int, np.integer,slice)):
@@ -9163,7 +9227,7 @@ class HDUList(list, _Verify):
 
     def readall(self):
         """
-        Read data of all HDU's into memory.
+        Read data of all HDUs into memory.
         """
         for i in range(len(self)):
             if self[i].data is not None:
@@ -9198,20 +9262,24 @@ class HDUList(list, _Verify):
                             hdu.header['TFORM'+`i+1`] = key[:key.find('(')+1] + `hdu.data.field(i)._max` + ')'
 
 
-    def flush(self, output_verify='exception', verbose=0, classExtensions={}):
+    def flush(self, output_verify='exception', verbose=False, classExtensions={}):
         """
         Force a write of the `HDUList` back to the file (for append and
         update modes only).
 
         Parameters
         ----------
-        output_verify
-            output verification option, default = 'exception'.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  See `verify` for more info.
 
-        verbose
-            print out verbose messages? default = 0.
+            TODO: Write this "more info" part.
 
-        classExtensions
+        verbose : bool
+            When `True`, print verbose messages
+
+        classExtensions : dict
             A dictionary that maps pyfits classes to extensions of
             those classes.  When present in the dictionary, the
             extension class will be constructed in place of the pyfits
@@ -9432,8 +9500,8 @@ class HDUList(list, _Verify):
 
     def update_extend(self):
         """
-        Make sure if the primary header needs the keyword ``EXTEND``
-        or if it has the proper value.
+        Make sure that if the primary header needs the keyword
+        ``EXTEND`` that it has it and it is correct.
         """
         hdr = self[0].header
         if hdr.has_key('extend'):
@@ -9453,25 +9521,27 @@ class HDUList(list, _Verify):
 
         Parameters
         ----------
-        name
-            output FITS file name to be written to, file object, or
-            file-like object (if opened must be opened for append
-            (ab+)).
+        name : file path, file object or file-like object
+            File to write to.  If a file object, must be opened for
+            append (ab+).
 
-        output_verify
-            output verification option, default = 'exception'.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  See `verify` for more info.
 
-        clobber
-            Overwrite the output file if exists, default = False.
+            TODO: Write this "more info" part.
 
-        classExtensions
+        clobber : bool
+            When `True`, overwrite the output file if exists.
 
+        classExtensions : dict
             A dictionary that maps pyfits classes to extensions of
             those classes.  When present in the dictionary, the
             extension class will be constructed in place of the pyfits
             class.
 
-        checksum
+        checksum : bool
             When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
             to the headers of all HDU's written to the file.
         """
@@ -9544,25 +9614,24 @@ class HDUList(list, _Verify):
         hduList.close(output_verify=output_verify,closed=closed)
 
 
-    def close(self, output_verify='exception', verbose=0, closed=1):
+    def close(self, output_verify='exception', verbose=False, closed=True):
         """
         Close the associated FITS file and memmap object, if any.
 
         Parameters
         ----------
-        output_verify
-            output verification option, default = 'exception'.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  See `verify` for more info.
 
-        verbose
-            print out verbose messages? default = 0.
+            TODO: Write this "more info" part.
 
-        closed
-            flag to indicate if the underlying file object should be
-            closed, default = 1 (close it)
+        verbose : bool
+            When `True`, print out verbose messages.
 
-        This simply calls the `_File.close` method.  It has this
-        two-tier calls because `_File` has ts own private attribute
-        `~File.__file`.
+        closed : bool
+            When `True`, close the underlying file object.
         """
 
         if self.__file != None:
@@ -9582,7 +9651,10 @@ class HDUList(list, _Verify):
 
     def info(self):
         """
-        Summarize the info of the HDU's in this `HDUList`.
+        Summarize the info of the HDUs in this `HDUList`.
+
+        Note that this function prints its results to the console---it
+        does not return a value.
         """
         if self.__file is None:
             _name = '(No file associated with this HDUList)'
@@ -9597,42 +9669,56 @@ class HDUList(list, _Verify):
         print results
 
 
-def open(name, mode="copyonwrite", memmap=0, classExtensions={}, **parms):
+def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
     """
     Factory function to open a FITS file and return an `HDUList` object.
 
     Parameters
     ----------
-    name
-        Name of the FITS file, file object, or file-like object to be
-        opened (if opened, mode must match the mode the file was
-        opened with, copyonwrite (rb), readonly (rb), update (rb+), or
-        append (ab+)).
+    name : file path, file object or file-like object
+        File to be
+        opened.
 
-    mode
-        Open mode, 'readonly' (default), 'update', or 'append'.
+    mode : str
+        Open mode, 'copyonwrite' (default), 'readonly', 'update', or
+        'append'.
 
-    memmap
-        Is memmory mapping to be used? default=0.
+        If `name` is a file object that is already opened, `mode` must
+        match the mode the file was opened with, copyonwrite (rb),
+        readonly (rb), update (rb+), or append (ab+)).
 
-    classExtensions
+    memmap : bool
+        Is memory mapping to be used?
+
+    classExtensions : dict
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
 
-    parms
+    parms : dict
         optional keyword arguments, possible values are:
 
-        - uint16: Interpret int16 data with ``BZERO`` = 32768 and
-          ``BSCALE`` = 1 as uint16 data. default=0 (False).
+        - **uint16** : bool
 
-        - ignore_missing_end: Do not issue an exception when opening a
-          file that is missing an ``END`` card in the last header.
-          default=0 (False).
+            Interpret `int16` data with ``BZERO = 32768`` and
+            ``BSCALE = 1`` as `uint16` data.
 
-        - checksum: If `True`, verifies that both ``DATASUM`` and
-          ``CHECKSUM`` card values (when present in the HDU header)
-          match the header and data of all HDU's in the file.
+        - **ignore_missing_end** : bool
+
+            Do not issue an exception when opening a file that is
+            missing an ``END`` card in the last header.
+
+        - **checksum** : bool
+
+            If `True`, verifies that both ``DATASUM`` and
+            ``CHECKSUM`` card values (when present in the HDU header)
+            match the header and data of all HDU's in the file.
+
+    Returns
+    -------
+        hdulist : an HDUList object
+            `HDUList` containing all of the header data units in the
+            file.
     """
     # instantiate a FITS file object (ffo)
 
@@ -9782,10 +9868,9 @@ def getheader(filename, *ext, **extkeys):
 
     Parameters
     ----------
-    filename : string, file object, or file like object
-
-        name of the FITS file, or file object, or file-like object (if
-        opened, mode must be one of the following rb, rb+, or ab+).
+    filename : file path, file object, or file like object
+        File to get header from.  If an opened file object, its mode
+        must be one of the following rb, rb+, or ab+).
 
     classExtensions : optional
         A dictionary that maps pyfits classes to extensions of those
@@ -9798,7 +9883,7 @@ def getheader(filename, *ext, **extkeys):
 
     Returns
     -------
-    `Header` object
+    header : `Header` object
     """
     # allow file object to already be opened in any of the valid modes
     # and leave the file in the same state (opened or closed) as when
@@ -9841,19 +9926,18 @@ def getdata(filename, *ext, **extkeys):
 
     Parameters
     ----------
-    filename : string, file object, or file like object
-        name of the FITS file, or file object, or file like object (if
-        opened, mode must be one of the following rb, rb+, or ab+).
+    filename : file path, file object, or file like object
+        File to get data from.  If opened, mode must be one of the
+        following rb, rb+, or ab+.
 
-    classExtensions : optional
+    classExtensions : dict, optional
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
 
     ext
-
         The rest of the arguments are for extension specification.
-        They are flexible and are best illustrated by examples:
+        They are flexible and are best illustrated by examples.
 
         No extra arguments implies the primary header::
 
@@ -9865,7 +9949,7 @@ def getdata(filename, *ext, **extkeys):
             >>> getdata('in.fits', 2)    # the second extension
             >>> getdata('in.fits', ext=2) # the second extension
 
-        By name, i.e., EXTNAME value (if unique)::
+        By name, i.e., ``EXTNAME`` value (if unique)::
 
             >>> getdata('in.fits', 'sci')
             >>> getdata('in.fits', extname='sci') # equivalent
@@ -9885,11 +9969,11 @@ def getdata(filename, *ext, **extkeys):
 
     Returns
     -------
-    an array, record array (i.e. table), or groups data object
-    depending on the type of the extension being referenced
+    array : array, record array or groups data object
+        Type depends on the type of the extension being referenced.
 
-    If the optional keyword `header` is set to `True`, this function
-    will return a (`data`, `header`) tuple.
+        If the optional keyword `header` is set to `True`, this
+        function will return a (`data`, `header`) tuple.
     """
     if 'header' in extkeys:
         _gethdr = extkeys['header']
@@ -10101,29 +10185,27 @@ def writeto(filename, data, header=None, **keys):
 
     Parameters
     ----------
-    filename : string, file object, or file like object
-        name of the new FITS file to write to, or file object (if
-        opened must be opened for append (ab+)).
+    filename : file path, file object, or file like object
+        File to write to.  If opened, must be opened for append (ab+).
 
     data : array, record array, or groups data object
         data to write to the new file
 
-    header: `Header` object, optional
-        the header associated with `data`. If `None`, a header of the
-        appropriate type is created for the supplied data. This
+    header : Header object, optional
+        the header associated with `data`. If `None`, a header
+        of the appropriate type is created for the supplied data. This
         argument is optional.
 
-    classExtensions : optional
+    classExtensions : dict, optional
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
 
-    clobber : optional
-
+    clobber : bool, optional
         If `True`, and if filename already exists, it will overwrite
         the file.  Default is `False`.
 
-    checksum : optional
+    checksum : bool, optional
         If `True`, adds both ``DATASUM`` and ``CHECKSUM`` cards to the
         headers of all HDU's written to the file.
     """
@@ -10153,27 +10235,25 @@ def append(filename, data, header=None, classExtensions={}, checksum=False):
 
     Parameters
     ----------
-    filename : string, file object, or file like object
-        name of the FITS file to write to, or file object, or file
-        like object.  If opened must be opened for update (rb+) unless
-        it is a new file, then it must be opened for append (ab+).  A
-        file or `GzipFile` object opened for update will be closed
-        after return.
+    filename : file path, file object, or file like object
+        File to write to.  If opened, must be opened for update (rb+)
+        unless it is a new file, then it must be opened for append
+        (ab+).  A file or `GzipFile` object opened for update will be
+        closed after return.
 
     data : array, table, or group data object
         the new data used for appending
 
-    header: `Header` object, optional
+    header : Header object, optional
         The header associated with `data`.  If `None`, an appropriate
         header will be created for the data object supplied.
 
-    classExtensions : dictionary
-
+    classExtensions : dictionary, optional
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
 
-    checksum
+    checksum : bool, optional
         When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards to
         the header of the HDU when written to the file.
     """
@@ -10232,16 +10312,15 @@ def update(filename, data, *ext, **extkeys):
 
     Parameters
     ----------
-    filename : string, file object, or file like object
+    filename : file path, file object, or file like object
+        File to update.  If opened, mode must be update (rb+).  An
+        opened file object or `GzipFile` object will be closed upon
+        return.
 
-        name of the FITS file, or file object, or file like object.
-        If opened, mode must be update (rb+).  An opened file object
-        or `GzipFile` object will be closed upon return.
-
-    data
+    data : array, table, or group data object
         the new data used for updating
 
-    classExtensions : optional
+    classExtensions : dict, optional
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
@@ -10249,7 +10328,7 @@ def update(filename, data, *ext, **extkeys):
     ext
         The rest of the arguments are flexible: the 3rd argument can
         be the header associated with the data.  If the 3rd argument
-        is not a header, it (and other positional arguments) are
+        is not a `Header`, it (and other positional arguments) are
         assumed to be the extension specification(s).  Header and
         extension specs can also be keyword arguments.  For example::
 
@@ -10298,24 +10377,27 @@ def info(filename, classExtensions={}, **parms):
 
     Parameters
     ----------
-    filename : string, file object, or file like object
-        name of the FITS file to write to, or file object, or file
-        like object (if opened, mode must be one of the following rb,
-        rb+, or ab+).
+    filename : file path, file object, or file like object
+        FITS file to obtain info from.  If opened, mode must be one of
+        the following: rb, rb+, or ab+.
 
-    classExtensions : dictionary
+    classExtensions : dict, optional
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
 
     parms : optional keyword arguments
 
-        - uint16: Interpret int16 data with ``BZERO`` = 32768 and
-          ``BSCALE`` = 1 as uint16 data. default=0 (False).
+        - **uint16** : bool
 
-        - ignore_missing_end: Do not issue an exception when opening a
-          file that is missing an ``END`` card in the last header.
-          default=1 (True).
+            Interpret `int16` data with ``BZERO = 32768`` and ``BSCALE
+            = 1`` as `uint16` data.  Default is `False`.
+
+        - **ignore_missing_end** : bool
+
+            Do not issue an exception when opening a file that is
+            missing an ``END`` card in the last header.  Default is
+            `True`.
     """
 
     # allow file object to already be opened in any of the valid modes
@@ -10363,35 +10445,30 @@ def tdump(fitsFile, datafile=None, cdfile=None, hfile=None, ext=1,
 
     Parameters
     ----------
-    fitsFile
-        Input fits file supplied as a file name, file object, or
-        file-like object.
+    fitsFile : file path, file object or file-like object
+        Input fits file.
 
-    datafile
-
-        Output data file supplied as a file name, file object, or
-        file-like object.  The default is the root name of the input
+    datafile : file path, file object or file-like object, optional
+        Output data file.  The default is the root name of the input
         fits file appended with an underscore, followed by the
         extension number (ext), followed by the extension ``.txt``.
 
-    cdfile
-        Output column definitions file supplied as a file name,
-        file object, or file-like object.  The default is `None`,
+    cdfile : file path, file object or file-like object, optional
+        Output column definitions file.  The default is `None`,
         no column definitions output is produced.
 
-    hfile
-        Output header parameters file supplied as a file name,
-        file object, or file-like object.  The default is `None`,
+    hfile : file path, file object or file-like object, optional
+        Output header parameters file.  The default is `None`,
         no header parameters output is produced.
 
-    ext
+    ext : int
         The number of the extension containing the table HDU to be
         dumped.
 
-    clobber
-        Overwrite the output files if they exist, default = `False`.
+    clobber : bool
+        Overwrite the output files if they exist.
 
-    classExtensions
+    classExtensions : dict
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
@@ -10456,23 +10533,19 @@ def tcreate(datafile, cdfile, hfile=None):
 
     Parameters
     ----------
-    datafile
-        Input data file containing the table data in ASCII format
-        supplied as a file name, file object, or file-like object.
+    datafile : file path, file object or file-like object
+        Input data file containing the table data in ASCII format.
 
-    cdfile
+    cdfile : file path, file object or file-like object
         Input column definition file containing the names, formats,
         display formats, physical units, multidimensional array
         dimensions, undefined values, scale factors, and offsets
-        associated with the columns in the table.  It is supplied as a
-        file name, file object, or file-like object.
+        associated with the columns in the table.
 
-    hfile
-
+    hfile : file path, file object or file-like object, optional
         Input parameter definition file containing the header
-        parameter definitions to be associated with the table.  It is
-        supplied as a file name, file object, or file-like object.
-        Default = `None`.  If `None`, a minimal header is constructed.
+        parameter definitions to be associated with the table.
+        If `None`, a minimal header is constructed.
 
     Notes
     -----

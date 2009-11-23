@@ -1,11 +1,16 @@
-API Documentation
-=================
+pyfits module
+=============
 
-:mod:`pyfits.NP_pyfits`
------------------------
+.. toctree::
+   :maxdepth: 3
 
-.. automodule:: pyfits.NP_pyfits
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   api_files.rst
+   api_hdulists.rst
+   api_hdus.rst
+   api_headers.rst
+   api_cards.rst
+   api_tables.rst
+   api_images.rst
+   api_utility.rst
+
 
