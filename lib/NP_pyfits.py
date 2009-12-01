@@ -6678,8 +6678,8 @@ if compressionSupported:
 
             header : Header instance, optional
                 header to be associated with the image; when reading
-                the HDU from a file (`data`="DELAYED"), the header read
-                from the file
+                the HDU from a file ( `data` = "DELAYED" ), the header
+                read from the file
 
             name : str, optional
                 the ``EXTNAME`` value; if this value is `None`, then
@@ -6695,13 +6695,13 @@ if compressionSupported:
                 compression tile sizes.  Default treats each row of
                 image as a tile.
 
-            hcompScale : float
+            hcompScale : float, optional
                 HCOMPRESS scale parameter
 
-            hcompSmooth : float
+            hcompSmooth : float, optional
                 HCOMPRESS smooth parameter
 
-            quantizeLevel : float
+            quantizeLevel : float, optional
                 floating point quantization level; see note below
 
             Notes
@@ -9954,9 +9954,9 @@ def getdata(filename, *ext, **extkeys):
             >>> getdata('in.fits', 'sci')
             >>> getdata('in.fits', extname='sci') # equivalent
 
-        Note ``EXTNAME``s are not case sensitive
+        Note ``EXTNAME`` values are not case sensitive
 
-        By combination of ``EXTNAME`` and EXTVER``, as separate
+        By combination of ``EXTNAME`` and EXTVER`` as separate
         arguments or as a tuple::
 
             >>> getdata('in.fits', 'sci', 2) # EXTNAME='SCI' & EXTVER=2
@@ -10033,11 +10033,11 @@ def getval(filename, key, *ext, **extkeys):
 
     Parameters
     ----------
-    filename : string, file object, or file like object
-        name of the FITS file, or file object (if opened, mode must be
+    filename : file path, file object, or file like object
+        Name of the FITS file, or file object (if opened, mode must be
         one of the following rb, rb+, or ab+).
 
-    key : string
+    key : str
         keyword name
 
     classExtensions : (optional)
@@ -10073,37 +10073,37 @@ def setval(filename, key, value="", comment=None, before=None, after=None,
 
     Parameters
     ----------
-    filename : string, file object, or file like object
-        name of the FITS file, or file object If opened, mode must be
+    filename : file path, file object, or file like object
+        Name of the FITS file, or file object If opened, mode must be
         update (rb+).  An opened file object or `GzipFile` object will
         be closed upon return.
 
-    key : string
+    key : str
         keyword name
 
-    value : string, integer, float
+    value : str, int, float
         Keyword value, default = ""
 
-    comment : string
+    comment : str
         Keyword comment, default = None
 
-    before : string, integer
+    before : str, int
         name of the keyword, or index of the `Card` before which
         the new card will be placed.  The argument `before` takes
         precedence over `after` if both specified. default=`None`.
 
-    after : string, integer
+    after : str, int
         name of the keyword, or index of the `Card` after which the
         new card will be placed. default=`None`.
 
-    savecomment : boolean
+    savecomment : bool
         when `True`, preserve the current comment for an existing
         keyword.  The argument `savecomment` takes precedence over
         `comment` if both specified.  If `comment` is not specified
         then the current comment will automatically be preserved.
         default=`False`
 
-    classExtensions : optional
+    classExtensions : dict, optional
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
@@ -10131,14 +10131,13 @@ def delval(filename, key, *ext, **extkeys):
     Parameters
     ----------
 
-    filename : string, file object, or file like object
-
-        name of the FITS file, or file object If opened, mode must be
+    filename : file path, file object, or file like object
+        Name of the FITS file, or file object If opened, mode must be
         update (rb+).  An opened file object or `GzipFile` object will
         be closed upon return.
 
-    key : string, integer
-        keyword name or index
+    key : str, int
+        Keyword name or index
 
     classExtensions : optional
         A dictionary that maps pyfits classes to extensions of those

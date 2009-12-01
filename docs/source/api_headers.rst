@@ -20,7 +20,3 @@ Headers
    :members:
    :undoc-members:
    :show-inheritance:
-
-Free functions
-,,,,,,,,,,,,,,
-
