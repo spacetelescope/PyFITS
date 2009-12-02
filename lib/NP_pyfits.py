@@ -206,7 +206,7 @@ class _Verify(object):
             _text += '  ' + fix_text
         return _text
 
-    def verify (self, option='warn'):
+    def verify(self, option='warn'):
         """
         Wrapper for _verify.
         """
@@ -478,7 +478,7 @@ class Card(_Verify):
         option : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  See `verify` for more info.
+            ``"exception"``.  See :ref:`verify` for more info.
         """
 
         # Only if the card image already exist (to avoid infinite loop),
@@ -2678,24 +2678,25 @@ class _NonstandardHDU(_AllHDU, _Verify):
 
         Parameters
         ----------
-        name
-            output FITS file name to be written to, file object, or
-            file like object (if opened must be opened for append
+        name : file path, file object or file-like object
+            Output FITS file.  If opened, must be opened for append
             ("ab+")).
 
-        output_verify
-            output verification option, default='exception'.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  See :ref:`verify` for more info.
 
-        clobber
-            Overwrite the output file if exists, default = False.
+        clobber : bool
+            Overwrite the output file if exists.
 
-        classExtensions
+        classExtensions : dict
             A dictionary that maps pyfits classes to extensions of
             those classes.  When present in the dictionary, the
             extension class will be constructed in place of the pyfits
             class.
 
-        checksum
+        checksum : bool
             When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
             to the header of the HDU when written to the file.
         """
@@ -2750,24 +2751,25 @@ class _ValidHDU(_AllHDU, _Verify):
 
         Parameters
         ----------
-        name
-            output FITS file name to be written to, file object, or
-            file like object (if opened must be opened for append
+        name : file path, file object or file-like object
+            Output FITS file.  If opened, must be opened for append
             ("ab+")).
 
-        output_verify
-            output verification option, default='exception'.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  See :ref:`verify` for more info.
 
-        clobber
+        clobber : bool
             Overwrite the output file if exists, default = False.
 
-        classExtensions
+        classExtensions : dict
            A dictionary that maps pyfits classes to extensions of
            those classes.  When present in the dictionary, the
            extension class will be constructed in place of the pyfits
            class.
 
-        checksum
+        checksum : bool
             When `True`, adds both ``DATASUM`` and ``CHECKSUM`` cards
             to the header of the HDU when written to the file.
         """
@@ -3402,23 +3404,25 @@ class _NonstandardExtHDU(_ExtensionHDU):
 
         Parameters
         ----------
-        name
-            output FITS file name to be written to, file object, or
-            file like object (if opened must be opened for append (ab+)).
+        name : file path, file object or file-like object
+            Output FITS file.  If opened, must be opened for append
+            (ab+)).
 
-        output_verify
-            output verification option, default='exception'.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  See :ref:`verify` for more info.
 
-        clobber
-            Overwrite the output file if exists, default = False.
+        clobber : bool
+            Overwrite the output file if exists.
 
-        classExtensions
+        classExtensions : dict
             A dictionary that maps pyfits classes to extensions of
             those classes.  When present in the dictionary, the
             extension class will be constructed in place of the pyfits
             class.
 
-        checksum
+        checksum : bool
             When `True`, adds both ``DATASUM`` and ``CHECKSUM`` cards
             to the header of the HDU when written to the file.
         """
@@ -4950,8 +4954,8 @@ class ColDefs(object):
            there are two or more attribute names, they must be
            separated by comma(s).
 
-        Note
-        ----
+        Notes
+        -----
         This function doesn't return anything, it just prints to
         stdout.
         """
@@ -9272,9 +9276,7 @@ class HDUList(list, _Verify):
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  See `verify` for more info.
-
-            TODO: Write this "more info" part.
+            ``"exception"``.  See :ref:`verify` for more info.
 
         verbose : bool
             When `True`, print verbose messages
@@ -9528,9 +9530,7 @@ class HDUList(list, _Verify):
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  See `verify` for more info.
-
-            TODO: Write this "more info" part.
+            ``"exception"``.  See :ref:`verify` for more info.
 
         clobber : bool
             When `True`, overwrite the output file if exists.
@@ -9623,9 +9623,7 @@ class HDUList(list, _Verify):
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  See `verify` for more info.
-
-            TODO: Write this "more info" part.
+            ``"exception"``.  See :ref:`verify` for more info.
 
         verbose : bool
             When `True`, print out verbose messages.

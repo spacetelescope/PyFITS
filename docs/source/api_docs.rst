@@ -12,5 +12,5 @@ pyfits module
    api_tables.rst
    api_images.rst
    api_utility.rst
-
+   api_verification.rst
 
