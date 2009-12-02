@@ -11,6 +11,7 @@ Cards
 
 .. autoclass:: Card
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 
@@ -19,6 +20,7 @@ Cards
 
 .. autoclass:: RecordValuedKeywordCard
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 

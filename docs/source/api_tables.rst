@@ -12,6 +12,7 @@ Tables
 
 .. autoclass:: TableHDU
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 
@@ -20,6 +21,7 @@ Tables
 
 .. autoclass:: BinTableHDU
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 
@@ -28,6 +30,7 @@ Tables
 
 .. autoclass:: Column
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 
@@ -36,6 +39,7 @@ Tables
 
 .. autoclass:: ColDefs
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 
@@ -44,6 +48,7 @@ Tables
 
 .. autoclass:: FITS_record
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 

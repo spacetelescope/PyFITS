@@ -12,6 +12,7 @@ Images
 
 .. autoclass:: ImageHDU
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 
@@ -20,6 +21,7 @@ Images
 
 .. autoclass:: CompImageHDU
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 
@@ -28,6 +30,7 @@ Images
 
 .. autoclass:: Section
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 

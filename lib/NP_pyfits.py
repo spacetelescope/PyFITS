@@ -208,7 +208,14 @@ class _Verify(object):
 
     def verify(self, option='warn'):
         """
-        Wrapper for _verify.
+        Verify all values in the instance.
+
+        Parameters
+        ----------
+        option : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  See :ref:`verify` for more info.
         """
 
         _option = option.lower()
@@ -2817,7 +2824,9 @@ class _ValidHDU(_AllHDU, _Verify):
 
     def req_cards(self, keywd, pos, test, fix_value, option, errlist):
         """
-        Check the existence, location, and value of a required Card.
+        Check the existence, location, and value of a required `Card`.
+
+        TODO: Write about parameters
 
         If `pos` = `None`, it can be anywhere.  If the card does not exist,
         the new card will have the `fix_value` as its value when created.
@@ -3038,13 +3047,14 @@ class _ValidHDU(_AllHDU, _Verify):
 
         Parameters
         ----------
-        when
-            comment string for the card that by default represents the
+        when : str, optional
+            Comment string for the card that by default represents the
             time when the checksum was calculated
 
         Returns
         -------
-        The calculated checksum
+        checksum : int
+            The calculated datasum
 
         Notes
         -----
@@ -3070,20 +3080,20 @@ class _ValidHDU(_AllHDU, _Verify):
 
         Parameters
         ----------
-        when
+        when : str, optional
            comment string for the cards; by default the comments
            will represent the time when the checksum was calculated
 
-        override_datasum
+        override_datasum : bool, optional
            add the ``CHECKSUM`` card only
 
         Notes
         -----
         For testing purposes, first call `add_datasum` with a `when`
         argument, then call `add_checksum` with a `when` argument and
-        `override_datasum` set to True.  This will provide consistent
-        comments for both cards and enable the generation of a
-        ``CHECKSUM`` card with a consistent value.
+        `override_datasum` set to `True`.  This will provide
+        consistent comments for both cards and enable the generation
+        of a ``CHECKSUM`` card with a consistent value.
         """
 
         if not override_datasum:
@@ -3114,9 +3124,10 @@ class _ValidHDU(_AllHDU, _Verify):
 
         Returns
         -------
-        - 0 - failure
-        - 1 - success
-        - 2 - no ``DATASUM`` keyword present
+        valid : int
+           - 0 - failure
+           - 1 - success
+           - 2 - no ``DATASUM`` keyword present
         """
         if self.header.has_key('DATASUM'):
             if self._calculate_datasum() == int(self.header['DATASUM']):
@@ -3133,9 +3144,10 @@ class _ValidHDU(_AllHDU, _Verify):
 
         Returns
         -------
-        - 0 - failure
-        - 1 - success
-        - 2 - no ``CHECKSUM`` keyword present
+        valid : int
+           - 0 - failure
+           - 1 - success
+           - 2 - no ``CHECKSUM`` keyword present
         """
         if self._header.has_key('CHECKSUM'):
             if self._header.has_key('DATASUM'):
@@ -3879,20 +3891,20 @@ class _ImageBaseHDU(_ValidHDU):
 
         Parameters
         ----------
-        type
+        type : numpy dtype object, optional
             destination data type, use numpy attribute format,
             (e.g. ``uint8``, ``int16``, ``float32`` etc.).  If is
             `None`, use the current data type.
 
-        option
-            how to scale the data: if "old", use the original ``BSCALE``
-            and ``BZERO`` values when the data was read/created. If
-            "minmax", use the minimum and maximum of the data to scale.
-            The option will be overwritten by any user specified
-            `bscale`/`bzero` values.
+        option : str
+            How to scale the data: if ``"old"``, use the original
+            ``BSCALE`` and ``BZERO`` values when the data was
+            read/created. If ``"minmax"``, use the minimum and maximum
+            of the data to scale.  The option will be overwritten by
+            any user specified `bscale`/`bzero` values.
 
-        bscale, bzero
-            user specified ``BSCALE`` and ``BZERO`` values.
+        bscale, bzero : int, optional
+            User-specified ``BSCALE`` and ``BZERO`` values.
         """
 
         if self.data is None:
@@ -5191,6 +5203,8 @@ class FITS_record(object):
     """
     def __init__(self, input, row=0):
         """
+        Parameters
+        ----------
         input : array
            The array to wrap.
 
@@ -5239,6 +5253,8 @@ class FITS_rec(rec.recarray):
 
     `FITS_rec` is the data part of a table HDU's data part.  This is a
     layer over the `recarray`, so we can deal with scaled columns.
+
+    It inherits all of the standard methods from `numpy.ndarray`.
     """
 
     def __new__(subtype, input):

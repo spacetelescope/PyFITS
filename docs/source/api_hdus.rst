@@ -16,6 +16,7 @@ section on :ref:`Tables`.
 
 .. autoclass:: PrimaryHDU
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 
@@ -24,6 +25,7 @@ section on :ref:`Tables`.
 
 .. autoclass:: GroupsHDU
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 
@@ -32,5 +34,6 @@ section on :ref:`Tables`.
 
 .. autoclass:: StreamingHDU
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:

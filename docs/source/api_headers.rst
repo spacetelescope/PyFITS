@@ -10,6 +10,7 @@ Headers
 
 .. autoclass:: Header
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
 
