@@ -3803,10 +3803,18 @@ class _ImageBaseHDU(_ValidHDU):
                         else:
                             self.data = raw_data
 
+                    if self._header.has_key('BLANK'):
+                        nullDvals = np.array(self._header['BLANK'],
+                                             dtype='int32')
+                        blanks = (self.data == nullDvals)
+
                     if self._bscale != 1:
                         np.multiply(self.data, self._bscale, self.data)
                     if self._bzero != 0:
                         self.data += self._bzero
+
+                    if self._header.has_key('BLANK'):
+                        self.data = np.where(blanks, np.nan, self.data)
 
                     # delete the keywords BSCALE and BZERO after scaling
                     del self._header['BSCALE']
