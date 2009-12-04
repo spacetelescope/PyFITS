@@ -2816,6 +2816,21 @@ class _ValidHDU(_AllHDU, _Verify):
         if naxis < 1000:
             for j in range(3, naxis+3):
                 self.req_cards('NAXIS'+`j-2`, '== '+`j`, _isInt+" and val>= 0", 1, option, _err)
+            # Remove NAXISj cards where j is not in range 1, naxis inclusive.
+            for _card in self._header.ascard:
+                if _card.key.startswith("NAXIS") and len(_card.key) > 5:
+                    try:
+                        number = int(_card.key[5:])
+                        if number <= 0 or number > naxis:
+                            raise ValueError
+                    except ValueError:
+                        _err.append(self.run_option(
+                                option=option,
+                                err_text=("NAXISj keyword out of range ('%s' when NAXIS == %d)" %
+                                          (_card.key, naxis)),
+                                fix="del self._header['%s']" % _card.key,
+                                fix_text="Deleted."))
+
         # verify each card
         for _card in self._header.ascard:
             _err.append(_card._verify(option))
