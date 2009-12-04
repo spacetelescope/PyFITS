@@ -8583,6 +8583,12 @@ class StreamingHDU:
 
         self._ffo.close()
 
+    # Support the 'with' statement
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
 
 class ErrorURLopener(urllib.FancyURLopener):
     """
@@ -9019,6 +9025,13 @@ class _File:
 
         if hasattr(self, 'tfile'):
             del self.tfile
+
+    # Support the 'with' statement
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
 
 
 class HDUList(list, _Verify):
@@ -9689,6 +9702,13 @@ class HDUList(list, _Verify):
             results = results + "%-3d  %s\n"%(j, self[j]._summary())
         results = results[:-1]
         print results
+
+    # Support the 'with' statement
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
 
 
 def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
