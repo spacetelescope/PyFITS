@@ -5283,10 +5283,13 @@ class FITS_record(object):
         """
         Print one row.
         """
-        outlist = []
-        for i in range(self.array._nfields):
-            outlist.append(`self.array.field(i)[self.row]`)
-        return "(" + ", ".join(outlist) + ")"
+        if isinstance(self.row, (str, unicode)):
+            return repr(np.asarray(self.array)[self.row])
+        else:
+            outlist = []
+            for i in range(self.array._nfields):
+                outlist.append(`self.array.field(i)[self.row]`)
+            return "(" + ", ".join(outlist) + ")"
 
 
     def __repr__(self):
