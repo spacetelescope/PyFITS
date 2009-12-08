@@ -133,6 +133,15 @@ def _tofile(arr, outfile):
         str=arr.tostring()
         outfile.write(str)
 
+def _unsigned_zero(dtype):
+    """
+    Given a numpy dtype, finds it's "zero" point, which is exactly in
+    the middle of its range.
+    """
+    assert dtype.kind == 'u'
+    return 1 << (dtype.itemsize * 8 - 1)
+
+
 class VerifyError(exceptions.Exception):
     """
     Verify exception class.
@@ -3804,32 +3813,51 @@ class _ImageBaseHDU(_ValidHDU):
                 raw_data.dtype = raw_data.dtype.newbyteorder('>')
 
                 if (self._bzero != 0 or self._bscale != 1):
-                    if self._ffile.uint16 and _bitpix == 16 \
-                    and self._bzero == 32768 and self._bscale == 1:
-                        self.data = np.array(raw_data, dtype=np.uint16)
-                    elif _bitpix > 16:  # scale integers to Float64
-                        self.data = np.array(raw_data, dtype=np.float64)
-                    elif _bitpix > 0:  # scale integers to Float32
-                        self.data = np.array(raw_data, dtype=np.float32)
-                    else:  # floating point cases
-                        if self._ffile.memmap:
-                            self.data = raw_data.copy()
-                        # if not memmap, use the space already in memory
-                        else:
-                            self.data = raw_data
+                    data = None
+                    # Handle "pseudo-unsigned" integers, if the user
+                    # requested it.  In this case, we don't need to
+                    # handle BLANK to convert it to NAN, since we
+                    # can't do NaNs with integers, anyway, i.e. the
+                    # user is responsible for managing blanks.
+                    if self._ffile.uint and self._bscale == 1:
+                        for bits, dtype in ((16, np.uint16),
+                                            (32, np.uint32),
+                                            (64, np.uint64)):
+                            if _bitpix == bits and self._bzero == 1 << (bits - 1):
+                                data = np.array(raw_data, dtype=dtype)
+                                break
 
-                    if self._header.has_key('BLANK'):
-                        nullDvals = np.array(self._header['BLANK'],
-                                             dtype='int32')
-                        blanks = (self.data == nullDvals)
+                    if data is None:
+                        # In these cases, we end up with
+                        # floating-point arrays and have to apply
+                        # bscale and bzero. We may have to handle
+                        # BLANK and convert to NaN in the resulting
+                        # floating-point arrays.
+                        if self._header.has_key('BLANK'):
+                            nullDvals = np.array(self._header['BLANK'],
+                                                 dtype='int64')
+                            blanks = (raw_data == nullDvals)
 
-                    if self._bscale != 1:
-                        np.multiply(self.data, self._bscale, self.data)
-                    if self._bzero != 0:
-                        self.data += self._bzero
+                        if _bitpix > 16:  # scale integers to Float64
+                            data = np.array(raw_data, dtype=np.float64)
+                        elif _bitpix > 0:  # scale integers to Float32
+                            data = np.array(raw_data, dtype=np.float32)
+                        else:  # floating point cases
+                            if self._ffile.memmap:
+                                data = raw_data.copy()
+                            # if not memmap, use the space already in memory
+                            else:
+                                data = raw_data
 
-                    if self._header.has_key('BLANK'):
-                        self.data = np.where(blanks, np.nan, self.data)
+                        if self._bscale != 1:
+                            np.multiply(data, self._bscale, data)
+                        if self._bzero != 0:
+                            data += self._bzero
+
+                        if self._header.has_key('BLANK'):
+                            data = np.where(blanks, np.nan, data)
+
+                    self.data = data
 
                     # delete the keywords BSCALE and BZERO after scaling
                     del self._header['BSCALE']
@@ -3837,6 +3865,7 @@ class _ImageBaseHDU(_ValidHDU):
                     self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
                 else:
                     self.data = raw_data
+
         else:
             return _AllHDU.__getattr__(self, attr)
 
@@ -3999,8 +4028,9 @@ class _ImageBaseHDU(_ValidHDU):
 
             # First handle the special case where the data is unsigned integer
             # 16.
-            if self.data.dtype == np.uint16:
-                d = np.array(self.data-32768,dtype='i2')
+            if self.data.dtype.kind == 'u':
+                d = np.array(self.data - _unsigned_zero(self.data.dtype),
+                             dtype='i%d' % self.data.dtype.itemsize)
 
             # Check the byte order of the data.  If it is little endian we
             # must swap it before calculating the datasum.
@@ -4015,7 +4045,7 @@ class _ImageBaseHDU(_ValidHDU):
 
             # If the data was byteswapped in this method then return it to
             # its original little-endian order.
-            if byteswapped and self.data.dtype != np.uint16:
+            if byteswapped and self.data.dtype.kind != 'u':
                 d.byteswap(True)
                 d.dtype = d.dtype.newbyteorder('<')
 
@@ -8662,10 +8692,7 @@ class _File:
         else:
             self.ignore_missing_end = 0
 
-        if parms.has_key('uint16'):
-            self.uint16 = parms['uint16']
-        else:
-            self.uint16 = 0
+        self.uint = parms.get('uint16', False) or parms.get('uint', False)
 
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise "Memory mapping is not implemented for mode `%s`." % mode
@@ -8849,10 +8876,13 @@ class _File:
         if 'data' in dir(hdu) and hdu.data is not None \
         and not isinstance(hdu, _NonstandardHDU) \
         and not isinstance(hdu, _NonstandardExtHDU) \
-        and hdu.data.dtype == np.uint16:
-            hdu._header.update('BSCALE',1,
-                              after='NAXIS'+`hdu.header.get('NAXIS')`)
-            hdu._header.update('BZERO',32768,after='BSCALE')
+        and hdu.data.dtype.kind == 'u':
+            hdu._header.update(
+                'BSCALE', 1,
+                after='NAXIS'+`hdu.header.get('NAXIS')`)
+            hdu._header.update(
+                'BZERO', _unsigned_zero(hdu.data.dtype),
+                after='BSCALE')
 
         # Handle checksum
         if hdu._header.has_key('CHECKSUM'):
@@ -8893,7 +8923,7 @@ class _File:
         if 'data' in dir(hdu) and hdu.data is not None \
         and not isinstance(hdu, _NonstandardHDU) \
         and not isinstance(hdu, _NonstandardExtHDU) \
-        and hdu.data.dtype == np.uint16:
+        and hdu.data.dtype.kind == 'u':
             del hdu._header['BSCALE']
             del hdu._header['BZERO']
 
@@ -8929,10 +8959,12 @@ class _File:
             # return both the location and the size of the data area
             return loc, _size+_padLength(_size)
         elif hdu.data is not None:
-
-            # deal with unsigned integer 16 data
-            if hdu.data.dtype == np.uint16:
-                output = np.array(hdu.data-32768,dtype='i2')
+            # deal with unsigned integer data
+            if hdu.data.dtype.kind == 'u':
+                # Convert the unsigned array to signed
+                output = np.array(
+                    hdu.data - _unsigned_zero(hdu.data.dtype),
+                    dtype='i%d' % hdu.data.dtype.itemsize)
 
                 if output.dtype.str[0] != '>':
                     output = output.byteswap(True)
@@ -9755,10 +9787,16 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
     parms : dict
         optional keyword arguments, possible values are:
 
-        - **uint16** : bool
+        - **uint** : bool
 
-            Interpret `int16` data with ``BZERO = 32768`` and
-            ``BSCALE = 1`` as `uint16` data.
+            Interpret signed integer data where ``BZERO`` is the
+            central value and ``BSCALE == 1`` as unsigned integer
+            data.  For example, `int16` data with ``BZERO = 32768``
+            and ``BSCALE = 1`` would be treated as `uint16` data.
+
+            Note, for backward compatibility, the kwarg **uint16** may
+            be used instead.  The kwarg was renamed when support was
+            added for integers of any size.
 
         - **ignore_missing_end** : bool
 
@@ -9875,6 +9913,9 @@ def _getext(filename, mode, *ext1, **ext2):
 
     if ext2.has_key('uint16'):
         del ext2['uint16']
+
+    if ext2.has_key('uint'):
+        del ext2['uint']
 
     n_ext1 = len(ext1)
     n_ext2 = len(ext2)
@@ -10444,10 +10485,16 @@ def info(filename, classExtensions={}, **parms):
 
     parms : optional keyword arguments
 
-        - **uint16** : bool
+        - **uint** : bool
 
-            Interpret `int16` data with ``BZERO = 32768`` and ``BSCALE
-            = 1`` as `uint16` data.  Default is `False`.
+            Interpret signed integer data where ``BZERO`` is the
+            central value and ``BSCALE == 1`` as unsigned integer
+            data.  For example, `int16` data with ``BZERO = 32768``
+            and ``BSCALE = 1`` would be treated as `uint16` data.
+
+            Note, for backward compatibility, the kwarg **uint16** may
+            be used instead.  The kwarg was renamed when support was
+            added for integers of any size.
 
         - **ignore_missing_end** : bool
 
