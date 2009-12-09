@@ -141,6 +141,8 @@ def _unsigned_zero(dtype):
     assert dtype.kind == 'u'
     return 1 << (dtype.itemsize * 8 - 1)
 
+def _is_pseudo_unsigned(dtype):
+    return dtype.kind == 'u' and dtype.itemsize >= 2
 
 class VerifyError(exceptions.Exception):
     """
@@ -4027,8 +4029,8 @@ class _ImageBaseHDU(_ValidHDU):
             d = self.data
 
             # First handle the special case where the data is unsigned integer
-            # 16.
-            if self.data.dtype.kind == 'u':
+            # 16, 32 or 64
+            if _is_pseudo_unsigned(self.data.dtype):
                 d = np.array(self.data - _unsigned_zero(self.data.dtype),
                              dtype='i%d' % self.data.dtype.itemsize)
 
@@ -4045,7 +4047,7 @@ class _ImageBaseHDU(_ValidHDU):
 
             # If the data was byteswapped in this method then return it to
             # its original little-endian order.
-            if byteswapped and self.data.dtype.kind != 'u':
+            if byteswapped and not _is_pseudo_unsigned(self.data.dtype):
                 d.byteswap(True)
                 d.dtype = d.dtype.newbyteorder('<')
 
@@ -8874,12 +8876,13 @@ class _File:
         """
         Write FITS HDU header part.
         """
-        # If the data is unsigned int 16 add BSCALE/BZERO cards to header
+        # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
+        # cards to header
 
         if 'data' in dir(hdu) and hdu.data is not None \
         and not isinstance(hdu, _NonstandardHDU) \
         and not isinstance(hdu, _NonstandardExtHDU) \
-        and hdu.data.dtype.kind == 'u':
+        and _is_pseudo_unsigned(hdu.data.dtype):
             hdu._header.update(
                 'BSCALE', 1,
                 after='NAXIS'+`hdu.header.get('NAXIS')`)
@@ -8921,12 +8924,12 @@ class _File:
         # flush, to make sure the content is written
         self.__file.flush()
 
-        # If data is unsigned integer 16 remove the BSCALE/BZERO cards
-
+        # If data is unsigned integer 16, 32 or 64, remove the
+        # BSCALE/BZERO cards
         if 'data' in dir(hdu) and hdu.data is not None \
         and not isinstance(hdu, _NonstandardHDU) \
         and not isinstance(hdu, _NonstandardExtHDU) \
-        and hdu.data.dtype.kind == 'u':
+        and _is_pseudo_unsigned(hdu.data.dtype):
             del hdu._header['BSCALE']
             del hdu._header['BZERO']
 
@@ -8962,8 +8965,8 @@ class _File:
             # return both the location and the size of the data area
             return loc, _size+_padLength(_size)
         elif hdu.data is not None:
-            # deal with unsigned integer data
-            if hdu.data.dtype.kind == 'u':
+            # deal with unsigned integer 16, 32 and 64 data
+            if _is_pseudo_unsigned(hdu.data.dtype):
                 # Convert the unsigned array to signed
                 output = np.array(
                     hdu.data - _unsigned_zero(hdu.data.dtype),
