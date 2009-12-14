@@ -3945,10 +3945,10 @@ class _ImageBaseHDU(_ValidHDU):
 
         Parameters
         ----------
-        type : numpy dtype object, optional
-            destination data type, use numpy attribute format,
-            (e.g. ``uint8``, ``int16``, ``float32`` etc.).  If is
-            `None`, use the current data type.
+        type : str, optional
+            destination data type, use a string representing a numpy
+            dtype name, (e.g. ``'uint8'``, ``'int16'``, ``'float32'``
+            etc.).  If is `None`, use the current data type.
 
         option : str
             How to scale the data: if ``"old"``, use the original
@@ -8308,10 +8308,10 @@ if compressionSupported:
             Parameters
             ----------
 
-            type : mumpy type descriptor or None
-                destination data type, use numpy attribute format,
-                (e.g. 'uint8', 'int16', 'float32' etc.).  If it is
-                `None`, use the current data type.
+            type : str, optional
+                destination data type, use a string representing a numpy
+                dtype name, (e.g. ``'uint8'``, ``'int16'``, ``'float32'``
+                etc.).  If is `None`, use the current data type.
 
             option : str, optional
                 how to scale the data: if ``"old"``, use the original
