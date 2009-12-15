@@ -129,9 +129,23 @@ def _fromfile(infile, dtype, count, sep):
 def _tofile(arr, outfile):
     if isinstance(outfile, file):
         arr.tofile(outfile)
-    else: # treat as file-like object with "read" method
+    else: # treat as file-like object with "write" method
         str=arr.tostring()
         outfile.write(str)
+
+def _chunk_array(arr, CHUNK_SIZE=2 ** 24):
+    """
+    Yields subviews of the given array.  The number of rows is
+    selected so it is as close to CHUNK_SIZE (bytes) as possible.
+    """
+    if len(arr) == 0:
+        return
+    if isinstance(arr, FITS_rec):
+        arr = np.asarray(arr)
+    row_size = arr[0].size
+    rows_per_chunk = max(min(CHUNK_SIZE / row_size, len(arr)), 1)
+    for i in range(0, len(arr), rows_per_chunk):
+        yield arr[i:i+rows_per_chunk,...]
 
 def _unsigned_zero(dtype):
     """
@@ -4344,9 +4358,24 @@ def _convert_format(input_format, reverse=0):
     Convert FITS format spec to record format spec.  Do the opposite
     if reverse = 1.
     """
+    if reverse and isinstance(input_format, np.dtype):
+        shape = input_format.shape
+        kind = input_format.base.kind
+        option = str(input_format.base.itemsize)
+        if kind == 'S':
+            kind = 'a'
+        dtype = kind
 
-    fmt = input_format
-    (repeat, dtype, option) = _parse_tformat(fmt)
+        ndims = len(shape)
+        repeat = 1
+        if ndims > 0:
+            nel = np.array(shape, dtype='i8').prod()
+            if nel > 1:
+                repeat = nel
+    else:
+        fmt = input_format
+        (repeat, dtype, option) = _parse_tformat(fmt)
+
     if reverse == 0:
         if dtype in _fits2rec.keys():                            # FITS format
             if dtype == 'A':
@@ -4377,7 +4406,14 @@ def _convert_format(input_format, reverse=0):
             raise ValueError, "Illegal format %s" % fmt
     else:
         if dtype == 'a':
-            output_format = option+_rec2fits[dtype]
+            # This is a kludge that will place string arrays into a
+            # single field, so at least we won't lose data.  Need to
+            # use a TDIM keyword to fix this, declaring as (slength,
+            # dim1, dim2, ...)  as mwrfits does
+
+            ntot = int(repeat)*int(option)
+
+            output_format = str(ntot)+_rec2fits[dtype]
         elif isinstance(dtype, _FormatX):
             warnings.warn('X format')
         elif dtype+option in _rec2fits.keys():                    # record format
@@ -5112,7 +5148,10 @@ def _get_tbdata(hdu):
     for i in range(len(tmp)):
         tmp._arrays[i] = _data.field(i)
 
-    return FITS_rec(_data)
+    # TODO: Probably a benign change, but I'd still like to get to
+    # the bottom of the root cause...
+    #return FITS_rec(_data)
+    return _data.view(FITS_rec)
 
 def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     """
@@ -5302,7 +5341,6 @@ class FITS_record(object):
         return self.array.field(key)[self.row]
 
     def __setitem__(self,fieldName,value):
-
         self.array.field(fieldName)[self.row] = value
 
 class FITS_rec(rec.recarray):
@@ -5339,13 +5377,54 @@ class FITS_rec(rec.recarray):
     def __array_finalize__(self,obj):
         if obj is None:
             return
-        self._convert = obj._convert
-        self._coldefs = obj._coldefs
-        self._nfields = obj._nfields
-        self.names = obj.names
-        self._names = obj._names
-        self._gap = obj._gap
-        self.formats = obj.formats
+
+        # This will allow regular ndarrays with fields, rather than
+        # just other FITS_rec objects
+        self._nfields = len(obj.dtype.names)
+        self._convert = [None]*len(obj.dtype.names)
+
+        self._heapoffset = getattr(obj,'_heapoffset',0)
+        self._file = getattr(obj,'_file', None)
+
+        self._coldefs = None
+        self._gap = 0
+        self.names = obj.dtype.names
+        self._names = obj.dtype.names # This attribute added for backward compatibility with numarray version of FITS_rec
+        self.formats = None
+
+        attrs=['_convert', '_coldefs', 'names', '_names', '_gap', 'formats']
+        for attr in attrs:
+            if hasattr(obj, attr):
+                value = getattr(obj, attr, None)
+                if value is None:
+                    warnings.warn('Setting attribute %s as None' % attr)
+                setattr(self, attr, value)
+
+        if self._coldefs == None:
+            # The data does not have a _coldefs attribute so
+            # create one from the underlying recarray.
+            columns = []
+            formats = []
+
+            for i in range(len(obj.dtype.names)):
+                cname = obj.dtype.names[i]
+
+                format = _convert_format(obj.dtype[i], reverse=True)
+
+                formats.append(format)
+
+                c = Column(name=cname,format=format)
+                columns.append(c)
+
+            tbtype = 'BinTableHDU'
+            try:
+                if self._xtn == 'TABLE':
+                    tbtype = 'TableHDU'
+            except AttributeError:
+                pass
+
+            self.formats = formats
+            self._coldefs = ColDefs(columns, tbtype=tbtype)
 
     def _clone(self, shape):
         """
@@ -5893,13 +5972,12 @@ class _TableBaseHDU(_ExtensionHDU):
 
         if (data is not DELAYED):
             if isinstance(data,np.ndarray) and not data.dtype.fields == None:
-                if isinstance(data,FITS_rec):
+                if isinstance(data, FITS_rec):
                     self.data = data
-                elif isinstance(data,rec.recarray):
+                elif isinstance(data, rec.recarray):
                     self.data = FITS_rec(data)
                 else:
-                    d = data.view(rec.recarray)
-                    self.data = FITS_rec(d)
+                    self.data = data.view(FITS_rec)
 
                 self._header['NAXIS1'] = self.data.itemsize
                 self._header['NAXIS2'] = self.data.shape[0]
@@ -8939,8 +9017,6 @@ class _File:
         """
         Write FITS HDU data part.
         """
-        byteswapped = False
-
         self.__file.flush()
         loc = self.__file.tell()
         _size = 0
@@ -8965,31 +9041,41 @@ class _File:
             # return both the location and the size of the data area
             return loc, _size+_padLength(_size)
         elif hdu.data is not None:
-            # deal with unsigned integer 16, 32 and 64 data
-            if _is_pseudo_unsigned(hdu.data.dtype):
-                # Convert the unsigned array to signed
-                output = np.array(
-                    hdu.data - _unsigned_zero(hdu.data.dtype),
-                    dtype='i%d' % hdu.data.dtype.itemsize)
-
-                if output.dtype.str[0] != '>':
-                    output = output.byteswap(True)
-                    output.dtype = output.dtype.newbyteorder('>')
+            # Based on the system type, determine the byteorders that
+            # would need to be swapped to get to big-endian output
+            if sys.byteorder == 'little':
+                swap_types = ('<', '=')
+            else:
+                swap_types = ('<',)
 
             # if image, need to deal with byte order
-            elif isinstance(hdu, _ImageBaseHDU):
-                if isinstance(hdu.data, GroupData):
-                    byteorder = \
-                       hdu.data.dtype.fields[hdu.data.dtype.names[0]][0].str[0]
-                else:
-                    byteorder = hdu.data.dtype.str[0]
-
-                if byteorder != '>':
-                    byteswapped = True
-                    output = hdu.data.byteswap(True)
-                    output.dtype = output.dtype.newbyteorder('>')
+            if isinstance(hdu, _ImageBaseHDU):
+                # deal with unsigned integer 16, 32 and 64 data
+                if _is_pseudo_unsigned(hdu.data.dtype):
+                    # Convert the unsigned array to signed
+                    output = np.array(
+                        hdu.data - _unsigned_zero(hdu.data.dtype),
+                        dtype='>i%d' % hdu.data.dtype.itemsize)
+                    should_swap = False
                 else:
                     output = hdu.data
+
+                    if isinstance(hdu.data, GroupData):
+                        byteorder = \
+                            output.dtype.fields[hdu.data.dtype.names[0]][0].str[0]
+                    else:
+                        byteorder = output.dtype.str[0]
+                    should_swap = (byteorder in swap_types)
+
+                if should_swap:
+                    # If we need to do byteswapping, do it in chunks
+                    # so the original array is not touched
+                    output_dtype = output.dtype.newbyteorder('>')
+                    for chunk in _chunk_array(output):
+                        chunk = np.array(chunk, dtype=output_dtype, copy=True)
+                        _tofile(output, self.__file)
+                else:
+                    _tofile(output, self.__file)
 
             # Binary table byteswap
             elif isinstance(hdu, BinTableHDU):
@@ -8998,47 +9084,47 @@ class _File:
                 else:
                     output = hdu.data
 
+                should_swap = False
                 for i in range(output._nfields):
                     coldata = output.field(i)
-
                     if not isinstance(coldata, chararray.chararray):
-                            # only swap unswapped
-                            # deal with var length table
+                        # only swap unswapped
+                        # deal with var length table
                         if isinstance(coldata, _VLF):
                             k = 0
                             for j in coldata:
-                                if not isinstance(j, chararray.chararray):
-                                    #if hdu.data.field(i).itemsize > 1:
-                                        #if hdu.data.field(i).dtype.str[0] != '>':
-                                            #hdu.data.field(i)[:] = hdu.data.field(i).byteswap()
-                                    if j.itemsize > 1:
-                                        if j.dtype.str[0] != '>':
-                                            j[:] = j.byteswap()
-                                            j.dtype = j.dtype.newbyteorder('>')
-
-                                if rec.recarray.field(output,i)[k:k+1].dtype.str[0] != '>':
-                                    rec.recarray.field(output,i)[k:k+1].byteswap(True)
+                                if (not isinstance(j, chararray.chararray) and
+                                    j.itemsize > 1 and
+                                    j.dtype.str[0] in swap_types):
+                                    should_swap = True
+                                    break
+                                if (rec.recarray.field(output,i)[k:k+1].dtype.str[0] in
+                                    swap_types):
+                                    should_swap = True
+                                    break
                                 k = k + 1
                         else:
-                            if coldata.itemsize > 1:
-                                if output.field(i).dtype.str[0] != '>':
-                                    rec.recarray.field(output, i).byteswap(True)
+                            if (coldata.itemsize > 1 and
+                                coldata.dtype.str[0] in swap_types):
+                                should_swap = True
+                                break
+                    if should_swap:
+                        break
 
-                # In case the FITS_rec was created in a LittleEndian machine
-                output.dtype = output.dtype.newbyteorder('>')
+                if should_swap:
+                    for chunk in _chunk_array(output):
+                        # We need to do this in two stages, since newbyteorder
+                        # doesn't work for nested arrays
+                        chunk = np.array(chunk, copy=True)
+                        chunk.byteswap(True)
+                        _tofile(chunk, self.__file)
+                else:
+                    _tofile(output, self.__file)
             else:
                 output = hdu.data
+                _tofile(output, self.__file)
 
-            _tofile(output, self.__file)
             _size = output.size * output.itemsize
-
-
-            # if the image data was byteswapped in this method return it to
-            # it's original little-endian order
-            if (byteswapped == True):
-                output.byteswap(True)
-                output.dtype = output.dtype.newbyteorder('<')
-
 
             # write out the heap of variable length array columns
             # this has to be done after the "regular" data is written (above)
@@ -10023,6 +10109,22 @@ def getheader(filename, *ext, **extkeys):
     hdulist.close(closed=closed)
     return hdr
 
+
+def _fnames_changecase(data, func):
+    """
+    Convert case of field names.
+    """
+    if data.dtype.names is None:
+        # this data does not have fields
+        return
+
+    if data.dtype.descr[0][0] == '':
+        # this data does not have fields
+        return
+
+    data.dtype.names = [func(n) for n in data.dtype.names]
+
+
 def getdata(filename, *ext, **extkeys):
     """
     Get the data from an extension of a FITS file (and optionally the
@@ -10071,6 +10173,17 @@ def getdata(filename, *ext, **extkeys):
 
             >>> getdata('in.fits', ext=('sci',1), extname='err', extver=2)
 
+    lower, upper : bool, optional
+        If `lower` or `upper` are `True`, the field names in the
+        returned data object will be converted to lower or upper case,
+        respectively.
+
+    view : ndarray view class, optional
+        When given, the data will be turned wrapped in the given view
+        class, by calling::
+
+           data.view(view)
+
     Returns
     -------
     array : array, record array or groups data object
@@ -10084,6 +10197,20 @@ def getdata(filename, *ext, **extkeys):
         del extkeys['header']
     else:
         _gethdr = False
+
+    # Code further down rejects unkown keys
+    lower=False
+    if 'lower' in extkeys:
+        lower=extkeys['lower']
+        del extkeys['lower']
+    upper=False
+    if 'upper' in extkeys:
+        upper=extkeys['upper']
+        del extkeys['upper']
+    view=None
+    if 'view' in extkeys:
+        view=extkeys['view']
+        del extkeys['view']
 
     # allow file object to already be opened in any of the valid modes
     # and leave the file in the same state (opened or closed) as when
@@ -10126,6 +10253,18 @@ def getdata(filename, *ext, **extkeys):
     if _gethdr:
         _hdr = hdu.header
     hdulist.close(closed=closed)
+
+    # Change case of names if requested
+    if lower:
+        _fnames_changecase(_data, str.lower)
+    elif upper:
+        _fnames_changecase(_data, str.upper)
+
+    # allow different views into the underlying ndarray.  Keep the original
+    # view just in case there is a problem
+    if view is not None:
+        _data = _data.view(view)
+
     if _gethdr:
         return _data, _hdr
     else:
@@ -10264,10 +10403,16 @@ def delval(filename, key, *ext, **extkeys):
 
     hdulist.close()
 
+
 def _makehdu(data, header, classExtensions={}):
     if header is None:
-        if isinstance(data, FITS_rec):
-            hdu = BinTableHDU(data)
+        if ((isinstance(data, np.ndarray) and data.dtype.fields is not None)
+            or isinstance(data, np.recarray)
+            or isinstance(data, rec.recarray)):
+            if classExtensions.has_key(BinTableHDU):
+                hdu = classExtensions[BinTableHDU](data)
+            else:
+                hdu = BinTableHDU(data)
         elif isinstance(data, np.ndarray):
             if classExtensions.has_key(ImageHDU):
                 hdu = classExtensions[ImageHDU](data)
@@ -10281,6 +10426,34 @@ def _makehdu(data, header, classExtensions={}):
 
         hdu=header._hdutype(data=data, header=header)
     return hdu
+
+def _stat_filename_or_fileobj(filename):
+    closed = True
+    name = ''
+
+    if isinstance(filename, file):
+        closed = filename.closed
+        name = filename.name
+    elif isinstance(filename, gzip.GzipFile):
+        if filename.fileobj != None:
+            closed = filename.fileobj.closed
+        name = filename.filename
+    elif isinstance(filename, types.StringType):
+        name = filename
+    else:
+        if hasattr(filename, 'closed'):
+            closed = filename.closed
+
+        if hasattr(filename, 'name'):
+            name = filename.name
+        elif hasattr(filename, 'filename'):
+            name = filename.filename
+
+    noexist_or_empty = \
+        (name and ((not os.path.exists(name)) or (os.path.getsize(name)==0))) \
+         or (not name and filename.tell()==0)
+
+    return name, closed, noexist_or_empty
 
 def writeto(filename, data, header=None, **keys):
     """
@@ -10312,25 +10485,26 @@ def writeto(filename, data, header=None, **keys):
         If `True`, adds both ``DATASUM`` and ``CHECKSUM`` cards to the
         headers of all HDU's written to the file.
     """
-
     if header is None:
         if 'header' in keys:
             header = keys['header']
 
+    clobber = keys.get('clobber', False)
+    output_verify = keys.get('output_verify', 'exception')
+
     classExtensions = keys.get('classExtensions', {})
-    hdu=_makehdu(data, header, classExtensions)
+    hdu = _makehdu(data, header, classExtensions)
     if not isinstance(hdu, PrimaryHDU) and not isinstance(hdu, _TableBaseHDU):
         if classExtensions.has_key(PrimaryHDU):
             hdu = classExtensions[PrimaryHDU](data, header=header)
         else:
             hdu = PrimaryHDU(data, header=header)
-    clobber = keys.get('clobber', False)
-    output_verify = keys.get('output_verify', 'exception')
     checksum = keys.get('checksum', False)
     hdu.writeto(filename, clobber=clobber, output_verify=output_verify,
                 checksum=checksum, classExtensions=classExtensions)
 
-def append(filename, data, header=None, classExtensions={}, checksum=False):
+def append(filename, data, header=None, classExtensions={}, checksum=False,
+           **keys):
     """
     Append the header/data to FITS file if filename exists, create if not.
 
@@ -10360,38 +10534,16 @@ def append(filename, data, header=None, classExtensions={}, checksum=False):
         When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards to
         the header of the HDU when written to the file.
     """
+    name, closed, noexist_or_empty = _stat_filename_or_fileobj(filename)
 
-    closed = True
-    name = ''
-
-    if isinstance(filename, file):
-        closed = filename.closed
-        name = filename.name
-    elif isinstance(filename, gzip.GzipFile):
-        if filename.fileobj != None:
-            closed = filename.fileobj.closed
-        name = filename.filename
-    elif isinstance(filename, types.StringType) or \
-         isinstance(filename, types.UnicodeType):
-        name = filename
-    else:
-        if hasattr(filename, 'closed'):
-            closed = filename.closed
-
-        if hasattr(filename, 'name'):
-            name = filename.name
-        elif hasattr(filename, 'filename'):
-            name = filename.filename
-
-    if (name and ((not os.path.exists(name)) or (os.path.getsize(name)==0)) or
-        not name and filename.tell()==0):
+    if noexist_or_empty:
         #
         # The input file or file like object either doesn't exits or is
         # empty.  Use the writeto convenience function to write the
         # output to the empty object.
         #
-        writeto(filename, data, header, classExtentsions=classExtensions,
-                checksum=checksum)
+        writeto(filename, data, header, classExtensions=classExtensions,
+                checksum=checksum, **keys)
     else:
         hdu=_makehdu(data, header, classExtensions)
         if isinstance(hdu, PrimaryHDU):
@@ -10406,7 +10558,6 @@ def append(filename, data, header=None, classExtensions={}, checksum=False):
         # Set a flag in the HDU so that only this HDU gets a checksum
         # when writing the file.
         hdu._output_checksum = checksum
-
         f.close(closed=closed)
 
 def update(filename, data, *ext, **extkeys):

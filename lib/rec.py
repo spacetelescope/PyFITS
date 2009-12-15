@@ -110,7 +110,7 @@ class format_parser:
                         else:
                            self._names[i] = self._names[i] + str(count)
                         count += 1
-                       
+
         if (titles):
             self._titles = [n.strip() for n in titles[:self._nfields]]
         else:
@@ -208,7 +208,7 @@ class recarray(ndarray):
 
     def __array_finalize__(self,obj):
         if obj is None:
-            return 
+            return
         self._heapoffset = getattr(obj,'_heapoffset',0)
         self._file = getattr(obj,'_file', None)
 
@@ -388,7 +388,7 @@ def fromrecords(recList, dtype=None, shape=None, formats=None, names=None,
     >>> r.col1
     array([456,   2])
     >>> r.col2
-    chararray(['dbe', 'de'], 
+    chararray(['dbe', 'de'],
           dtype='|S3')
     >>> import cPickle
     >>> print cPickle.loads(cPickle.dumps(r))
@@ -463,7 +463,7 @@ def get_remaining_size(fd):
            size = fd.tell() - cp
            fd.seek(cp)
            return size
- 
+
     st = os.fstat(fn)
     size = st.st_size - fd.tell()
     return size
@@ -527,12 +527,16 @@ def fromfile(fd, dtype=None, shape=None, offset=0, formats=None,
 
     # create the array
     if isinstance (fd, file):
-       arr = np.fromfile(fd,dtype=descr,count=shape[0]) 
+       arr = np.fromfile(fd,dtype=descr,count=shape[0])
     else:
        read_size = np.dtype(descr).itemsize * shape[0]
        st=fd.read(read_size)
        arr = np.fromstring(st, dtype=descr, count=shape[0])
-    _array = recarray(shape, descr, arr.data)
+
+    # TODO: There was a problem with large arrays, don't fully understand
+    # but this is more efficient anyway
+    #_array = recarray(shape, descr, arr.data)
+    _array = arr.view(recarray)
 
     if name:
         fd.close()
