@@ -12,31 +12,31 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
     def setUp(self):
         # Perform set up actions (if any)
         pass
-    
+
     def tearDown(self):
         # Perform clean-up actions (if any)
         pass
-    
+
     def testSampleFile(self):
         hdul=pyfits.open('checksum.fits',checksum=True)
 
     def testImageCreate(self):
         n=np.arange(100)
         hdu=pyfits.PrimaryHDU(n)
-        hdu.writeto('tmp.fits',checksum=True)
+        hdu.writeto('tmp.fits',clobber=True,checksum=True)
         hdul=pyfits.open('tmp.fits',checksum=True)
         os.remove('tmp.fits')
 
     def testScaledData(self):
         hdul=pyfits.open('scale.fits')
         hdul[0].scale('int16','old')
-        hdul.writeto('tmp.fits',checksum=True)
+        hdul.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',checksum=True)
         os.remove('tmp.fits')
 
     def testUint16Data(self):
         hdul=pyfits.open('o4sp040b0_raw.fits',uint16=1)
-        hdul.writeto('tmp.fits',checksum=True)
+        hdul.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',uint16=1,checksum=True)
         os.remove('tmp.fits')
 
@@ -48,7 +48,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         x = pyfits.GroupData(imdata,parnames=['abc','xyz'],
                              pardata=[pdata1,pdata2],bitpix=-32)
         hdu=pyfits.GroupsHDU(x)
-        hdu.writeto('tmp.fits',checksum=True)
+        hdu.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',checksum=True)
         os.remove('tmp.fits')
 
@@ -59,7 +59,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         col2=pyfits.Column(name='V_mag',format='E',array=a2)
         cols=pyfits.ColDefs([col1, col2])
         tbhdu=pyfits.new_table(cols)
-        tbhdu.writeto('tmp.fits',checksum=True)
+        tbhdu.writeto('tmp.fits',clobber=True,checksum=True)
         hdul=pyfits.open('tmp.fits',checksum=True)
         os.remove('tmp.fits')
 
@@ -68,7 +68,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
              array=np.array([[45.,56],np.array([11,12,13])],'O'))
         c2 = pyfits.Column(name='xyz',format='2I',array=[[11,3],[12,4]])
         tbhdu=pyfits.new_table([c1,c2])
-        tbhdu.writeto('tmp.fits',checksum=True)
+        tbhdu.writeto('tmp.fits',clobber=True,checksum=True)
         hdul=pyfits.open('tmp.fits',checksum=True)
         os.remove('tmp.fits')
 
@@ -81,13 +81,13 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         c3 = pyfits.Column(name='t1', format='I', array=[91,92,93])
         x = pyfits.ColDefs([c1,c2,c3], tbtype='TableHDU')
         hdu = pyfits.new_table(x, tbtype='TableHDU')
-        hdu.writeto('tmp.fits',checksum=True)
-        hdul=pyfits.open('tmp.fits',checksum=True)
+        hdu.writeto('tmp.fits', clobber=True, checksum=True)
+        hdul=pyfits.open('tmp.fits', checksum=True)
         os.remove('tmp.fits')
 
     def testCompressedImageData(self):
         hdul=pyfits.open('comp.fits')
-        hdul.writeto('tmp.fits',checksum=True)
+        hdul.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',checksum=True)
         os.remove('tmp.fits')
         n=np.arange(100,dtype='int16')
@@ -107,7 +107,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
 
     def testAppend(self):
         hdul=pyfits.open('tb.fits')
-        hdul.writeto('tmp.fits')
+        hdul.writeto('tmp.fits', clobber=True)
         n=np.arange(100)
         pyfits.append('tmp.fits',n,checksum=True)
         hdul=pyfits.open('tmp.fits',checksum=True)
@@ -116,7 +116,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
 
     def testWritetoConvenience(self):
         n=np.arange(100)
-        pyfits.writeto('tmp.fits',n,checksum=True)
+        pyfits.writeto('tmp.fits',n,clobber=True,checksum=True)
         hdul=pyfits.open('tmp.fits',checksum=True)
 
         if not hasattr(hdul[0], '_datasum') or not hdul[0]._datasum:
@@ -168,7 +168,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
     def testDatasumOnly(self):
         n=np.arange(100,dtype='int16')
         hdu=pyfits.ImageHDU(n)
-        hdu.writeto('tmp.fits',checksum='datasum')
+        hdu.writeto('tmp.fits',clobber=True,checksum='datasum')
         hdul=pyfits.open('tmp.fits',checksum=True)
 
         if not hasattr(hdul[0], '_datasum') or not hdul[0]._datasum:
@@ -195,4 +195,4 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-    
+
