@@ -9090,49 +9090,39 @@ class _File:
                 else:
                     output = hdu.data
 
-                should_swap = False
-                for i in range(output._nfields):
-                    coldata = output.field(i)
-                    if not isinstance(coldata, chararray.chararray):
-                        # only swap unswapped
-                        # deal with var length table
-                        if isinstance(coldata, _VLF):
-                            k = 0
-                            for j in coldata:
-                                if (not isinstance(j, chararray.chararray) and
-                                    j.itemsize > 1 and
-                                    j.dtype.str[0] in swap_types):
-                                    should_swap = True
-                                    break
-                                if (rec.recarray.field(output,i)[k:k+1].dtype.str[0] in
-                                    swap_types):
-                                    should_swap = True
-                                    break
-                                k = k + 1
-                        else:
-                            if (coldata.itemsize > 1 and
-                                coldata.dtype.str[0] in swap_types):
-                                should_swap = True
-                                break
-                    if should_swap:
-                        break
+                def swap_table():
+                    swapped = False
+                    for i in range(output._nfields):
+                        coldata = output.field(i)
+                        if not isinstance(coldata, chararray.chararray):
+                            # only swap unswapped
+                            # deal with var length table
+                            if isinstance(coldata, _VLF):
+                                k = 0
+                                for j in coldata:
+                                    if (not isinstance(j, chararray.chararray) and
+                                        j.itemsize > 1 and
+                                        j.dtype.str[0] in swap_types):
+                                        j[:] = j.byteswap(True)
+                                        swapped = True
+                                    if (rec.recarray.field(output,i)[k:k+1].dtype.str[0] in
+                                        swap_types):
+                                        rec.recarray.field(output,i)[k:k+1].byteswap(True)
+                                        swapped = True
+                                    k = k + 1
+                            else:
+                                if (coldata.itemsize > 1 and
+                                    coldata.dtype.str[0] in swap_types):
+                                    rec.recarray.field(output, i).byteswap(True)
+                                    swapped = True
+                    return swapped
 
-                if should_swap:
-                    # for chunk in _chunk_array(output):
-                    #     # We need to do this in two stages, since newbyteorder
-                    #     # doesn't work for nested arrays
-                    #     chunk = np.array(chunk, copy=True)
-                    #     chunk.byteswap(True)
-                    #     _tofile(chunk, self.__file)
-                    #                     output.byteswap(True)
-
-                    output.byteswap(True)
-                    try:
-                        _tofile(output, self.__file)
-                    finally:
-                        output.byteswap(True)
-                else:
+                swapped = swap_table()
+                try:
                     _tofile(output, self.__file)
+                finally:
+                    if swapped:
+                        swap_table()
             else:
                 output = hdu.data
                 _tofile(output, self.__file)
