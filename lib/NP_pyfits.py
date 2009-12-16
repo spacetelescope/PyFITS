@@ -133,7 +133,7 @@ def _tofile(arr, outfile):
         str=arr.tostring()
         outfile.write(str)
 
-def _chunk_array(arr, CHUNK_SIZE=2 ** 24):
+def _chunk_array(arr, CHUNK_SIZE=2 ** 25):
     """
     Yields subviews of the given array.  The number of rows is
     selected so it is as close to CHUNK_SIZE (bytes) as possible.
@@ -9070,10 +9070,16 @@ class _File:
                 if should_swap:
                     # If we need to do byteswapping, do it in chunks
                     # so the original array is not touched
-                    output_dtype = output.dtype.newbyteorder('>')
-                    for chunk in _chunk_array(output):
-                        chunk = np.array(chunk, dtype=output_dtype, copy=True)
+                    # output_dtype = output.dtype.newbyteorder('>')
+                    # for chunk in _chunk_array(output):
+                    #     chunk = np.array(chunk, dtype=output_dtype, copy=True)
+                    #     _tofile(output, self.__file)
+
+                    output.byteswap(True)
+                    try:
                         _tofile(output, self.__file)
+                    finally:
+                        output.byteswap(True)
                 else:
                     _tofile(output, self.__file)
 
@@ -9112,12 +9118,19 @@ class _File:
                         break
 
                 if should_swap:
-                    for chunk in _chunk_array(output):
-                        # We need to do this in two stages, since newbyteorder
-                        # doesn't work for nested arrays
-                        chunk = np.array(chunk, copy=True)
-                        chunk.byteswap(True)
-                        _tofile(chunk, self.__file)
+                    # for chunk in _chunk_array(output):
+                    #     # We need to do this in two stages, since newbyteorder
+                    #     # doesn't work for nested arrays
+                    #     chunk = np.array(chunk, copy=True)
+                    #     chunk.byteswap(True)
+                    #     _tofile(chunk, self.__file)
+                    #                     output.byteswap(True)
+
+                    output.byteswap(True)
+                    try:
+                        _tofile(output, self.__file)
+                    finally:
+                        output.byteswap(True)
                 else:
                     _tofile(output, self.__file)
             else:
