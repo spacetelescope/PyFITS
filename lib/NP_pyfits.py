@@ -9090,8 +9090,8 @@ class _File:
                 else:
                     output = hdu.data
 
-                def swap_table():
-                    swapped = False
+                swapped = []
+                try:
                     for i in range(output._nfields):
                         coldata = output.field(i)
                         if not isinstance(coldata, chararray.chararray):
@@ -9103,26 +9103,23 @@ class _File:
                                     if (not isinstance(j, chararray.chararray) and
                                         j.itemsize > 1 and
                                         j.dtype.str[0] in swap_types):
-                                        j[:] = j.byteswap(True)
-                                        swapped = True
+                                        j.byteswap(True)
+                                        swapped.append(j)
                                     if (rec.recarray.field(output,i)[k:k+1].dtype.str[0] in
                                         swap_types):
                                         rec.recarray.field(output,i)[k:k+1].byteswap(True)
-                                        swapped = True
+                                        swapped.append(rec.recarray.field(output,i)[k:k+1])
                                     k = k + 1
                             else:
                                 if (coldata.itemsize > 1 and
                                     coldata.dtype.str[0] in swap_types):
                                     rec.recarray.field(output, i).byteswap(True)
-                                    swapped = True
-                    return swapped
+                                    swapped.append(rec.recarray.field(output, i))
 
-                swapped = swap_table()
-                try:
                     _tofile(output, self.__file)
                 finally:
-                    if swapped:
-                        swap_table()
+                    for obj in swapped:
+                        obj.byteswap(True)
             else:
                 output = hdu.data
                 _tofile(output, self.__file)
