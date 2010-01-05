@@ -7559,10 +7559,15 @@ if compressionSupported:
                 # Move XTENSION card from the image header to the
                 # table header as ZTENSION card.
 
+                # Since we only handle compressed IMAGEs, ZTENSION should
+                # always be IMAGE, even if the caller has passed in a header
+                # for some other type of extension.
                 if imageHeader.has_key('XTENSION'):
                     self._header.update('ZTENSION',
-                            imageHeader['XTENSION'],
+                            'IMAGE',
                             imageHeader.ascardlist()['XTENSION'].comment)
+                else:
+                    self._header.update('ZTENSION', 'IMAGE')
 
                 # Move PCOUNT and GCOUNT cards from image header to the table
                 # header as ZPCOUNT and ZGCOUNT cards.
@@ -7593,10 +7598,15 @@ if compressionSupported:
                 # Move XTENSION card from the image header to the
                 # table header as ZTENSION card.
 
+                # Since we only handle compressed IMAGEs, ZTENSION should
+                # always be IMAGE, even if the caller has passed in a header
+                # for some other type of extension.
                 if self._imageHeader.has_key('XTENSION'):
                     self._header.update('ZTENSION',
-                            self._imageHeader['XTENSION'],
+                            'IMAGE',
                             self._imageHeader.ascardlist()['XTENSION'].comment)
+                else:
+                    self._header.update('ZTENSION', 'IMAGE')
 
                 # Move PCOUNT and GCOUNT cards from image header to the table
                 # header as ZPCOUNT and ZGCOUNT cards.
@@ -8052,8 +8062,10 @@ if compressionSupported:
 
                     try:
                         del cardList['ZTENSION']
+                        if self._header['ZTENSION'] != 'IMAGE':
+                            warnings.warn("ZTENSION keyword in compressed extension != 'IMAGE'")
                         self._imageHeader.update('XTENSION',
-                                self._header['ZTENSION'],
+                                'IMAGE',
                                 self._header.ascardlist()['ZTENSION'].comment)
                     except KeyError:
                         pass
