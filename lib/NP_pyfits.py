@@ -7566,8 +7566,6 @@ if compressionSupported:
                     self._header.update('ZTENSION',
                             'IMAGE',
                             imageHeader.ascardlist()['XTENSION'].comment)
-                else:
-                    self._header.update('ZTENSION', 'IMAGE')
 
                 # Move PCOUNT and GCOUNT cards from image header to the table
                 # header as ZPCOUNT and ZGCOUNT cards.
@@ -7605,8 +7603,6 @@ if compressionSupported:
                     self._header.update('ZTENSION',
                             'IMAGE',
                             self._imageHeader.ascardlist()['XTENSION'].comment)
-                else:
-                    self._header.update('ZTENSION', 'IMAGE')
 
                 # Move PCOUNT and GCOUNT cards from image header to the table
                 # header as ZPCOUNT and ZGCOUNT cards.
