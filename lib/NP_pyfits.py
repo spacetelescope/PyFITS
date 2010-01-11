@@ -9947,8 +9947,9 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
     # For each HDU, verify the checksum/datasum value if the cards exist in
     # the header and we are opening with checksum=True.  Always remove the
     # checksum/datasum cards from the header.
-    i = 0
-    for hdu in hduList:
+    for i in range(len(hduList)):
+        hdu = hduList.__getitem__(i, classExtensions)
+
         if hdu._header.has_key('CHECKSUM'):
              hdu._checksum = hdu._header['CHECKSUM']
              hdu._checksum_comment =hdu._header.ascardlist()['CHECKSUM'].comment
@@ -9978,8 +9979,6 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
              hdu._checksum_comment = None
              hdu._datasum = None
              hdu._datasum_comment = None
-
-        i=i+1
 
     # initialize/reset attributes to be used in "update/append" mode
     # CardList needs its own _mod attribute since it has methods to change
