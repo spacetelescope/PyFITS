@@ -2,7 +2,7 @@
 
 # $Id$
 
-from __future__ import division
+from __future__ import division # confidence high
 
 """
 A module for reading and writing FITS files and manipulating their
@@ -143,7 +143,7 @@ def _chunk_array(arr, CHUNK_SIZE=2 ** 25):
     if isinstance(arr, FITS_rec):
         arr = np.asarray(arr)
     row_size = arr[0].size
-    rows_per_chunk = max(min(CHUNK_SIZE / row_size, len(arr)), 1)
+    rows_per_chunk = max(min(CHUNK_SIZE // row_size, len(arr)), 1)
     for i in range(0, len(arr), rows_per_chunk):
         yield arr[i:i+rows_per_chunk,...]
 
@@ -2982,7 +2982,7 @@ class _ValidHDU(_AllHDU, _Verify):
         """
         Encode a single byte.
         """
-        quotient = byte / 4 + ord('0')
+        quotient = byte // 4 + ord('0')
         remainder = byte % 4
 
         ch = np.array(

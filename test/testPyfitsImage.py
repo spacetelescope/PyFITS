@@ -1,3 +1,5 @@
+from __future__ import division # confidence high
+
 import unittest
 import pyfits
 import numpy
@@ -12,11 +14,11 @@ class TestPyfitsImageFunctions(unittest.TestCase):
     def setUp(self):
         # Perform set up actions (if any)
         pass
-    
+
     def tearDown(self):
         # Perform clean-up actions (if any)
         pass
-    
+
     def testCardConstructorDefaultArgs(self):
         # Test the constructor with default argument values.
         c=pyfits.Card()
@@ -45,7 +47,7 @@ class TestPyfitsImageFunctions(unittest.TestCase):
 
         c=pyfits.Card().fromstring('abc     = F')
         self.assertEqual(c.value,False)
-        
+
     def testLongIntegerNumber(self):
         # long integer number
         c=pyfits.Card('long_int', -467374636747637647347374734737437)
@@ -103,7 +105,7 @@ class TestPyfitsImageFunctions(unittest.TestCase):
                 c = "Failed as expected"
             return c
         self.assertEqual(test("abcdefghi", "long"),"Failed as expected")
-        
+
 
     def testIllegalCharactersInKey(self):
         # will not allow illegal characters in key when using constructor
@@ -263,7 +265,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         except:
             x = "Failed as expected."
         self.assertEqual(x,"Failed as expected.")
-                         
+
     def testOpen2(self):
         r=pyfits.open('test0.fits')
 
@@ -311,7 +313,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         except ValueError:
             x = "Failed as expected."
         self.assertEqual(x, "Failed as expected.")
-        
+
         try:
             r[0].header.rename_key('fname','simple')
             x = "Did not fail as expected."
@@ -412,7 +414,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         # notice that the header has the right NAXIS's since it is constructed with
         # ImageHDU
         hdu2=pyfits.ImageHDU(header=r[1].header, data=numpy.array([1,2],dtype='int32'))
-        
+
         tmpfile = open(jfile,'w')
         sys.stdout = tmpfile
         print hdu2.header.ascard[1:5]
@@ -506,7 +508,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
 
                                                                          [[110, 111],
                                                                           [121, 122]],
-                                                                         
+
                                                                          [[220, 221],
                                                                           [231, 232]]]).all())
 
@@ -516,7 +518,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         except IndexError:
             x = "Failed as expected."
         self.assertEqual(x,"Failed as expected.")
-        
+
         try:
             fs[0].section[:,2:5,:]
             x = "Did not fail as expected."
@@ -530,14 +532,14 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         except IndexError:
             x = "Failed"
         self.assertEqual(x,"Failed")
-        
+
         try:
             fs[0].section[3:6,3:7,:]
             x = "Did not fail."
         except IndexError:
             x = "Failed again"
         self.assertEqual(x,"Failed again")
-            
+
 if __name__ == '__main__':
     unittest.main()
-    
+

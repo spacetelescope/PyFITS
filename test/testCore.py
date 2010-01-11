@@ -1,3 +1,5 @@
+from __future__ import division # confidence high
+
 import pyfits
 import numpy as np
 import sys

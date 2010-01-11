@@ -1,3 +1,5 @@
+from __future__ import division # confidence high
+
 import distutils.extension
 import sys
 import logging

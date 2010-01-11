@@ -13,6 +13,8 @@
 
 #Anything else is an exception.
 
+from __future__ import division # confidence high
+
 import os
 
 __version__ = '2.2.2dev'

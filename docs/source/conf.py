@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+
+from __future__ import division # confidence high
+
 #
 # pyfits documentation build configuration file, created by
 # sphinx-quickstart on Wed Oct 21 10:08:19 2009.
