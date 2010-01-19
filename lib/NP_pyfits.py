@@ -4868,6 +4868,7 @@ class ColDefs(object):
             # now build the columns
             tmp = [Column(**attrs) for attrs in dict]
             self.data = tmp
+            self._listener = input
         else:
             raise TypeError, "input to ColDefs must be a table HDU or a list of Columns"
 
@@ -4876,7 +4877,7 @@ class ColDefs(object):
         Populate the attributes.
         """
         cname = name[:-1]
-        if cname in _commonNames:
+        if cname in _commonNames and name[-1] == 's':
             attr = [''] * len(self)
             for i in range(len(self)):
                 val = getattr(self[i], cname)
@@ -4896,7 +4897,6 @@ class ColDefs(object):
                 dummy.append(self._width-self.starts[-1]+1)
                 attr = map(lambda y: 'a'+`y`, dummy)
         elif name == 'spans':
-
             # make sure to consider the case that the starting column of
             # a field may not be the column right after the last field
             if self._tbtype == 'TableHDU':
@@ -4971,19 +4971,42 @@ class ColDefs(object):
         tmp = [self[i] for i in indx]
         return ColDefs(tmp)
 
-    def _setup(self):
-        """
-        Initialize all attributes to be a list of null strings.
-        """
-        for cname in _commonNames:
-            setattr(self, cname+'s', ['']*self._nfields)
-        setattr(self, '_arrays', [None]*self._nfields)
+    def _update_listener(self):
+        if hasattr(self, '_listener'):
+            delattr(self._listener, 'data')
 
     def add_col(self, column):
         """
         Append one `Column` to the column definition.
+
+        .. warning::
+
+        *New in pyfits 2.3*: This function appends the new column to
+        the `ColDefs` object in place.  Prior to pyfits 2.3, this
+        function returned a new `ColDefs` with the new column at the
+        end.
         """
-        return self+column
+        assert isinstance(column, Column)
+
+        for cname in _commonNames:
+            attr = getattr(self, cname+'s')
+            attr.append(getattr(column, cname))
+
+        self._arrays.append(column.array)
+        # Obliterate caches of certain things
+        if hasattr(self, '_recformats'):
+            delattr(self, '_recformats')
+        if hasattr(self, 'spans'):
+            delattr(self, 'spans')
+
+        self.data.append(column)
+        # Force regeneration of self._Formats member
+        ignored = self._recformats
+
+        # If this ColDefs is being tracked by a Table, inform the
+        # table that its data is now invalid.
+        self._update_listener()
+        return self
 
     def del_col(self, col_name):
         """
@@ -4999,7 +5022,20 @@ class ColDefs(object):
             del attr[indx]
 
         del self._arrays[indx]
-        self._nfields -= 1
+        # Obliterate caches of certain things
+        if hasattr(self, '_recformats'):
+            delattr(self, '_recformats')
+        if hasattr(self, 'spans'):
+            delattr(self, 'spans')
+
+        del self.data[indx]
+        # Force regeneration of self._Formats member
+        ignored = self._recformats
+
+        # If this ColDefs is being tracked by a Table, inform the
+        # table that its data is now invalid.
+        self._update_listener()
+        return self
 
     def change_attrib(self, col_name, attrib, new_value):
         """
@@ -5017,6 +5053,10 @@ class ColDefs(object):
         indx = _get_index(self.names, col_name)
         getattr(self, attrib+'s')[indx] = new_value
 
+        # If this ColDefs is being tracked by a Table, inform the
+        # table that its data is now invalid.
+        self._update_listener()
+
     def change_name(self, col_name, new_name):
         """
         Change a `Column`'s name.
@@ -5032,6 +5072,10 @@ class ColDefs(object):
         else:
             self.change_attrib(col_name, 'name', new_name)
 
+        # If this ColDefs is being tracked by a Table, inform the
+        # table that its data is now invalid.
+        self._update_listener()
+
     def change_unit(self, col_name, new_unit):
         """
         Change a `Column`'s unit.
@@ -5043,6 +5087,10 @@ class ColDefs(object):
             The new unit for the column
         """
         self.change_attrib(col_name, 'unit', new_unit)
+
+        # If this ColDefs is being tracked by a Table, inform the
+        # table that its data is now invalid.
+        self._update_listener()
 
     def info(self, attrib='all'):
         """

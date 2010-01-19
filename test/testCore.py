@@ -37,3 +37,32 @@ def test_byteswap():
 
     p = pyfits.open('test.fits')
     assert p[1].data[1]['foo'] == 60000.0
+
+def test_add_del_columns():
+    p = pyfits.ColDefs([])
+    p.add_col(pyfits.Column(name="FOO", format="3J"))
+    p.add_col(pyfits.Column(name="BAR", format="1I"))
+    assert p.names == ['FOO', 'BAR']
+    p.del_col('FOO')
+    assert p.names == ['BAR']
+
+def test_add_del_columns2():
+    hdulist = pyfits.open("tb.fits")
+    table = hdulist[1]
+    assert table.data.dtype.names == ('c1', 'c2', 'c3', 'c4')
+    assert table.columns.names == ['c1', 'c2', 'c3', 'c4']
+    table.columns.del_col('c1')
+    assert table.data.dtype.names == ('c2', 'c3', 'c4')
+    assert table.columns.names == ['c2', 'c3', 'c4']
+    table.columns.del_col('c3')
+    assert table.data.dtype.names == ('c2', 'c4')
+    assert table.columns.names == ['c2', 'c4']
+    table.columns.add_col(pyfits.Column('foo', '3J'))
+    assert table.data.dtype.names == ('c2', 'c4', 'foo')
+    assert table.columns.names == ['c2', 'c4', 'foo']
+
+    hdulist.writeto("test.fits", clobber=True)
+    hdulist = pyfits.open("test.fits")
+    table = hdulist[1]
+    assert table.data.dtype.names == ('c1', 'c2', 'c3')
+    assert table.columns.names == ['c1', 'c2', 'c3']
