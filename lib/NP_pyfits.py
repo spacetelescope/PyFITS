@@ -8897,10 +8897,12 @@ class _File:
                 self._size = self.__file.fileobj.tell()
                 self.__file.fileobj.seek(0)
                 self.__file.seek(0)
-            else:
+            elif hasattr(self.__file, 'seek'):
                 self.__file.seek(0, 2)
                 self._size = self.__file.tell()
                 self.__file.seek(0)
+            else:
+                self._size = 0
 
     def __getattr__(self, attr):
         """
@@ -8939,6 +8941,9 @@ class _File:
         """
         Read the skeleton structure of the HDU.
         """
+        if not hasattr(self.__file, 'tell') or not hasattr(self.__file, 'read'):
+            raise EOFError
+
         end_RE = re.compile('END'+' '*77)
         _hdrLoc = self.__file.tell()
 
