@@ -9997,6 +9997,11 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
             else:
                 raise e
 
+    # If we're trying to read only and no header units were found,
+    # raise and exception
+    if mode == 'readonly' and len(hduList) == 0:
+        raise IOError("Empty FITS file")
+
     # For each HDU, verify the checksum/datasum value if the cards exist in
     # the header and we are opening with checksum=True.  Always remove the
     # checksum/datasum cards from the header.
