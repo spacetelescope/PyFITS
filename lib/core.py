@@ -2,8 +2,6 @@
 
 # $Id$
 
-from __future__ import division # confidence high
-
 """
 A module for reading and writing FITS files and manipulating their
 contents.
@@ -16,9 +14,12 @@ standard, see the NASA/Science Office of Standards and Technology
 publication, NOST 100-2.0.
 
 For detailed examples of usage, see the `PyFITS User's Manual
-<http://www.stsci.edu/resources/software_hardware/pyfits/Users_Manual1.pdf>`_.
+<http://stsdas.stsci.edu/download/wikidocs/The_PyFITS_Handbook.pdf>`.
 
 """
+
+from __future__ import division # confidence high
+
 """
         Do you mean: "Profits"?
 
