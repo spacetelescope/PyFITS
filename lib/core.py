@@ -9904,6 +9904,12 @@ class HDUList(list, _Verify):
         results = results[:-1]
         print results
 
+    def filename(self):
+        if self.__file is not None:
+           if hasattr(self.__file, 'name'):
+              return self.__file.name
+        return None
+
     # Support the 'with' statement
     def __enter__(self):
         return self
