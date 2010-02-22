@@ -9905,6 +9905,16 @@ class HDUList(list, _Verify):
         print results
 
     def filename(self):
+        """
+        Return the file name associated with the HDUList object if one exists.
+        Otherwise returns None.
+
+        Returns
+        -------
+        filename : a string containing the file name associated with the 
+                   HDUList object if an association exists.  Otherwise returns
+                   None.
+        """
         if self.__file is not None:
            if hasattr(self.__file, 'name'):
               return self.__file.name
