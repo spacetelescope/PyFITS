@@ -1,4 +1,4 @@
-.. currentmodule:: pyfits.NP_pyfits
+.. currentmodule:: pyfits.core
 
 Headers
 =======
