@@ -3372,6 +3372,13 @@ class _TempHDU(_ValidHDU):
 
         return hdu
 
+    def isPrimary(self):
+        blocks = self._raw
+
+        if (blocks[:8] == 'SIMPLE  '):
+           return True
+        else:
+           return False
 
 class _ExtensionHDU(_ValidHDU):
     """
@@ -9366,7 +9373,7 @@ class HDUList(list, _Verify):
                     _err.append(_result)
         return _err
 
-    def insert(self, index, hdu):
+    def insert(self, index, hdu, classExtensions={}):
         """
         Insert an HDU into the `HDUList` at the given `index`.
 
@@ -9377,19 +9384,80 @@ class HDUList(list, _Verify):
 
         hdu : _AllHDU instance
             The HDU object to insert
-        """
-        if not isinstance(hdu, _AllHDU):
-            raise ValueError, "%s is not an HDU." % hdu
 
-        super(HDUList, self).insert(index,hdu)
-        self._resize = 1
-        self._truncate = 0
+        classExtensions : dict
+            A dictionary that maps pyfits classes to extensions of those
+            classes.  When present in the dictionary, the extension class
+            will be constructed in place of the pyfits class.
+        """
+        if isinstance(hdu, _AllHDU):
+            num_hdus = len(self)
+
+            if index == 0 or num_hdus == 0:
+                if num_hdus != 0:
+                    # We are inserting a new Primary HDU so we need to 
+                    # make the current Primary HDU into an extension HDU.
+                    if isinstance(hdu, GroupsHDU):
+                       raise ValueError, \
+                             "The current Primary HDU is a GroupsHDU.  " + \
+                             "It can't be made into an extension HDU," + \
+                             " so you can't insert another HDU in front of it."
+
+                    if classExtensions.has_key(ImageHDU):
+                        hdu1 = classExtensions[ImageHDU](self[0].data,
+                                                         self[0].header)
+                    else:
+                        hdu1= ImageHDU(self[0].data, self[0].header)
+
+                    # Insert it into position 1, then delete HDU at position 0.
+                    super(HDUList, self).insert(1,hdu1)
+                    super(HDUList, self).__delitem__(0)
+
+                if not isinstance(hdu, PrimaryHDU):
+                    # You passed in an Extension HDU but we need a Primary HDU.
+                    # If you provided an ImageHDU then we can convert it to
+                    # a primary HDU and use that.
+                    if isinstance(hdu, ImageHDU):
+                        if classExtensions.has_key(PrimaryHDU):
+                            hdu = classExtensions[PrimaryHDU](hdu.data,
+                                                              hdu.header)
+                        else:
+                            hdu = PrimaryHDU(hdu.data, hdu.header)
+                    else:
+                        # You didn't provide an ImageHDU so we create a
+                        # simple Primary HDU and append that first before
+                        # we append the new Extension HDU.
+                        if classExtensions.has_key(PrimaryHDU):
+                            phdu = classExtensions[PrimaryHDU]()
+                        else:
+                            phdu = PrimaryHDU()
+
+                        super(HDUList, self).insert(0,phdu)
+                        index = 1
+            else:
+                if isinstance(hdu, GroupsHDU):
+                   raise ValueError, \
+                         "A GroupsHDU must be inserted as a Primary HDU"
+
+                if isinstance(hdu, PrimaryHDU):
+                    # You passed a Primary HDU but we need an Extension HDU
+                    # so create an Extension HDU from the input Primary HDU.
+                    if classExtensions.has_key(ImageHDU):
+                        hdu = classExtensions[ImageHDU](hdu.data,hdu.header)
+                    else:
+                        hdu = ImageHDU(hdu.data, hdu.header)
+
+            super(HDUList, self).insert(index,hdu)
+            self._resize = 1
+            self._truncate = 0
+        else:
+            raise ValueError, "%s is not an HDU." % hdu
 
         # make sure the EXTEND keyword is in primary HDU if there is extension
         if len(self) > 1:
             self.update_extend()
 
-    def append(self, hdu):
+    def append(self, hdu, classExtensions={}):
         """
         Append a new HDU to the `HDUList`.
 
@@ -9397,14 +9465,55 @@ class HDUList(list, _Verify):
         ----------
         hdu : instance of _AllHDU
             HDU to add to the `HDUList`.
+
+        classExtensions : dict
+            A dictionary that maps pyfits classes to extensions of those
+            classes.  When present in the dictionary, the extension class
+            will be constructed in place of the pyfits class.
         """
         if isinstance(hdu, _AllHDU):
+            if not isinstance(hdu, _TempHDU):
+                if len(self) > 0:
+                    if isinstance(hdu, GroupsHDU):
+                       raise ValueError, \
+                             "Can't append a GroupsHDU to a non-empty HDUList"
+
+                    if isinstance(hdu, PrimaryHDU):
+                        # You passed a Primary HDU but we need an Extension HDU
+                        # so create an Extension HDU from the input Primary HDU.
+                        if classExtensions.has_key(ImageHDU):
+                            hdu = classExtensions[ImageHDU](hdu.data,hdu.header)
+                        else:
+                            hdu = ImageHDU(hdu.data, hdu.header)
+                else:
+                    if not isinstance(hdu, PrimaryHDU):
+                        # You passed in an Extension HDU but we need a Primary
+                        # HDU.
+                        # If you provided an ImageHDU then we can convert it to
+                        # a primary HDU and use that.
+                        if isinstance(hdu, ImageHDU):
+                            if classExtensions.has_key(PrimaryHDU):
+                                hdu = classExtensions[PrimaryHDU](hdu.data,
+                                                                  hdu.header)
+                            else:
+                                hdu = PrimaryHDU(hdu.data, hdu.header)
+                        else:
+                            # You didn't provide an ImageHDU so we create a
+                            # simple Primary HDU and append that first before
+                            # we append the new Extension HDU.
+                            if classExtensions.has_key(PrimaryHDU):
+                                phdu = classExtensions[PrimaryHDU]()
+                            else:
+                                phdu = PrimaryHDU()
+
+                            super(HDUList, self).append(phdu)
+
             super(HDUList, self).append(hdu)
             hdu._new = 1
             self._resize = 1
             self._truncate = 0
         else:
-            raise "HDUList can only append an HDU"
+            raise ValueError, "HDUList can only append an HDU"
 
         # make sure the EXTEND keyword is in primary HDU if there is extension
         if len(self) > 1:
@@ -9911,7 +10020,7 @@ class HDUList(list, _Verify):
 
         Returns
         -------
-        filename : a string containing the file name associated with the 
+        filename : a string containing the file name associated with the
                    HDUList object if an association exists.  Otherwise returns
                    None.
         """
@@ -10000,7 +10109,7 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
     # read all HDU's
     while 1:
         try:
-            hduList.append(ffo._readHDU())
+            hduList.append(ffo._readHDU(), classExtensions=classExtensions)
         except EOFError:
             break
         # check in the case there is extra space after the last HDU or corrupted HDU
@@ -10635,7 +10744,7 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
                 hdu = ImageHDU(data, header)
 
         f = open(filename, mode='update', classExtensions=classExtensions)
-        f.append(hdu)
+        f.append(hdu, classExtensions=classExtensions)
 
         # Set a flag in the HDU so that only this HDU gets a checksum
         # when writing the file.
