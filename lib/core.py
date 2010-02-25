@@ -14,7 +14,7 @@ standard, see the NASA/Science Office of Standards and Technology
 publication, NOST 100-2.0.
 
 For detailed examples of usage, see the `PyFITS User's Manual
-<http://stsdas.stsci.edu/download/wikidocs/The_PyFITS_Handbook.pdf>`.
+<http://stsdas.stsci.edu/download/wikidocs/The_PyFITS_Handbook.pdf>`_.
 
 """
 
@@ -9397,7 +9397,7 @@ class HDUList(list, _Verify):
                 if num_hdus != 0:
                     # We are inserting a new Primary HDU so we need to 
                     # make the current Primary HDU into an extension HDU.
-                    if isinstance(hdu, GroupsHDU):
+                    if isinstance(self[0], GroupsHDU):
                        raise ValueError, \
                              "The current Primary HDU is a GroupsHDU.  " + \
                              "It can't be made into an extension HDU," + \
