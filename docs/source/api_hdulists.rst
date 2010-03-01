@@ -9,6 +9,6 @@ HDU Lists
 ,,,,,,,,,
 
 .. autoclass:: HDUList
-   :members: append, close, flush, index_of, info, readall, update_extend, update_tbhdu, verify, writeto
+   :members: append, insert, close, flush, index_of, info, filename, readall, update_extend, update_tbhdu, verify, writeto
    :undoc-members:
    :show-inheritance:

@@ -578,6 +578,11 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
 "1                ImageHDU        12  ()            uint8\n",
 "2                BinTableHDU     24  2R x 4C       [1J, 3A, 1E, 1L]\n"])
 
+    def testFilename(self):
+        # Tests the HDUList filename method.
+        hdul = pyfits.open('tb.fits')
+        name = hdul.filename()
+        self.assertEqual(name,"tb.fits")
 
 if __name__ == '__main__':
     unittest.main()
