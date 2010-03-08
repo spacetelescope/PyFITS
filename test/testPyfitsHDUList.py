@@ -584,6 +584,78 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         name = hdul.filename()
         self.assertEqual(name,"tb.fits")
 
+    def testFileLike(self):
+        # Tests the use of a file like object with no tell or seek methods
+        # in HDUList.writeto(), HDULIST.flush() or pyfits.writeto()
+        hdu = pyfits.PrimaryHDU(np.arange(100,dtype=np.int32))
+        hdul = pyfits.HDUList()
+        hdul.append(hdu)
+        tmpfile = open('tmpfile.fits', 'w')
+        sys.stdout = tmpfile
+        hdul.writeto(sys.stdout)
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        hdul1=pyfits.open('tmpfile.fits')
+        
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        pyfits.info('tmpfile.fits')
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        os.remove('tmpfile.fits')
+        self.assertEqual(output,["Filename: tmpfile.fits\n",
+"No.    Name         Type      Cards   Dimensions   Format\n",
+"0    PRIMARY     PrimaryHDU       5  (100,)        int32\n"])
+
+        hdu = pyfits.PrimaryHDU(np.arange(100,dtype=np.int32))
+        tmpfile = open('tmpfile.fits', 'w')
+        sys.stdout = tmpfile
+        hdul=pyfits.open(sys.stdout,mode='ostream')
+        hdul.append(hdu)
+        hdul.flush()
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        hdul2=pyfits.open('tmpfile.fits')
+        
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        hdul2.info()
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        os.remove('tmpfile.fits')
+        self.assertEqual(output,["Filename: tmpfile.fits\n",
+"No.    Name         Type      Cards   Dimensions   Format\n",
+"0    PRIMARY     PrimaryHDU       5  (100,)        int32\n"])
+
+        tmpfile = open('tmpfile.fits', 'w')
+        sys.stdout = tmpfile
+        pyfits.writeto(sys.stdout,np.arange(100,dtype=np.int32))
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        hdul1=pyfits.open('tmpfile.fits')
+        
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        pyfits.info('tmpfile.fits')
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        os.remove('tmpfile.fits')
+        self.assertEqual(output,["Filename: tmpfile.fits\n",
+"No.    Name         Type      Cards   Dimensions   Format\n",
+"0    PRIMARY     PrimaryHDU       5  (100,)        int32\n"])
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -55,7 +55,7 @@ except:
 
 # Module variables
 _blockLen = 2880         # the FITS block size
-_python_mode = {'readonly':'rb', 'copyonwrite':'rb', 'update':'rb+', 'append':'ab+'}  # open modes
+_python_mode = {'readonly':'rb', 'copyonwrite':'rb', 'update':'rb+', 'append':'ab+', 'ostream':'w'}  # open modes
 _memmap_mode = {'readonly':'r', 'copyonwrite':'c', 'update':'r+'}
 
 TRUE  = True    # deprecated
@@ -8895,12 +8895,23 @@ class _File:
                 else:
                     self.__file=__builtin__.open(self.name, _python_mode[mode])
             else:
+                # We are dealing with a file like object.
+                # Assume it is open.
                 self.__file = name
+
+                # If there is not seek or tell methods then set the mode to
+                # output streaming.
+                if not hasattr(self.__file, 'seek') or \
+                   not hasattr(self.__file, 'tell'):
+                    self.mode = mode = 'ostream';
 
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
 
-            if isinstance(self.__file,gzip.GzipFile):
+            if mode == 'ostream':
+                # For output stream start with a truncated file.
+                self._size = 0
+            elif isinstance(self.__file,gzip.GzipFile):
                 self.__file.fileobj.seek(0,2)
                 self._size = self.__file.fileobj.tell()
                 self.__file.fileobj.seek(0)
@@ -9057,7 +9068,9 @@ class _File:
 
         if len(blocks)%_blockLen != 0:
             raise IOError
-        self.__file.flush()
+
+        if hasattr(self.__file, 'flush'):
+            self.__file.flush()
 
         try:
            if self.__file.mode == 'ab+':
@@ -9065,11 +9078,16 @@ class _File:
         except AttributeError:
            pass
 
-        loc = self.__file.tell()
+        try:
+            loc = self.__file.tell()
+        except (AttributeError, IOError):
+            loc = 0
+
         self.__file.write(blocks)
 
         # flush, to make sure the content is written
-        self.__file.flush()
+        if hasattr(self.__file, 'flush'):
+            self.__file.flush()
 
         # If data is unsigned integer 16, 32 or 64, remove the
         # BSCALE/BZERO cards
@@ -9086,8 +9104,14 @@ class _File:
         """
         Write FITS HDU data part.
         """
-        self.__file.flush()
-        loc = self.__file.tell()
+        if hasattr(self.__file, 'flush'):
+            self.__file.flush()
+
+        try:
+            loc = self.__file.tell()
+        except (AttributeError, IOError):
+            loc = 0
+
         _size = 0
         if isinstance(hdu, _NonstandardHDU) and hdu.data is not None:
             self.__file.write(hdu.data)
@@ -9197,8 +9221,8 @@ class _File:
 
             # write out the heap of variable length array columns
             # this has to be done after the "regular" data is written (above)
-            _where = self.__file.tell()
             if isinstance(hdu, BinTableHDU):
+                nbytes = output._gap
                 self.__file.write(output._gap*'\0')
 
                 for i in range(output._nfields):
@@ -9206,11 +9230,11 @@ class _File:
                         for j in range(len(output.field(i))):
                             coldata = output.field(i)[j]
                             if len(coldata) > 0:
+                                nbytes= nbytes + coldata.nbytes
                                 coldata.tofile(self.__file)
 
-                _shift = self.__file.tell() - _where
-                output._heapsize = _shift - output._gap
-                _size = _size + _shift
+                output._heapsize = nbytes - output._gap
+                _size = _size + nbytes
 
             # pad the FITS data block
             if _size > 0:
@@ -9220,7 +9244,8 @@ class _File:
                     self.__file.write(_padLength(_size)*'\0')
 
         # flush, to make sure the content is written
-        self.__file.flush()
+        if hasattr(self.__file, 'flush'):
+            self.__file.flush()
 
         # return both the location and the size of the data area
         return loc, _size+_padLength(_size)
@@ -9229,7 +9254,8 @@ class _File:
         """
         Close the 'physical' FITS file.
         """
-        self.__file.close()
+        if hasattr(self.__file, 'close'):
+            self.__file.close()
 
         if hasattr(self, 'tfile'):
             del self.tfile
@@ -9649,21 +9675,21 @@ class HDUList(list, _Verify):
             # Install new handler
             old_handler = signal.signal(signal.SIGINT,New_SIGINT)
 
-        if self.__file.mode not in ('append', 'update'):
+        if self.__file.mode not in ('append', 'update', 'ostream'):
             warnings.warn("flush for '%s' mode is not supported." % self.__file.mode)
             return
 
         self.update_tbhdu()
         self.verify(option=output_verify)
 
-        if self.__file.mode == 'append':
+        if self.__file.mode in ('append', 'ostream'):
             for hdu in self:
                 if (verbose):
                     try: _extver = `hdu.header['extver']`
                     except: _extver = ''
 
                 # only append HDU's which are "new"
-                if hdu._new:
+                if not hasattr(hdu, '_new') or hdu._new:
                     # only output the checksum if flagged to do so
                     if hasattr(hdu, '_output_checksum'):
                         checksum = hdu._output_checksum
@@ -9781,7 +9807,11 @@ class HDUList(list, _Verify):
                     self.writeto(_name)
                     _hduList = open(_name)
                     ffo = self.__file
-                    ffo.getfile().truncate(0)
+
+                    try:
+                        ffo.getfile().truncate(0)
+                    except AttributeError:
+                        pass
 
                     for hdu in _hduList:
                         # only output the checksum if flagged to do so
@@ -9906,20 +9936,32 @@ class HDUList(list, _Verify):
 
         # check if the file object is closed
         closed = True
+        fileMode = 'ab+'
 
         if isinstance(name, file):
             closed = name.closed
             filename = name.name
+
+            if not closed:
+                fileMode = name.mode
+
         elif isinstance(name, gzip.GzipFile):
             if name.fileobj != None:
                 closed = name.fileobj.closed
             filename = name.filename
+
+            if not closed:
+                fileMode = name.fileobj.mode
+
         elif isinstance(name, types.StringType) or \
              isinstance(name, types.UnicodeType):
             filename = name
         else:
             if hasattr(name, 'closed'):
                 closed = name.closed
+
+            if hasattr(name, 'mode'):
+                fileMode = name.mode
 
             if hasattr(name, 'name'):
                 filename = name.name
@@ -9955,7 +9997,13 @@ class HDUList(list, _Verify):
         if len(self) > 1:
             self.update_extend()
 
-        hduList = open(name, mode="append", classExtensions=classExtensions)
+        for key in _python_mode.keys():
+            if _python_mode[key] == fileMode:
+                mode = key
+                break
+
+        hduList = open(name, mode=mode, classExtensions=classExtensions)
+
         for hdu in self:
             hduList.__file.writeHDU(hdu, checksum)
         hduList.close(output_verify=output_verify,closed=closed)
@@ -9983,7 +10031,7 @@ class HDUList(list, _Verify):
             if self.__file.mode in ['append', 'update']:
                 self.flush(output_verify=output_verify, verbose=verbose)
 
-            if closed:
+            if closed and hasattr(self.__file, 'close'):
                 self.__file.close()
 
         # close the memmap object, it is designed to use an independent
@@ -10048,12 +10096,12 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
         opened.
 
     mode : str
-        Open mode, 'copyonwrite' (default), 'readonly', 'update', or
-        'append'.
+        Open mode, 'copyonwrite' (default), 'readonly', 'update', 
+        'append', or 'ostream'.
 
         If `name` is a file object that is already opened, `mode` must
         match the mode the file was opened with, copyonwrite (rb),
-        readonly (rb), update (rb+), or append (ab+)).
+        readonly (rb), update (rb+), append (ab+), ostream (w)).
 
     memmap : bool
         Is memory mapping to be used?
@@ -10106,63 +10154,67 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
     else:
         hduList = HDUList(file=ffo)
 
-    # read all HDU's
-    while 1:
-        try:
-            hduList.append(ffo._readHDU(), classExtensions=classExtensions)
-        except EOFError:
-            break
-        # check in the case there is extra space after the last HDU or corrupted HDU
-        except ValueError, e:
-            warnings.warn('Warning:  Required keywords missing when trying to read HDU #%d.\n          %s\n          There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList),e))
-            break
-        except IOError, e:
-            if isinstance(ffo.getfile(), gzip.GzipFile) and \
-               string.find(str(e),'on write-only GzipFile object'):
+    if mode != 'ostream':
+        # read all HDU's
+        while 1:
+            try:
+                hduList.append(ffo._readHDU(), classExtensions=classExtensions)
+            except EOFError:
                 break
+            # check in the case there is extra space after the last HDU or
+            # corrupted HDU
+            except ValueError, e:
+                warnings.warn('Warning:  Required keywords missing when trying to read HDU #%d.\n          %s\n          There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList),e))
+                break
+            except IOError, e:
+                if isinstance(ffo.getfile(), gzip.GzipFile) and \
+                   string.find(str(e),'on write-only GzipFile object'):
+                    break
+                else:
+                    raise e
+
+        # If we're trying to read only and no header units were found,
+        # raise and exception
+        if mode == 'readonly' and len(hduList) == 0:
+            raise IOError("Empty FITS file")
+
+        # For each HDU, verify the checksum/datasum value if the cards exist in
+        # the header and we are opening with checksum=True.  Always remove the
+        # checksum/datasum cards from the header.
+        for i in range(len(hduList)):
+            hdu = hduList.__getitem__(i, classExtensions)
+
+            if hdu._header.has_key('CHECKSUM'):
+                 hdu._checksum = hdu._header['CHECKSUM']
+                 hdu._checksum_comment = \
+                                hdu._header.ascardlist()['CHECKSUM'].comment
+
+                 if 'checksum' in parms and parms['checksum'] and \
+                 not hdu.verify_checksum():
+                     warnings.warn('Warning:  Checksum verification failed for '
+                                   'HDU #%d.\n' % i)
+
+                 del hdu.header['CHECKSUM']
             else:
-                raise e
+                 hdu._checksum = None
+                 hdu._checksum_comment = None
 
-    # If we're trying to read only and no header units were found,
-    # raise and exception
-    if mode == 'readonly' and len(hduList) == 0:
-        raise IOError("Empty FITS file")
+            if hdu._header.has_key('DATASUM'):
+                 hdu._datasum = hdu.header['DATASUM']
+                 hdu._datasum_comment = \
+                                   hdu.header.ascardlist()['DATASUM'].comment
 
-    # For each HDU, verify the checksum/datasum value if the cards exist in
-    # the header and we are opening with checksum=True.  Always remove the
-    # checksum/datasum cards from the header.
-    for i in range(len(hduList)):
-        hdu = hduList.__getitem__(i, classExtensions)
+                 if 'checksum' in parms and parms['checksum'] and \
+                 not hdu.verify_datasum():
+                     warnings.warn('Warning:  Datasum verification failed for '
+                                   'HDU #%d.\n' % (len(hduList)))
 
-        if hdu._header.has_key('CHECKSUM'):
-             hdu._checksum = hdu._header['CHECKSUM']
-             hdu._checksum_comment =hdu._header.ascardlist()['CHECKSUM'].comment
-
-             if 'checksum' in parms and parms['checksum'] and \
-             not hdu.verify_checksum():
-                 warnings.warn('Warning:  Checksum verification failed for '
-                               'HDU #%d.\n' % i)
-
-             del hdu.header['CHECKSUM']
-        else:
-             hdu._checksum = None
-             hdu._checksum_comment = None
-
-        if hdu._header.has_key('DATASUM'):
-             hdu._datasum = hdu.header['DATASUM']
-             hdu._datasum_comment = hdu.header.ascardlist()['DATASUM'].comment
-
-             if 'checksum' in parms and parms['checksum'] and \
-             not hdu.verify_datasum():
-                 warnings.warn('Warning:  Datasum verification failed for '
-                               'HDU #%d.\n' % (len(hduList)))
-
-             del hdu.header['DATASUM']
-        else:
-             hdu._checksum = None
-             hdu._checksum_comment = None
-             hdu._datasum = None
-             hdu._datasum_comment = None
+                 del hdu.header['DATASUM']
+            else:
+                 hdu._checksum = None
+                 hdu._checksum_comment = None
+                 hdu._datasum = None
+                 hdu._datasum_comment = None
 
     # initialize/reset attributes to be used in "update/append" mode
     # CardList needs its own _mod attribute since it has methods to change
@@ -10640,9 +10692,14 @@ def _stat_filename_or_fileobj(filename):
         elif hasattr(filename, 'filename'):
             name = filename.filename
 
+    try:
+        loc = filename.tell()
+    except AttributeError:
+        loc = 0
+
     noexist_or_empty = \
         (name and ((not os.path.exists(name)) or (os.path.getsize(name)==0))) \
-         or (not name and filename.tell()==0)
+         or (not name and loc==0)
 
     return name, closed, noexist_or_empty
 
