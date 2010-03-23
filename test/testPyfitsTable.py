@@ -82,7 +82,20 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
     def tearDown(self):
         # Perform clean-up actions (if any)
-        pass
+        try:
+            os.remove('newtable.fits')
+        except:
+            pass
+
+        try:
+            os.remove('table1.fits')
+        except:
+            pass
+
+        try:
+            os.remove('table2.fits')
+        except:
+            pass
 
     def testOpen(self):
         # open some existing FITS files:
@@ -356,6 +369,370 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
         hdul.close()
         os.remove('toto.fits')
+
+    def testAppendingAColumn(self):
+        counts = num.array([312,334,308,317])
+        names = num.array(['NGC1','NGC2','NGC3','NCG4'])
+        c1=pyfits.Column(name='target',format='10A',array=names)
+        c2=pyfits.Column(name='counts',format='J',unit='DN',array=counts)
+        c3=pyfits.Column(name='notes',format='A10')
+        c4=pyfits.Column(name='spectrum',format='5E')
+        c5=pyfits.Column(name='flag',format='L',array=[1,0,1,1])
+        coldefs=pyfits.ColDefs([c1,c2,c3,c4,c5])
+        tbhdu=pyfits.new_table(coldefs)
+        tbhdu.writeto('table1.fits')
+
+        counts = num.array([412,434,408,417])
+        names = num.array(['NGC5','NGC6','NGC7','NCG8'])
+        c1=pyfits.Column(name='target',format='10A',array=names)
+        c2=pyfits.Column(name='counts',format='J',unit='DN',array=counts)
+        c3=pyfits.Column(name='notes',format='A10')
+        c4=pyfits.Column(name='spectrum',format='5E')
+        c5=pyfits.Column(name='flag',format='L',array=[0,1,0,0])
+        coldefs=pyfits.ColDefs([c1,c2,c3,c4,c5])
+        tbhdu=pyfits.new_table(coldefs)
+        tbhdu.writeto('table2.fits')
+
+        # Append the rows of table 2 after the rows of table 1
+        # The column definitions are assumed to be the same
+
+        # Open the two files we want to append
+        t1=pyfits.open('table1.fits')
+        t2=pyfits.open('table2.fits')
+
+        # Get the number of rows in the table from the first file
+        nrows1=t1[1].data.shape[0]
+
+        # Get the total number of rows in the resulting appended table
+        nrows=t1[1].data.shape[0]+t2[1].data.shape[0]
+
+        self.assertEqual(t1[1].columns._arrays[1] is t1[1].columns.data[1].array, True)
+
+        # Create a new table that consists of the data from the first table
+        # but has enough space in the ndarray to hold the data from both tables
+        hdu=pyfits.new_table(t1[1].columns,nrows=nrows)
+
+        # For each column in the tables append the data from table 2 after the
+        # data from table 1.
+        for i in range(len(t1[1].columns)):
+            hdu.data.field(i)[nrows1:]=t2[1].data.field(i)
+
+        hdu.writeto('newtable.fits')
+
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        pyfits.info('newtable.fits')
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(output,['Filename: newtable.fits\n', 'No.    Name         Type      Cards   Dimensions   Format\n', '0    PRIMARY     PrimaryHDU       4  ()            uint8\n', '1                BinTableHDU     19  8R x 5C       [10A, J, 10A, 5E, L]\n'])
+
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        print hdu.data
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(output,["[ ('NGC1', 312, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n", " ('NGC2', 334, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)\n", " ('NGC3', 308, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n", " ('NCG4', 317, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n", " ('NGC5', 412, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)\n", " ('NGC6', 434, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n", " ('NGC7', 408, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)\n", " ('NCG8', 417, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)]\n"])
+
+        # Verify that all of the references to the data point to the same
+        # numarray
+        hdu.data[0][1] = 300
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 300)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 300)
+        self.assertEqual(hdu.columns._arrays[1][0], 300)
+        self.assertEqual(hdu.columns.data[1].array[0], 300)
+        self.assertEqual(hdu.data[0][1], 300)
+
+        hdu.data._coldefs._arrays[1][0] = 200
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 200)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 200)
+        self.assertEqual(hdu.columns._arrays[1][0], 200)
+        self.assertEqual(hdu.columns.data[1].array[0], 200)
+        self.assertEqual(hdu.data[0][1], 200)
+
+        hdu.data._coldefs.data[1].array[0] = 100
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 100)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(hdu.columns._arrays[1][0], 100)
+        self.assertEqual(hdu.columns.data[1].array[0], 100)
+        self.assertEqual(hdu.data[0][1], 100)
+
+        hdu.columns._arrays[1][0] = 90
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 90)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 90)
+        self.assertEqual(hdu.columns._arrays[1][0], 90)
+        self.assertEqual(hdu.columns.data[1].array[0], 90)
+        self.assertEqual(hdu.data[0][1], 90)
+
+        hdu.columns.data[1].array[0] = 80
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 80)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 80)
+        self.assertEqual(hdu.columns._arrays[1][0], 80)
+        self.assertEqual(hdu.columns.data[1].array[0], 80)
+        self.assertEqual(hdu.data[0][1], 80)
+
+        # Same verification from the file
+        hdul = pyfits.open('newtable.fits')
+        hdu = hdul[1]
+        hdu.data[0][1] = 300
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 300)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 300)
+        self.assertEqual(hdu.columns._arrays[1][0], 300)
+        self.assertEqual(hdu.columns.data[1].array[0], 300)
+        self.assertEqual(hdu.data[0][1], 300)
+
+        hdu.data._coldefs._arrays[1][0] = 200
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 200)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 200)
+        self.assertEqual(hdu.columns._arrays[1][0], 200)
+        self.assertEqual(hdu.columns.data[1].array[0], 200)
+        self.assertEqual(hdu.data[0][1], 200)
+
+        hdu.data._coldefs.data[1].array[0] = 100
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 100)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(hdu.columns._arrays[1][0], 100)
+        self.assertEqual(hdu.columns.data[1].array[0], 100)
+        self.assertEqual(hdu.data[0][1], 100)
+
+        hdu.columns._arrays[1][0] = 90
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 90)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 90)
+        self.assertEqual(hdu.columns._arrays[1][0], 90)
+        self.assertEqual(hdu.columns.data[1].array[0], 90)
+        self.assertEqual(hdu.data[0][1], 90)
+
+        hdu.columns.data[1].array[0] = 80
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 80)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 80)
+        self.assertEqual(hdu.columns._arrays[1][0], 80)
+        self.assertEqual(hdu.columns.data[1].array[0], 80)
+        self.assertEqual(hdu.data[0][1], 80)
+
+        os.remove('newtable.fits')
+        os.remove('table1.fits')
+        os.remove('table2.fits')
+
+    def testAddingAColumn(self):
+        # Tests adding a column to a table.
+        counts = num.array([312,334,308,317])
+        names = num.array(['NGC1','NGC2','NGC3','NCG4'])
+        c1=pyfits.Column(name='target',format='10A',array=names)
+        c2=pyfits.Column(name='counts',format='J',unit='DN',array=counts)
+        c3=pyfits.Column(name='notes',format='A10')
+        c4=pyfits.Column(name='spectrum',format='5E')
+        c5=pyfits.Column(name='flag',format='L',array=[1,0,1,1])
+        coldefs=pyfits.ColDefs([c1,c2,c3,c4])
+        tbhdu=pyfits.new_table(coldefs)
+
+        self.assertEqual(tbhdu.columns.names,['target', 'counts', 'notes', 'spectrum'])
+        coldefs1 = coldefs + c5
+
+        tbhdu1=pyfits.new_table(coldefs1)
+        self.assertEqual(tbhdu1.columns.names,['target', 'counts', 'notes', 'spectrum', 'flag'])
+
+        tmpfile = open(jfile, 'w')
+        sys.stdout = tmpfile
+        print tbhdu1.data
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(output,["[ ('NGC1', 312, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n", " ('NGC2', 334, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)\n", " ('NGC3', 308, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n", " ('NCG4', 317, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)]\n"])
+
+    def testMergeTables(self):
+        counts = num.array([312,334,308,317])
+        names = num.array(['NGC1','NGC2','NGC3','NCG4'])
+        c1=pyfits.Column(name='target',format='10A',array=names)
+        c2=pyfits.Column(name='counts',format='J',unit='DN',array=counts)
+        c3=pyfits.Column(name='notes',format='A10')
+        c4=pyfits.Column(name='spectrum',format='5E')
+        c5=pyfits.Column(name='flag',format='L',array=[1,0,1,1])
+        coldefs=pyfits.ColDefs([c1,c2,c3,c4,c5])
+        tbhdu=pyfits.new_table(coldefs)
+        tbhdu.writeto('table1.fits')
+
+        counts = num.array([412,434,408,417])
+        names = num.array(['NGC5','NGC6','NGC7','NCG8'])
+        c1=pyfits.Column(name='target1',format='10A',array=names)
+        c2=pyfits.Column(name='counts1',format='J',unit='DN',array=counts)
+        c3=pyfits.Column(name='notes1',format='A10')
+        c4=pyfits.Column(name='spectrum1',format='5E')
+        c5=pyfits.Column(name='flag1',format='L',array=[0,1,0,0])
+        coldefs=pyfits.ColDefs([c1,c2,c3,c4,c5])
+        tbhdu=pyfits.new_table(coldefs)
+        tbhdu.writeto('table2.fits')
+
+        # Merge the columns of table 2 after the columns of table 1
+        # The column names are assumed to be different
+
+        # Open the two files we want to append
+        t1=pyfits.open('table1.fits')
+        t2=pyfits.open('table2.fits')
+
+        hdu =pyfits.new_table(t1[1].columns+t2[1].columns)
+
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        print hdu.data
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(output,["[ ('NGC1', 312, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True, 'NGC5', 412, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)\n", " ('NGC2', 334, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False, 'NGC6', 434, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n", " ('NGC3', 308, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True, 'NGC7', 408, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)\n", " ('NCG4', 317, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True, 'NCG8', 417, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)]\n"])
+
+        hdu.writeto('newtable.fits')
+
+        # Verify that all of the references to the data point to the same
+        # numarray
+        hdu.data[0][1] = 300
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 300)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 300)
+        self.assertEqual(hdu.columns._arrays[1][0], 300)
+        self.assertEqual(hdu.columns.data[1].array[0], 300)
+        self.assertEqual(hdu.data[0][1], 300)
+
+        hdu.data._coldefs._arrays[1][0] = 200
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 200)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 200)
+        self.assertEqual(hdu.columns._arrays[1][0], 200)
+        self.assertEqual(hdu.columns.data[1].array[0], 200)
+        self.assertEqual(hdu.data[0][1], 200)
+
+        hdu.data._coldefs.data[1].array[0] = 100
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 100)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(hdu.columns._arrays[1][0], 100)
+        self.assertEqual(hdu.columns.data[1].array[0], 100)
+        self.assertEqual(hdu.data[0][1], 100)
+
+        hdu.columns._arrays[1][0] = 90
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 90)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 90)
+        self.assertEqual(hdu.columns._arrays[1][0], 90)
+        self.assertEqual(hdu.columns.data[1].array[0], 90)
+        self.assertEqual(hdu.data[0][1], 90)
+
+        hdu.columns.data[1].array[0] = 80
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 80)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 80)
+        self.assertEqual(hdu.columns._arrays[1][0], 80)
+        self.assertEqual(hdu.columns.data[1].array[0], 80)
+        self.assertEqual(hdu.data[0][1], 80)
+
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        pyfits.info('newtable.fits')
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(output,['Filename: newtable.fits\n', 'No.    Name         Type      Cards   Dimensions   Format\n', '0    PRIMARY     PrimaryHDU       4  ()            uint8\n', '1                BinTableHDU     30  4R x 10C      [10A, J, 10A, 5E, L, 10A, J, 10A, 5E, L]\n'])
+
+        hdul = pyfits.open('newtable.fits')
+        hdu = hdul[1]
+
+        self.assertEqual(hdu.columns.names,['target', 'counts', 'notes', 'spectrum', 'flag', 'target1', 'counts1', 'notes1', 'spectrum1', 'flag1'])
+
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        print hdu.data
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(output,["[ ('NGC1', 312, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True, 'NGC5', 412, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)\n", " ('NGC2', 334, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False, 'NGC6', 434, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n", " ('NGC3', 308, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True, 'NGC7', 408, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)\n", " ('NCG4', 317, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True, 'NCG8', 417, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), False)]\n"])
+
+        # Same verification from the file
+        hdu.data[0][1] = 300
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 300)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 300)
+        self.assertEqual(hdu.columns._arrays[1][0], 300)
+        self.assertEqual(hdu.columns.data[1].array[0], 300)
+        self.assertEqual(hdu.data[0][1], 300)
+
+        hdu.data._coldefs._arrays[1][0] = 200
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 200)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 200)
+        self.assertEqual(hdu.columns._arrays[1][0], 200)
+        self.assertEqual(hdu.columns.data[1].array[0], 200)
+        self.assertEqual(hdu.data[0][1], 200)
+
+        hdu.data._coldefs.data[1].array[0] = 100
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 100)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(hdu.columns._arrays[1][0], 100)
+        self.assertEqual(hdu.columns.data[1].array[0], 100)
+        self.assertEqual(hdu.data[0][1], 100)
+
+        hdu.columns._arrays[1][0] = 90
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 90)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 90)
+        self.assertEqual(hdu.columns._arrays[1][0], 90)
+        self.assertEqual(hdu.columns.data[1].array[0], 90)
+        self.assertEqual(hdu.data[0][1], 90)
+
+        hdu.columns.data[1].array[0] = 80
+        self.assertEqual(hdu.data._coldefs._arrays[1][0], 80)
+        self.assertEqual(hdu.data._coldefs.data[1].array[0], 80)
+        self.assertEqual(hdu.columns._arrays[1][0], 80)
+        self.assertEqual(hdu.columns.data[1].array[0], 80)
+        self.assertEqual(hdu.data[0][1], 80)
+
+        os.remove('table1.fits')
+        os.remove('table2.fits')
+        os.remove('newtable.fits')
+
+    def testMaskArray(self):
+        t=pyfits.open('table.fits')
+        tbdata = t[1].data
+        mask = tbdata.field('V_mag') > 12
+        newtbdata = tbdata[mask]
+        hdu = pyfits.BinTableHDU(newtbdata)
+        hdu.writeto('newtable.fits')
+
+        hdul = pyfits.open('newtable.fits')
+
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        print hdu.data
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(output,["[('NGC1002', 12.3) ('NGC1003', 15.2)]\n"])
+
+        tmpfile = open(jfile,'w')
+        sys.stdout = tmpfile
+        print hdul[1].data
+        sys.stdout = sys.__stdout__
+        tmpfile.close()
+        tmpfile = open(jfile,'r')
+        output = tmpfile.readlines()
+        tmpfile.close()
+        os.remove(jfile)
+        self.assertEqual(output,["[('NGC1002', 12.3) ('NGC1003', 15.2)]\n"])
+
+        os.remove('newtable.fits')
+
 
 if __name__ == '__main__':
     unittest.main()

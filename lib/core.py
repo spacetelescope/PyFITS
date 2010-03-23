@@ -302,6 +302,13 @@ class Delayed:
         self.hdu = weakref.ref(hdu)
         self.field = field
 
+    def __getitem__(self, key):
+        # This forces the data for the HDU to be read, which will replace
+        # the corresponding Delayed objects in the Tables Columns to be
+        # transformed into ndarrays.  It will also return the value of the
+        # requested data element.
+        return self.hdu().data[key][self.field]
+
 # translation table for floating value string
 _fix_table = maketrans('de', 'DE')
 _fix_table2 = maketrans('dD', 'eE')
@@ -4918,6 +4925,8 @@ class ColDefs(object):
                     attr[i] = _width
                     last_end = _end
                 self._width = _end
+            else:
+                return None
         else:
             raise KeyError, 'Attribute %s not defined.' % name
 
@@ -5202,7 +5211,13 @@ def _get_tbdata(hdu):
     for attr in ['formats', 'names']:
         setattr(_data, attr, getattr(tmp, attr))
     for i in range(len(tmp)):
-        tmp._arrays[i] = _data.field(i)
+       # get the data for each column object from the rec.recarray
+        tmp.data[i].array = _data.field(i)
+
+    # delete the _arrays attribute so that it is recreated to point to the
+    # new data placed in the column object above
+    if tmp.__dict__.has_key('_arrays'):
+        del tmp.__dict__['_arrays']
 
     # TODO: Probably a benign change, but I'd still like to get to
     # the bottom of the root cause...
@@ -5324,23 +5339,30 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                     rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
 
         if n < nrows:
+            # initialize the new data
             if tbtype == 'BinTableHDU':
-                # resize the data in the hdu ColDefs attribute
-                hdu.columns._arrays[i] = rec.recarray.field(hdu.data,i)
-
-                # initialize the new data to zero
                 if isinstance(rec.recarray.field(hdu.data,i), np.ndarray):
-
                     # make the scaled data = 0, not the stored data
                     rec.recarray.field(hdu.data,i)[n:] = -bzero/bscale
                 else:
                     rec.recarray.field(hdu.data,i)[n:] = ''
             else:
-                # resize the data in the hdu ColDefs attribute
-                hdu.columns._arrays[i] = rec.recarray.field(hdu.data,i)
-                rec.recarray.field(hdu.data,i)[n:] = ' '*hdu.data._coldefs.spans[i]
+                rec.recarray.field(hdu.data,i)[n:] = \
+                                                 ' '*hdu.data._coldefs.spans[i]
 
+    # Update the HDU header to match the data
     hdu.update()
+
+    # Make the ndarrays in the Column objects of the ColDefs object of the HDU
+    # reference the same ndarray as the HDU's FITS_rec object.
+    for i in range(len(tmp)):
+        hdu.columns.data[i].array = hdu.data.field(i)
+
+    # Delete the _arrays attribute so that it is recreated to point to the
+    # new data placed in the column objects above
+    if hdu.columns.__dict__.has_key('_arrays'):
+        del hdu.columns.__dict__['_arrays']
+
     return hdu
 
 class FITS_record(object):
