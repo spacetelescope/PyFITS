@@ -733,6 +733,84 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         os.remove('newtable.fits')
 
+    def testSliceARow(self):
+        counts = num.array([312,334,308,317])
+        names = num.array(['NGC1','NGC2','NGC3','NCG4'])
+        c1=pyfits.Column(name='target',format='10A',array=names)
+        c2=pyfits.Column(name='counts',format='J',unit='DN',array=counts)
+        c3=pyfits.Column(name='notes',format='A10')
+        c4=pyfits.Column(name='spectrum',format='5E')
+        c5=pyfits.Column(name='flag',format='L',array=[1,0,1,1])
+        coldefs=pyfits.ColDefs([c1,c2,c3,c4,c5])
+        tbhdu=pyfits.new_table(coldefs)
+        tbhdu.writeto('table1.fits')
+
+        t1=pyfits.open('table1.fits')
+        row = t1[1].data[2]
+        self.assertEqual(row['counts'],308)
+        a,b,c = row[1:4]
+        self.assertEqual(a, counts[2])
+        self.assertEqual(b, '0.0')
+        self.assertEqual(c.all(), num.array([ 0.,  0.,  0.,  0.,  0.],
+                                            dtype=num.float32).all())
+        row['counts'] = 310
+        self.assertEqual(row['counts'],310)
+
+        row[1] = 315
+        self.assertEqual(row['counts'],315)
+
+        self.assertEqual(row[1:4]['counts'],315)
+
+        try:
+            flag = row[1:4]['flag']
+            x = "row[1:4]['flag']"
+        except KeyError:
+            x = "Failed as expected."
+
+        self.assertEqual(x,"Failed as expected.")
+
+        row[1:4]['counts'] = 300
+        self.assertEqual(row[1:4]['counts'],300)
+        self.assertEqual(row['counts'],300)
+
+        row[1:4][0] = 400
+        self.assertEqual(row[1:4]['counts'],400)
+        row[1:4]['counts'] = 300
+        self.assertEqual(row[1:4]['counts'],300)
+
+        try:
+            row[1:4]['flag'] = False
+            x = "row[1:4]['flag']"
+        except KeyError:
+            x = "Failed as expected."
+
+        self.assertEqual(x,"Failed as expected.")
+
+        self.assertEqual(row[1:4].field(0),300)
+        self.assertEqual(row[1:4].field('counts'),300)
+
+        try:
+            val = row[1:4].field('flag')
+            x = "row[1:4].field('flag')"
+        except KeyError:
+            x = "Failed as expected."
+
+        self.assertEqual(x,"Failed as expected.")
+
+        row[1:4].setfield('counts',500)
+        self.assertEqual(row[1:4].field(0),500)
+
+        try:
+            row[1:4].setfield('flag',False)
+            x = "row[1:4].setfield('flag',False)"
+        except KeyError:
+            x = "Failed as expected."
+
+        self.assertEqual(x,"Failed as expected.")
+
+        os.remove('table1.fits')
+
+
 
 if __name__ == '__main__':
     unittest.main()

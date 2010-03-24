@@ -5373,7 +5373,7 @@ class FITS_record(object):
     This will allow us to deal with scaled columns.  The `FITS_record`
     class expects a `FITS_rec` object as input.
     """
-    def __init__(self, input, row=0):
+    def __init__(self, input, row=0, startColumn=0, endColumn=0):
         """
         Parameters
         ----------
@@ -5382,21 +5382,41 @@ class FITS_record(object):
 
         row : int, optional
            The starting logical row of the array.
+
+        startColumn : int, optional
+           The starting column in the row associated with this object.
+           Used for subsetting the columns of the FITS_rec object.
+
+        endColumn : int, optional
+           The ending column in the row associated with this object.
+           Used for subsetting the columns of the FITS_rec object.
         """
         self.array = input
         self.row = row
+        len = self.array._nfields
+
+        if startColumn > len:
+            self.start = len + 1
+        else:
+            self.start = startColumn
+
+        if endColumn <= 0 or endColumn > len:
+            self.end = len + 1
+        else:
+            self.end = endColumn
 
     def field(self, fieldName):
         """
         Get the field data of the record.
         """
-        return self.array.field(fieldName)[self.row]
+        return self.__getitem__(fieldName)
+
 
     def setfield(self, fieldName, value):
         """
         Set the field data of the record.
         """
-        self.array.field(fieldName)[self.row] = value
+        self.__setitem__(fieldName, value)
 
     def __str__(self):
         """
@@ -5407,7 +5427,8 @@ class FITS_record(object):
         else:
             outlist = []
             for i in range(self.array._nfields):
-                outlist.append(`self.array.field(i)[self.row]`)
+                if i >= self.start and i < self.end:
+                    outlist.append(`self.array.field(i)[self.row]`)
             return "(" + ", ".join(outlist) + ")"
 
 
@@ -5415,11 +5436,38 @@ class FITS_record(object):
         return self.__str__()
 
     def __getitem__(self,key):
+        if isinstance(key, (str, unicode)):
+            indx = _get_index(self.array._coldefs.names, key)
 
-        return self.array.field(key)[self.row]
+            if indx < self.start or indx > self.end - 1:
+                raise KeyError("Key '%s' does not exist."%key)
+        else:
+            indx = key + self.start
+
+            if indx > self.end - 1:
+                raise IndexError("index out of bounds")
+
+        return self.array.field(indx)[self.row]
 
     def __setitem__(self,fieldName,value):
-        self.array.field(fieldName)[self.row] = value
+        if isinstance(fieldName, (str, unicode)):
+            indx = _get_index(self.array._coldefs.names, fieldName)
+
+            if indx < self.start or indx > self.end - 1:
+                raise KeyError("Key '%s' does not exist."%fieldName)
+        else:
+            indx = fieldName + self.start
+
+            if indx > self.end - 1:
+                raise IndexError("index out of bounds")
+
+        self.array.field(indx)[self.row] = value
+
+    def __len__(self):
+        return self.end - self.start
+
+    def __getslice__(self, i, j):
+        return FITS_record(self.array,self.row,i,j)
 
 class FITS_rec(rec.recarray):
     """
