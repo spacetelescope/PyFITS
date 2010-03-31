@@ -810,6 +810,32 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         os.remove('table1.fits')
 
+    def testFITSrecordLen(self):
+        counts = num.array([312,334,308,317])
+        names = num.array(['NGC1','NGC2','NGC3','NCG4'])
+        c1=pyfits.Column(name='target',format='10A',array=names)
+        c2=pyfits.Column(name='counts',format='J',unit='DN',array=counts)
+        c3=pyfits.Column(name='notes',format='A10')
+        c4=pyfits.Column(name='spectrum',format='5E')
+        c5=pyfits.Column(name='flag',format='L',array=[1,0,1,1])
+        coldefs=pyfits.ColDefs([c1,c2,c3,c4,c5])
+        tbhdu=pyfits.new_table(coldefs)
+        tbhdu.writeto('table1.fits')
+
+        t1=pyfits.open('table1.fits')
+
+        self.assertEqual(len(t1[1].data[0]),5)
+        self.assertEqual(len(t1[1].data[0][0:4]),4)
+        self.assertEqual(len(t1[1].data[0][0:5]),5)
+        self.assertEqual(len(t1[1].data[0][0:6]),5)
+        self.assertEqual(len(t1[1].data[0][0:7]),5)
+        self.assertEqual(len(t1[1].data[0][1:4]),3)
+        self.assertEqual(len(t1[1].data[0][1:5]),4)
+        self.assertEqual(len(t1[1].data[0][1:6]),4)
+        self.assertEqual(len(t1[1].data[0][1:7]),4)
+
+        os.remove('table1.fits')
+
 
 
 if __name__ == '__main__':

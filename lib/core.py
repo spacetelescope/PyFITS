@@ -5401,7 +5401,7 @@ class FITS_record(object):
             self.start = startColumn
 
         if endColumn <= 0 or endColumn > len:
-            self.end = len + 1
+            self.end = len
         else:
             self.end = endColumn
 
@@ -5464,7 +5464,7 @@ class FITS_record(object):
         self.array.field(indx)[self.row] = value
 
     def __len__(self):
-        return self.end - self.start
+        return min(self.end - self.start, self.array._nfields)
 
     def __getslice__(self, i, j):
         return FITS_record(self.array,self.row,i,j)

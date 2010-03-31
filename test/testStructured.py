@@ -2,6 +2,7 @@ from __future__ import division # confidence high
 
 import numpy
 import pyfits
+import os
 from sys import stdout
 
 
@@ -115,6 +116,7 @@ def test(verbose=False):
     if not compare_arrays(data2, dataviewcheck, verbose=True):
         raise ValueError,'Fail'
 
+    os.remove(outfile)
 
 if __name__=='__main__':
     test()

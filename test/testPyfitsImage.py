@@ -283,10 +283,10 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         self.assertEqual(output,["Filename: test0.fits\n",
 "No.    Name         Type      Cards   Dimensions   Format\n",
 "0    PRIMARY     PrimaryHDU     138  ()            int16\n",
-"1    SCI         ImageHDU        61  (400, 400)    int16\n",
-"2    SCI         ImageHDU        61  (400, 400)    int16\n",
-"3    SCI         ImageHDU        61  (400, 400)    int16\n",
-"4    SCI         ImageHDU        61  (400, 400)    int16\n"])
+"1    SCI         ImageHDU        61  (40, 40)      int16\n",
+"2    SCI         ImageHDU        61  (40, 40)      int16\n",
+"3    SCI         ImageHDU        61  (40, 40)      int16\n",
+"4    SCI         ImageHDU        61  (40, 40)      int16\n"])
 
     def testIOManipulation(self):
         # Get a keyword value.  An extension can be referred by name or by number.
@@ -336,7 +336,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         # The flush method will write the current HDUList object back to the newly
         # created file on disk.  The HDUList is still open and can be further operated.
         n.flush()
-        self.assertEqual(n[1].data[1,1],348)
+        self.assertEqual(n[1].data[1,1],349)
 
         #modify a data point
         n[1].data[1,1]=99
@@ -355,7 +355,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         a=pyfits.open('test_append.fits',mode='append')
 
         # The above change did not take effect since this was made after the flush().
-        self.assertEqual(a[1].data[1,1],348)
+        self.assertEqual(a[1].data[1,1],349)
 
         a.append(r[1])
         a.close()
@@ -370,7 +370,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         # last flush) HDUList, the changes are written back "in place".
         self.assertEqual(u[0].header['rootname'],'U2EQ0201T')
         u[0].header['rootname']='abc'
-        self.assertEqual(u[1].data[1,1],348)
+        self.assertEqual(u[1].data[1,1],349)
         u[1].data[1,1]=99
         u.flush()
 
@@ -402,7 +402,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         r=pyfits.open('test0.fits')
         r.readall()
         r.close()
-        self.assertEqual(r[1].data[1,1],314)
+        self.assertEqual(r[1].data[1,1],315)
 
         # create an HDU with data only
         data = numpy.ones((3,5), dtype=np.float32)
