@@ -5,6 +5,9 @@ import pyfits
 import numpy
 import numpy as np
 import exceptions,os,sys
+import os.path
+
+test_dir = os.path.dirname(__file__) + "/"
 
 # Define a junk file for redirection of stdout
 jfile = "junkfile.fits"
@@ -254,7 +257,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
 
         # Open a file read-only (the default mode), the content of the FITS file
         # are read into memory.
-        r=pyfits.open('test0.fits')                 # readonly
+        r=pyfits.open(test_dir+'test0.fits')                 # readonly
 
         # data parts are latent instantiation, so if we close the HDUList without
         # touching data, data can not be accessed.
@@ -267,7 +270,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         self.assertEqual(x,"Failed as expected.")
 
     def testOpen2(self):
-        r=pyfits.open('test0.fits')
+        r=pyfits.open(test_dir+'test0.fits')
 
         # Use the "info" method for a summary of the FITS file's content.
         tmpfile = open(jfile,'w')
@@ -280,7 +283,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         tmpfile.close()
         os.remove(jfile)
         r.close()
-        self.assertEqual(output,["Filename: test0.fits\n",
+        self.assertEqual(output,["Filename: "+test_dir+"test0.fits\n",
 "No.    Name         Type      Cards   Dimensions   Format\n",
 "0    PRIMARY     PrimaryHDU     138  ()            int16\n",
 "1    SCI         ImageHDU        61  (40, 40)      int16\n",
@@ -291,7 +294,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
     def testIOManipulation(self):
         # Get a keyword value.  An extension can be referred by name or by number.
         # Both extension and keyword names are case insensitive.
-        r=pyfits.open('test0.fits')
+        r=pyfits.open(test_dir+'test0.fits')
         self.assertEqual(r['primary'].header['naxis'],0)
         self.assertEqual(r[0].header['naxis'],0)
 
@@ -399,7 +402,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         #Another useful new HDUList method is readall.  It will "touch" the data parts
         # in all HDUs, so even if the HDUList is closed, we can still operate on
         # the data.
-        r=pyfits.open('test0.fits')
+        r=pyfits.open(test_dir+'test0.fits')
         r.readall()
         r.close()
         self.assertEqual(r[1].data[1,1],315)
@@ -428,7 +431,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
 
     def testMemmoryMapping(self):
         # memory mapping
-        f1 = pyfits.open('test0.fits', memmap=1)
+        f1 = pyfits.open(test_dir+'test0.fits', memmap=1)
         f1.close()
 
     def testVerificationOnOutput(self):
@@ -462,7 +465,7 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
 
     def testSection(self):
         # section testing
-        fs=pyfits.open('arange.fits')
+        fs=pyfits.open(test_dir+'arange.fits')
         self.assertEqual(fs[0].section[3,2,5],np.array([357]))
         self.assertEqual(fs[0].section[3,2,:].all(),np.array([352, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362]).all())
         self.assertEqual(fs[0].section[3,2,4:].all(),np.array([356, 357, 358, 359, 360, 361, 362]).all())

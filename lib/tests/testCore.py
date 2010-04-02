@@ -3,14 +3,17 @@ from __future__ import division # confidence high
 import pyfits
 import numpy as np
 import sys
+import os.path
+
+test_dir = os.path.dirname(__file__) + "/"
 
 def test_with_statement():
     if sys.hexversion >= 0x02050000:
         exec("""from __future__ import with_statement
-with pyfits.open("ascii.fits") as f: pass""")
+with pyfits.open(test_dir+"ascii.fits") as f: pass""")
 
 def test_naxisj_check():
-    hdulist = pyfits.open("o4sp040b0_raw.fits")
+    hdulist = pyfits.open(test_dir+"o4sp040b0_raw.fits")
 
     hdulist[1].header.update("NAXIS3", 500)
 
@@ -33,9 +36,9 @@ def test_byteswap():
     l.append(p)
     l.append(t)
 
-    l.writeto('test.fits', clobber=True)
+    l.writeto(test_dir+'test.fits', clobber=True)
 
-    p = pyfits.open('test.fits')
+    p = pyfits.open(test_dir+'test.fits')
     assert p[1].data[1]['foo'] == 60000.0
 
 def test_add_del_columns():
@@ -47,7 +50,7 @@ def test_add_del_columns():
     assert p.names == ['BAR']
 
 def test_add_del_columns2():
-    hdulist = pyfits.open("tb.fits")
+    hdulist = pyfits.open(test_dir+"tb.fits")
     table = hdulist[1]
     assert table.data.dtype.names == ('c1', 'c2', 'c3', 'c4')
     assert table.columns.names == ['c1', 'c2', 'c3', 'c4']
@@ -61,8 +64,8 @@ def test_add_del_columns2():
     assert table.data.dtype.names == ('c2', 'c4', 'foo')
     assert table.columns.names == ['c2', 'c4', 'foo']
 
-    hdulist.writeto("test.fits", clobber=True)
-    hdulist = pyfits.open("test.fits")
+    hdulist.writeto(test_dir+"test.fits", clobber=True)
+    hdulist = pyfits.open(test_dir+"test.fits")
     table = hdulist[1]
     assert table.data.dtype.names == ('c1', 'c2', 'c3')
     assert table.columns.names == ['c1', 'c2', 'c3']

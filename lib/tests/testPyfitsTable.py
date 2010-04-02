@@ -7,6 +7,9 @@ import exceptions,os,sys
 import numpy as num
 from pyfits import rec
 from numpy import char as chararray
+import os.path
+
+test_dir = os.path.dirname(__file__) + "/"
 
 # Define a junk file for redirection of stdout
 jfile = "junkfile.fits"
@@ -99,8 +102,8 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
     def testOpen(self):
         # open some existing FITS files:
-        tt=pyfits.open('tb.fits')
-        fd=pyfits.open('test0.fits')
+        tt=pyfits.open(test_dir+'tb.fits')
+        fd=pyfits.open(test_dir+'test0.fits')
 
         # create some local arrays
         a1=chararray.array(['abc','def','xx'])
@@ -186,7 +189,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
     def testBinaryTable(self):
         # binary table:
-        t=pyfits.open('tb.fits')
+        t=pyfits.open(test_dir+'tb.fits')
         self.assertEqual(t[1].header['tform1'],'1J')
 
         tmpfile = open(jfile,'w')
@@ -225,7 +228,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
     def testAsciiTable(self):
         # ASCII table
-        a=pyfits.open('ascii.fits')
+        a=pyfits.open(test_dir+'ascii.fits')
         ra1 = rec.array([
             (10.123000144958496, 37),
             (5.1999998092651367, 23),
@@ -700,7 +703,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         os.remove('newtable.fits')
 
     def testMaskArray(self):
-        t=pyfits.open('table.fits')
+        t=pyfits.open(test_dir+'table.fits')
         tbdata = t[1].data
         mask = tbdata.field('V_mag') > 12
         newtbdata = tbdata[mask]

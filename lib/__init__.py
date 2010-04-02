@@ -23,3 +23,8 @@ for n in _locals[::-1]:
     if n[0] == '_' or n in ('re', 'os', 'tempfile', 'exceptions', 'operator', 'num', 'ndarray', 'chararray', 'rec', 'objects', 'Memmap', 'maketrans', 'open'):
         _locals.remove(n)
 __all__ = _locals
+
+import pytools.tester
+def test(*args,**kwds):
+    pytools.tester.test(modname=__name__, *args, **kwds)
+

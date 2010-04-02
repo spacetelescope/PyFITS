@@ -5,6 +5,9 @@ import pyfits
 import numpy
 import numpy as np
 import exceptions,os,sys
+import os.path
+
+test_dir = os.path.dirname(__file__) + "/"
 
 # Define a junk file for redirection of stdout
 jfile = "junkfile.fits"
@@ -20,7 +23,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         pass
 
     def testSampleFile(self):
-        hdul=pyfits.open('checksum.fits',checksum=True)
+        hdul=pyfits.open(test_dir+'checksum.fits',checksum=True)
 
     def testImageCreate(self):
         n=np.arange(100)
@@ -30,14 +33,14 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         os.remove('tmp.fits')
 
     def testScaledData(self):
-        hdul=pyfits.open('scale.fits')
+        hdul=pyfits.open(test_dir+'scale.fits')
         hdul[0].scale('int16','old')
         hdul.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',checksum=True)
         os.remove('tmp.fits')
 
     def testUint16Data(self):
-        hdul=pyfits.open('o4sp040b0_raw.fits',uint16=1)
+        hdul=pyfits.open(test_dir+'o4sp040b0_raw.fits',uint16=1)
         hdul.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',uint16=1,checksum=True)
         os.remove('tmp.fits')
@@ -88,7 +91,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         os.remove('tmp.fits')
 
     def testCompressedImageData(self):
-        hdul=pyfits.open('comp.fits')
+        hdul=pyfits.open(test_dir+'comp.fits')
         hdul.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',checksum=True)
         os.remove('tmp.fits')
@@ -105,10 +108,10 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         os.remove('tmp.fits')
 
     def testOpenWithNoKeywords(self):
-        hdul=pyfits.open('arange.fits',checksum=True)
+        hdul=pyfits.open(test_dir+'arange.fits',checksum=True)
 
     def testAppend(self):
-        hdul=pyfits.open('tb.fits')
+        hdul=pyfits.open(test_dir+'tb.fits')
         hdul.writeto('tmp.fits', clobber=True)
         n=np.arange(100)
         pyfits.append('tmp.fits',n,checksum=True)

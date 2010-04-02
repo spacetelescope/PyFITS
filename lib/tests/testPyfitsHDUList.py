@@ -4,6 +4,9 @@ import unittest
 import pyfits
 import numpy as np
 import exceptions,os,sys
+import os.path
+
+test_dir = os.path.dirname(__file__) + "/"
 
 # Define a junk file for redirection of stdout
 jfile = "junkfile.fits"
@@ -87,7 +90,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
     def testAppendTableExtensionToEmptyList(self):
         # Tests appending a Simple Table ExtensionHDU to a empty HDUList.
         hdul = pyfits.HDUList()
-        hdul1 = pyfits.open('tb.fits')
+        hdul1 = pyfits.open(test_dir+'tb.fits')
         hdul.append(hdul1[1])
         tmpfile = open(jfile,'w')
         sys.stdout = tmpfile
@@ -154,7 +157,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
 
     def testAppendPrimaryToNonEmptyList(self):
         # Tests appending a Simple PrimaryHDU to a non-empty HDUList.
-        hdul = pyfits.open('arange.fits')
+        hdul = pyfits.open(test_dir+'arange.fits')
         hdu = pyfits.PrimaryHDU(np.arange(100,dtype=np.int32))
         hdul.append(hdu)
         tmpfile = open(jfile,'w')
@@ -166,7 +169,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         output = tmpfile.readlines()
         tmpfile.close()
         os.remove(jfile)
-        self.assertEqual(output,["Filename: arange.fits\n",
+        self.assertEqual(output,["Filename: "+test_dir+"arange.fits\n",
 "No.    Name         Type      Cards   Dimensions   Format\n",
 "0    PRIMARY     PrimaryHDU       7  (11, 10, 7)   int32\n",
 "1    None        ImageHDU         6  (100,)        int32\n"])
@@ -189,7 +192,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
 
     def testAppendExtensionToNonEmptyList(self):
         # Tests appending a Simple ExtensionHDU to a non-empty HDUList.
-        hdul = pyfits.open('tb.fits')
+        hdul = pyfits.open(test_dir+'tb.fits')
         hdul.append(hdul[1])
         tmpfile = open(jfile,'w')
         sys.stdout = tmpfile
@@ -200,7 +203,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         output = tmpfile.readlines()
         tmpfile.close()
         os.remove(jfile)
-        self.assertEqual(output,["Filename: tb.fits\n",
+        self.assertEqual(output,["Filename: "+test_dir+"tb.fits\n",
 "No.    Name         Type      Cards   Dimensions   Format\n",
 "0    PRIMARY     PrimaryHDU      11  ()            int16\n",
 "1                BinTableHDU     24  2R x 4C       [1J, 3A, 1E, 1L]\n",
@@ -373,7 +376,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
 
     def testInsertPrimaryToNonEmptyList(self):
         # Tests inserting a Simple PrimaryHDU to a non-empty HDUList.
-        hdul = pyfits.open('arange.fits')
+        hdul = pyfits.open(test_dir+'arange.fits')
         hdu = pyfits.PrimaryHDU(np.arange(100,dtype=np.int32))
         hdul.insert(1,hdu)
         tmpfile = open(jfile,'w')
@@ -385,7 +388,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         output = tmpfile.readlines()
         tmpfile.close()
         os.remove(jfile)
-        self.assertEqual(output,["Filename: arange.fits\n",
+        self.assertEqual(output,["Filename: "+test_dir+"arange.fits\n",
 "No.    Name         Type      Cards   Dimensions   Format\n",
 "0    PRIMARY     PrimaryHDU       7  (11, 10, 7)   int32\n",
 "1    None        ImageHDU         6  (100,)        int32\n"])
@@ -408,7 +411,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
 
     def testInsertExtensionToNonEmptyList(self):
         # Tests inserting a Simple ExtensionHDU to a non-empty HDUList.
-        hdul = pyfits.open('tb.fits')
+        hdul = pyfits.open(test_dir+'tb.fits')
         hdul.insert(1,hdul[1])
         tmpfile = open(jfile,'w')
         sys.stdout = tmpfile
@@ -419,7 +422,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         output = tmpfile.readlines()
         tmpfile.close()
         os.remove(jfile)
-        self.assertEqual(output,["Filename: tb.fits\n",
+        self.assertEqual(output,["Filename: "+test_dir+"tb.fits\n",
 "No.    Name         Type      Cards   Dimensions   Format\n",
 "0    PRIMARY     PrimaryHDU      11  ()            int16\n",
 "1                BinTableHDU     24  2R x 4C       [1J, 3A, 1E, 1L]\n",
@@ -504,7 +507,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
 
     def testInsertExtensionToPrimaryInNonEmptyList(self):
         # Tests inserting a Simple ExtensionHDU to a non-empty HDUList.
-        hdul = pyfits.open('tb.fits')
+        hdul = pyfits.open(test_dir+'tb.fits')
         hdul.insert(0,hdul[1])
         tmpfile = open(jfile,'w')
         sys.stdout = tmpfile
@@ -515,7 +518,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         output = tmpfile.readlines()
         tmpfile.close()
         os.remove(jfile)
-        self.assertEqual(output,["Filename: tb.fits\n",
+        self.assertEqual(output,["Filename: "+test_dir+"tb.fits\n",
 "No.    Name         Type      Cards   Dimensions   Format\n",
 "0    PRIMARY     PrimaryHDU       4  ()            \n",
 "1                BinTableHDU     24  2R x 4C       [1J, 3A, 1E, 1L]\n",
@@ -543,7 +546,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
     def testInsertImageExtensionToPrimaryInNonEmptyList(self):
         # Tests inserting a Simple Image ExtensionHDU to a non-empty HDUList
         # as the primary HDU.
-        hdul = pyfits.open('tb.fits')
+        hdul = pyfits.open(test_dir+'tb.fits')
         hdu = pyfits.ImageHDU(np.arange(100,dtype=np.int32))
         hdul.insert(0,hdu)
         tmpfile = open(jfile,'w')
@@ -555,7 +558,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         output = tmpfile.readlines()
         tmpfile.close()
         os.remove(jfile)
-        self.assertEqual(output,["Filename: tb.fits\n",
+        self.assertEqual(output,["Filename: "+test_dir+"tb.fits\n",
 "No.    Name         Type      Cards   Dimensions   Format\n",
 "0    PRIMARY     PrimaryHDU       5  (100,)        int32\n",
 "1    None        ImageHDU        12  ()            \n",
@@ -580,9 +583,9 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
 
     def testFilename(self):
         # Tests the HDUList filename method.
-        hdul = pyfits.open('tb.fits')
+        hdul = pyfits.open(test_dir+'tb.fits')
         name = hdul.filename()
-        self.assertEqual(name,"tb.fits")
+        self.assertEqual(name,test_dir+"tb.fits")
 
     def testFileLike(self):
         # Tests the use of a file like object with no tell or seek methods

@@ -4,7 +4,9 @@ import numpy
 import pyfits
 import os
 from sys import stdout
+import os.path
 
+test_dir = os.path.dirname(__file__) + "/"
 
 def compare_arrays(arr1in, arr2in, verbose=False):
     """
@@ -71,7 +73,7 @@ def get_test_data(verbose=False):
 
 
 def test(verbose=False):
-    fname='stddata.fits'
+    fname=test_dir+'stddata.fits'
 
     print 'Reading from ',fname
     data1,h1 = pyfits.getdata(fname, ext=1, header=True)
