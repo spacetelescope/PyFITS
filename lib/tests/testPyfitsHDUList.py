@@ -309,7 +309,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
     def testInsertTableExtensionToEmptyList(self):
         # Tests inserting a Simple Table ExtensionHDU to a empty HDUList.
         hdul = pyfits.HDUList()
-        hdul1 = pyfits.open('tb.fits')
+        hdul1 = pyfits.open(test_dir+'tb.fits')
         hdul.insert(0,hdul1[1])
         tmpfile = open(jfile,'w')
         sys.stdout = tmpfile
