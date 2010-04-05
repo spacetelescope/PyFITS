@@ -4,6 +4,7 @@ import pyfits
 import numpy as np
 import sys
 import os.path
+import os
 
 test_dir = os.path.dirname(__file__) + "/"
 
@@ -36,10 +37,11 @@ def test_byteswap():
     l.append(p)
     l.append(t)
 
-    l.writeto(test_dir+'test.fits', clobber=True)
+    l.writeto('test.fits', clobber=True)
 
-    p = pyfits.open(test_dir+'test.fits')
+    p = pyfits.open('test.fits')
     assert p[1].data[1]['foo'] == 60000.0
+    os.remove('test.fits')
 
 def test_add_del_columns():
     p = pyfits.ColDefs([])
@@ -64,8 +66,9 @@ def test_add_del_columns2():
     assert table.data.dtype.names == ('c2', 'c4', 'foo')
     assert table.columns.names == ['c2', 'c4', 'foo']
 
-    hdulist.writeto(test_dir+"test.fits", clobber=True)
-    hdulist = pyfits.open(test_dir+"test.fits")
+    hdulist.writeto("test.fits", clobber=True)
+    hdulist = pyfits.open("test.fits")
     table = hdulist[1]
     assert table.data.dtype.names == ('c1', 'c2', 'c3')
     assert table.columns.names == ['c1', 'c2', 'c3']
+    os.remove('test.fits')

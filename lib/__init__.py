@@ -24,7 +24,10 @@ for n in _locals[::-1]:
         _locals.remove(n)
 __all__ = _locals
 
-import pytools.tester
-def test(*args,**kwds):
-    pytools.tester.test(modname=__name__, *args, **kwds)
+try:
+    import pytools.tester
+    def test(*args,**kwds):
+        pytools.tester.test(modname=__name__, *args, **kwds)
+except ImportError:
+    pass
 

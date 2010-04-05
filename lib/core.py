@@ -4926,7 +4926,7 @@ class ColDefs(object):
                     last_end = _end
                 self._width = _end
             else:
-                return None
+                raise KeyError, 'Attribute %s not defined.' % name
         else:
             raise KeyError, 'Attribute %s not defined.' % name
 
