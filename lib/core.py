@@ -8885,7 +8885,10 @@ class _File:
                 # name does not begin with a drive letter (Windows), try to
                 # get it over the web.
                 #
-                self.name, fileheader = urllib.urlretrieve(name)
+                try:
+                    self.name, fileheader = urllib.urlretrieve(name)
+                except IOError, e:
+                    raise e
             else:
                 self.name = name
         else:
