@@ -5252,14 +5252,20 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
 
     if isinstance(input, ColDefs):
         if input._tbtype == tbtype:
-            tmp = hdu.columns = input
+            # Create a new ColDefs object from the input object and assign
+            # it to the ColDefs attribute of the new hdu.
+            tmp = hdu.columns = ColDefs(input, tbtype)
         else:
             raise ValueError, 'column definitions have a different table type'
     elif isinstance(input, FITS_rec): # input is a FITS_rec
-        tmp = hdu.columns = input._coldefs
+        # Create a new ColDefs object from the input FITS_rec's ColDefs
+        # object and assign it to the ColDefs attribute of the new hdu.
+        tmp = hdu.columns = ColDefs(input._coldefs, tbtype)
     elif isinstance(input, np.ndarray):
         tmp = hdu.columns = eval(tbtype)(input).data._coldefs
     else:                 # input is a list of Columns
+        # Create a new ColDefs object from the input list of Columns and
+        # assign it to the ColDefs attribute of the new hdu.
         tmp = hdu.columns = ColDefs(input, tbtype)
 
     # read the delayed data
@@ -5289,16 +5295,26 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
            data_type = 'S'+str(tmp.spans[j])
            dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
 
-        hdu.data = FITS_rec(rec.array(' '*_itemsize*nrows, dtype=dtype, shape=nrows))
+        hdu.data = FITS_rec(rec.array(' '*_itemsize*nrows, dtype=dtype,
+                                      shape=nrows))
         hdu.data.setflags(write=True)
     else:
-        hdu.data = FITS_rec(rec.array(None, formats=",".join(tmp._recformats), names=tmp.names, shape=nrows))
+        hdu.data = FITS_rec(rec.array(None, formats=",".join(tmp._recformats),
+                                      names=tmp.names, shape=nrows))
 
     hdu.data._coldefs = hdu.columns
     hdu.data.formats = hdu.columns.formats
 
-    # populate data to the new table
+    # Populate data to the new table from the ndarrays in the input ColDefs
+    # object.
     for i in range(len(tmp)):
+        # For each column in the ColDef object, determine the number
+        # of rows in that column.  This will be either the number of
+        # rows in the ndarray associated with the column, or the
+        # number of rows given in the call to this function, which
+        # ever is smaller.  If the input FILL argument is true, the
+        # number of rows is set to zero so that no data is copied from
+        # the original input data.
         if tmp._arrays[i] is None:
             size = 0
         else:
@@ -5308,16 +5324,30 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
         if fill:
             n = 0
 
+        # Get any scale factors from the FITS_rec
         (_scale, _zero, bscale, bzero) = hdu.data._get_scale_factors(i)[3:]
 
         if n > 0:
+            # Only copy data if there is input data to copy
+            # Copy all of the data from the input ColDefs object for this
+            # column to the new FITS_rec data array for this column.
             if isinstance(tmp._recformats[i], _FormatX):
+                # Data is a bit array
                 if tmp._arrays[i][:n].shape[-1] == tmp._recformats[i]._nx:
-                    _wrapx(tmp._arrays[i][:n], rec.recarray.field(hdu.data,i)[:n], tmp._recformats[i]._nx)
+                    _wrapx(tmp._arrays[i][:n],
+                           rec.recarray.field(hdu.data,i)[:n],
+                           tmp._recformats[i]._nx)
                 else: # from a table parent data, just pass it
                     rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
             elif isinstance(tmp._recformats[i], _FormatP):
-                hdu.data._convert[i] = _makep(tmp._arrays[i][:n], rec.recarray.field(hdu.data,i)[:n], tmp._recformats[i]._dtype)
+                hdu.data._convert[i] = _makep(tmp._arrays[i][:n],
+                                            rec.recarray.field(hdu.data,i)[:n],
+                                            tmp._recformats[i]._dtype)
+            elif tmp._recformats[i] is _booltype and \
+                 tmp._arrays[i].dtype == bool:
+                # column is boolean 
+                rec.recarray.field(hdu.data,i)[:n] = \
+                           np.where(tmp._arrays[i]==False, ord('F'), ord('T'))
             else:
                 if tbtype == 'TableHDU':
 
@@ -5325,7 +5355,8 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                     if isinstance(tmp._arrays[i], chararray.chararray):
                         rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
                     else:
-                        hdu.data._convert[i] = np.zeros(nrows, dtype=tmp._arrays[i].dtype)
+                        hdu.data._convert[i] = np.zeros(nrows,
+                                                    dtype=tmp._arrays[i].dtype)
                         if _scale or _zero:
                             _arr = tmp._arrays[i].copy()
                         else:
@@ -5339,10 +5370,11 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                     rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
 
         if n < nrows:
-            # initialize the new data
+            # If there are additional rows in the new table that were not
+            # copied from the input ColDefs object, initialize the new data
             if tbtype == 'BinTableHDU':
                 if isinstance(rec.recarray.field(hdu.data,i), np.ndarray):
-                    # make the scaled data = 0, not the stored data
+                    # make the scaled data = 0
                     rec.recarray.field(hdu.data,i)[n:] = -bzero/bscale
                 else:
                     rec.recarray.field(hdu.data,i)[n:] = ''
@@ -5602,8 +5634,29 @@ class FITS_rec(rec.recarray):
             return newrecord
 
     def __setitem__(self,row,value):
-        for i in range(self._nfields):
-            self.field(self.names[i])[row] = value.field(self.names[i])
+        if isinstance(value, FITS_record):
+            for i in range(self._nfields):
+                self.field(self.names[i])[row] = value.field(self.names[i])
+        elif isinstance(value, (tuple, list)):
+            if self._nfields == len(value):
+                for i in range (self._nfields):
+                    self.field(i)[row] = value[i]
+            else:
+               raise ValueError, \
+                     "input tuple or list required to have %s elements" \
+                     % self._nfields
+        else:
+            raise TypeError, \
+                  "assignment requires a FITS_record, tuple, or list as input"
+
+    def __setslice__(self,start,end,value):
+        _end = min(len(self),end)
+        _end = max(0,_end)
+        _start = max(0,start)
+        _end = min(_end, _start+len(value))
+
+        for i in range(_start,_end):
+            self.__setitem__(i,value[i-_start])
 
     def _get_scale_factors(self, indx):
         """
@@ -6142,6 +6195,20 @@ class _TableBaseHDU(_ExtensionHDU):
 
                 self.columns = self.data._coldefs
                 self.update()
+
+                try:
+                   # Make the ndarrays in the Column objects of the ColDefs
+                   # object of the HDU reference the same ndarray as the HDU's
+                   # FITS_rec object.
+                    for i in range(len(self.columns)):
+                        self.columns.data[i].array = self.data.field(i)
+
+                    # Delete the _arrays attribute so that it is recreated to
+                    # point to the new data placed in the column objects above
+                    if self.columns.__dict__.has_key('_arrays'):
+                        del self.columns.__dict__['_arrays']
+                except (TypeError, AttributeError), e:
+                    pass
             elif data is None:
                 pass
             else:
