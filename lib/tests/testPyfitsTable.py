@@ -1456,6 +1456,28 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(tbhdu1.columns._arrays[1][0], 800)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 800)
 
+    def testBinTableWithLogicalArray(self):
+        c1=pyfits.Column(name='flag',format='2L',
+                         array=[[True,False],[False,True]])
+        coldefs=pyfits.ColDefs([c1])
+
+        tbhdu1=pyfits.new_table(coldefs)
+
+        self.assertEqual(tbhdu1.data.field('flag')[0].all(),
+                         num.array([True,False],
+                                   dtype = num.bool).all())
+        self.assertEqual(tbhdu1.data.field('flag')[1].all(),
+                         num.array([False,True],
+                                   dtype = num.bool).all())
+
+        tbhdu = pyfits.new_table(tbhdu1.data)
+
+        self.assertEqual(tbhdu.data.field('flag')[0].all(),
+                         num.array([True,False],
+                                   dtype = num.bool).all())
+        self.assertEqual(tbhdu.data.field('flag')[1].all(),
+                         num.array([False,True],
+                                   dtype = num.bool).all())
 
 
 

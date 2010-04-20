@@ -4748,7 +4748,7 @@ class Column:
         if isinstance(array, np.ndarray):
 
             # boolean needs to be scaled too
-            if recfmt == _booltype:
+            if recfmt[-2:] == _booltype:
                 _out = np.zeros(array.shape, dtype=recfmt)
                 array = np.where(array==0, ord('F'), ord('T'))
 
@@ -5343,7 +5343,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                 hdu.data._convert[i] = _makep(tmp._arrays[i][:n],
                                             rec.recarray.field(hdu.data,i)[:n],
                                             tmp._recformats[i]._dtype)
-            elif tmp._recformats[i] is _booltype and \
+            elif tmp._recformats[i][-2:] == _booltype and \
                  tmp._arrays[i].dtype == bool:
                 # column is boolean 
                 rec.recarray.field(hdu.data,i)[:n] = \
