@@ -40,7 +40,7 @@ class build_ext(_build_ext):
 
 
 setupargs = {
-    'version' :                 "2.2.2dev588",
+    'version' :                 "2.2.2dev589",
     'description' :             "General Use Python Tools",
     'author' :                  "J. C. Hsu, Paul Barrett, Christopher Hanley, James Taylor, Michael Droettboom",
     'maintainer_email' :        "help@stsci.edu",

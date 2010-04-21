@@ -117,7 +117,7 @@ def _tmpName(input):
     if not os.path.exists(_name):
         return _name
     else:
-        raise _name, "exists"
+        raise RuntimeError("%s exists" % _name)
 
 def _fromfile(infile, dtype, count, sep):
     if isinstance(infile, file):
@@ -4845,7 +4845,9 @@ class ColDefs(object):
         elif isinstance(input, (list, tuple)):
             for col in input:
                 if not isinstance(col, Column):
-                    raise "Element %d in the ColDefs input is not a Column." % input.index(col)
+                    raise TypeError(
+                           "Element %d in the ColDefs input is not a Column."
+                           % input.index(col))
             self.data = [col.copy() for col in input]
 
             # if the format of an ASCII column has no width, add one
@@ -8938,7 +8940,7 @@ class _File:
     """
     def __init__(self, name, mode='copyonwrite', memmap=0, **parms):
         if mode not in _python_mode.keys():
-            raise "Mode '%s' not recognized" % mode
+            raise ValueError, "Mode '%s' not recognized" % mode
 
 
         if isinstance(name, file):
@@ -8982,7 +8984,8 @@ class _File:
         self.uint = parms.get('uint16', False) or parms.get('uint', False)
 
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
-            raise "Memory mapping is not implemented for mode `%s`." % mode
+            raise NotImplementedError(
+                   "Memory mapping is not implemented for mode `%s`." % mode)
         else:
             if isinstance(name, file) or isinstance(name, gzip.GzipFile):
                 if hasattr(name, 'closed'):
@@ -8998,7 +9001,7 @@ class _File:
 
                 if not closed:
                     if _python_mode[mode] != foMode:
-                        raise "Input mode '%s' (%s) " \
+                        raise ValueError, "Input mode '%s' (%s) " \
                               % (mode, _python_mode[mode]) + \
                               "does not match mode of the input file (%s)." \
                               % name.mode
@@ -9012,7 +9015,8 @@ class _File:
                 if os.path.splitext(self.name)[1] == '.gz':
                     # Handle gzip files
                     if mode in ['update', 'append']:
-                        raise "Writing to gzipped fits files is not supported"
+                        raise NotImplementedError(
+                              "Writing to gzipped fits files is not supported")
                     zfile = gzip.GzipFile(self.name)
                     self.tfile = tempfile.NamedTemporaryFile('rb+',-1,'.fits')
                     self.name = self.tfile.name
@@ -9022,11 +9026,13 @@ class _File:
                 elif os.path.splitext(self.name)[1] == '.zip':
                     # Handle zip files
                     if mode in ['update', 'append']:
-                        raise "Writing to zipped fits files is not supported"
+                        raise NotImplementedError(
+                              "Writing to zipped fits files is not supported")
                     zfile = zipfile.ZipFile(self.name)
                     namelist = zfile.namelist()
                     if len(namelist) != 1:
-                        raise "Zip files with multiple members are not supported."
+                        raise NotImplementedError(
+                          "Zip files with multiple members are not supported.")
                     self.tfile = tempfile.NamedTemporaryFile('rb+',-1,'.fits')
                     self.name = self.tfile.name
                     self.__file = self.tfile.file
@@ -9435,11 +9441,13 @@ class HDUList(list, _Verify):
         if isinstance(hdus, _ValidHDU):
             hdus = [hdus]
         elif not isinstance(hdus, (HDUList, list)):
-            raise "Invalid input for HDUList."
+            raise TypeError, "Invalid input for HDUList."
 
         for hdu in hdus:
             if not isinstance(hdu, _AllHDU):
-                raise "Element %d in the HDUList input is not an HDU." % hdus.index(hdu)
+                raise TypeError(
+                      "Element %d in the HDUList input is not an HDU."
+                      % hdus.index(hdu))
         list.__init__(self, hdus)
 
     def __iter__(self):
