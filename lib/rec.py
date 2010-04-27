@@ -1,5 +1,5 @@
 # All of the functions allow formats to be a dtype
-from __future__ import division
+from __future__ import division # confidence high
 __all__ = ['record', 'recarray', 'format_parser']
 
 import numpy.core.numeric as sb
