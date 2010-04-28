@@ -3856,6 +3856,7 @@ class _ImageBaseHDU(_ValidHDU):
                                             (64, np.uint64)):
                             if _bitpix == bits and self._bzero == 1 << (bits - 1):
                                 data = np.array(raw_data, dtype=dtype)
+                                data += (1 << (bits - 1))
                                 break
 
                     if data is None:
