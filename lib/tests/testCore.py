@@ -72,3 +72,11 @@ def test_add_del_columns2():
     assert table.data.dtype.names == ('c1', 'c2', 'c3')
     assert table.columns.names == ['c1', 'c2', 'c3']
     os.remove('test.fits')
+
+def test_uint():
+    hdulist_f = pyfits.open(test_dir+"o4sp040b0_raw.fits")
+    hdulist_i = pyfits.open(test_dir+"o4sp040b0_raw.fits", uint=True)
+
+    assert hdulist_f[1].data.dtype == np.float32
+    assert hdulist_i[1].data.dtype == np.uint16
+    assert np.all(hdulist_f[1].data == hdulist_i[1].data)
