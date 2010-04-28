@@ -3683,7 +3683,9 @@ class _ImageBaseHDU(_ValidHDU):
 #    NumCode = {8:'int8', 16:'int16', 32:'int32', 64:'int64', -32:'float32', -64:'float64'}
 #    ImgCode = {'<i2':8, '<i4':16, '<i8':32, '<i16':64, '<f8':-32, '<f16':-64}
     NumCode = {8:'uint8', 16:'int16', 32:'int32', 64:'int64', -32:'float32', -64:'float64'}
-    ImgCode = {'uint8':8, 'int16':16, 'uint16':16, 'int32':32, 'int64':64, 'float32':-32, 'float64':-64}
+    ImgCode = {'uint8':8, 'int16':16, 'uint16':16, 'int32':32,
+               'uint32':32, 'int64':64, 'uint64':64,
+               'float32':-32, 'float64':-64}
 
     def __init__(self, data=None, header=None):
         self._file, self._datLoc = None, None
@@ -3855,8 +3857,14 @@ class _ImageBaseHDU(_ValidHDU):
                                             (32, np.uint32),
                                             (64, np.uint64)):
                             if _bitpix == bits and self._bzero == 1 << (bits - 1):
+                                # Convert the input raw data into an unsigned
+                                # integer array and then scale the data
+                                # adjusting for the value of BZERO.  Note
+                                # that we subtract the value of BZERO instead
+                                # of adding because of the way numpy converts
+                                # the raw signed array into an unsigned array.
                                 data = np.array(raw_data, dtype=dtype)
-                                data += (1 << (bits - 1))
+                                data -= (1 << (bits - 1))
                                 break
 
                     if data is None:
