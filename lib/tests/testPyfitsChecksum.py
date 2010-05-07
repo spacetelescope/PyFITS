@@ -20,7 +20,10 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
 
     def tearDown(self):
         # Perform clean-up actions (if any)
-        pass
+        try:
+            os.remove('tmp.fits')
+        except:
+            pass
 
     def testSampleFile(self):
         hdul=pyfits.open(test_dir+'checksum.fits',checksum=True)

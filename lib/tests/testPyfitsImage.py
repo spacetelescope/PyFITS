@@ -20,7 +20,26 @@ class TestPyfitsImageFunctions(unittest.TestCase):
 
     def tearDown(self):
         # Perform clean-up actions (if any)
-        pass
+        try:
+            os.remove('test_new2.fits')
+        except:
+            pass
+
+        try:
+            os.remove('test_new.fits')
+        except:
+            pass
+
+        try:
+            os.remove('test_append.fits')
+        except:
+            pass
+
+        try:
+            os.remove('test_update.fits')
+        except:
+            pass
+
 
     def testCardConstructorDefaultArgs(self):
         # Test the constructor with default argument values.

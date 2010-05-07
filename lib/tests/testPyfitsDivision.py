@@ -21,17 +21,7 @@ class TestPyfitsDivisionFunctions(unittest.TestCase):
     def tearDown(self):
         # Perform clean-up actions (if any)
         try:
-            os.remove('newtable.fits')
-        except:
-            pass
-
-        try:
-            os.remove('table1.fits')
-        except:
-            pass
-
-        try:
-            os.remove('table2.fits')
+            os.remove('new.fits')
         except:
             pass
 

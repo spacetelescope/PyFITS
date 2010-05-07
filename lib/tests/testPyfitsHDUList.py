@@ -19,7 +19,20 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
 
     def tearDown(self):
         # Perform clean-up actions (if any)
-        pass
+        try:
+            os.remove('testAppend.fits')
+        except:
+            pass
+
+        try:
+            os.remove('testInsert.fits')
+        except:
+            pass
+
+        try:
+            os.remove('tmpfile.fits')
+        except:
+            pass
 
     def testAppendPrimaryToEmptyList(self):
         # Tests appending a Simple PrimaryHDU to an empty HDUList.

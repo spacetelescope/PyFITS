@@ -100,6 +100,26 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         except:
             pass
 
+        try:
+            os.remove('tableout1.fits')
+        except:
+            pass
+
+        try:
+            os.remove('tableout2.fits')
+        except:
+            pass
+
+        try:
+            os.remove('toto.fits')
+        except:
+            pass
+
+        try:
+            os.remove('testendian.fits')
+        except:
+            pass
+
     def testOpen(self):
         # open some existing FITS files:
         tt=pyfits.open(test_dir+'tb.fits')
@@ -1478,6 +1498,60 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(tbhdu.data.field('flag')[1].all(),
                          num.array([False,True],
                                    dtype = num.bool).all())
+
+    def testVariableLengthTableFormatPDFromObjectArray(self):
+        a = num.array([num.array([7.2e-20,7.3e-20]),num.array([0.0]),
+                      num.array([0.0])],'O')
+        acol = pyfits.Column(name='testa',format='PD()',array=a)
+        tbhdu = pyfits.new_table([acol])
+        tbhdu.writeto('newtable.fits')
+        tbhdu1 = pyfits.open('newtable.fits')
+
+        for j in range(0,3):
+            for i in range(0,len(a[j])):
+                self.assertEqual(tbhdu1[1].data.field(0)[j][i], a[j][i])
+
+        os.remove('newtable.fits')
+
+    def testVariableLengthTableFormatPDFromList(self):
+        a = [num.array([7.2e-20,7.3e-20]),num.array([0.0]),num.array([0.0])]
+        acol = pyfits.Column(name='testa',format='PD()',array=a)
+        tbhdu = pyfits.new_table([acol])
+        tbhdu.writeto('newtable.fits')
+        tbhdu1 = pyfits.open('newtable.fits')
+
+        for j in range(0,3):
+            for i in range(0,len(a[j])):
+                self.assertEqual(tbhdu1[1].data.field(0)[j][i], a[j][i])
+
+        os.remove('newtable.fits')
+
+    def testVariableLengthTableFormatPAFromObjectArray(self):
+        a = num.array([num.array(['a','b','c']), num.array(['d','e']),
+                       num.array(['f'])],'O')
+        acol = pyfits.Column(name='testa',format='PA()',array=a)
+        tbhdu=pyfits.new_table([acol])
+        tbhdu.writeto('newtable.fits')
+        hdul=pyfits.open('newtable.fits')
+
+        for j in range(0,3):
+            for i in range(0,len(a[j])):
+                self.assertEqual(hdul[1].data.field(0)[j][i], a[j][i])
+
+        os.remove('newtable.fits')
+
+    def testVariableLengthTableFormatPAFromList(self):
+        a = ['a','ab','abc']
+        acol = pyfits.Column(name='testa', format='PA()',array=a)
+        tbhdu=pyfits.new_table([acol])
+        tbhdu.writeto('newtable.fits')
+        hdul=pyfits.open('newtable.fits')
+
+        for j in range(0,3):
+            for i in range(0,len(a[j])):
+                self.assertEqual(hdul[1].data.field(0)[j][i], a[j][i])
+
+        os.remove('newtable.fits')
 
 
 

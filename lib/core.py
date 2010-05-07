@@ -4624,7 +4624,9 @@ class _VLF(np.ndarray):
         input
             a sequence of variable-sized elements.
         """
-        self = np.ndarray.__new__(subtype, shape=(len(input)), dtype=np.object)
+        a = np.array(input,dtype=np.object)
+        self = np.ndarray.__new__(subtype, shape=(len(input)), buffer=a,
+                                  dtype=np.object)
         self._max = 0
         return self
 
@@ -4736,8 +4738,7 @@ class Column:
                     except:
                         if isinstance(recfmt, _FormatP):
                             try:
-                                _func = lambda x: np.array(x, type=recfmt._dtype)
-                                array = _VLF(map(_func, array))
+                                array=_VLF(array)
                             except:
                                 try:
                                     # this handles ['abc'] and [['a','b','c']]
@@ -4779,7 +4780,7 @@ class Column:
         elif (array is None):
             return array
         else:
-            if (format.find('A') != -1):
+            if (format.find('A') != -1 and format.find('P') == -1):
                 if str(array.dtype).find('S') != -1:
                     # For ASCII arrays, reconstruct the array and ensure
                     # that all elements have enough characters to comply
@@ -6340,7 +6341,11 @@ class _TableBaseHDU(_ExtensionHDU):
                         elif isinstance(val, _FormatP):
                             VLdata = self.data.field(i)
                             VLdata._max = max(map(len, VLdata))
-                            val = 'P' + _convert_format(val._dtype, reverse=1) + '(%d)' %  VLdata._max
+                            if val._dtype == 'a':
+                                fmt = 'A'
+                            else:
+                                fmt = _convert_format(val._dtype, reverse=1)
+                            val = 'P' + fmt + '(%d)' %  VLdata._max
                         else:
                             val = _convert_format(val, reverse=1)
                     #_update(keyword, val)
@@ -9365,6 +9370,23 @@ class _File:
                                     swapped.append(rec.recarray.field(output, i))
 
                     _tofile(output, self.__file)
+
+                    # write out the heap of variable length array columns
+                    # this has to be done after the "regular" data is written
+                    # (above)
+                    nbytes = output._gap
+                    self.__file.write(output._gap*'\0')
+
+                    for i in range(output._nfields):
+                        if isinstance(output._coldefs._recformats[i], _FormatP):
+                            for j in range(len(output.field(i))):
+                                coldata = output.field(i)[j]
+                                if len(coldata) > 0:
+                                    nbytes= nbytes + coldata.nbytes
+                                    coldata.tofile(self.__file)
+
+                    output._heapsize = nbytes - output._gap
+                    _size = _size + nbytes
                 finally:
                     for obj in swapped:
                         obj.byteswap(True)
@@ -9372,24 +9394,7 @@ class _File:
                 output = hdu.data
                 _tofile(output, self.__file)
 
-            _size = output.size * output.itemsize
-
-            # write out the heap of variable length array columns
-            # this has to be done after the "regular" data is written (above)
-            if isinstance(hdu, BinTableHDU):
-                nbytes = output._gap
-                self.__file.write(output._gap*'\0')
-
-                for i in range(output._nfields):
-                    if isinstance(output._coldefs._recformats[i], _FormatP):
-                        for j in range(len(output.field(i))):
-                            coldata = output.field(i)[j]
-                            if len(coldata) > 0:
-                                nbytes= nbytes + coldata.nbytes
-                                coldata.tofile(self.__file)
-
-                output._heapsize = nbytes - output._gap
-                _size = _size + nbytes
+            _size = _size + output.size * output.itemsize
 
             # pad the FITS data block
             if _size > 0:
