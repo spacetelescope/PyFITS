@@ -27,12 +27,14 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
 
     def testSampleFile(self):
         hdul=pyfits.open(test_dir+'checksum.fits',checksum=True)
+        hdul.close()
 
     def testImageCreate(self):
         n=np.arange(100)
         hdu=pyfits.PrimaryHDU(n)
         hdu.writeto('tmp.fits',clobber=True,checksum=True)
         hdul=pyfits.open('tmp.fits',checksum=True)
+        hdul.close()
         os.remove('tmp.fits')
 
     def testScaledData(self):
@@ -40,12 +42,16 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         hdul[0].scale('int16','old')
         hdul.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',checksum=True)
+        hdul.close()
+        hdul1.close()
         os.remove('tmp.fits')
 
     def testUint16Data(self):
         hdul=pyfits.open(test_dir+'o4sp040b0_raw.fits',uint16=1)
         hdul.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',uint16=1,checksum=True)
+        hdul.close()
+        hdul1.close()
         os.remove('tmp.fits')
 
     def testGroupsHDUData(self):
@@ -58,6 +64,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         hdu=pyfits.GroupsHDU(x)
         hdu.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',checksum=True)
+        hdul1.close()
         os.remove('tmp.fits')
 
     def testBinaryTableData(self):
@@ -69,6 +76,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         tbhdu=pyfits.new_table(cols)
         tbhdu.writeto('tmp.fits',clobber=True,checksum=True)
         hdul=pyfits.open('tmp.fits',checksum=True)
+        hdul.close()
         os.remove('tmp.fits')
 
     def testVariableLengthTableData(self):
@@ -78,6 +86,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         tbhdu=pyfits.new_table([c1,c2])
         tbhdu.writeto('tmp.fits',clobber=True,checksum=True)
         hdul=pyfits.open('tmp.fits',checksum=True)
+        hdul.close()
         os.remove('tmp.fits')
 
     def testAsciiTableData(self):
@@ -91,35 +100,44 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         hdu = pyfits.new_table(x, tbtype='TableHDU')
         hdu.writeto('tmp.fits', clobber=True, checksum=True)
         hdul=pyfits.open('tmp.fits', checksum=True)
+        hdul.close()
         os.remove('tmp.fits')
 
     def testCompressedImageData(self):
         hdul=pyfits.open(test_dir+'comp.fits')
         hdul.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',checksum=True)
+        hdul1.close()
         os.remove('tmp.fits')
         n=np.arange(100,dtype='int16')
         hdu=pyfits.ImageHDU(n)
         comp_hdu = pyfits.CompImageHDU(hdu.data, hdu.header)
         comp_hdu.writeto('tmp.fits',checksum=True)
+        hdul.close()
         hdul=pyfits.open('tmp.fits',checksum=True)
+        hdul.close()
         os.remove('tmp.fits')
         n=np.arange(100, dtype='float32')
         comp_hdu = pyfits.CompImageHDU(n)
         comp_hdu.writeto('tmp.fits',checksum=True)
+        hdul.close()
         hdul=pyfits.open('tmp.fits',checksum=True)
+        hdul.close()
         os.remove('tmp.fits')
 
     def testOpenWithNoKeywords(self):
         hdul=pyfits.open(test_dir+'arange.fits',checksum=True)
+        hdul.close()
 
     def testAppend(self):
         hdul=pyfits.open(test_dir+'tb.fits')
         hdul.writeto('tmp.fits', clobber=True)
         n=np.arange(100)
         pyfits.append('tmp.fits',n,checksum=True)
+        hdul.close()
         hdul=pyfits.open('tmp.fits',checksum=True)
         self.assertEqual(hdul[0]._checksum, None)
+        hdul.close()
         os.remove('tmp.fits')
 
     def testWritetoConvenience(self):
@@ -145,6 +163,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
             os.remove('tmp.fits')
             self.fail(msg="Missing CHECKSUM Card comment")
 
+        hdul.close()
         os.remove('tmp.fits')
 
     def testHduWriteto(self):
@@ -171,6 +190,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
             os.remove('tmp.fits')
             self.fail(msg="Missing CHECKSUM Card comment")
 
+        hdul.close()
         os.remove('tmp.fits')
 
     def testDatasumOnly(self):
@@ -197,6 +217,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
             os.remove('tmp.fits')
             self.fail(msg="Missing CHECKSUM Card comment")
 
+        hdul.close()
         os.remove('tmp.fits')
 
 

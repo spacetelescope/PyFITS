@@ -39,6 +39,8 @@ class TestPyfitsUintFunctions(unittest.TestCase):
         hdul.writeto('tempfile1.fits')
         hdul1 = pyfits.open('tempfile1.fits',uint16=True)
         self.assertEqual(np.all(hdul[0].data == hdul1[0].data), True)
+        hdul.close()
+        hdul1.close()
         os.remove('tempfile1.fits')
         os.remove('tempfile.fits')
 
@@ -54,6 +56,8 @@ class TestPyfitsUintFunctions(unittest.TestCase):
         hdul.writeto('tempfile1.fits')
         hdul1 = pyfits.open('tempfile1.fits',uint=True)
         self.assertEqual(np.all(hdul[0].data == hdul1[0].data), True)
+        hdul.close()
+        hdul1.close()
         os.remove('tempfile1.fits')
         os.remove('tempfile.fits')
 
@@ -70,6 +74,8 @@ class TestPyfitsUintFunctions(unittest.TestCase):
             hdul.writeto('tempfile1.fits')
             hdul1 = pyfits.open('tempfile1.fits',uint=True)
             self.assertEqual(np.all(hdul[0].data == hdul1[0].data), True)
+            hdul.close()
+            hdul1.close()
             os.remove('tempfile1.fits')
             os.remove('tempfile.fits')
 

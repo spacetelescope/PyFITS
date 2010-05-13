@@ -205,6 +205,8 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         fout2.append(fd[0])
         fout2.append(tbhdu)
         fout2.close()
+        tt.close()
+        fd.close()
         os.remove("tableout2.fits")
 
     def testBinaryTable(self):
@@ -245,6 +247,8 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(t[1].data.field(0).all(),num.array([1, 2]).all())
 
         # When there are scaled columns, the raw data are in data._parent
+
+        t.close()
 
     def testAsciiTable(self):
         # ASCII table
@@ -290,6 +294,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdul = pyfits.open('toto.fits')
         self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
         hdul.close()
+        a.close()
         os.remove('toto.fits')
 
 
@@ -589,6 +594,9 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(hdu.columns.data[1].array[0], 80)
         self.assertEqual(hdu.data[0][1], 80)
 
+        t1.close()
+        t2.close()
+        hdul.close()
         os.remove('newtable.fits')
         os.remove('table1.fits')
         os.remove('table2.fits')
@@ -770,6 +778,9 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(hdu.columns.data[1].array[0], 80)
         self.assertEqual(hdu.data[0][1], 80)
 
+        t1.close()
+        t2.close()
+        hdul.close()
         os.remove('table1.fits')
         os.remove('table2.fits')
         os.remove('newtable.fits')
@@ -806,6 +817,8 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         os.remove(jfile)
         self.assertEqual(output,["[('NGC1002', 12.3) ('NGC1003', 15.2)]\n"])
 
+        t.close()
+        hdul.close()
         os.remove('newtable.fits')
 
     def testSliceARow(self):
@@ -889,6 +902,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(t1[1].columns.data[1].array[2], 500)
         self.assertEqual(t1[1].data[2][1], 500)
  
+        t1.close()
         os.remove('table1.fits')
 
     def testFITSrecordLen(self):
@@ -915,6 +929,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(len(t1[1].data[0][1:6]),4)
         self.assertEqual(len(t1[1].data[0][1:7]),4)
 
+        t1.close()
         os.remove('table1.fits')
 
     def testAddDataByRows(self):
@@ -1145,6 +1160,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(t1[1].columns._arrays[1][0], 800)
         self.assertEqual(t1[1].columns.data[1].array[0], 800)
 
+        t1.close()
         os.remove('table1.fits')
 
     def testNewTableWithNdarray(self):
@@ -1250,6 +1266,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(t1[1].columns._arrays[1][0], 800)
         self.assertEqual(t1[1].columns.data[1].array[0], 800)
 
+        t1.close()
         os.remove('table1.fits')
 
     def testNewTableWithFITSrec(self):
@@ -1380,6 +1397,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(tbhdu1.columns._arrays[1][0], 666)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 666)
 
+        t1.close()
         os.remove('table1.fits')
 
     def testBinTableHDUConstructor(self):
@@ -1511,6 +1529,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
             for i in range(0,len(a[j])):
                 self.assertEqual(tbhdu1[1].data.field(0)[j][i], a[j][i])
 
+        tbhdu1.close()
         os.remove('newtable.fits')
 
     def testVariableLengthTableFormatPDFromList(self):
@@ -1524,6 +1543,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
             for i in range(0,len(a[j])):
                 self.assertEqual(tbhdu1[1].data.field(0)[j][i], a[j][i])
 
+        tbhdu1.close()
         os.remove('newtable.fits')
 
     def testVariableLengthTableFormatPAFromObjectArray(self):
@@ -1538,6 +1558,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
             for i in range(0,len(a[j])):
                 self.assertEqual(hdul[1].data.field(0)[j][i], a[j][i])
 
+        hdul.close()
         os.remove('newtable.fits')
 
     def testVariableLengthTableFormatPAFromList(self):
@@ -1551,6 +1572,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
             for i in range(0,len(a[j])):
                 self.assertEqual(hdul[1].data.field(0)[j][i], a[j][i])
 
+        hdul.close()
         os.remove('newtable.fits')
 
 
