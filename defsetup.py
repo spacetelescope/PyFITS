@@ -28,6 +28,14 @@ from distutils.command.build_ext import build_ext as _build_ext
 
 class build_ext(_build_ext):
 
+   def run(self):
+      try:
+         _build_ext.run(self)
+      except:
+         distutils.log.warn(str(sys.exc_info()[1]))
+         warn = "optional extension modules failed to build"
+         logging.warn(warn)
+
    def build_extensions(self):
       for ext in self.extensions:
 
