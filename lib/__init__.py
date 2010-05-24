@@ -11,7 +11,7 @@ try:
 except ImportError:
     __svn_version__ = 'Unable to determine SVN revision'
 
-__version__ = '2.3dev' + __svn_version__
+__version__ = '2.3.1dev' + __svn_version__
 
 # Import the pyfits core module.
 from core import *

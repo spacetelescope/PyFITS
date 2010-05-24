@@ -14,7 +14,8 @@ try:
                       "src/fits_hdecompress.c", "src/fitsio.c",
                       "src/pliocomp.c", "src/pyfitsCompWrapper.c",
                       "src/quantize.c", "src/ricecomp.c"],
-                      include_dirs = ["src", numpy.get_include()],)]
+                      include_dirs = ["src", numpy.get_include(),
+                                      sys.prefix+"/include"],)]
 
 except ImportError:
     ext_modules = ''
@@ -48,7 +49,7 @@ class build_ext(_build_ext):
 
 
 setupargs = {
-    'version' :                 "2.3",
+    'version' :                 "2.3.1",
     'description' :             "General Use Python Tools",
     'author' :                  "J. C. Hsu, Paul Barrett, Christopher Hanley, James Taylor, Michael Droettboom",
     'maintainer_email' :        "help@stsci.edu",
