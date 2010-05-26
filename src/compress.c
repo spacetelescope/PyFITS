@@ -104,7 +104,9 @@
 /*****************************************************************************/
 
 #include <stdio.h>
-#include "zlib.h"  /* from the python distribution */
+#include <stdlib.h>
+#include <string.h>
+#include "zlib.h"  
 
 int uncompress2mem_from_mem(                                                
              char *inmemptr,     
@@ -140,22 +142,26 @@ int uncompress2mem_from_mem(
   input function, if necessary.
 */
 {
-    if (*status > 0)
-        return(*status);
+    int err; 
+    uLong uncomprLen;
+    Byte *uncompr;
+    z_stream d_stream;   /* decompression stream */
+    uLong bytes_out_so_far = 0;  /* Keeps track of the number of bytes put in
+                                    the output buffer so far */
 
-    int err;
+
+    if (*status > 0) 
+        return(*status); 
 
     /* Allocate memory as a temporary buffer in which to uncompress. */
-    uLong uncomprLen = *buffsize;
-    Byte *uncompr = (Byte*)malloc(*buffsize);
-
-    z_stream d_stream;   /* decompression stream */
+    uncomprLen = *buffsize;
+    uncompr = (Byte*)malloc(*buffsize);
 
     d_stream.zalloc = (alloc_func)0;
     d_stream.zfree = (free_func)0;
     d_stream.opaque = (voidpf)0;
 
-    d_stream.next_in = inmemptr;
+    d_stream.next_in = (unsigned char*)inmemptr;
     d_stream.avail_in = inmemsize;
 
     /* Initialize the decompression.  The argument (15+16) tells the
@@ -168,9 +174,6 @@ int uncompress2mem_from_mem(
         free(uncompr);
         return(*status = 414);
     }
-
-    uLong bytes_out_so_far = 0;  /* Keeps track of the number of bytes put in
-                                    the output buffer so far */
 
     for (;;)
     {
@@ -242,16 +245,21 @@ int compress2mem_from_mem(
   input function, if necessary.
 */
 {
+    int err;
+    uLong comprLen;
+    Byte *compr;
+
+    z_stream c_stream;  /* compression stream */
+
+    uLong bytes_out_so_far = 0;  /* Keeps track of the number of bytes put in
+                                    the output buffer so far */
+
     if (*status > 0)
         return(*status);
 
-    int err;
-
     /* Allocate memory as a temporary buffer in which to compress. */
-    uLong comprLen = *buffsize;
-    Byte *compr = (Byte*)malloc(*buffsize);
-
-    z_stream c_stream;  /* compression stream */
+    comprLen = *buffsize;
+    compr = (Byte*)malloc(*buffsize);
 
     c_stream.zalloc = (alloc_func)0;
     c_stream.zfree = (free_func)0;
@@ -267,11 +275,8 @@ int compress2mem_from_mem(
         return(*status = 413);
     }
 
-    c_stream.next_in = inmemptr;
+    c_stream.next_in = (unsigned char*)inmemptr;
     c_stream.avail_in = inmemsize;
-
-    uLong bytes_out_so_far = 0;  /* Keeps track of the number of bytes put in
-                                    the output buffer so far */
 
     for (;;)
     {
