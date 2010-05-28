@@ -13,9 +13,10 @@ try:
                      ["src/compress.c", "src/fits_hcompress.c",
                       "src/fits_hdecompress.c", "src/fitsio.c",
                       "src/pliocomp.c", "src/pyfitsCompWrapper.c",
-                      "src/quantize.c", "src/ricecomp.c"],
-                      include_dirs = ["src", numpy.get_include(),
-                                      sys.prefix+"/include"],)]
+                      "src/quantize.c", "src/ricecomp.c",
+                      "src/zlib.c", "src/inffast.c",
+                      "src/inftrees.c", "src/trees.c"],
+                      include_dirs = ["src", numpy.get_include()])]
 
 except ImportError:
     ext_modules = ''
