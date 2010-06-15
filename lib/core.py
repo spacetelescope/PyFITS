@@ -3606,6 +3606,58 @@ class Section:
     def __init__(self, hdu):
         self.hdu = hdu
 
+    def _getdata(self, key):
+        out = []
+        naxis = self.hdu.header['NAXIS']
+
+        # Determine the number of slices in the set of input keys.
+        # If there is only one slice then the result is a one dimensional
+        # array, otherwise the result will be a multidimensional array.
+        numSlices = 0
+        for i in range(len(key)):
+            if isinstance(key[i], slice):
+                numSlices = numSlices + 1
+        
+        for i in range(len(key)):
+            if isinstance(key[i], slice):
+                # OK, this element is a slice so see if we can get the data for
+                # each element of the slice.
+                _naxis = self.hdu.header['NAXIS'+`naxis-i`]
+                ns = _normalize_slice(key[i], _naxis)
+
+                for k in range(ns.start, ns.stop):
+                    key1 = list(key)
+                    key1[i] = k
+                    key1 = tuple(key1)
+
+                    if numSlices > 1:
+                        # This is not the only slice in the list of keys so
+                        # we simply get the data for this section and append
+                        # it to the list that is output.  The out variable will
+                        # be a list of arrays.  When we are done we will pack
+                        # the list into a single multidimensional array.
+                        out.append(self.__getitem__(key1))
+                    else:
+                        # This is the only slice in the list of keys so if this
+                        # is the first element of the slice just set the output
+                        # to the array that is the data for the first slice.
+                        # If this is not the first element of the slice then
+                        # append the output for this slice element to the array
+                        # that is to be output.  The out variable is a single
+                        # dimensional array.
+                        if k == ns.start:
+                            out = self.__getitem__(key1)
+                        else:
+                            out = np.append(out,self.__getitem__(key1))
+
+                # We have the data so break out of the loop.
+                break
+
+        if isinstance(out, list):
+            out = np.array(out)
+
+        return out
+
     def __getitem__(self, key):
         dims = []
         if not isinstance(key, tuple):
@@ -3617,6 +3669,7 @@ class Section:
             key = key + (slice(None),) * (naxis-len(key))
 
         offset = 0
+
         for i in range(naxis):
             _naxis = self.hdu.header['NAXIS'+`naxis-i`]
             indx = _iswholeline(key[i], _naxis)
@@ -3628,37 +3681,43 @@ class Section:
                 dims.append(indx.npts)
                 break
             elif isinstance(indx, _SteppedSlice):
-                raise IndexError, 'Subsection data must be contiguous.'
+                raise IndexError, 'Stepped Slice not supported' 
+
+        contiguousSubsection = True
 
         for j in range(i+1,naxis):
             _naxis = self.hdu.header['NAXIS'+`naxis-j`]
             indx = _iswholeline(key[j], _naxis)
             dims.append(indx.npts)
             if not isinstance(indx, _WholeLine):
-                raise IndexError, 'Subsection data is not contiguous.'
+                contiguousSubsection = False
 
             # the offset needs to multiply the length of all remaining axes
             else:
                 offset *= _naxis
 
-        if dims == []:
-            dims = [1]
-        npt = 1
-        for n in dims:
-            npt *= n
+        if contiguousSubsection:
+            if dims == []:
+                dims = [1]
+            npt = 1
+            for n in dims:
+                npt *= n
 
-        # Now, get the data (does not include bscale/bzero for now XXX)
-        _bitpix = self.hdu.header['BITPIX']
-        code = _ImageBaseHDU.NumCode[_bitpix]
-        self.hdu._file.seek(self.hdu._datLoc+offset*abs(_bitpix)//8)
-        nelements = 1
-        for dim in dims:
-            nelements = nelements*dim
-        raw_data = _fromfile(self.hdu._file, dtype=code, count=nelements, sep="")
-        raw_data.shape = dims
-#        raw_data._byteorder = 'big'
-        raw_data.dtype = raw_data.dtype.newbyteorder(">")
-        return raw_data
+            # Now, get the data (does not include bscale/bzero for now XXX)
+            _bitpix = self.hdu.header['BITPIX']
+            code = _ImageBaseHDU.NumCode[_bitpix]
+            self.hdu._file.seek(self.hdu._datLoc+offset*abs(_bitpix)//8)
+            nelements = 1
+            for dim in dims:
+                nelements = nelements*dim
+            raw_data = _fromfile(self.hdu._file, dtype=code, count=nelements,
+                                 sep="")
+            raw_data.shape = dims
+            raw_data.dtype = raw_data.dtype.newbyteorder(">")
+            return raw_data
+        else:
+            out = self._getdata(key)
+            return out
 
 
 class _ImageBaseHDU(_ValidHDU):

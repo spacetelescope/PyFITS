@@ -40,6 +40,10 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         except:
             pass
 
+        try:
+            os.remove(jfile)
+        except:
+            pass
 
     def testCardConstructorDefaultArgs(self):
         # Test the constructor with default argument values.
@@ -499,19 +503,10 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
                                                                      [352, 353, 354]]).all())
 
 
-        try:
-            fs[0].section[3,2:5,:8]
-            x = "Did not fail as expected."
-        except IndexError:
-            x = "Failed as expected."
-        self.assertEqual(x,"Failed as expected.")
+        dat=fs[0].data
+        self.assertEqual(fs[0].section[3,2:5,:8].all(), dat[3,2:5,:8].all())
+        self.assertEqual(fs[0].section[3,2:5,3].all(), dat[3,2:5,3].all())
 
-        try:
-            fs[0].section[3,2:5,3]
-            x = "Did not fail as expected."
-        except IndexError:
-            x = "Failed as expected."
-        self.assertEqual(x,"Failed as expected.")
 
         self.assertEqual(fs[0].section[3:6,:,:][:3,:3,:3].all(),np.array([[[330, 331, 332],
                                                                      [341, 342, 343],
@@ -534,33 +529,182 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
                                                                          [[220, 221],
                                                                           [231, 232]]]).all())
 
-        try:
-            fs[0].section[:,2,:]
-            x = "Did not fail as expected."
-        except IndexError:
-            x = "Failed as expected."
-        self.assertEqual(x,"Failed as expected.")
+        self.assertEqual(fs[0].section[:,2,:].all(), dat[:,2,:].all())
+        self.assertEqual(fs[0].section[:,2:5,:].all(), dat[:,2:5,:].all())
+        self.assertEqual(fs[0].section[3:6,3,:].all(), dat[3:6,3,:].all())
+        self.assertEqual(fs[0].section[3:6,3:7,:].all(), dat[3:6,3:7,:].all())
 
-        try:
-            fs[0].section[:,2:5,:]
-            x = "Did not fail as expected."
-        except IndexError:
-            x = "Failed as expected."
-        self.assertEqual(x,"Failed as expected.")
+    def testSectionDataSquare(self):
+        a=np.arange(4).reshape((2,2))
+        hdu = pyfits.PrimaryHDU(a)
+        hdu.writeto(jfile)
 
-        try:
-            fs[0].section[3:6,3,:]
-            x = "Did not fail as expected."
-        except IndexError:
-            x = "Failed"
-        self.assertEqual(x,"Failed")
+        hdul=pyfits.open(jfile)
+        d = hdul[0]
+        dat = hdul[0].data
+        self.assertEqual(d.section[:,:].all(), dat[:,:].all())
+        self.assertEqual(d.section[0,:].all(), dat[0,:].all())
+        self.assertEqual(d.section[1,:].all(), dat[1,:].all())
+        self.assertEqual(d.section[:,0].all(), dat[:,0].all())
+        self.assertEqual(d.section[:,1].all(), dat[:,1].all())
+        self.assertEqual(d.section[0,0].all(), dat[0,0].all())
+        self.assertEqual(d.section[0,1].all(), dat[0,1].all())
+        self.assertEqual(d.section[1,0].all(), dat[1,0].all())
+        self.assertEqual(d.section[1,1].all(), dat[1,1].all())
+        self.assertEqual(d.section[0:1,0:1].all(), dat[0:1,0:1].all())
+        self.assertEqual(d.section[0:2,0:1].all(), dat[0:2,0:1].all())
+        self.assertEqual(d.section[0:1,0:2].all(), dat[0:1,0:2].all())
+        self.assertEqual(d.section[0:2,0:2].all(), dat[0:2,0:2].all())
+        os.remove(jfile)
 
-        try:
-            fs[0].section[3:6,3:7,:]
-            x = "Did not fail."
-        except IndexError:
-            x = "Failed again"
-        self.assertEqual(x,"Failed again")
+    def testSectionDataCube(self):
+        a=np.arange(18).reshape((2,3,3))
+        hdu = pyfits.PrimaryHDU(a)
+        hdu.writeto(jfile)
+
+        hdul=pyfits.open(jfile)
+        d = hdul[0]
+        dat = hdul[0].data
+        self.assertEqual(d.section[:,:,:].all(), dat[:,:,:].all())
+        self.assertEqual(d.section[:,:].all(), dat[:,:].all())
+        self.assertEqual(d.section[:].all(), dat[:].all())
+        self.assertEqual(d.section[0,:,:].all(), dat[0,:,:].all())
+        self.assertEqual(d.section[1,:,:].all(), dat[1,:,:].all())
+        self.assertEqual(d.section[0,0,:].all(), dat[0,0,:].all())
+        self.assertEqual(d.section[0,1,:].all(), dat[0,1,:].all())
+        self.assertEqual(d.section[0,2,:].all(), dat[0,2,:].all())
+        self.assertEqual(d.section[1,0,:].all(), dat[1,0,:].all())
+        self.assertEqual(d.section[1,1,:].all(), dat[1,1,:].all())
+        self.assertEqual(d.section[1,2,:].all(), dat[1,2,:].all())
+        self.assertEqual(d.section[0,0,0].all(), dat[0,0,0].all())
+        self.assertEqual(d.section[0,0,1].all(), dat[0,0,1].all())
+        self.assertEqual(d.section[0,0,2].all(), dat[0,0,2].all())
+        self.assertEqual(d.section[0,1,0].all(), dat[0,1,0].all())
+        self.assertEqual(d.section[0,1,1].all(), dat[0,1,1].all())
+        self.assertEqual(d.section[0,1,2].all(), dat[0,1,2].all())
+        self.assertEqual(d.section[0,2,0].all(), dat[0,2,0].all())
+        self.assertEqual(d.section[0,2,1].all(), dat[0,2,1].all())
+        self.assertEqual(d.section[0,2,2].all(), dat[0,2,2].all())
+        self.assertEqual(d.section[1,0,0].all(), dat[1,0,0].all())
+        self.assertEqual(d.section[1,0,1].all(), dat[1,0,1].all())
+        self.assertEqual(d.section[1,0,2].all(), dat[1,0,2].all())
+        self.assertEqual(d.section[1,1,0].all(), dat[1,1,0].all())
+        self.assertEqual(d.section[1,1,1].all(), dat[1,1,1].all())
+        self.assertEqual(d.section[1,1,2].all(), dat[1,1,2].all())
+        self.assertEqual(d.section[1,2,0].all(), dat[1,2,0].all())
+        self.assertEqual(d.section[1,2,1].all(), dat[1,2,1].all())
+        self.assertEqual(d.section[1,2,2].all(), dat[1,2,2].all())
+        self.assertEqual(d.section[:,0,0].all(), dat[:,0,0].all())
+        self.assertEqual(d.section[:,0,1].all(), dat[:,0,1].all())
+        self.assertEqual(d.section[:,0,2].all(), dat[:,0,2].all())
+        self.assertEqual(d.section[:,1,0].all(), dat[:,1,0].all())
+        self.assertEqual(d.section[:,1,1].all(), dat[:,1,1].all())
+        self.assertEqual(d.section[:,1,2].all(), dat[:,1,2].all())
+        self.assertEqual(d.section[:,2,0].all(), dat[:,2,0].all())
+        self.assertEqual(d.section[:,2,1].all(), dat[:,2,1].all())
+        self.assertEqual(d.section[:,2,2].all(), dat[:,2,2].all())
+        self.assertEqual(d.section[0,:,0].all(), dat[0,:,0].all())
+        self.assertEqual(d.section[0,:,1].all(), dat[0,:,1].all())
+        self.assertEqual(d.section[0,:,2].all(), dat[0,:,2].all())
+        self.assertEqual(d.section[1,:,0].all(), dat[1,:,0].all())
+        self.assertEqual(d.section[1,:,1].all(), dat[1,:,1].all())
+        self.assertEqual(d.section[1,:,2].all(), dat[1,:,2].all())
+        self.assertEqual(d.section[:,:,0].all(), dat[:,:,0].all())
+        self.assertEqual(d.section[:,:,1].all(), dat[:,:,1].all())
+        self.assertEqual(d.section[:,:,2].all(), dat[:,:,2].all())
+        self.assertEqual(d.section[:,0,:].all(), dat[:,0,:].all())
+        self.assertEqual(d.section[:,1,:].all(), dat[:,1,:].all())
+        self.assertEqual(d.section[:,2,:].all(), dat[:,2,:].all())
+
+        self.assertEqual(d.section[:,:,0:1].all(), dat[:,:,0:1].all())
+        self.assertEqual(d.section[:,:,0:2].all(), dat[:,:,0:2].all())
+        self.assertEqual(d.section[:,:,0:3].all(), dat[:,:,0:3].all())
+        self.assertEqual(d.section[:,:,1:2].all(), dat[:,:,1:2].all())
+        self.assertEqual(d.section[:,:,1:3].all(), dat[:,:,1:3].all())
+        self.assertEqual(d.section[:,:,2:3].all(), dat[:,:,2:3].all())
+        self.assertEqual(d.section[0:1,0:1,0:1].all(), dat[0:1,0:1,0:1].all())
+        self.assertEqual(d.section[0:1,0:1,0:2].all(), dat[0:1,0:1,0:2].all())
+        self.assertEqual(d.section[0:1,0:1,0:3].all(), dat[0:1,0:1,0:3].all())
+        self.assertEqual(d.section[0:1,0:1,1:2].all(), dat[0:1,0:1,1:2].all())
+        self.assertEqual(d.section[0:1,0:1,1:3].all(), dat[0:1,0:1,1:3].all())
+        self.assertEqual(d.section[0:1,0:1,2:3].all(), dat[0:1,0:1,2:3].all())
+        self.assertEqual(d.section[0:1,0:2,0:1].all(), dat[0:1,0:2,0:1].all())
+        self.assertEqual(d.section[0:1,0:2,0:2].all(), dat[0:1,0:2,0:2].all())
+        self.assertEqual(d.section[0:1,0:2,0:3].all(), dat[0:1,0:2,0:3].all())
+        self.assertEqual(d.section[0:1,0:2,1:2].all(), dat[0:1,0:2,1:2].all())
+        self.assertEqual(d.section[0:1,0:2,1:3].all(), dat[0:1,0:2,1:3].all())
+        self.assertEqual(d.section[0:1,0:2,2:3].all(), dat[0:1,0:2,2:3].all())
+        self.assertEqual(d.section[0:1,0:3,0:1].all(), dat[0:1,0:3,0:1].all())
+        self.assertEqual(d.section[0:1,0:3,0:2].all(), dat[0:1,0:3,0:2].all())
+        self.assertEqual(d.section[0:1,0:3,0:3].all(), dat[0:1,0:3,0:3].all())
+        self.assertEqual(d.section[0:1,0:3,1:2].all(), dat[0:1,0:3,1:2].all())
+        self.assertEqual(d.section[0:1,0:3,1:3].all(), dat[0:1,0:3,1:3].all())
+        self.assertEqual(d.section[0:1,0:3,2:3].all(), dat[0:1,0:3,2:3].all())
+        self.assertEqual(d.section[0:1,1:2,0:1].all(), dat[0:1,1:2,0:1].all())
+        self.assertEqual(d.section[0:1,1:2,0:2].all(), dat[0:1,1:2,0:2].all())
+        self.assertEqual(d.section[0:1,1:2,0:3].all(), dat[0:1,1:2,0:3].all())
+        self.assertEqual(d.section[0:1,1:2,1:2].all(), dat[0:1,1:2,1:2].all())
+        self.assertEqual(d.section[0:1,1:2,1:3].all(), dat[0:1,1:2,1:3].all())
+        self.assertEqual(d.section[0:1,1:2,2:3].all(), dat[0:1,1:2,2:3].all())
+        self.assertEqual(d.section[0:1,1:3,0:1].all(), dat[0:1,1:3,0:1].all())
+        self.assertEqual(d.section[0:1,1:3,0:2].all(), dat[0:1,1:3,0:2].all())
+        self.assertEqual(d.section[0:1,1:3,0:3].all(), dat[0:1,1:3,0:3].all())
+        self.assertEqual(d.section[0:1,1:3,1:2].all(), dat[0:1,1:3,1:2].all())
+        self.assertEqual(d.section[0:1,1:3,1:3].all(), dat[0:1,1:3,1:3].all())
+        self.assertEqual(d.section[0:1,1:3,2:3].all(), dat[0:1,1:3,2:3].all())
+        self.assertEqual(d.section[1:2,0:1,0:1].all(), dat[1:2,0:1,0:1].all())
+        self.assertEqual(d.section[1:2,0:1,0:2].all(), dat[1:2,0:1,0:2].all())
+        self.assertEqual(d.section[1:2,0:1,0:3].all(), dat[1:2,0:1,0:3].all())
+        self.assertEqual(d.section[1:2,0:1,1:2].all(), dat[1:2,0:1,1:2].all())
+        self.assertEqual(d.section[1:2,0:1,1:3].all(), dat[1:2,0:1,1:3].all())
+        self.assertEqual(d.section[1:2,0:1,2:3].all(), dat[1:2,0:1,2:3].all())
+        self.assertEqual(d.section[1:2,0:2,0:1].all(), dat[1:2,0:2,0:1].all())
+        self.assertEqual(d.section[1:2,0:2,0:2].all(), dat[1:2,0:2,0:2].all())
+        self.assertEqual(d.section[1:2,0:2,0:3].all(), dat[1:2,0:2,0:3].all())
+        self.assertEqual(d.section[1:2,0:2,1:2].all(), dat[1:2,0:2,1:2].all())
+        self.assertEqual(d.section[1:2,0:2,1:3].all(), dat[1:2,0:2,1:3].all())
+        self.assertEqual(d.section[1:2,0:2,2:3].all(), dat[1:2,0:2,2:3].all())
+        self.assertEqual(d.section[1:2,0:3,0:1].all(), dat[1:2,0:3,0:1].all())
+        self.assertEqual(d.section[1:2,0:3,0:2].all(), dat[1:2,0:3,0:2].all())
+        self.assertEqual(d.section[1:2,0:3,0:3].all(), dat[1:2,0:3,0:3].all())
+        self.assertEqual(d.section[1:2,0:3,1:2].all(), dat[1:2,0:3,1:2].all())
+        self.assertEqual(d.section[1:2,0:3,1:3].all(), dat[1:2,0:3,1:3].all())
+        self.assertEqual(d.section[1:2,0:3,2:3].all(), dat[1:2,0:3,2:3].all())
+        self.assertEqual(d.section[1:2,1:2,0:1].all(), dat[1:2,1:2,0:1].all())
+        self.assertEqual(d.section[1:2,1:2,0:2].all(), dat[1:2,1:2,0:2].all())
+        self.assertEqual(d.section[1:2,1:2,0:3].all(), dat[1:2,1:2,0:3].all())
+        self.assertEqual(d.section[1:2,1:2,1:2].all(), dat[1:2,1:2,1:2].all())
+        self.assertEqual(d.section[1:2,1:2,1:3].all(), dat[1:2,1:2,1:3].all())
+        self.assertEqual(d.section[1:2,1:2,2:3].all(), dat[1:2,1:2,2:3].all())
+        self.assertEqual(d.section[1:2,1:3,0:1].all(), dat[1:2,1:3,0:1].all())
+        self.assertEqual(d.section[1:2,1:3,0:2].all(), dat[1:2,1:3,0:2].all())
+        self.assertEqual(d.section[1:2,1:3,0:3].all(), dat[1:2,1:3,0:3].all())
+        self.assertEqual(d.section[1:2,1:3,1:2].all(), dat[1:2,1:3,1:2].all())
+        self.assertEqual(d.section[1:2,1:3,1:3].all(), dat[1:2,1:3,1:3].all())
+        self.assertEqual(d.section[1:2,1:3,2:3].all(), dat[1:2,1:3,2:3].all())
+
+        os.remove(jfile)
+
+    def testSectionDataFour(self):
+        a=np.arange(256).reshape((4,4,4,4))
+        hdu = pyfits.PrimaryHDU(a)
+        hdu.writeto(jfile)
+
+        hdul=pyfits.open(jfile)
+        d=hdul[0]
+        dat = hdul[0].data
+        self.assertEqual(d.section[:,:,:,:].all(), dat[:,:,:,:].all())
+        self.assertEqual(d.section[:,:,:].all(), dat[:,:,:].all())
+        self.assertEqual(d.section[:,:].all(), dat[:,:].all())
+        self.assertEqual(d.section[:].all(), dat[:].all())
+        self.assertEqual(d.section[0,:,:,:].all(), dat[0,:,:,:].all())
+        self.assertEqual(d.section[0,:,0,:].all(), dat[0,:,0,:].all())
+        self.assertEqual(d.section[:,:,0,:].all(), dat[:,:,0,:].all())
+        self.assertEqual(d.section[:,1,0,:].all(), dat[:,1,0,:].all())
+        self.assertEqual(d.section[:,:,:,1].all(), dat[:,:,:,1].all())
+
+        os.remove(jfile)
+
 
 if __name__ == '__main__':
     unittest.main()
