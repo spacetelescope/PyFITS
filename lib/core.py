@@ -2772,6 +2772,10 @@ class _ValidHDU(_AllHDU, _Verify):
             size = abs(bitpix) * gcount * (pcount + size) // 8
         return size
 
+    def filebytes(self):
+        file = _File()
+        return file.writeHDUheader(self)[1] + file.writeHDUdata(self)[1]
+        
     def fileinfo(self):
         """
         Returns a dictionary detailing information about the locations of
@@ -9045,7 +9049,13 @@ class _File:
     """
     A file I/O class.
     """
-    def __init__(self, name, mode='copyonwrite', memmap=0, **parms):
+    def __init__(self, name=None, mode='copyonwrite', memmap=0, **parms):
+        if name == None:
+            self._simulateonly = True
+            return
+        else:
+            self._simulateonly = False
+
         if mode not in _python_mode.keys():
             raise ValueError, "Mode '%s' not recognized" % mode
 
@@ -9322,25 +9332,29 @@ class _File:
         if len(blocks)%_blockLen != 0:
             raise IOError
 
-        if hasattr(self.__file, 'flush'):
-            self.__file.flush()
+        loc = 0
+        size = len(blocks)
 
-        try:
-           if self.__file.mode == 'ab+':
-               self.__file.seek(0,2)
-        except AttributeError:
-           pass
+        if not self._simulateonly:
+            if hasattr(self.__file, 'flush'):
+                self.__file.flush()
 
-        try:
-            loc = self.__file.tell()
-        except (AttributeError, IOError):
-            loc = 0
+            try:
+               if self.__file.mode == 'ab+':
+                   self.__file.seek(0,2)
+            except AttributeError:
+               pass
 
-        self.__file.write(blocks)
+            try:
+                loc = self.__file.tell()
+            except (AttributeError, IOError):
+                loc = 0
 
-        # flush, to make sure the content is written
-        if hasattr(self.__file, 'flush'):
-            self.__file.flush()
+            self.__file.write(blocks)
+
+            # flush, to make sure the content is written
+            if hasattr(self.__file, 'flush'):
+                self.__file.flush()
 
         # If data is unsigned integer 16, 32 or 64, remove the
         # BSCALE/BZERO cards
@@ -9351,38 +9365,44 @@ class _File:
             del hdu._header['BSCALE']
             del hdu._header['BZERO']
 
-        return loc
+        return loc, size
 
     def writeHDUdata(self, hdu):
         """
         Write FITS HDU data part.
         """
-        if hasattr(self.__file, 'flush'):
-            self.__file.flush()
-
-        try:
-            loc = self.__file.tell()
-        except (AttributeError, IOError):
-            loc = 0
-
+        loc = 0
         _size = 0
-        if isinstance(hdu, _NonstandardHDU) and hdu.data is not None:
-            self.__file.write(hdu.data)
 
-            # flush, to make sure the content is written
-            self.__file.flush()
+        if not self._simulateonly:
+            if hasattr(self.__file, 'flush'):
+                self.__file.flush()
+
+            try:
+                loc = self.__file.tell()
+            except (AttributeError, IOError):
+                loc = 0
+
+        if isinstance(hdu, _NonstandardHDU) and hdu.data is not None:
+            if not self._simulateonly:
+                self.__file.write(hdu.data)
+
+                # flush, to make sure the content is written
+                self.__file.flush()
 
             # return both the location and the size of the data area
             return loc, len(hdu.data)
         elif isinstance(hdu, _NonstandardExtHDU) and hdu.data is not None:
-            self.__file.write(hdu.data)
+            if not self._simulateonly:
+                self.__file.write(hdu.data)
             _size = len(hdu.data)
 
-            # pad the fits data block
-            self.__file.write(_padLength(_size)*'\0')
+            if not self._simulateonly:
+                # pad the fits data block
+                self.__file.write(_padLength(_size)*'\0')
 
-            # flush, to make sure the content is written
-            self.__file.flush()
+                # flush, to make sure the content is written
+                self.__file.flush()
 
             # return both the location and the size of the data area
             return loc, _size+_padLength(_size)
@@ -9413,21 +9433,23 @@ class _File:
                         byteorder = output.dtype.str[0]
                     should_swap = (byteorder in swap_types)
 
-                if should_swap:
-                    # If we need to do byteswapping, do it in chunks
-                    # so the original array is not touched
-                    # output_dtype = output.dtype.newbyteorder('>')
-                    # for chunk in _chunk_array(output):
-                    #     chunk = np.array(chunk, dtype=output_dtype, copy=True)
-                    #     _tofile(output, self.__file)
+                if not self._simulateonly:
+                    if should_swap:
+                        # If we need to do byteswapping, do it in chunks
+                        # so the original array is not touched
+                        # output_dtype = output.dtype.newbyteorder('>')
+                        # for chunk in _chunk_array(output):
+                        #     chunk = np.array(chunk, dtype=output_dtype,
+                        #                      copy=True)
+                        #     _tofile(output, self.__file)
 
-                    output.byteswap(True)
-                    try:
-                        _tofile(output, self.__file)
-                    finally:
                         output.byteswap(True)
-                else:
-                    _tofile(output, self.__file)
+                        try:
+                            _tofile(output, self.__file)
+                        finally:
+                            output.byteswap(True)
+                    else:
+                        _tofile(output, self.__file)
 
             # Binary table byteswap
             elif isinstance(hdu, BinTableHDU):
@@ -9438,6 +9460,7 @@ class _File:
 
                 swapped = []
                 try:
+                  if not self._simulateonly:
                     for i in range(output._nfields):
                         coldata = output.field(i)
                         if not isinstance(coldata, chararray.chararray):
@@ -9467,37 +9490,41 @@ class _File:
                     # write out the heap of variable length array columns
                     # this has to be done after the "regular" data is written
                     # (above)
-                    nbytes = output._gap
                     self.__file.write(output._gap*'\0')
 
-                    for i in range(output._nfields):
-                        if isinstance(output._coldefs._recformats[i], _FormatP):
-                            for j in range(len(output.field(i))):
-                                coldata = output.field(i)[j]
-                                if len(coldata) > 0:
-                                    nbytes= nbytes + coldata.nbytes
-                                    coldata.tofile(self.__file)
+                  nbytes = output._gap
 
-                    output._heapsize = nbytes - output._gap
-                    _size = _size + nbytes
+                  for i in range(output._nfields):
+                      if isinstance(output._coldefs._recformats[i], _FormatP):
+                          for j in range(len(output.field(i))):
+                              coldata = output.field(i)[j]
+                              if len(coldata) > 0:
+                                  nbytes= nbytes + coldata.nbytes
+                                  if not self._simulateonly:
+                                      coldata.tofile(self.__file)
+
+                      output._heapsize = nbytes - output._gap
+                      _size = _size + nbytes
                 finally:
                     for obj in swapped:
                         obj.byteswap(True)
             else:
                 output = hdu.data
-                _tofile(output, self.__file)
+
+                if not self._simulateonly:
+                    _tofile(output, self.__file)
 
             _size = _size + output.size * output.itemsize
 
             # pad the FITS data block
-            if _size > 0:
+            if _size > 0 and not self._simulateonly:
                 if isinstance(hdu, TableHDU):
                     self.__file.write(_padLength(_size)*' ')
                 else:
                     self.__file.write(_padLength(_size)*'\0')
 
         # flush, to make sure the content is written
-        if hasattr(self.__file, 'flush'):
+        if not self._simulateonly and hasattr(self.__file, 'flush'):
             self.__file.flush()
 
         # return both the location and the size of the data area

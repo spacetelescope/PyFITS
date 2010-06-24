@@ -34,19 +34,26 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         except:
             pass
 
+    def testHDUFileBytes(self):
+        hdul = pyfits.open(test_dir+'checksum.fits')
+        res = hdul[0].filebytes()
+        self.assertEqual(res, 11520)
+        res = hdul[1].filebytes()
+        self.assertEqual(res,8640)
+
     def testHDUListFileInfo(self):
-        hdul = pyfits.open('checksum.fits')
+        hdul = pyfits.open(test_dir+'checksum.fits')
         res = hdul.fileinfo(0)
         self.assertEqual(res['datSpan'], 2880)
         self.assertEqual(res['resized'], 0)
-        self.assertEqual(res['filename'], 'checksum.fits')
+        self.assertEqual(res['filename'], test_dir+'checksum.fits')
         self.assertEqual(res['datLoc'], 8640)
         self.assertEqual(res['hdrLoc'], 0)
 
         res = hdul.fileinfo(1)
         self.assertEqual(res['datSpan'], 2880)
         self.assertEqual(res['resized'], 0)
-        self.assertEqual(res['filename'], 'checksum.fits')
+        self.assertEqual(res['filename'], test_dir+'checksum.fits')
         self.assertEqual(res['datLoc'], 17280)
         self.assertEqual(res['hdrLoc'], 11520)
 
@@ -56,21 +63,21 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         res = hdul.fileinfo(0)
         self.assertEqual(res['datSpan'], 2880)
         self.assertEqual(res['resized'], 1)
-        self.assertEqual(res['filename'], 'checksum.fits')
+        self.assertEqual(res['filename'], test_dir+'checksum.fits')
         self.assertEqual(res['datLoc'], 8640)
         self.assertEqual(res['hdrLoc'], 0)
 
         res = hdul.fileinfo(1)
         self.assertEqual(res['datSpan'], None)
         self.assertEqual(res['resized'], 1)
-        self.assertEqual(res['filename'], 'checksum.fits')
+        self.assertEqual(res['filename'], test_dir+'checksum.fits')
         self.assertEqual(res['datLoc'], None)
         self.assertEqual(res['hdrLoc'], None)
 
         res = hdul.fileinfo(2)
         self.assertEqual(res['datSpan'], 2880)
         self.assertEqual(res['resized'], 1)
-        self.assertEqual(res['filename'], 'checksum.fits')
+        self.assertEqual(res['filename'], test_dir+'checksum.fits')
         self.assertEqual(res['datLoc'], 17280)
         self.assertEqual(res['hdrLoc'], 11520)
 
