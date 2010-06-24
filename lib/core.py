@@ -2773,6 +2773,18 @@ class _ValidHDU(_AllHDU, _Verify):
         return size
 
     def filebytes(self):
+        """
+        Calculates and returns the number of bytes that this HDU will write to
+        a file.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        Number of bytes
+        """
         file = _File()
         return file.writeHDUheader(self)[1] + file.writeHDUdata(self)[1]
         
