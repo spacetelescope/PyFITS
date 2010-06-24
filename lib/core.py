@@ -2772,6 +2772,40 @@ class _ValidHDU(_AllHDU, _Verify):
             size = abs(bitpix) * gcount * (pcount + size) // 8
         return size
 
+    def fileinfo(self):
+        """
+        Returns a dictionary detailing information about the locations of
+        this HDU within any associated file.  The values are only valid after
+        a read or write of the associated file with no intervening changes to
+        the HDUList.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        dictionary detailing information about the locations of this HDU
+        within an associated file; 
+
+        returns None when the HDU is not associated with a file
+
+        Dictionary contents:
+
+           Key        Value
+           ---        -----
+           file       File object associated with the HDU
+           hdrLoc     Starting byte location of header in file
+           datLoc     Starting byte location of data block in file
+           datSpan    Data size including padding
+        """
+
+        if hasattr(self,'_file') and self._file:
+           return {'file':self._file, 'hdrLoc':self._hdrLoc,
+                   'datLoc':self._datLoc, 'datSpan':self._datSpan}
+        else:
+            return None
+
     def copy(self):
         """
         Make a copy of the HDU, both header and data are copied.
@@ -9620,6 +9654,116 @@ class HDUList(list, _Verify):
                     _err.append(_result)
         return _err
 
+    def _wasresized(self, verbose=False):
+        """
+        Determine if any changes to the HDUList will require a file resize
+        when flushing the file.
+
+        Side effect of setting the objects _resize attribute.
+        """
+
+        if not self._resize:
+
+            # determine if any of the HDU is resized
+            for hdu in self:
+
+                # Header:
+                # Add 1 to .ascard to include the END card
+                _nch80 = reduce(operator.add, map(Card._ncards,
+                                                  hdu.header.ascard))
+                _bytes = (_nch80+1) * Card.length
+                _bytes = _bytes + _padLength(_bytes)
+                if _bytes != (hdu._datLoc-hdu._hdrLoc):
+                    self._resize = 1
+                    self._truncate = 0
+                    if verbose:
+                        print "One or more header is resized."
+                    break
+
+                # Data:
+                if 'data' not in dir(hdu):
+                    continue
+                if hdu.data is None:
+                    continue
+                _bytes = hdu.data.nbytes
+                _bytes = _bytes + _padLength(_bytes)
+                if _bytes != hdu._datSpan:
+                    self._resize = 1
+                    self._truncate = 0
+                    if verbose:
+                        print "One or more data area is resized."
+                    break
+
+            if self._truncate:
+               try:
+                   self.__file.getfile().truncate(hdu._datLoc+hdu._datSpan)
+               except IOError:
+                   self._resize = 1
+               self._truncate = 0
+
+        return self._resize
+
+    def fileinfo(self, index):
+        """
+        Returns a dictionary detailing information about the locations of
+        the indexed HDU within any associated file.  The values are only valid
+        after a read or write of the associated file with no intervening
+        changes to the HDUList.
+
+        Parameters
+        ----------
+        index : int
+            Index of HDU for which info is to be returned.
+
+
+        Returns
+        -------
+        dictionary detailing information about the locations of the indexed HDU
+        within an associated file; 
+
+        returns None when the HDU is not associated with a file
+
+        Dictionary contents:
+
+           Key        Value
+           ---        -----
+           file       File object associated with the HDU
+           filename   Name of associated file object
+           resized    Flag that when True indicates that the data has been
+                       resized since the last read/write so the returned values
+                       may not be valid.
+           hdrLoc     Starting byte location of header in file
+           datLoc     Starting byte location of data block in file
+           datSpan    Data size including padding
+        """
+
+        if self.__file is not None:
+            output = self[index].fileinfo()
+
+            if not output:
+                # OK, the HDU associated with this index is not yet
+                # tied to the file associated with the HDUList.  The only way
+                # to get the file object is to check each of the HDU's in the
+                # list until we find the one associated with the file.
+                f = None
+
+                for hdu in self:
+                   info = hdu.fileinfo()
+
+                   if info:
+                      f = info['file']
+                      break
+
+                output = {'file':f, 'hdrLoc':None,
+                          'datLoc':None, 'datSpan':None}
+
+            output['filename'] = self.__file.name
+            output['resized'] = self._wasresized()
+        else:
+            output = None
+
+        return output
+
     def insert(self, index, hdu, classExtensions={}):
         """
         Insert an HDU into the `HDUList` at the given `index`.
@@ -9923,43 +10067,7 @@ class HDUList(list, _Verify):
                     hdu._new = 0
 
         elif self.__file.mode == 'update':
-            if not self._resize:
-
-                # determine if any of the HDU is resized
-                for hdu in self:
-
-                    # Header:
-                    # Add 1 to .ascard to include the END card
-                    _nch80 = reduce(operator.add, map(Card._ncards, hdu.header.ascard))
-                    _bytes = (_nch80+1) * Card.length
-                    _bytes = _bytes + _padLength(_bytes)
-                    if _bytes != (hdu._datLoc-hdu._hdrLoc):
-                        self._resize = 1
-                        self._truncate = 0
-                        if verbose:
-                            print "One or more header is resized."
-                        break
-
-                    # Data:
-                    if 'data' not in dir(hdu):
-                        continue
-                    if hdu.data is None:
-                        continue
-                    _bytes = hdu.data.nbytes
-                    _bytes = _bytes + _padLength(_bytes)
-                    if _bytes != hdu._datSpan:
-                        self._resize = 1
-                        self._truncate = 0
-                        if verbose:
-                            print "One or more data area is resized."
-                        break
-
-                if self._truncate:
-                   try:
-                       self.__file.getfile().truncate(hdu._datLoc+hdu._datSpan)
-                   except IOError:
-                       self._resize = 1
-                   self._truncate = 0
+            self._wasresized(verbose)
 
             # if the HDUList is resized, need to write out the entire contents
             # of the hdulist to the file.

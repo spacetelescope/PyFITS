@@ -34,6 +34,47 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         except:
             pass
 
+    def testHDUListFileInfo(self):
+        hdul = pyfits.open('checksum.fits')
+        res = hdul.fileinfo(0)
+        self.assertEqual(res['datSpan'], 2880)
+        self.assertEqual(res['resized'], 0)
+        self.assertEqual(res['filename'], 'checksum.fits')
+        self.assertEqual(res['datLoc'], 8640)
+        self.assertEqual(res['hdrLoc'], 0)
+
+        res = hdul.fileinfo(1)
+        self.assertEqual(res['datSpan'], 2880)
+        self.assertEqual(res['resized'], 0)
+        self.assertEqual(res['filename'], 'checksum.fits')
+        self.assertEqual(res['datLoc'], 17280)
+        self.assertEqual(res['hdrLoc'], 11520)
+
+        hdu = pyfits.ImageHDU(data=hdul[0].data)
+        hdul.insert(1,hdu)
+
+        res = hdul.fileinfo(0)
+        self.assertEqual(res['datSpan'], 2880)
+        self.assertEqual(res['resized'], 1)
+        self.assertEqual(res['filename'], 'checksum.fits')
+        self.assertEqual(res['datLoc'], 8640)
+        self.assertEqual(res['hdrLoc'], 0)
+
+        res = hdul.fileinfo(1)
+        self.assertEqual(res['datSpan'], None)
+        self.assertEqual(res['resized'], 1)
+        self.assertEqual(res['filename'], 'checksum.fits')
+        self.assertEqual(res['datLoc'], None)
+        self.assertEqual(res['hdrLoc'], None)
+
+        res = hdul.fileinfo(2)
+        self.assertEqual(res['datSpan'], 2880)
+        self.assertEqual(res['resized'], 1)
+        self.assertEqual(res['filename'], 'checksum.fits')
+        self.assertEqual(res['datLoc'], 17280)
+        self.assertEqual(res['hdrLoc'], 11520)
+
+
     def testAppendPrimaryToEmptyList(self):
         # Tests appending a Simple PrimaryHDU to an empty HDUList.
         hdul = pyfits.HDUList()
