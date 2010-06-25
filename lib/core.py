@@ -8938,7 +8938,7 @@ class StreamingHDU:
         self._ffo = _File(name, 'append')
         self._ffo.getfile().seek(0,2)
 
-        self._hdrLoc = self._ffo.writeHDUheader(self)
+        self._hdrLoc = self._ffo.writeHDUheader(self)[0]
         self._datLoc = self._ffo.getfile().tell()
         self._size = self.size()
 
@@ -9308,7 +9308,7 @@ class _File:
             hdu.update_header()
         elif isinstance(hdu, CompImageHDU):
             hdu.updateCompressedData()
-        return (self.writeHDUheader(hdu,checksum),) + self.writeHDUdata(hdu)
+        return (self.writeHDUheader(hdu,checksum)[0],) + self.writeHDUdata(hdu)
 
     def writeHDUheader(self, hdu, checksum=False):
         """
