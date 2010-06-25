@@ -292,7 +292,9 @@ class Undefined:
     """
     Undefined value.
     """
-    pass
+    def __init__(self):
+        # This __init__ is required to be here for Sphinx documentation
+        pass
 
 class Delayed:
     """
@@ -2787,13 +2789,13 @@ class _ValidHDU(_AllHDU, _Verify):
         """
         file = _File()
         return file.writeHDUheader(self)[1] + file.writeHDUdata(self)[1]
-        
+
     def fileinfo(self):
         """
-        Returns a dictionary detailing information about the locations of
-        this HDU within any associated file.  The values are only valid after
-        a read or write of the associated file with no intervening changes to
-        the HDUList.
+        Returns a dictionary detailing information about the locations
+        of this HDU within any associated file.  The values are only
+        valid after a read or write of the associated file with no
+        intervening changes to the `HDUList`.
 
         Parameters
         ----------
@@ -2801,19 +2803,22 @@ class _ValidHDU(_AllHDU, _Verify):
 
         Returns
         -------
-        dictionary detailing information about the locations of this HDU
-        within an associated file; 
+        dictionary or None
 
-        returns None when the HDU is not associated with a file
+           The dictionary details information about the locations of
+           this HDU within an associated file.  Returns `None` when
+           the HDU is not associated with a file.
 
-        Dictionary contents:
+           Dictionary contents:
 
+           ========== ================================================
            Key        Value
-           ---        -----
+           ========== ================================================
            file       File object associated with the HDU
            hdrLoc     Starting byte location of header in file
            datLoc     Starting byte location of data block in file
            datSpan    Data size including padding
+           ========== ================================================
         """
 
         if hasattr(self,'_file') and self._file:
@@ -3667,7 +3672,7 @@ class Section:
         for i in range(len(key)):
             if isinstance(key[i], slice):
                 numSlices = numSlices + 1
-        
+
         for i in range(len(key)):
             if isinstance(key[i], slice):
                 # OK, this element is a slice so see if we can get the data for
@@ -3731,7 +3736,7 @@ class Section:
                 dims.append(indx.npts)
                 break
             elif isinstance(indx, _SteppedSlice):
-                raise IndexError, 'Stepped Slice not supported' 
+                raise IndexError, 'Stepped Slice not supported'
 
         contiguousSubsection = True
 
@@ -5119,10 +5124,10 @@ class ColDefs(object):
 
         .. warning::
 
-        *New in pyfits 2.3*: This function appends the new column to
-        the `ColDefs` object in place.  Prior to pyfits 2.3, this
-        function returned a new `ColDefs` with the new column at the
-        end.
+            *New in pyfits 2.3*: This function appends the new column
+            to the `ColDefs` object in place.  Prior to pyfits 2.3,
+            this function returned a new `ColDefs` with the new column
+            at the end.
         """
         assert isinstance(column, Column)
 
@@ -5466,7 +5471,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                                             tmp._recformats[i]._dtype)
             elif tmp._recformats[i][-2:] == _booltype and \
                  tmp._arrays[i].dtype == bool:
-                # column is boolean 
+                # column is boolean
                 rec.recarray.field(hdu.data,i)[:n] = \
                            np.where(tmp._arrays[i]==False, ord('F'), ord('T'))
             else:
@@ -9744,36 +9749,39 @@ class HDUList(list, _Verify):
 
     def fileinfo(self, index):
         """
-        Returns a dictionary detailing information about the locations of
-        the indexed HDU within any associated file.  The values are only valid
-        after a read or write of the associated file with no intervening
-        changes to the HDUList.
+        Returns a dictionary detailing information about the locations
+        of the indexed HDU within any associated file.  The values are
+        only valid after a read or write of the associated file with
+        no intervening changes to the `HDUList`.
 
         Parameters
         ----------
         index : int
             Index of HDU for which info is to be returned.
 
-
         Returns
         -------
-        dictionary detailing information about the locations of the indexed HDU
-        within an associated file; 
+        dictionary or None
 
-        returns None when the HDU is not associated with a file
+            The dictionary details information about the locations of
+            the indexed HDU within an associated file.  Returns `None`
+            when the HDU is not associated with a file.
 
-        Dictionary contents:
+            Dictionary contents:
 
-           Key        Value
-           ---        -----
-           file       File object associated with the HDU
-           filename   Name of associated file object
-           resized    Flag that when True indicates that the data has been
+            ========== ===========================================================
+            Key        Value
+            ========== ===========================================================
+            file       File object associated with the HDU
+            filename   Name of associated file object
+            resized    Flag that when `True` indicates that the data has been
                        resized since the last read/write so the returned values
                        may not be valid.
-           hdrLoc     Starting byte location of header in file
-           datLoc     Starting byte location of data block in file
-           datSpan    Data size including padding
+            hdrLoc     Starting byte location of header in file
+            datLoc     Starting byte location of data block in file
+            datSpan    Data size including padding
+            ========== ===========================================================
+
         """
 
         if self.__file is not None:
@@ -9825,7 +9833,7 @@ class HDUList(list, _Verify):
 
             if index == 0 or num_hdus == 0:
                 if num_hdus != 0:
-                    # We are inserting a new Primary HDU so we need to 
+                    # We are inserting a new Primary HDU so we need to
                     # make the current Primary HDU into an extension HDU.
                     if isinstance(self[0], GroupsHDU):
                        raise ValueError, \
@@ -10464,7 +10472,7 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
         opened.
 
     mode : str
-        Open mode, 'copyonwrite' (default), 'readonly', 'update', 
+        Open mode, 'copyonwrite' (default), 'readonly', 'update',
         'append', or 'ostream'.
 
         If `name` is a file object that is already opened, `mode` must
