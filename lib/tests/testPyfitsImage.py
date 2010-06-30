@@ -705,6 +705,19 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
 
         os.remove(jfile)
 
+    def testCompImage(self):
+        data = np.zeros((2, 10, 10), dtype=np.float32)
+        primary_hdu = pyfits.PrimaryHDU()
+        ofd = pyfits.HDUList(primary_hdu)
+        ofd.append(pyfits.CompImageHDU(data, name="SCI",
+                                       compressionType="GZIP_1",
+                                       quantizeLevel=-0.01))
+        ofd.writeto(jfile)
+        ofd.close()
+        fd = pyfits.open (jfile)
+        self.assertEqual(fd[1].data.all(), data.all())
+        os.remove(jfile)
+
 
 if __name__ == '__main__':
     unittest.main()

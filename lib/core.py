@@ -9520,8 +9520,8 @@ class _File:
                                   if not self._simulateonly:
                                       coldata.tofile(self.__file)
 
-                      output._heapsize = nbytes - output._gap
-                      _size = _size + nbytes
+                  output._heapsize = nbytes - output._gap
+                  _size = _size + nbytes
                 finally:
                     for obj in swapped:
                         obj.byteswap(True)
