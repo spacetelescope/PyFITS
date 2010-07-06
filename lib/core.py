@@ -1647,12 +1647,12 @@ class Header:
                                 self._hdutype = CompImageHDU
                             else:
                                 if compressionSupported == 0:
-                                    print "Failure creating a header for a " + \
-                                          "compressed image HDU."
-                                    print "The pyfitsComp module is not " + \
-                                          "available."
-                                    print "The HDU will be treated as a " + \
-                                          "Binary Table HDU."
+                                    warnings.warn("Failure creating a header for a " + \
+                                          "compressed image HDU.")
+                                    warnings.warn( "The pyfitsComp module is not " + \
+                                          "available.")
+                                    warnings.warn("The HDU will be treated as a " + \
+                                          "Binary Table HDU.")
                                     compressionSupported = -1
 
                                 raise KeyError
@@ -10512,6 +10512,11 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
             ``CHECKSUM`` card values (when present in the HDU header)
             match the header and data of all HDU's in the file.
 
+        - **disable_image_compression** : bool
+
+            If `True`, treates compressed image HDU's like normal
+            binary table HDU's.
+
     Returns
     -------
         hdulist : an HDUList object
@@ -10530,73 +10535,86 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
     else:
         hduList = HDUList(file=ffo)
 
-    if mode != 'ostream':
-        # read all HDU's
-        while 1:
-            try:
-                hduList.append(ffo._readHDU(), classExtensions=classExtensions)
-            except EOFError:
-                break
-            # check in the case there is extra space after the last HDU or
-            # corrupted HDU
-            except ValueError, e:
-                warnings.warn('Warning:  Required keywords missing when trying to read HDU #%d.\n          %s\n          There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList),e))
-                break
-            except IOError, e:
-                if isinstance(ffo.getfile(), gzip.GzipFile) and \
-                   string.find(str(e),'on write-only GzipFile object'):
+    global compressionSupported
+    savedCompressionSupported = compressionSupported
+
+    try:
+        if 'disable_image_compression' in parms and \
+           parms['disable_image_compression']:
+            compressionSupported = -1
+
+        if mode != 'ostream':
+            # read all HDU's
+            while 1:
+                try:
+                    hduList.append(ffo._readHDU(),
+                                   classExtensions=classExtensions)
+                except EOFError:
                     break
-                else:
-                    raise e
+                # check in the case there is extra space after the last HDU or
+                # corrupted HDU
+                except ValueError, e:
+                    warnings.warn('Warning:  Required keywords missing when trying to read HDU #%d.\n          %s\n          There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList),e))
+                    break
+                except IOError, e:
+                    if isinstance(ffo.getfile(), gzip.GzipFile) and \
+                       string.find(str(e),'on write-only GzipFile object'):
+                        break
+                    else:
+                        raise e
 
-        # If we're trying to read only and no header units were found,
-        # raise and exception
-        if mode == 'readonly' and len(hduList) == 0:
-            raise IOError("Empty FITS file")
+            # If we're trying to read only and no header units were found,
+            # raise and exception
+            if mode == 'readonly' and len(hduList) == 0:
+                raise IOError("Empty FITS file")
 
-        # For each HDU, verify the checksum/datasum value if the cards exist in
-        # the header and we are opening with checksum=True.  Always remove the
-        # checksum/datasum cards from the header.
-        for i in range(len(hduList)):
-            hdu = hduList.__getitem__(i, classExtensions)
+            # For each HDU, verify the checksum/datasum value if the cards
+            # exist in the header and we are opening with checksum=True.
+            # Always remove the checksum/datasum cards from the header.
+            for i in range(len(hduList)):
+                hdu = hduList.__getitem__(i, classExtensions)
 
-            if hdu._header.has_key('CHECKSUM'):
-                 hdu._checksum = hdu._header['CHECKSUM']
-                 hdu._checksum_comment = \
+                if hdu._header.has_key('CHECKSUM'):
+                     hdu._checksum = hdu._header['CHECKSUM']
+                     hdu._checksum_comment = \
                                 hdu._header.ascardlist()['CHECKSUM'].comment
 
-                 if 'checksum' in parms and parms['checksum'] and \
-                 not hdu.verify_checksum():
-                     warnings.warn('Warning:  Checksum verification failed for '
-                                   'HDU #%d.\n' % i)
+                     if 'checksum' in parms and parms['checksum'] and \
+                     not hdu.verify_checksum():
+                         warnings.warn('Warning:  Checksum verification failed '
+                                   'for HDU #%d.\n' % i)
 
-                 del hdu.header['CHECKSUM']
-            else:
-                 hdu._checksum = None
-                 hdu._checksum_comment = None
+                     del hdu.header['CHECKSUM']
+                else:
+                     hdu._checksum = None
+                     hdu._checksum_comment = None
 
-            if hdu._header.has_key('DATASUM'):
-                 hdu._datasum = hdu.header['DATASUM']
-                 hdu._datasum_comment = \
+                if hdu._header.has_key('DATASUM'):
+                     hdu._datasum = hdu.header['DATASUM']
+                     hdu._datasum_comment = \
                                    hdu.header.ascardlist()['DATASUM'].comment
 
-                 if 'checksum' in parms and parms['checksum'] and \
-                 not hdu.verify_datasum():
-                     warnings.warn('Warning:  Datasum verification failed for '
-                                   'HDU #%d.\n' % (len(hduList)))
+                     if 'checksum' in parms and parms['checksum'] and \
+                     not hdu.verify_datasum():
+                         warnings.warn('Warning:  Datasum verification failed '
+                                       'for HDU #%d.\n' % (len(hduList)))
 
-                 del hdu.header['DATASUM']
-            else:
-                 hdu._checksum = None
-                 hdu._checksum_comment = None
-                 hdu._datasum = None
-                 hdu._datasum_comment = None
+                     del hdu.header['DATASUM']
+                else:
+                     hdu._checksum = None
+                     hdu._checksum_comment = None
+                     hdu._datasum = None
+                     hdu._datasum_comment = None
 
-    # initialize/reset attributes to be used in "update/append" mode
-    # CardList needs its own _mod attribute since it has methods to change
-    # the content of header without being able to pass it to the header object
-    hduList._resize = 0
-    hduList._truncate = 0
+        # initialize/reset attributes to be used in "update/append" mode
+        # CardList needs its own _mod attribute since it has methods to change
+        # the content of header without being able to pass it to the header
+        # object
+        hduList._resize = 0
+        hduList._truncate = 0
+
+    finally:
+        compressionSupported = savedCompressionSupported
 
     return hduList
 
