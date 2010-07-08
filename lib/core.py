@@ -5662,53 +5662,63 @@ class FITS_rec(rec.recarray):
         if obj is None:
             return
 
-        # This will allow regular ndarrays with fields, rather than
-        # just other FITS_rec objects
-        self._nfields = len(obj.dtype.names)
-        self._convert = [None]*len(obj.dtype.names)
+        if type(obj) == FITS_rec:
+            self._convert = obj._convert
+            self._coldefs = obj._coldefs
+            self._nfields = obj._nfields
+            self.names = obj.names
+            self._names = obj._names
+            self._gap = obj._gap
+            self.formats = obj.formats
+        else:
+            # This will allow regular ndarrays with fields, rather than
+            # just other FITS_rec objects
+            self._nfields = len(obj.dtype.names)
+            self._convert = [None]*len(obj.dtype.names)
 
-        self._heapoffset = getattr(obj,'_heapoffset',0)
-        self._file = getattr(obj,'_file', None)
+            self._heapoffset = getattr(obj,'_heapoffset',0)
+            self._file = getattr(obj,'_file', None)
 
-        self._coldefs = None
-        self._gap = 0
-        self.names = obj.dtype.names
-        self._names = obj.dtype.names # This attribute added for backward compatibility with numarray version of FITS_rec
-        self.formats = None
+            self._coldefs = None
+            self._gap = 0
+            self.names = obj.dtype.names
+            self._names = obj.dtype.names # This attribute added for backward compatibility with numarray version of FITS_rec
+            self.formats = None
 
-        attrs=['_convert', '_coldefs', 'names', '_names', '_gap', 'formats']
-        for attr in attrs:
-            if hasattr(obj, attr):
-                value = getattr(obj, attr, None)
-                if value is None:
-                    warnings.warn('Setting attribute %s as None' % attr)
-                setattr(self, attr, value)
+            attrs=['_convert', '_coldefs', 'names', '_names', '_gap', 'formats']
+            for attr in attrs:
+                if hasattr(obj, attr):
+                    value = getattr(obj, attr, None)
+                    if value is None:
+                        warnings.warn('Setting attribute %s as None' % attr)
+                    setattr(self, attr, value)
 
-        if self._coldefs == None:
-            # The data does not have a _coldefs attribute so
-            # create one from the underlying recarray.
-            columns = []
-            formats = []
+            if self._coldefs == None:
+                # The data does not have a _coldefs attribute so
+                # create one from the underlying recarray.
+                columns = []
+                formats = []
 
-            for i in range(len(obj.dtype.names)):
-                cname = obj.dtype.names[i]
+                for i in range(len(obj.dtype.names)):
+                    cname = obj.dtype.names[i]
 
-                format = _convert_format(obj.dtype[i], reverse=True)
+                    format = _convert_format(obj.dtype[i], reverse=True)
 
-                formats.append(format)
+                    formats.append(format)
 
-                c = Column(name=cname,format=format)
-                columns.append(c)
+                    c = Column(name=cname,format=format)
+                    columns.append(c)
 
-            tbtype = 'BinTableHDU'
-            try:
-                if self._xtn == 'TABLE':
-                    tbtype = 'TableHDU'
-            except AttributeError:
-                pass
+                tbtype = 'BinTableHDU'
+                try:
+                    if self._xtn == 'TABLE':
+                        tbtype = 'TableHDU'
+                except AttributeError:
+                    pass
 
-            self.formats = formats
-            self._coldefs = ColDefs(columns, tbtype=tbtype)
+                self.formats = formats
+                self._coldefs = ColDefs(columns, tbtype=tbtype)
+
 
     def _clone(self, shape):
         """
