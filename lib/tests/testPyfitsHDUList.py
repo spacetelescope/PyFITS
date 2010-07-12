@@ -34,6 +34,12 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         except:
             pass
 
+    def testUpdateName(self):
+        hdul=pyfits.open(test_dir+'o4sp040b0_raw.fits')
+        hdul[4].update_ext_name('Jim', "added by Jim")
+        hdul[4].update_ext_version(9, "added by Jim")
+        self.assertEqual(hdul[('JIM',9)].header['extname'], 'JIM')
+
     def testHDUFileBytes(self):
         hdul = pyfits.open(test_dir+'checksum.fits')
         res = hdul[0].filebytes()

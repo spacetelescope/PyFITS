@@ -2882,6 +2882,86 @@ class _ValidHDU(_AllHDU, _Verify):
         hdulist.writeto(name, output_verify, clobber=clobber,
                         checksum=checksum, classExtensions=classExtensions)
 
+    def update_ext_name(self, value, comment=None, before=None,
+                        after=None, savecomment=False):
+        """
+        Update the extension name associated with the HDU.
+
+        If the keyword already exists in the Header, it's value and/or comment
+        will be updated.  If it does not exist, a new card will be created
+        and it will be placed before or after the specified location.
+        If no `before` or `after` is specified, it will be appended at
+        the end.
+
+        Parameters
+        ----------
+        value : str
+            value to be used for the new extension name
+
+        comment : str, optional
+            to be used for updating, default=None.
+
+        before : str or int, optional
+            name of the keyword, or index of the `Card` before which
+            the new card will be placed in the Header.  The argument
+            `before` takes precedence over `after` if both specified.
+
+        after : str or int, optional
+            name of the keyword, or index of the `Card` after which
+            the new card will be placed in the Header.
+
+        savecomment : bool, optional
+            When `True`, preserve the current comment for an existing
+            keyword.  The argument `savecomment` takes precedence over
+            `comment` if both specified.  If `comment` is not
+            specified then the current comment will automatically be
+            preserved.
+        """
+        self._header.update('extname', value, comment, before, after,
+                            savecomment)
+        self.name = value
+
+
+    def update_ext_version(self, value, comment=None, before=None,
+                           after=None, savecomment=False):
+        """
+        Update the extension version associated with the HDU.
+
+        If the keyword already exists in the Header, it's value and/or comment
+        will be updated.  If it does not exist, a new card will be created
+        and it will be placed before or after the specified location.
+        If no `before` or `after` is specified, it will be appended at
+        the end.
+
+        Parameters
+        ----------
+        value : str
+            value to be used for the new extension version
+
+        comment : str, optional
+            to be used for updating, default=None.
+
+        before : str or int, optional
+            name of the keyword, or index of the `Card` before which
+            the new card will be placed in the Header.  The argument
+            `before` takes precedence over `after` if both specified.
+
+        after : str or int, optional
+            name of the keyword, or index of the `Card` after which
+            the new card will be placed in the Header.
+
+        savecomment : bool, optional
+            When `True`, preserve the current comment for an existing
+            keyword.  The argument `savecomment` takes precedence over
+            `comment` if both specified.  If `comment` is not
+            specified then the current comment will automatically be
+            preserved.
+        """
+        self._header.update('extver', value, comment, before, after,
+                            savecomment)
+        self._extver = value
+
+
     def _verify(self, option='warn'):
         _err = _ErrList([], unit='Card')
 
