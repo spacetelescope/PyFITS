@@ -5957,12 +5957,11 @@ class FITS_rec(rec.recarray):
 
                 # if the string = TNULL, return ASCIITNULL
                 nullval = self._coldefs.nulls[indx].strip()
-                dummy = np.zeros(len(self), dtype=_type)
-                dummy[:] = ASCIITNULL
+                dummy = rec.recarray.field(self,indx).replace('D','E')
+                dummy = np.where(dummy.strip()==nullval, str(ASCIITNULL), dummy)
+                dummy = np.array(dummy, dtype=_type)
+
                 self._convert[indx] = dummy
-                for i in range(len(self)):
-                    if rec.recarray.field(self,indx)[i].strip() != nullval:
-                        dummy[i] = float(rec.recarray.field(self,indx)[i].replace('D', 'E'))
             else:
                 dummy = rec.recarray.field(self,indx)
 
