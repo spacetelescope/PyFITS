@@ -1575,7 +1575,13 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdul.close()
         os.remove('newtable.fits')
 
+    def testFITS_recColumnAccess(self):
+        t=pyfits.open(test_dir+'table.fits')
+        tbdata = t[1].data
+        self.assertEqual(tbdata.V_mag.all(), tbdata.field('V_mag').all())
+        self.assertEqual(tbdata.V_mag.all(), tbdata['V_mag'].all())
 
+        t.close()
 
 
 

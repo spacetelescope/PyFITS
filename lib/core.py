@@ -5660,14 +5660,11 @@ class FITS_record(object):
         """
         Print one row.
         """
-        if isinstance(self.row, (str, unicode)):
-            return repr(np.asarray(self.array)[self.row])
-        else:
-            outlist = []
-            for i in range(self.array._nfields):
-                if i >= self.start and i < self.end:
-                    outlist.append(`self.array.field(i)[self.row]`)
-            return "(" + ", ".join(outlist) + ")"
+        outlist = []
+        for i in range(self.array._nfields):
+            if i >= self.start and i < self.end:
+                outlist.append(`self.array.field(i)[self.row]`)
+        return "(" + ", ".join(outlist) + ")"
 
 
     def __repr__(self):
@@ -5816,7 +5813,9 @@ class FITS_rec(rec.recarray):
         return self.__getitem__(key)
 
     def __getitem__(self, key):
-        if isinstance(key, slice) or isinstance(key,np.ndarray):
+        if isinstance(key, (str, unicode)):
+            return self.field(key)
+        elif isinstance(key, slice) or isinstance(key,np.ndarray):
             out = rec.recarray.__getitem__(self, key)
             out._coldefs = ColDefs(self._coldefs)
             arrays = []
