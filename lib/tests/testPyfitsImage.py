@@ -274,6 +274,13 @@ CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment                  
 CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  \
 CONTINUE  '&' / comments in line 1 comments with ''.                            ")
 
+    def testHierarchCard(self):
+        c = pyfits.Card('hierarch abcdefghi',10)
+        self.assertEqual(str(c.ascardimage()),"HIERARCH abcdefghi = 10                                                         ")
+        c = pyfits.Card('HIERARCH ESO INS SLIT2 Y1FRML', 'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)')
+        self.assertEqual(str(c.ascardimage()),"HIERARCH ESO INS SLIT2 Y1FRML= 'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)'")
+
+
     def testOpen(self):
         # The function "open" reads a FITS file into an HDUList object.  There are
         # three modes to open: "readonly" (the default), "append", and "update".

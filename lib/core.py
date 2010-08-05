@@ -612,9 +612,14 @@ class Card(_Verify):
            not isinstance(self, RecordValuedKeywordCard):
             self.__class__ = Card
         else:
-            # does not support CONTINUE for HIERARCH
             if len(keyStr + eqStr + valStr) > Card.length:
-                raise ValueError, "The keyword %s with its value is too long." % self.key
+                if isinstance(self, _Hierarch) and \
+                   len(keyStr + eqStr + valStr) == Card.length + 1 and \
+                   keyStr[-1] == ' ':
+                    output = keyStr[:-1] + eqStr + valStr + commentStr
+                else:
+                    raise ValueError, \
+                         "The keyword %s with its value is too long." % self.key
         if len(output) <= Card.length:
             output = "%-80s" % output
 
