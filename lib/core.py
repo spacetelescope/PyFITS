@@ -10312,6 +10312,12 @@ class HDUList(list, _Verify):
                     if (verbose):
                         try: _extver = `hdu.header['extver']`
                         except: _extver = ''
+
+                    if 'data' in dir(hdu) and isinstance(hdu, _ImageBaseHDU):
+                        # If the data has changed update the image header to
+                        # match the data
+                        hdu.update_header()
+
                     if hdu.header._mod or hdu.header.ascard._mod:
                         # only output the checksum if flagged to do so
                         if hasattr(hdu, '_output_checksum'):
