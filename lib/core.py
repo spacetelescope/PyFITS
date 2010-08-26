@@ -286,6 +286,18 @@ def _floatFormat(value):
     valueStr = "%.16G" % value
     if "." not in valueStr and "E" not in valueStr:
         valueStr += ".0"
+
+    # Limit the value string to at most 20 characters.
+    strLen = len(valueStr)
+
+    if strLen > 20:
+        idx = valueStr.find('E')
+
+        if idx < 0:
+            valueStr = valueStr[:20]
+        else:
+            valueStr = valueStr[:20-(strLen-idx)] + valueStr[idx:]
+         
     return valueStr
 
 class Undefined:
