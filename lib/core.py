@@ -11305,7 +11305,7 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
             else:
                 hdu = ImageHDU(data, header)
 
-        f = open(filename, mode='update', classExtensions=classExtensions)
+        f = open(filename, mode='append', classExtensions=classExtensions)
         f.append(hdu, classExtensions=classExtensions)
 
         # Set a flag in the HDU so that only this HDU gets a checksum

@@ -83,15 +83,15 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         # floating point number
         c=pyfits.Card('floatnum', -467374636747637647347374734737437.)
 
-        if str(c) != "FLOATNUM= -4.673746367476376E+32                                                " and str(c) != "FLOATNUM= -4.673746367476376E+032                                               ":
-            self.assertEqual(str(c),"FLOATNUM= -4.673746367476376E+32                                                ")
+        if str(c) != "FLOATNUM= -4.6737463674763E+32                                                  " and str(c) != "FLOATNUM= -4.6737463674763E+032                                                 ":
+            self.assertEqual(str(c),"FLOATNUM= -4.6737463674763E+32                                                  ")
 
     def testComplexValue(self):
         # complex value
         c=pyfits.Card('abc',1.2345377437887837487e88+6324767364763746367e-33j)
 
-        if str(c) != "ABC     = (1.234537743788784E+88, 6.324767364763747E-15)                        " and str(c) != "ABC     = (1.234537743788784E+088, 6.324767364763747E-015)                      ":
-            self.assertEqual(str(c),"ABC     = (1.234537743788784E+88, 6.324767364763747E-15)                        ")
+        if str(c) != "ABC     = (1.23453774378878E+88, 6.32476736476374E-15)                          " and str(c) != "ABC     = (1.2345377437887E+088, 6.3247673647637E-015)                          ":
+            self.assertEqual(str(c),"ABC     = (1.23453774378878E+88, 6.32476736476374E-15)                          ")
 
     def testCardImageConstructedTooLong(self):
         tmpfile = open(jfile,'w')
