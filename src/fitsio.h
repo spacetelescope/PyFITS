@@ -428,211 +428,60 @@ typedef struct         /* structure used to store basic HDU information */
 
 /*---------------- utility routines -------------*/
 
-void ffpmsg(const char *err_message);
-int  ffgmsg(char *err_message);
-void ffxmsg(int action, char *err_message);
-void ffswap2(short *values, long nvalues);
-void ffswap4(INT32BIT *values, long nvalues);
-int ffgpv(fitsfile *fptr, int  datatype, LONGLONG firstelem, LONGLONG nelem,
-          void *nulval, void *array, int *anynul, int  *status);
-int ffgpvb(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
-           unsigned char nulval, unsigned char *array, int *anynul,
-           int *status);
-int ffgpvui(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
-           unsigned short nulval, unsigned short *array, int *anynul, 
-           int *status);
-int ffgpvi(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
-           short nulval, short *array, int *anynul, int *status);
-int ffgpvk(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
-           int nulval, int *array, int *anynul, int *status);
-int ffgpvj(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
-           long nulval, long *array, int *anynul, int *status);
-int ffgpvjj(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
-           LONGLONG nulval, LONGLONG *array, int *anynul, int *status);
-int ffgpve(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
-           float nulval, float *array, int *anynul, int *status);
-int ffgpvd(fitsfile *fptr, long group, LONGLONG firstelem, LONGLONG nelem,
-           double nulval, double *array, int *anynul, int *status);
-int ffppr(fitsfile *fptr, int datatype, LONGLONG  firstelem,
-           LONGLONG nelem, void *array, int *status);
-int ffpprb(fitsfile *fptr, long group, LONGLONG firstelem,
-           LONGLONG nelem, unsigned char *array, int *status);
-int ffppri(fitsfile *fptr, long group, LONGLONG firstelem,
-           LONGLONG nelem, short *array, int *status);
-int ffpprj(fitsfile *fptr, long group, LONGLONG firstelem,
-           LONGLONG nelem, long *array, int *status);
-int ffpprk(fitsfile *fptr, long group, LONGLONG firstelem,
-           LONGLONG nelem, int *array, int *status);
-int ffppre(fitsfile *fptr, long group, LONGLONG firstelem,
-           LONGLONG nelem, float *array, int *status);
-int ffpprd(fitsfile *fptr, long group, LONGLONG firstelem,
-           LONGLONG nelem, double *array, int *status);
-int ffpprjj(fitsfile *fptr, long group, LONGLONG firstelem,
-           LONGLONG nelem, LONGLONG *array, int *status);
-int ffpcli(fitsfile *fptr, int colnum, LONGLONG firstrow, LONGLONG firstelem,
-           LONGLONG nelem, short *array, int *status);
+void _pyfits_ffpmsg(const char *err_message);
+int  _pyfits_ffgmsg(char *err_message);
+int  _pyfits_ffgpv(fitsfile *fptr, int  datatype, LONGLONG firstelem,
+          LONGLONG nelem, void *nulval, void *array, int *anynul, int  *status);
+int  _pyfits_ffppr(fitsfile *fptr, int datatype, LONGLONG  firstelem,
+          LONGLONG nelem, void *array, int *status);
 
 /*--------------------- group template parser routines ------------------*/
 
-int fits_img_stats_int(int *array,long nx, long ny, int nullcheck,
+int _pyfits_fits_img_stats_int(int *array,long nx, long ny, int nullcheck,
     int nullvalue,long *ngoodpix, int *minvalue, int *maxvalue, double *mean,
     double *sigma, double *noise1, double *noise3, int *status);
 
 /* H-compress routines */
-int fits_hcompress(int *a, int nx, int ny, int scale, char *output, 
+int _pyfits_fits_hcompress(int *a, int nx, int ny, int scale, char *output, 
     long *nbytes, int *status);
-int fits_hcompress64(LONGLONG *a, int nx, int ny, int scale, char *output, 
-    long *nbytes, int *status);
-int fits_hdecompress(unsigned char *input, int smooth, int *a, int *nx, 
-       int *ny, int *scale, int *status);
-int fits_hdecompress64(unsigned char *input, int smooth, LONGLONG *a, int *nx, 
-       int *ny, int *scale, int *status);
+int _pyfits_fits_hcompress64(LONGLONG *a, int nx, int ny, int scale,
+    char *output, long *nbytes, int *status);
+int _pyfits_fits_hdecompress(unsigned char *input, int smooth, int *a, int *nx, 
+    int *ny, int *scale, int *status);
+int _pyfits_fits_hdecompress64(unsigned char *input, int smooth, LONGLONG *a,
+    int *nx, int *ny, int *scale, int *status);
 
-int ffpxsz(int datatype);
-int fffi1i1(unsigned char *input, long ntodo, double scale, double zero,
-            int nullcheck, unsigned char tnull, unsigned char nullval, char
-             *nullarray, int *anynull, unsigned char *output, int *status);
-int fffi2i1(short *input, long ntodo, double scale, double zero,
-            int nullcheck, short tnull, unsigned char nullval, char *nullarray,
-            int *anynull, unsigned char *output, int *status);
-int fffi4i1(INT32BIT *input, long ntodo, double scale, double zero,
-            int nullcheck, INT32BIT tnull, unsigned char nullval,
-            char *nullarray, int *anynull, unsigned char *output, int *status);
-int fffi4u2(INT32BIT *input, long ntodo, double scale, double zero,
-            int nullcheck, INT32BIT tnull, unsigned short nullval,
-            char *nullarray, int *anynull, unsigned short *output, int *status);
-int fffi1i2(unsigned char *input, long ntodo, double scale, double zero,
-            int nullcheck, unsigned char tnull, short nullval, char *nullarray,
-            int *anynull, short *output, int *status);
-int fffi2i2(short *input, long ntodo, double scale, double zero,
-            int nullcheck, short tnull, short nullval, char *nullarray,
-            int *anynull, short *output, int *status);
-int fffi4i2(INT32BIT *input, long ntodo, double scale, double zero,
-            int nullcheck, INT32BIT tnull, short nullval, char *nullarray,
-            int *anynull, short *output, int *status);
-int fffi1int(unsigned char *input, long ntodo, double scale, double zero,
-            int nullcheck, unsigned char tnull, int nullval, char *nullarray,
-            int *anynull, int *output, int *status);
-int fffi2int(short *input, long ntodo, double scale, double zero,
-            int nullcheck, short tnull, int nullval, char *nullarray,
-            int *anynull, int *output, int *status);
-int fffi4int(INT32BIT *input, long ntodo, double scale, double zero,
-            int nullcheck, INT32BIT tnull, int nullval, char *nullarray,
-            int *anynull, int *output, int *status);
-int fffi1i4(unsigned char *input, long ntodo, double scale, double zero,
-            int nullcheck, unsigned char tnull, long nullval, char *nullarray,
-            int *anynull, long *output, int *status);
-int fffi2i4(short *input, long ntodo, double scale, double zero,
-            int nullcheck, short tnull, long nullval, char *nullarray,
-            int *anynull, long *output, int *status);
-int fffi4i4(INT32BIT *input, long ntodo, double scale, double zero,
-            int nullcheck, INT32BIT tnull, long nullval, char *nullarray,
-            int *anynull, long *output, int *status);
-int fffi1r4(unsigned char *input, long ntodo, double scale, double zero,
-            int nullcheck, unsigned char tnull, float nullval, char *nullarray,
-            int *anynull, float *output, int *status);
-int fffi2r4(short *input, long ntodo, double scale, double zero,
-            int nullcheck, short tnull, float nullval, char *nullarray,
-            int *anynull, float *output, int *status);
-int fffi4r4(INT32BIT *input, long ntodo, double scale, double zero,
-            int nullcheck, INT32BIT tnull, float nullval, char *nullarray,
-            int *anynull, float *output, int *status);
-int fffi1r8(unsigned char *input, long ntodo, double scale, double zero,
-            int nullcheck, unsigned char tnull, double nullval, char *nullarray,
-            int *anynull, double *output, int *status);
-int fffi2r8(short *input, long ntodo, double scale, double zero,
-            int nullcheck, short tnull, double nullval, char *nullarray,
-            int *anynull, double *output, int *status);
-int fffi4r8(INT32BIT *input, long ntodo, double scale, double zero,
-            int nullcheck, INT32BIT tnull, double nullval, char *nullarray,
-            int *anynull, double *output, int *status);
 
 /*  image compression routines */
-int fits_write_compressed_img(fitsfile *fptr,
-            int  datatype, long  *fpixel, long *lpixel,
-            int nullcheck, void *array,  void *nulval,
-            int  *status);
-int fits_write_compressed_pixels(fitsfile *fptr,
-            int  datatype, LONGLONG  fpixel, LONGLONG npixels,
-            int nullcheck,  void *array, void *nulval,
-            int  *status);
-int fits_write_compressed_img_plane(fitsfile *fptr, int  datatype,
-      int  bytesperpixel,  long   nplane, long *firstcoord, long *lastcoord,
-      long *naxes,  int  nullcheck,
-      void *array,  void *nullval, long *nread, int  *status);
 
-int imcomp_calc_max_elem (int comptype, int nx, int zbitpix, int blocksize);
-
-int imcomp_compress_tile (fitsfile *outfptr, long row,
-    int datatype,  void *tiledata, long tilelen, long nx, long ny,
-    int nullcheck, void *nullval, int *status);
-int imcomp_nullscale(int *idata, long tilelen, int nullflagval, int nullval,
-     double scale, double zero, int * status);
-int imcomp_nullvalues(int *idata, long tilelen, int nullflagval, int nullval,
-     int * status);
-int imcomp_scalevalues(int *idata, long tilelen, double scale, double zero,
-     int * status);
-int imcomp_nullscalefloats(float *fdata, long tilelen, int *idata,
-    double scale, double zero, int nullcheck, float nullflagval, int nullval,
-    int *status);
-int imcomp_nullfloats(float *fdata, long tilelen, int *idata, int nullcheck,
-    float nullflagval, int nullval, int *status);
-int imcomp_nullscaledoubles(double *fdata, long tilelen, int *idata,
-    double scale, double zero, int nullcheck, double nullflagval, int nullval,
-    int *status);
-int imcomp_nulldoubles(double *fdata, long tilelen, int *idata, int nullcheck,
-    double nullflagval, int nullval, int *status);
+int _pyfits_imcomp_calc_max_elem (int comptype, int nx, int zbitpix,
+                                  int blocksize);
 
 
 /*  image decompression routines */
-int fits_read_compressed_img(fitsfile *fptr,
-            int  datatype, LONGLONG  *fpixel,LONGLONG  *lpixel,long *inc,
-            int nullcheck, void *nulval,  void *array, char *nullarray,
-            int  *anynul, int  *status);
-int fits_read_compressed_pixels(fitsfile *fptr,
-            int  datatype, LONGLONG  fpixel, LONGLONG npixels,
-            int nullcheck, void *nulval,  void *array, char *nullarray,
-            int  *anynul, int  *status);
-int fits_read_compressed_img_plane(fitsfile *fptr, int  datatype,
-      int  bytesperpixel,  long   nplane, LONGLONG *firstcoord,
-      LONGLONG *lastcoord, long *inc, long *naxes, int  nullcheck,
-      void *nullval, void *array, char *nullarray, int  *anynul, long *nread,
-      int  *status);
-int imcomp_decompress_tile (fitsfile *infptr,
-          int nrow, int tilesize, int datatype, int nullcheck,
-          void *nulval, void *buffer, char *bnullarray, int *anynul,
-          int *status);
-int imcomp_copy_overlap (char *tile, int pixlen, int ndim,
-         long *tfpixel, long *tlpixel, char *bnullarray, char *image,
-         long *fpixel, long *lpixel, long *inc, int nullcheck, char *nullarray,
-         int *status);
-int imcomp_merge_overlap (char *tile, int pixlen, int ndim,
-         long *tfpixel, long *tlpixel, char *bnullarray, char *image,
-         long *fpixel, long *lpixel, int nullcheck, int *status);
-int imcomp_decompress_img(fitsfile *infptr, fitsfile *outfptr, int datatype,
-         int  *status);
-int fits_quantize_float (float fdata[], long nx, long ny, int nullcheck,
+int _pyfits_fits_quantize_float (float fdata[], long nx, long ny, int nullcheck,
          float in_null_value,
          float quantize_level, int idata[], double *bscale, double *bzero,
          int *iminval, int *imaxval);
-int fits_quantize_double (double fdata[], long nx, long ny, int nullcheck,
-         double in_null_value,
+int _pyfits_fits_quantize_double (double fdata[], long nx, long ny,
+         int nullcheck, double in_null_value,
          float quantize_level, int idata[], double *bscale, double *bzero,
          int *iminval, int *imaxval);
-int fits_rcomp(int a[], int nx, unsigned char *c, int clen,int nblock);
-int fits_rcomp_short(short a[], int nx, unsigned char *c, int clen,int nblock);
-int fits_rcomp_byte(signed char a[], int nx, unsigned char *c, int clen,
-         int nblock);
-int fits_rdecomp (unsigned char *c, int clen, unsigned int array[], int nx,
-             int nblock);
-int fits_rdecomp_short (unsigned char *c, int clen, unsigned short array[],
-             int nx, int nblock);
-int fits_rdecomp_byte (unsigned char *c, int clen, unsigned char array[],
-             int nx, int nblock);
-int pl_p2li (int *pxsrc, int xs, short *lldst, int npix);
-int pl_l2pi (short *ll_src, int xs, int *px_dst, int npix);
+int _pyfits_fits_rcomp(int a[], int nx, unsigned char *c, int clen,int nblock);
+int _pyfits_fits_rcomp_short(short a[], int nx, unsigned char *c, int clen,
+                             int nblock);
+int _pyfits_fits_rcomp_byte(signed char a[], int nx, unsigned char *c, int clen,
+                            int nblock);
+int _pyfits_fits_rdecomp (unsigned char *c, int clen, unsigned int array[],
+                          int nx, int nblock);
+int _pyfits_fits_rdecomp_short (unsigned char *c, int clen,
+                                unsigned short array[], int nx, int nblock);
+int _pyfits_fits_rdecomp_byte (unsigned char *c, int clen,
+                               unsigned char array[], int nx, int nblock);
+int _pyfits_pl_p2li (int *pxsrc, int xs, short *lldst, int npix);
+int _pyfits_pl_l2pi (short *ll_src, int xs, int *px_dst, int npix);
 
-int uncompress2mem_from_mem(
+int _pyfits_uncompress2mem_from_mem(
              char *inmemptr,
              size_t inmemsize,
              char **buffptr,
@@ -641,7 +490,7 @@ int uncompress2mem_from_mem(
              size_t *filesize,
              int *status);
 
-int compress2mem_from_mem(
+int _pyfits_compress2mem_from_mem(
              char *inmemptr,
              size_t inmemsize,
              char **buffptr,
@@ -652,16 +501,9 @@ int compress2mem_from_mem(
 
 /* Translate the long names for some routines to their actual short names */
 
-#define fits_read_img         ffgpv
-#define fits_read_img_byt     ffgpvb
-#define fits_write_img        ffppr
-#define fits_write_img_byt    ffpprb
+#define _pyfits_fits_read_img  _pyfits_ffgpv
+#define _pyfits_fits_write_img _pyfits_ffppr
 #define fits_write_img_usht    ffpprui
-#define fits_write_img_sht    ffppri
-#define fits_write_img_lng    ffpprj
-#define fits_write_img_lnglng    ffpprjj
-#define fits_write_img_flt    ffppre
-#define fits_write_img_dbl    ffpprd
 
 #endif
 

@@ -78,6 +78,10 @@
 const char deflate_copyright[] =
    " deflate 1.2.5.f Copyright 1995-2010 Jean-loup Gailly and Mark Adler ";
 
+static uLong ZEXPORT adler32 OF((uLong adler, const Bytef *buf, uInt len));
+static uLong ZEXPORT crc32   OF((uLong crc, const Bytef *buf, uInt len));
+
+
 /* ===========================================================================
  *  Function prototypes.
  */
@@ -213,20 +217,24 @@ struct static_tree_desc_s {int dummy;}; /* for buggy compilers */
     zmemzero((Bytef *)s->head, (unsigned)(s->hash_size-1)*sizeof(*s->head));
 
 /* ========================================================================= */
-int ZEXPORT deflateInit_(strm, level, version, stream_size)
+int ZEXPORT _pyfits_deflateInit_(strm, level, version, stream_size)
     z_streamp strm;
     int level;
     const char *version;
     int stream_size;
 {
-    return deflateInit2_(strm, level, Z_DEFLATED, MAX_WBITS, DEF_MEM_LEVEL,
+    return _pyfits_deflateInit2_(strm, level, Z_DEFLATED, MAX_WBITS,
+                         DEF_MEM_LEVEL,
                          Z_DEFAULT_STRATEGY, version, stream_size);
     /* To do: ignore strm->next_in if we use it as window */
 }
 
+static int ZEXPORT deflateReset (z_streamp strm);
+
 /* ========================================================================= */
-int ZEXPORT deflateInit2_(strm, level, method, windowBits, memLevel, strategy,
-                  version, stream_size)
+int ZEXPORT _pyfits_deflateInit2_(strm, level, method, windowBits,
+                                 memLevel,
+                                 strategy, version, stream_size)
     z_streamp strm;
     int  level;
     int  method;
@@ -310,7 +318,7 @@ int ZEXPORT deflateInit2_(strm, level, method, windowBits, memLevel, strategy,
         s->pending_buf == Z_NULL) {
         s->status = FINISH_STATE;
         strm->msg = (char*)ERR_MSG(Z_MEM_ERROR);
-        deflateEnd (strm);
+        _pyfits_deflateEnd (strm);
         return Z_MEM_ERROR;
     }
     s->d_buf = overlay + s->lit_bufsize/sizeof(ush);
@@ -324,7 +332,7 @@ int ZEXPORT deflateInit2_(strm, level, method, windowBits, memLevel, strategy,
 }
 
 /* ========================================================================= */
-int ZEXPORT deflateReset (strm)
+static int ZEXPORT deflateReset (strm)
     z_streamp strm;
 {
     deflate_state *s;
@@ -396,7 +404,7 @@ local void flush_pending(strm)
 }
 
 /* ========================================================================= */
-int ZEXPORT deflate (strm, flush)
+int ZEXPORT _pyfits_deflate (strm, flush)
     z_streamp strm;
     int flush;
 {
@@ -703,7 +711,7 @@ int ZEXPORT deflate (strm, flush)
 }
 
 /* ========================================================================= */
-int ZEXPORT deflateEnd (strm)
+int ZEXPORT _pyfits_deflateEnd (strm)
     z_streamp strm;
 {
     int status;
@@ -1598,7 +1606,7 @@ local int updatewindow OF((z_streamp strm, unsigned out));
 local unsigned syncsearch OF((unsigned FAR *have, unsigned char FAR *buf,
                               unsigned len));
 
-int ZEXPORT inflateReset(strm)
+static int ZEXPORT inflateReset(strm)
 z_streamp strm;
 {
     struct inflate_state FAR *state;
@@ -1625,7 +1633,7 @@ z_streamp strm;
     return Z_OK;
 }
 
-int ZEXPORT inflateReset2(strm, windowBits)
+static int ZEXPORT inflateReset2(strm, windowBits)
 z_streamp strm;
 int windowBits;
 {
@@ -1661,7 +1669,7 @@ int windowBits;
     return inflateReset(strm);
 }
 
-int ZEXPORT inflateInit2_(strm, windowBits, version, stream_size)
+int ZEXPORT _pyfits_inflateInit2_(strm, windowBits, version, stream_size)
 z_streamp strm;
 int windowBits;
 const char *version;
@@ -1694,12 +1702,12 @@ int stream_size;
     return ret;
 }
 
-int ZEXPORT inflateInit_(strm, version, stream_size)
+int ZEXPORT _pyfits_inflateInit_(strm, version, stream_size)
 z_streamp strm;
 const char *version;
 int stream_size;
 {
-    return inflateInit2_(strm, DEF_WBITS, version, stream_size);
+    return _pyfits_inflateInit2_(strm, DEF_WBITS, version, stream_size);
 }
 
 local void fixedtables(state)
@@ -1868,7 +1876,7 @@ unsigned out;
     ((((q) >> 24) & 0xff) + (((q) >> 8) & 0xff00) + \
      (((q) & 0xff00) << 8) + (((q) & 0xff) << 24))
 
-int ZEXPORT inflate(strm, flush)
+int ZEXPORT _pyfits_inflate(strm, flush)
 z_streamp strm;
 int flush;
 {
@@ -2507,7 +2515,7 @@ int flush;
     return ret;
 }
 
-int ZEXPORT inflateEnd(strm)
+int ZEXPORT _pyfits_inflateEnd(strm)
 z_streamp strm;
 {
     struct inflate_state FAR *state;
@@ -2826,7 +2834,7 @@ local uLong crc32_combine_(uLong crc1, uLong crc2, z_off64_t len2);
 #define DO8_ DO1_; DO1_; DO1_; DO1_; DO1_; DO1_; DO1_; DO1_
 
 /* ========================================================================= */
-unsigned long ZEXPORT crc32(crc, buf, len)
+static unsigned long ZEXPORT crc32(crc, buf, len)
     unsigned long crc;
     const unsigned char FAR *buf;
     uInt len;
@@ -3033,7 +3041,7 @@ local uLong crc32_combine_(crc1, crc2, len2)
 }
 
 /* ========================================================================= */
-uLong ZEXPORT crc32_combine(crc1, crc2, len2)
+static uLong ZEXPORT crc32_combine(crc1, crc2, len2)
     uLong crc1;
     uLong crc2;
     z_off_t len2;
@@ -3041,7 +3049,7 @@ uLong ZEXPORT crc32_combine(crc1, crc2, len2)
     return crc32_combine_(crc1, crc2, len2);
 }
 
-uLong ZEXPORT crc32_combine64(crc1, crc2, len2)
+static uLong ZEXPORT crc32_combine64(crc1, crc2, len2)
     uLong crc1;
     uLong crc2;
     z_off64_t len2;
@@ -3103,7 +3111,7 @@ local uLong adler32_combine_(uLong adler1, uLong adler2, z_off64_t len2);
 #endif
 
 /* ========================================================================= */
-uLong ZEXPORT adler32(adler, buf, len)
+static uLong ZEXPORT adler32(adler, buf, len)
     uLong adler;
     const Bytef *buf;
     uInt len;
@@ -3198,7 +3206,7 @@ local uLong adler32_combine_(adler1, adler2, len2)
 }
 
 /* ========================================================================= */
-uLong ZEXPORT adler32_combine(adler1, adler2, len2)
+static uLong ZEXPORT adler32_combine(adler1, adler2, len2)
     uLong adler1;
     uLong adler2;
     z_off_t len2;
@@ -3206,7 +3214,7 @@ uLong ZEXPORT adler32_combine(adler1, adler2, len2)
     return adler32_combine_(adler1, adler2, len2);
 }
 
-uLong ZEXPORT adler32_combine64(adler1, adler2, len2)
+static uLong ZEXPORT adler32_combine64(adler1, adler2, len2)
     uLong adler1;
     uLong adler2;
     z_off64_t len2;

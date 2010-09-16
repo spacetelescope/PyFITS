@@ -86,27 +86,18 @@
 #  define _tr_init              z__tr_init
 #  define _tr_stored_block      z__tr_stored_block
 #  define _tr_tally             z__tr_tally
-#  define adler32               z_adler32
-#  define adler32_combine       z_adler32_combine
-#  define adler32_combine64     z_adler32_combine64
-#  define crc32                 z_crc32
-#  define crc32_combine         z_crc32_combine
-#  define crc32_combine64       z_crc32_combine64
-#  define deflate               z_deflate
-#  define deflateEnd            z_deflateEnd
-#  define deflateInit2_         z_deflateInit2_
-#  define deflateInit_          z_deflateInit_
-#  define deflateReset          z_deflateReset
+#  define _pyfits_deflate               z_deflate
+#  define _pyfits_deflateEnd            z_deflateEnd
+#  define _pyfits_deflateInit2_         z_deflateInit2_
+#  define _pyfits_deflateInit_          z_deflateInit_
 #  define gz_error              z_gz_error
 #  define gz_intmax             z_gz_intmax
 #  define gz_strwinerror        z_gz_strwinerror
 
-#  define inflate               z_inflate
-#  define inflateEnd            z_inflateEnd
-#  define inflateInit2_         z_inflateInit2_
-#  define inflateInit_          z_inflateInit_
-#  define inflateReset          z_inflateReset
-#  define inflateReset2         z_inflateReset2
+#  define _pyfits_inflate               z_inflate
+#  define _pyfits_inflateEnd            z_inflateEnd
+#  define _pyfits_inflateInit2_         z_inflateInit2_
+#  define _pyfits_inflateInit_          z_inflateInit_
 #  define inflate_copyright     z_inflate_copyright
 #  define inflate_fast          z_inflate_fast
 #  define inflate_table         z_inflate_table
@@ -418,12 +409,12 @@ typedef uLong FAR uLongf;
 
 /* MVS linker does not support external names larger than 8 bytes */
 #if defined(__MVS__)
-  #pragma map(deflateInit_,"DEIN")
-  #pragma map(deflateInit2_,"DEIN2")
-  #pragma map(deflateEnd,"DEEND")
-  #pragma map(inflateInit_,"ININ")
-  #pragma map(inflateInit2_,"ININ2")
-  #pragma map(inflateEnd,"INEND")
+  #pragma map(_pyfits_deflateInit_,"DEIN")
+  #pragma map(_pyfist_deflateInit2_,"DEIN2")
+  #pragma map(_pyfits_deflateEnd,"DEEND")
+  #pragma map(_pyfits_inflateInit_,"ININ")
+  #pragma map(_pyfits_inflateInit2_,"ININ2")
+  #pragma map(_pyfits_inflateEnd,"INEND")
   #pragma map(inflate_table,"INTABL")
   #pragma map(inflate_fast,"INFA")
   #pragma map(inflate_copyright,"INCOPY")
@@ -528,7 +519,6 @@ typedef gz_header FAR *gz_headerp;
 
 #define Z_BINARY   0
 #define Z_TEXT     1
-//#define Z_ASCII    Z_TEXT   /* for compatibility with 1.2.2 and earlier */
 #define Z_UNKNOWN  2
 /* Possible values of the data_type field (though see inflate()) */
 
@@ -537,61 +527,45 @@ typedef gz_header FAR *gz_headerp;
 
 #define Z_NULL  0  /* for initializing zalloc, zfree, opaque */
 
-ZEXTERN int ZEXPORT deflate OF((z_streamp strm, int flush));
+ZEXTERN int ZEXPORT _pyfits_deflate OF((z_streamp strm, int flush));
 
-ZEXTERN int ZEXPORT deflateEnd OF((z_streamp strm));
+ZEXTERN int ZEXPORT _pyfits_deflateEnd OF((z_streamp strm));
 
-ZEXTERN int ZEXPORT inflate OF((z_streamp strm, int flush));
+ZEXTERN int ZEXPORT _pyfits_inflate OF((z_streamp strm, int flush));
 
-ZEXTERN int ZEXPORT inflateEnd OF((z_streamp strm));
-
-ZEXTERN int ZEXPORT deflateReset OF((z_streamp strm));
-
-ZEXTERN int ZEXPORT inflateReset OF((z_streamp strm));
-
-ZEXTERN int ZEXPORT inflateReset2 OF((z_streamp strm,
-                                      int windowBits));
+ZEXTERN int ZEXPORT _pyfits_inflateEnd OF((z_streamp strm));
 
 typedef unsigned (*in_func) OF((void FAR *, unsigned char FAR * FAR *));
 typedef int (*out_func) OF((void FAR *, unsigned char FAR *, unsigned));
 
                         /* checksum functions */
 
-/*
-     These functions are not related to compression but are exported
-   anyway because they might be useful in applications using the compression
-   library.
-*/
-
-ZEXTERN uLong ZEXPORT adler32 OF((uLong adler, const Bytef *buf, uInt len));
-
-ZEXTERN uLong ZEXPORT crc32   OF((uLong crc, const Bytef *buf, uInt len));
-
                         /* various hacks, don't look :) */
 
 /* deflateInit and inflateInit are macros to allow checking the zlib version
  * and the compiler's view of z_stream:
  */
-ZEXTERN int ZEXPORT deflateInit_ OF((z_streamp strm, int level,
+ZEXTERN int ZEXPORT _pyfits_deflateInit_ OF((z_streamp strm, int level,
                                      const char *version, int stream_size));
-ZEXTERN int ZEXPORT inflateInit_ OF((z_streamp strm,
+ZEXTERN int ZEXPORT _pyfits_inflateInit_ OF((z_streamp strm,
                                      const char *version, int stream_size));
-ZEXTERN int ZEXPORT deflateInit2_ OF((z_streamp strm, int  level, int  method,
+ZEXTERN int ZEXPORT _pyfits_deflateInit2_ OF((z_streamp strm, int  level,
+                                      int  method,
                                       int windowBits, int memLevel,
                                       int strategy, const char *version,
                                       int stream_size));
-ZEXTERN int ZEXPORT inflateInit2_ OF((z_streamp strm, int  windowBits,
+ZEXTERN int ZEXPORT _pyfits_inflateInit2_ OF((z_streamp strm, int  windowBits,
                                       const char *version, int stream_size));
 
 #define deflateInit(strm, level) \
-        deflateInit_((strm), (level),       ZLIB_VERSION, sizeof(z_stream))
+        _pyfits_deflateInit_((strm), (level), ZLIB_VERSION, sizeof(z_stream))
 #define inflateInit(strm) \
-        inflateInit_((strm),                ZLIB_VERSION, sizeof(z_stream))
+        _pyfits_inflateInit_((strm), ZLIB_VERSION, sizeof(z_stream))
 #define deflateInit2(strm, level, method, windowBits, memLevel, strategy) \
-        deflateInit2_((strm),(level),(method),(windowBits),(memLevel),\
+        _pyfits_deflateInit2_((strm),(level),(method),(windowBits),(memLevel),\
                       (strategy),           ZLIB_VERSION, sizeof(z_stream))
 #define inflateInit2(strm, windowBits) \
-        inflateInit2_((strm), (windowBits), ZLIB_VERSION, sizeof(z_stream))
+        _pyfits_inflateInit2_((strm), (windowBits), ZLIB_VERSION, sizeof(z_stream))
 
 #ifdef __cplusplus
 }

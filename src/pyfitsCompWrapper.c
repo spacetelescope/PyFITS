@@ -383,7 +383,7 @@ void processStatusErr(int status)
          exceptType = PyExc_RuntimeError;
    }
 
-   if (ffgmsg(errMsg))
+   if (_pyfits_ffgmsg(errMsg))
    {
       PyErr_SetString(exceptType,errMsg);
    }
@@ -397,7 +397,7 @@ void processStatusErr(int status)
    }
 }
 
-/* Wrapper for the fits_write_img() function */
+/* Wrapper for the _pyfits_fits_write_img() function */
 
 PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
 {
@@ -596,7 +596,7 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
          ntiles *= (naxes[ii] - 1) / tileSize[ii] + 1;
       }
 
-      (theFile.Fptr)->maxelem = imcomp_calc_max_elem(
+      (theFile.Fptr)->maxelem = _pyfits_imcomp_calc_max_elem(
                                  (theFile.Fptr)->compress_type,
                                  (theFile.Fptr)->maxtilelen,
                                  (theFile.Fptr)->zbitpix,
@@ -655,8 +655,8 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
          (theFile.Fptr)->data[i] = 0;
       }
 
-      status = fits_write_img(&theFile, datatype, firstelem,
-                              nelem, (void*)array->data, &status);
+      status = _pyfits_fits_write_img(&theFile, datatype, firstelem,
+                                      nelem, (void*)array->data, &status);
 
       if (status == 0)
       {
@@ -734,7 +734,7 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
    }
 }
 
-/* Wrapper for the fits_read_img() function */
+/* Wrapper for the _pyfits_fits_read_img() function */
 
 PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
 {
@@ -1071,9 +1071,9 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
    /* Call the C function */
 
    status = 0;
-   status = fits_read_img(&theFile, datatype, firstelem,
-                          nelem, &nulval, decompDataArray->data,
-                          &anynul, &status);
+   status = _pyfits_fits_read_img(&theFile, datatype, firstelem,
+                                  nelem, &nulval, decompDataArray->data,
+                                  &anynul, &status);
 
    if (status != 0)
    {

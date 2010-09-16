@@ -97,9 +97,48 @@
 #define GetMesg    4 /* pop and return the message */
 #define PutMesg    5 /* put a new message */
 
+static int imcomp_nullfloats(float *fdata, long tilelen, int *idata,
+    int nullcheck, float nullflagval, int nullval, int *status);
+static int imcomp_nullscalefloats(float *fdata, long tilelen, int *idata,
+    double scale, double zero, int nullcheck, float nullflagval, int nullval,
+    int *status);
+static int imcomp_nulldoubles(double *fdata, long tilelen, int *idata,
+    int nullcheck, double nullflagval, int nullval, int *status);
+static int imcomp_nullscaledoubles(double *fdata, long tilelen, int *idata,
+    double scale, double zero, int nullcheck, double nullflagval, int nullval,
+    int *status);
+static int fits_write_compressed_pixels(fitsfile *fptr,
+            int  datatype, LONGLONG  fpixel, LONGLONG npixels,
+            int nullcheck,  void *array, void *nulval,
+            int  *status);
+static int fits_write_compressed_img_plane(fitsfile *fptr, int  datatype,
+      int  bytesperpixel,  long   nplane, long *firstcoord, long *lastcoord,
+      long *naxes,  int  nullcheck,
+      void *array,  void *nullval, long *nread, int  *status);
+static int fits_read_compressed_pixels(fitsfile *fptr,
+            int  datatype, LONGLONG  fpixel, LONGLONG npixels,
+            int nullcheck, void *nulval,  void *array, char *nullarray,
+            int  *anynul, int  *status);
+static int fits_read_compressed_img_plane(fitsfile *fptr, int  datatype,
+      int  bytesperpixel,  long   nplane, LONGLONG *firstcoord,
+      LONGLONG *lastcoord, long *inc, long *naxes, int  nullcheck,
+      void *nullval, void *array, char *nullarray, int  *anynul, long *nread,
+      int  *status);
+static int imcomp_decompress_tile (fitsfile *infptr,
+          int nrow, int tilesize, int datatype, int nullcheck,
+          void *nulval, void *buffer, char *bnullarray, int *anynul,
+          int *status);
+static int imcomp_copy_overlap (char *tile, int pixlen, int ndim,
+         long *tfpixel, long *tlpixel, char *bnullarray, char *image,
+         long *fpixel, long *lpixel, long *inc, int nullcheck, char *nullarray,
+         int *status);
+static int imcomp_merge_overlap (char *tile, int pixlen, int ndim,
+         long *tfpixel, long *tlpixel, char *bnullarray, char *image,
+         long *fpixel, long *lpixel, int nullcheck, int *status);
+
 /*--------------------------------------------------------------------------*/
-void ffxmsg( int action,
-            char *errmsg)
+static void ffxmsg( int action,
+                    char *errmsg)
 /*
   general routine to get or put an error message to the error buffer.
 
@@ -130,7 +169,7 @@ void ffxmsg( int action,
     return;
 }
 /*--------------------------------------------------------------------------*/
-void ffpmsg(const char *err_message)
+void _pyfits_ffpmsg(const char *err_message)
 /*
   put message in error buffer
 */
@@ -139,7 +178,7 @@ void ffpmsg(const char *err_message)
     return;
 }
 /*--------------------------------------------------------------------------*/
-int ffgmsg(char *err_message)
+int _pyfits_ffgmsg(char *err_message)
 /*
   get the error message from the error buffer
 */
@@ -148,7 +187,7 @@ int ffgmsg(char *err_message)
     return(*err_message);
 }
 /*--------------------------------------------------------------------------*/
-int ffpxsz(int datatype)
+static int ffpxsz(int datatype)
 /*
    return the number of bytes per pixel associated with the datatype
 */
@@ -180,13 +219,13 @@ int ffpxsz(int datatype)
 /*****************************************************************************/
 /*                                                                           */
 /* The following code was copied and modified from the FITSIO source code    */
-/* file swapproc.c.                                                            */
+/* file swapproc.c.                                                          */
 /*                                                                           */
 /*****************************************************************************/
 
-/*--------------------------------------------------------------------------*/
-void ffswap2(short *svalues,  /* IO - pointer to shorts to be swapped       */
-             long nvals)      /* I  - number of shorts to be swapped        */
+/*---------------------------------------------------------------------------*/
+static void ffswap2(short *svalues,  /* IO - pointer to shorts to be swapped */
+                    long nvals)      /* I  - number of shorts to be swapped  */
 /*
   swap the bytes in the input short integers: ( 0 1 -> 1 0 )
 */
@@ -211,8 +250,8 @@ void ffswap2(short *svalues,  /* IO - pointer to shorts to be swapped       */
     return;
 }
 /*--------------------------------------------------------------------------*/
-void ffswap4(INT32BIT *ivalues,  /* IO - pointer to floats to be swapped    */
-                 long nvals)     /* I  - number of floats to be swapped     */
+static void ffswap4(INT32BIT *ivalues, /* IO - pointer to floats to be swapped*/
+                    long nvals)        /* I  - number of floats to be swapped */
 /*
   swap the bytes in the input 4-byte integer: ( 0 1 2 3 -> 3 2 1 0 )
 */
@@ -247,7 +286,8 @@ void ffswap4(INT32BIT *ivalues,  /* IO - pointer to floats to be swapped    */
 /*****************************************************************************/
 
 /*---------------------------------------------------------------------------*/
-int ffgpvb( fitsfile *fptr,   /* I - FITS file pointer                       */
+static int ffgpvb(
+            fitsfile *fptr,          /* I - FITS file pointer                */
             long  group,      /* I - group to read (1 = 1st group)           */
             LONGLONG  firstelem,  /* I - first vector element to read        */
                                   /* (1 = 1st)                               */
@@ -275,7 +315,8 @@ int ffgpvb( fitsfile *fptr,   /* I - FITS file pointer                       */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi1i1(unsigned char *input, /* I - array of values to be converted     */
+static int fffi1i1(
+            unsigned char *input, /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -385,7 +426,8 @@ int fffi1i1(unsigned char *input, /* I - array of values to be converted     */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi2i1(short *input,         /* I - array of values to be converted     */
+static int fffi2i1(
+            short *input,         /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -523,7 +565,8 @@ int fffi2i1(short *input,         /* I - array of values to be converted     */
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int fffi4i1(INT32BIT *input,      /* I - array of values to be converted     */
+static int fffi4i1(
+            INT32BIT *input,      /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -667,7 +710,8 @@ int fffi4i1(INT32BIT *input,      /* I - array of values to be converted     */
 /*****************************************************************************/
 
 /*---------------------------------------------------------------------------*/
-int ffgpvd( fitsfile *fptr,   /* I - FITS file pointer                       */
+static int ffgpvd( 
+            fitsfile *fptr,        /* I - FITS file pointer                  */
             long  group,      /* I - group to read (1 = 1st group)           */
             LONGLONG  firstelem,  /* I - first vector element to read        */
                                   /* (1 = 1st)                               */
@@ -695,7 +739,8 @@ int ffgpvd( fitsfile *fptr,   /* I - FITS file pointer                       */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi1r8(unsigned char *input, /* I - array of values to be converted     */
+static int fffi1r8(
+            unsigned char *input, /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -779,7 +824,8 @@ int fffi1r8(unsigned char *input, /* I - array of values to be converted     */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi2r8(short *input,         /* I - array of values to be converted     */
+static int fffi2r8(
+            short *input,         /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -863,7 +909,8 @@ int fffi2r8(short *input,         /* I - array of values to be converted     */
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int fffi4r8(INT32BIT *input,      /* I - array of values to be converted     */
+static int fffi4r8(
+            INT32BIT *input,      /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -955,7 +1002,8 @@ int fffi4r8(INT32BIT *input,      /* I - array of values to be converted     */
 /*****************************************************************************/
 
 /*---------------------------------------------------------------------------*/
-int ffgpve( fitsfile *fptr,   /* I - FITS file pointer                       */
+static int ffgpve(
+            fitsfile *fptr,   /* I - FITS file pointer                       */
             long  group,      /* I - group to read (1 = 1st group)           */
             LONGLONG  firstelem,  /* I - first vector element to read        */
                                   /* (1 = 1st)                               */
@@ -983,7 +1031,8 @@ int ffgpve( fitsfile *fptr,   /* I - FITS file pointer                       */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi1r4(unsigned char *input, /* I - array of values to be converted     */
+static int fffi1r4(
+            unsigned char *input, /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -1067,7 +1116,8 @@ int fffi1r4(unsigned char *input, /* I - array of values to be converted     */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi2r4(short *input,         /* I - array of values to be converted     */
+static int fffi2r4(
+            short *input,         /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -1151,7 +1201,8 @@ int fffi2r4(short *input,         /* I - array of values to be converted     */
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int fffi4r4(INT32BIT *input,      /* I - array of values to be converted     */
+static int fffi4r4(
+            INT32BIT *input,      /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -1243,7 +1294,8 @@ int fffi4r4(INT32BIT *input,      /* I - array of values to be converted     */
 /*****************************************************************************/
 
 /*---------------------------------------------------------------------------*/
-int ffgpvi( fitsfile *fptr,   /* I - FITS file pointer                       */
+static int ffgpvi(
+            fitsfile *fptr,   /* I - FITS file pointer                       */
             long  group,      /* I - group to read (1 = 1st group)           */
             LONGLONG  firstelem,  /* I - first vector element to read        */
                                   /* (1 = 1st)                               */
@@ -1271,7 +1323,8 @@ int ffgpvi( fitsfile *fptr,   /* I - FITS file pointer                       */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi1i2(unsigned char *input, /* I - array of values to be converted     */
+static int fffi1i2(
+            unsigned char *input, /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -1382,7 +1435,8 @@ int fffi1i2(unsigned char *input, /* I - array of values to be converted     */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi2i2(short *input,         /* I - array of values to be converted     */
+static int fffi2i2(
+            short *input,         /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -1492,7 +1546,8 @@ int fffi2i2(short *input,         /* I - array of values to be converted     */
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int fffi4i2(INT32BIT *input,      /* I - array of values to be converted     */
+static int fffi4i2(
+            INT32BIT *input,      /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -1637,7 +1692,8 @@ int fffi4i2(INT32BIT *input,      /* I - array of values to be converted     */
 /*****************************************************************************/
 
 /*--------------------------------------------------------------------------*/
-int ffgpvk( fitsfile *fptr,   /* I - FITS file pointer                       */
+static int ffgpvk(
+            fitsfile *fptr,   /* I - FITS file pointer                       */
             long  group,      /* I - group to read (1 = 1st group)           */
             LONGLONG  firstelem,  /* I - first vector element to read (1 = 1st)  */
             LONGLONG  nelem,      /* I - number of values to read                */
@@ -1665,7 +1721,8 @@ int ffgpvk( fitsfile *fptr,   /* I - FITS file pointer                       */
 }
 
 /*--------------------------------------------------------------------------*/
-int fffi1int(unsigned char *input,/* I - array of values to be converted     */
+static int fffi1int(
+            unsigned char *input,/* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -1776,7 +1833,8 @@ int fffi1int(unsigned char *input,/* I - array of values to be converted     */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi2int(short *input,        /* I - array of values to be converted     */
+static int fffi2int(
+            short *input,        /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -1887,7 +1945,8 @@ int fffi2int(short *input,        /* I - array of values to be converted     */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi4int(INT32BIT *input,     /* I - array of values to be converted     */
+static int fffi4int(
+            INT32BIT *input,     /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -2006,7 +2065,8 @@ int fffi4int(INT32BIT *input,     /* I - array of values to be converted     */
 /*****************************************************************************/
 
 /*---------------------------------------------------------------------------*/
-int ffgpvj( fitsfile *fptr,   /* I - FITS file pointer                       */
+static int ffgpvj(
+            fitsfile *fptr,   /* I - FITS file pointer                       */
             long  group,      /* I - group to read (1 = 1st group)           */
             LONGLONG  firstelem,  /* I - first vector element to read        */
                                   /* (1 = 1st)                               */
@@ -2035,7 +2095,8 @@ int ffgpvj( fitsfile *fptr,   /* I - FITS file pointer                       */
 }
 
 /*--------------------------------------------------------------------------*/
-int fffi1i4(unsigned char *input, /* I - array of values to be converted     */
+static int fffi1i4(
+            unsigned char *input, /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -2146,7 +2207,8 @@ int fffi1i4(unsigned char *input, /* I - array of values to be converted     */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fffi2i4(short *input,         /* I - array of values to be converted     */
+static int fffi2i4(
+            short *input,         /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -2257,7 +2319,8 @@ int fffi2i4(short *input,         /* I - array of values to be converted     */
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int fffi4i4(INT32BIT *input,      /* I - array of values to be converted     */
+static int fffi4i4(
+            INT32BIT *input,      /* I - array of values to be converted     */
             long ntodo,           /* I - number of elements in the array     */
             double scale,         /* I - FITS TSCALn or BSCALE value         */
             double zero,          /* I - FITS TZEROn or BZERO  value         */
@@ -2373,7 +2436,8 @@ int fffi4i4(INT32BIT *input,      /* I - array of values to be converted     */
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int ffgpvjj(fitsfile *fptr,   /* I - FITS file pointer                       */
+static int ffgpvjj(
+            fitsfile *fptr,   /* I - FITS file pointer                       */
             long  group,      /* I - group to read (1 = 1st group)           */
             LONGLONG  firstelem,  /* I - first vector element to read        */
                                   /* (1 = 1st)                               */
@@ -2409,7 +2473,8 @@ int ffgpvjj(fitsfile *fptr,   /* I - FITS file pointer                       */
 /*****************************************************************************/
 
 /*---------------------------------------------------------------------------*/
-int ffgpv(  fitsfile *fptr,   /* I - FITS file pointer                       */
+int _pyfits_ffgpv(
+            fitsfile *fptr,   /* I - FITS file pointer                       */
             int  datatype,    /* I - datatype of the value                   */
             LONGLONG firstelem,   /* I - first vector element to read        */
                                   /* (1 = 1st)                               */
@@ -2518,7 +2583,8 @@ int ffgpv(  fitsfile *fptr,   /* I - FITS file pointer                       */
 /*****************************************************************************/
 
 /*--------------------------------------------------------------------------*/
-int ffpprb( fitsfile *fptr,  /* I - FITS file pointer                       */
+static int ffpprb(
+            fitsfile *fptr,  /* I - FITS file pointer                       */
             long  group,     /* I - group to write(1 = 1st group)           */
             LONGLONG  firstelem, /* I - first vector element to write       */
                                  /* (1 = 1st)                               */
@@ -2553,7 +2619,8 @@ int ffpprb( fitsfile *fptr,  /* I - FITS file pointer                       */
 /*****************************************************************************/
 
 /*--------------------------------------------------------------------------*/
-int ffpprd( fitsfile *fptr,  /* I - FITS file pointer                       */
+static int ffpprd(
+            fitsfile *fptr,  /* I - FITS file pointer                       */
             long  group,     /* I - group to write(1 = 1st group)           */
             LONGLONG  firstelem, /* I - first vector element to write       */
                                  /* (1 = 1st)                               */
@@ -2588,7 +2655,8 @@ int ffpprd( fitsfile *fptr,  /* I - FITS file pointer                       */
 /*****************************************************************************/
 
 /*--------------------------------------------------------------------------*/
-int ffppre( fitsfile *fptr,  /* I - FITS file pointer                       */
+static int ffppre(
+            fitsfile *fptr,  /* I - FITS file pointer                       */
             long  group,     /* I - group to write(1 = 1st group)           */
             LONGLONG firstelem, /* I - first vector element to write        */
                                 /* (1 = 1st)                                */
@@ -2627,7 +2695,8 @@ int ffppre( fitsfile *fptr,  /* I - FITS file pointer                       */
 /*****************************************************************************/
 
 /*--------------------------------------------------------------------------*/
-int ffppri( fitsfile *fptr,  /* I - FITS file pointer                       */
+static int ffppri(
+            fitsfile *fptr,  /* I - FITS file pointer                       */
             long  group,     /* I - group to write (1 = 1st group)          */
             LONGLONG  firstelem, /* I - first vector element to write       */
                                  /* (1 = 1st)                               */
@@ -2662,7 +2731,8 @@ int ffppri( fitsfile *fptr,  /* I - FITS file pointer                       */
 /*****************************************************************************/
 
 /*--------------------------------------------------------------------------*/
-int ffpprk( fitsfile *fptr,  /* I - FITS file pointer                       */
+static int ffpprk(
+            fitsfile *fptr,  /* I - FITS file pointer                       */
             long  group,     /* I - group to write(1 = 1st group)           */
             LONGLONG  firstelem, /* I - first vector element to write       */
                                  /* (1 = 1st)                               */
@@ -2698,7 +2768,8 @@ int ffpprk( fitsfile *fptr,  /* I - FITS file pointer                       */
 /*****************************************************************************/
 
 /*--------------------------------------------------------------------------*/
-int ffpprj( fitsfile *fptr,  /* I - FITS file pointer                       */
+static int ffpprj(
+            fitsfile *fptr,  /* I - FITS file pointer                       */
             long  group,     /* I - group to write(1 = 1st group)           */
             LONGLONG  firstelem, /* I - first vector element to write       */
                                  /* (1 = 1st)                               */
@@ -2729,7 +2800,8 @@ int ffpprj( fitsfile *fptr,  /* I - FITS file pointer                       */
 /* ======================================================================== */
 
 /*--------------------------------------------------------------------------*/
-int ffpprjj(fitsfile *fptr,  /* I - FITS file pointer                       */
+static int ffpprjj(
+            fitsfile *fptr,  /* I - FITS file pointer                       */
             long  group,     /* I - group to write(1 = 1st group)           */
             LONGLONG  firstelem, /* I - first vector element to write       */
                                  /* (1 = 1st)                               */
@@ -2749,7 +2821,7 @@ int ffpprjj(fitsfile *fptr,  /* I - FITS file pointer                       */
       and the second column contains the image itself.
     */
 
-    ffpmsg("writing to compressed image is not supported");
+    _pyfits_ffpmsg("writing to compressed image is not supported");
 
     return(*status = DATA_COMPRESSION_ERR);
 }
@@ -2762,7 +2834,8 @@ int ffpprjj(fitsfile *fptr,  /* I - FITS file pointer                       */
 /*****************************************************************************/
 
 /*--------------------------------------------------------------------------*/
-int ffppr(  fitsfile *fptr,  /* I - FITS file pointer                       */
+int _pyfits_ffppr(
+            fitsfile *fptr,  /* I - FITS file pointer                       */
             int  datatype,   /* I - datatype of the value                   */
             LONGLONG  firstelem, /* I - first vector element to write       */
                                  /* (1 = 1st)                               */
@@ -2839,7 +2912,8 @@ int ffppr(  fitsfile *fptr,  /* I - FITS file pointer                       */
 /* ######################################################################## */
 
 /*--------------------------------------------------------------------------*/
-int imcomp_calc_max_elem (int comptype, int nx, int zbitpix, int blocksize)
+int _pyfits_imcomp_calc_max_elem (int comptype, int nx, int zbitpix,
+                                  int blocksize)
 
 /* This function returns the maximum number of bytes in a compressed
    image line.
@@ -2888,7 +2962,8 @@ int imcomp_calc_max_elem (int comptype, int nx, int zbitpix, int blocksize)
         return(nx * sizeof(int));
 }
 /*--------------------------------------------------------------------------*/
-int imcomp_compress_tile (fitsfile *outfptr,
+static int imcomp_compress_tile (
+    fitsfile *outfptr,
     long row,
     int datatype,
     void *tiledata,
@@ -2986,7 +3061,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
           BSCALE = 1.  */
 
        if (zbitpix != SHORT_IMG || scale != 1.0 || zero != 0.0) {
-           ffpmsg("Datatype conversion/scaling is not supported when writing to compressed images");
+           _pyfits_ffpmsg("Datatype conversion/scaling is not supported when writing to compressed images");
            return(*status = DATA_COMPRESSION_ERR);
        }
 
@@ -3034,7 +3109,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
        */
 
        if (zbitpix != LONG_IMG || scale != 1.0 || zero != 0.) {
-           ffpmsg("Implicit datatype conversion is not supported when writing to compressed images");
+           _pyfits_ffpmsg("Implicit datatype conversion is not supported when writing to compressed images");
            return(*status = DATA_COMPRESSION_ERR);
        }
 
@@ -3061,7 +3136,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
           BSCALE = 1.  */
 
        if (zbitpix != BYTE_IMG || scale != 1.0 || zero != 0.) {
-           ffpmsg("Implicit datatype conversion is not supported when writing to compressed images");
+           _pyfits_ffpmsg("Implicit datatype conversion is not supported when writing to compressed images");
            return(*status = DATA_COMPRESSION_ERR);
        }
 
@@ -3106,7 +3181,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
     }
     else if (datatype == TLONG && sizeof(long) == 8)
     {
-           ffpmsg("Integer*8 Long datatype is not supported when writing to compressed images");
+           _pyfits_ffpmsg("Integer*8 Long datatype is not supported when writing to compressed images");
            return(*status = DATA_COMPRESSION_ERR);
     }
     else if (datatype == TFLOAT)
@@ -3209,8 +3284,9 @@ int imcomp_compress_tile (fitsfile *outfptr,
             } else {
                 /* quantize level is positive, so we have to calculate the */
                 /* noise quantize the float values into integers */
-                flag = fits_quantize_float ((float *) tiledata, tilenx, tileny,
-                   nullcheck, floatnull, (outfptr->Fptr)->quantize_level, idata,
+                flag = _pyfits_fits_quantize_float ((float *) tiledata, tilenx,
+                   tileny, nullcheck, floatnull,
+                   (outfptr->Fptr)->quantize_level, idata,
                    bscale, bzero, &iminval, &imaxval);
             }
           }
@@ -3242,9 +3318,9 @@ int imcomp_compress_tile (fitsfile *outfptr,
               doublenull = DOUBLENULLVALUE;
 
             /* quantize the double values into integers */
-            flag = fits_quantize_double ((double *) tiledata, tilenx, tileny,
-               nullcheck, doublenull, (outfptr->Fptr)->quantize_level, idata,
-               bscale, bzero, &iminval, &imaxval);
+            flag = _pyfits_fits_quantize_double ((double *) tiledata, tilenx,
+               tileny, nullcheck, doublenull, (outfptr->Fptr)->quantize_level,
+               idata, bscale, bzero, &iminval, &imaxval);
           }
           else  /* input double data is implicitly converted (truncated) to
                    integers */
@@ -3260,7 +3336,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
     }
     else
     {
-          ffpmsg("unsupported datatype (imcomp_compress_tile)");
+          _pyfits_ffpmsg("unsupported datatype (imcomp_compress_tile)");
           return(*status = BAD_DATATYPE);
     }
 
@@ -3274,7 +3350,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
 
         if (cbuf == NULL)
         {
-            ffpmsg("Out of memory. (imcomp_compress_tile)");
+            _pyfits_ffpmsg("Out of memory. (imcomp_compress_tile)");
             return (*status = MEMORY_ALLOCATION);
         }
 
@@ -3284,15 +3360,16 @@ int imcomp_compress_tile (fitsfile *outfptr,
         if ( (outfptr->Fptr)->compress_type == RICE_1)
         {
             if (intlength == 2) {
-                nelem = fits_rcomp_short ((short *)idata, tilelen,
+                nelem = _pyfits_fits_rcomp_short ((short *)idata, tilelen,
                        (unsigned char *) cbuf,
                        clen, (outfptr->Fptr)->rice_blocksize);
             } else if (intlength == 1) {
-                nelem = fits_rcomp_byte ((signed char *)idata, tilelen,
+                nelem = _pyfits_fits_rcomp_byte ((signed char *)idata, tilelen,
                        (unsigned char *) cbuf,
                        clen, (outfptr->Fptr)->rice_blocksize);
             } else {
-                nelem = fits_rcomp (idata, tilelen, (unsigned char *) cbuf,
+                nelem = _pyfits_fits_rcomp (idata, tilelen,
+                       (unsigned char *) cbuf,
                        clen, (outfptr->Fptr)->rice_blocksize);
             }
 
@@ -3308,12 +3385,12 @@ int imcomp_compress_tile (fitsfile *outfptr,
                 if (idata[ii] < 0 || idata[ii] > 16777215)
                 {
                    /* plio algorithn only supports positive 24 bit ints */
-                   ffpmsg("data out of range for PLIO compression (0 - 2**24)");
+                   _pyfits_ffpmsg("data out of range for PLIO compression (0 - 2**24)");
                    return(*status = DATA_COMPRESSION_ERR);
                 }
               }
 
-                nelem = pl_p2li (idata, 1, cbuf, tilelen);
+                nelem = _pyfits_pl_p2li (idata, 1, cbuf, tilelen);
 
                 /* Write the compressed byte stream. */
 
@@ -3332,16 +3409,18 @@ int imcomp_compress_tile (fitsfile *outfptr,
 
            gzip_clen = clen;
            if (intlength == 2) {
-                 compress2mem_from_mem((char *) idata, tilelen * sizeof(short),
+                 _pyfits_compress2mem_from_mem(
+                 (char *) idata, tilelen * sizeof(short),
                  (char **) &cbuf, (size_t *) &gzip_clen, realloc,
                  &gzip_nelem, status);
            } else if (intlength == 1) {
-                compress2mem_from_mem((char *) idata, 
+                _pyfits_compress2mem_from_mem((char *) idata, 
                  tilelen * sizeof(unsigned char),
                  (char **) &cbuf, (size_t *) &gzip_clen, realloc,
                  &gzip_nelem, status);
            } else {
-                compress2mem_from_mem((char *) idata, tilelen * sizeof(int),
+                _pyfits_compress2mem_from_mem(
+                 (char *) idata, tilelen * sizeof(int),
                  (char **) &cbuf, (size_t *) &gzip_clen, realloc,
                  &gzip_nelem, status);
            }
@@ -3362,7 +3441,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
             hcompscale = (outfptr->Fptr)->hcomp_scale;
 
             if (hcompscale > 0.) {
-               fits_img_stats_int(idata, tilenx, tileny, nullcheck,
+               _pyfits_fits_img_stats_int(idata, tilenx, tileny, nullcheck,
                         nullval, 0,0,0,0,0,0,&noise3,status);
 
                 hcompscale = hcompscale * noise3;
@@ -3377,7 +3456,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
             hcomp_len = clen;  /* allocated size of the buffer */
 
             if (zbitpix == BYTE_IMG || zbitpix == SHORT_IMG) {
-                fits_hcompress(idata, tilenx, tileny,
+                _pyfits_fits_hcompress(idata, tilenx, tileny,
                   ihcompscale, (char *) cbuf, &hcomp_len, status);
 
             } else {
@@ -3389,7 +3468,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
                     lldata[ii] = idata[ii];;
                 }
 
-                fits_hcompress64(lldata, tilenx, tileny,
+                _pyfits_fits_hcompress64(lldata, tilenx, tileny,
                   ihcompscale, (char *) cbuf, &hcomp_len, status);
             }
 
@@ -3402,7 +3481,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
         if (nelem < 0)  /* error condition */
         {
             free (cbuf); cbuf = 0;
-            ffpmsg
+            _pyfits_ffpmsg
                 ("error compressing row of the image (imcomp_compress_tile)");
             return (*status = DATA_COMPRESSION_ERR);
         }
@@ -3443,7 +3522,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
          }
          else
          {
-             ffpmsg("There is no UNCOMPRESSED_DATA column in the table.");
+             _pyfits_ffpmsg("There is no UNCOMPRESSED_DATA column in the table.");
              return(*status = BAD_COL_NUM);
          }
 
@@ -3452,7 +3531,7 @@ int imcomp_compress_tile (fitsfile *outfptr,
     return (*status);
 }
 /*---------------------------------------------------------------------------*/
-int imcomp_nullscale(
+static int imcomp_nullscale(
      int *idata,
      long tilelen,
      int nullflagval,
@@ -3499,7 +3578,7 @@ int imcomp_nullscale(
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int imcomp_nullvalues(
+static int imcomp_nullvalues(
      int *idata,
      long tilelen,
      int nullflagval,
@@ -3520,7 +3599,7 @@ int imcomp_nullvalues(
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int imcomp_scalevalues(
+static int imcomp_scalevalues(
      int *idata,
      long tilelen,
      double scale,
@@ -3558,7 +3637,7 @@ int imcomp_scalevalues(
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int imcomp_nullfloats(
+static int imcomp_nullfloats(
      float *fdata,
      long tilelen,
      int *idata,
@@ -3632,7 +3711,7 @@ int imcomp_nullfloats(
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int imcomp_nullscalefloats(
+static int imcomp_nullscalefloats(
      float *fdata,
      long tilelen,
      int *idata,
@@ -3709,7 +3788,7 @@ int imcomp_nullscalefloats(
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int imcomp_nulldoubles(
+static int imcomp_nulldoubles(
      double *fdata,
      long tilelen,
      int *idata,
@@ -3784,7 +3863,7 @@ int imcomp_nulldoubles(
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int imcomp_nullscaledoubles(
+static int imcomp_nullscaledoubles(
      double *fdata,
      long tilelen,
      int *idata,
@@ -3861,7 +3940,8 @@ int imcomp_nullscaledoubles(
     return(*status);
 }
 /*---------------------------------------------------------------------------*/
-int fits_write_compressed_img(fitsfile *fptr,   /* I - FITS file pointer     */
+static int fits_write_compressed_img(
+            fitsfile *fptr,   /* I - FITS file pointer     */
             int  datatype,   /* I - datatype of the array to be written      */
             long  *infpixel, /* I - 'bottom left corner' of the subsection   */
             long  *inlpixel, /* I - 'top right corner' of the subsection     */
@@ -3916,7 +3996,7 @@ int fits_write_compressed_img(fitsfile *fptr,   /* I - FITS file pointer     */
     }
     else
     {
-        ffpmsg("unsupported datatype for compressing image");
+        _pyfits_ffpmsg("unsupported datatype for compressing image");
         return(*status = BAD_DATATYPE);
     }
 
@@ -3947,7 +4027,7 @@ int fits_write_compressed_img(fitsfile *fptr,   /* I - FITS file pointer     */
     }
     else
     {
-        ffpmsg("unsupported image compression algorithm");
+        _pyfits_ffpmsg("unsupported image compression algorithm");
         return(*status = BAD_DATATYPE);
     }
 
@@ -3956,7 +4036,7 @@ int fits_write_compressed_img(fitsfile *fptr,   /* I - FITS file pointer     */
 
     if (buffer == NULL)
     {
-            ffpmsg("Out of memory (fits_write_compress_img)");
+            _pyfits_ffpmsg("Out of memory (fits_write_compress_img)");
             return (*status = MEMORY_ALLOCATION);
     }
 
@@ -4069,7 +4149,8 @@ int fits_write_compressed_img(fitsfile *fptr,   /* I - FITS file pointer     */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fits_write_compressed_pixels(fitsfile *fptr, /* I - FITS file pointer   */
+static int fits_write_compressed_pixels(
+            fitsfile *fptr, /* I - FITS file pointer   */
             int  datatype,  /* I - datatype of the array to be written      */
             LONGLONG   fpixel,  /* I - 'first pixel to write          */
             LONGLONG   npixel,  /* I - number of pixels to write      */
@@ -4210,14 +4291,15 @@ int fits_write_compressed_pixels(fitsfile *fptr, /* I - FITS file pointer   */
     }
     else
     {
-        ffpmsg("only 1D, 2D, or 3D images are currently supported");
+        _pyfits_ffpmsg("only 1D, 2D, or 3D images are currently supported");
         return(*status = DATA_COMPRESSION_ERR);
     }
 
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fits_write_compressed_img_plane(fitsfile *fptr, /* I - FITS file    */
+static int fits_write_compressed_img_plane(
+            fitsfile *fptr, /* I - FITS file    */
             int  datatype,  /* I - datatype of the array to be written    */
             int  bytesperpixel, /* I - number of bytes per pixel in array */
             long   nplane,  /* I - which plane of the cube to write      */
@@ -4331,7 +4413,8 @@ int fits_write_compressed_img_plane(fitsfile *fptr, /* I - FITS file    */
 /* ######################################################################## */
 
 /*---------------------------------------------------------------------------*/
-int fits_read_compressed_img(fitsfile *fptr,   /* I - FITS file pointer      */
+static int fits_read_compressed_img(
+            fitsfile *fptr,   /* I - FITS file pointer      */
             int  datatype,  /* I - datatype of the array to be returned      */
             LONGLONG  *infpixel, /* I - 'bottom left corner' of the          */
                                  /* subsection                               */
@@ -4432,7 +4515,7 @@ int fits_read_compressed_img(fitsfile *fptr,   /* I - FITS file pointer      */
     }
     else
     {
-        ffpmsg("unsupported datatype for uncompressing image");
+        _pyfits_ffpmsg("unsupported datatype for uncompressing image");
         return(*status = BAD_DATATYPE);
     }
 
@@ -4443,7 +4526,7 @@ int fits_read_compressed_img(fitsfile *fptr,   /* I - FITS file pointer      */
 
     if (buffer == NULL)
     {
-        ffpmsg("Out of memory (fits_read_compress_img)");
+        _pyfits_ffpmsg("Out of memory (fits_read_compress_img)");
         return (*status = MEMORY_ALLOCATION);
     }
 
@@ -4454,7 +4537,7 @@ int fits_read_compressed_img(fitsfile *fptr,   /* I - FITS file pointer      */
 
         if (bnullarray == NULL)
         {
-            ffpmsg("Out of memory (fits_read_compress_img)");
+            _pyfits_ffpmsg("Out of memory (fits_read_compress_img)");
             free(buffer); buffer = 0;
             return (*status = MEMORY_ALLOCATION);
         }
@@ -4590,7 +4673,8 @@ int fits_read_compressed_img(fitsfile *fptr,   /* I - FITS file pointer      */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int fits_read_compressed_pixels(fitsfile *fptr, /* I - FITS file pointer    */
+static int fits_read_compressed_pixels(
+            fitsfile *fptr, /* I - FITS file pointer    */
             int  datatype,  /* I - datatype of the array to be returned     */
             LONGLONG   fpixel, /* I - 'first pixel to read          */
             LONGLONG   npixel,  /* I - number of pixels to read      */
@@ -4743,14 +4827,15 @@ int fits_read_compressed_pixels(fitsfile *fptr, /* I - FITS file pointer    */
     }
     else
     {
-        ffpmsg("only 1D, 2D, or 3D images are currently supported");
+        _pyfits_ffpmsg("only 1D, 2D, or 3D images are currently supported");
         return(*status = DATA_DECOMPRESSION_ERR);
     }
 
     return(*status);
 }
 ///*--------------------------------------------------------------------------*/
-int fits_read_compressed_img_plane(fitsfile *fptr, /* I - FITS file   */
+static int fits_read_compressed_img_plane(
+            fitsfile *fptr, /* I - FITS file   */
             int  datatype,  /* I - datatype of the array to be returned      */
             int  bytesperpixel, /* I - number of bytes per pixel in array */
             long   nplane,  /* I - which plane of the cube to read      */
@@ -4879,7 +4964,8 @@ int fits_read_compressed_img_plane(fitsfile *fptr, /* I - FITS file   */
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int imcomp_decompress_tile (fitsfile *infptr,
+static int imcomp_decompress_tile (
+          fitsfile *infptr,
           int nrow,            /* I - row of table to read and uncompress */
           int tilelen,         /* I - number of pixels in the tile        */
           int datatype,        /* I - datatype to be returned in 'buffer' */
@@ -5053,7 +5139,7 @@ int imcomp_decompress_tile (fitsfile *infptr,
 
     if (idata == NULL)
     {
-            ffpmsg("Out of memory for idata. (imcomp_decompress_tile)");
+            _pyfits_ffpmsg("Out of memory for idata. (imcomp_decompress_tile)");
             return (*status = MEMORY_ALLOCATION);
     }
 
@@ -5070,7 +5156,8 @@ int imcomp_decompress_tile (fitsfile *infptr,
         blocksize = (infptr->Fptr)->rice_blocksize;
 
          if ((infptr->Fptr)->rice_bytepix == 1 ) {
-            if ((*status = fits_rdecomp_byte (((infptr->Fptr)->data)[nrow-1],
+            if ((*status = _pyfits_fits_rdecomp_byte (
+                ((infptr->Fptr)->data)[nrow-1],
                 ((infptr->Fptr)->dataLen)[nrow-1],
                 (unsigned char *)idata,
                 tilelen, blocksize)))
@@ -5080,7 +5167,8 @@ int imcomp_decompress_tile (fitsfile *infptr,
             }
             tiledatatype = TBYTE;
         } else if ((infptr->Fptr)->rice_bytepix == 2 ) {
-            if ((*status = fits_rdecomp_short (((infptr->Fptr)->data)[nrow-1],
+            if ((*status = _pyfits_fits_rdecomp_short (
+                ((infptr->Fptr)->data)[nrow-1],
                 ((infptr->Fptr)->dataLen)[nrow-1],
                 (unsigned short *)idata,
                 tilelen, blocksize)))
@@ -5090,7 +5178,8 @@ int imcomp_decompress_tile (fitsfile *infptr,
             }
             tiledatatype = TSHORT;
         } else {
-            if ((*status = fits_rdecomp (((infptr->Fptr)->data)[nrow-1],
+            if ((*status = _pyfits_fits_rdecomp (
+                ((infptr->Fptr)->data)[nrow-1],
                 ((infptr->Fptr)->dataLen)[nrow-1],
                 (unsigned int *)idata,
                 tilelen, blocksize)))
@@ -5113,7 +5202,8 @@ int imcomp_decompress_tile (fitsfile *infptr,
         if ( ((infptr->Fptr)->zbitpix == BYTE_IMG ||
                (infptr->Fptr)->zbitpix == SHORT_IMG) )  {
 
-            if ((*status = fits_hdecompress(((infptr->Fptr)->data)[nrow-1],
+            if ((*status = _pyfits_fits_hdecompress(
+                                          ((infptr->Fptr)->data)[nrow-1],
                                             smooth, idata, &nx, &ny,
                                             &scale, status)))
             {
@@ -5124,7 +5214,8 @@ int imcomp_decompress_tile (fitsfile *infptr,
         } else {
 
             /* idata must have been allocated twice as large for this to work */
-            if ((*status = fits_hdecompress64(((infptr->Fptr)->data)[nrow-1],
+            if ((*status = _pyfits_fits_hdecompress64(
+                                            ((infptr->Fptr)->data)[nrow-1],
                                               smooth, lldata, &nx, &ny,
                 &scale, status)))
             {
@@ -5148,7 +5239,7 @@ int imcomp_decompress_tile (fitsfile *infptr,
         ffswap2(sbuf, nelem); /* reverse order of bytes */
 #endif
 
-        pl_l2pi (sbuf, 1, idata, tilelen);  /* uncompress the data */
+        _pyfits_pl_l2pi (sbuf, 1, idata, tilelen);  /* uncompress the data */
 
     }
 
@@ -5158,11 +5249,12 @@ int imcomp_decompress_tile (fitsfile *infptr,
     {
         /* uncompress the data */
 
-        if (uncompress2mem_from_mem ((char *)((infptr->Fptr)->data)[nrow-1],
+        if (_pyfits_uncompress2mem_from_mem
+                                    ((char *)((infptr->Fptr)->data)[nrow-1],
                                      ((infptr->Fptr)->dataLen)[nrow-1],
              (char **) &idata, &idatalen, realloc, &tilebytesize, status))
         {
-            ffpmsg("uncompress2mem_from_mem returned with an error");
+            _pyfits_ffpmsg("_pyfits_uncompress2mem_from_mem returned with an error");
             free(idata); idata = 0;
             return (*status);
         }
@@ -5189,7 +5281,7 @@ int imcomp_decompress_tile (fitsfile *infptr,
             tiledatatype = TBYTE;
 
         } else {
-            ffpmsg("error: uncompressed tile has wrong size");
+            _pyfits_ffpmsg("error: uncompressed tile has wrong size");
             free(idata);
             return (*status = DATA_DECOMPRESSION_ERR);
         }
@@ -5198,7 +5290,7 @@ int imcomp_decompress_tile (fitsfile *infptr,
     /* ************************************************************* */
     else
     {
-        ffpmsg("unknown compression algorithm");
+        _pyfits_ffpmsg("unknown compression algorithm");
         free(idata); idata = 0;
         return (*status = DATA_DECOMPRESSION_ERR);
     }
@@ -5319,7 +5411,7 @@ int imcomp_decompress_tile (fitsfile *infptr,
     return (*status);
 }
 /*--------------------------------------------------------------------------*/
-int imcomp_copy_overlap (
+static int imcomp_copy_overlap (
     char *tile,         /* I - multi dimensional array of tile pixels */
     int pixlen,         /* I - number of bytes in each tile or image pixel */
     int ndim,           /* I - number of dimension in the tile and image */
@@ -5541,7 +5633,7 @@ int imcomp_copy_overlap (
 }
 
 /*--------------------------------------------------------------------------*/
-int imcomp_merge_overlap (
+static int imcomp_merge_overlap (
     char *tile,         /* O - multi dimensional array of tile pixels */
     int pixlen,         /* I - number of bytes in each tile or image pixel */
     int ndim,           /* I - number of dimension in the tile and image */

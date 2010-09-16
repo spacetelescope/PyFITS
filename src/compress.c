@@ -108,7 +108,7 @@
 #include <string.h>
 #include "zlib.h"  
 
-int uncompress2mem_from_mem(                                                
+int _pyfits_uncompress2mem_from_mem(
              char *inmemptr,     
              size_t inmemsize, 
              char **buffptr,  
@@ -117,7 +117,7 @@ int uncompress2mem_from_mem(
              size_t *filesize,  
              int *status);
 
-int compress2mem_from_mem(                                                
+int _pyfits_compress2mem_from_mem(
              char *inmemptr,     
              size_t inmemsize, 
              char **buffptr,  
@@ -127,7 +127,7 @@ int compress2mem_from_mem(
              int *status);
 
 /*--------------------------------------------------------------------------*/
-int uncompress2mem_from_mem(                                                
+int _pyfits_uncompress2mem_from_mem(
              char *inmemptr,     /* I - memory pointer to compressed bytes */
              size_t inmemsize,   /* I - size of input compressed file      */
              char **buffptr,   /* IO - memory pointer                      */
@@ -182,7 +182,7 @@ int uncompress2mem_from_mem(
         d_stream.next_out = uncompr;
         d_stream.avail_out = uncomprLen;
 
-        err = inflate(&d_stream, Z_NO_FLUSH);
+        err = _pyfits_inflate(&d_stream, Z_NO_FLUSH);
 
         if (err != Z_OK && err != Z_STREAM_END)
         {
@@ -217,7 +217,7 @@ int uncompress2mem_from_mem(
     *filesize = d_stream.total_out;
 
     /* End the decompression */
-    err = inflateEnd(&d_stream);
+    err = _pyfits_inflateEnd(&d_stream);
 
     /* free temporary output data buffer */
     free(uncompr);
@@ -230,7 +230,7 @@ int uncompress2mem_from_mem(
     return(*status);
 }
 /*--------------------------------------------------------------------------*/
-int compress2mem_from_mem(                                                
+int _pyfits_compress2mem_from_mem(
              char *inmemptr,     /* I - memory pointer to uncompressed bytes */
              size_t inmemsize,   /* I - size of input uncompressed file      */
              char **buffptr,   /* IO - memory pointer for compressed file    */
@@ -285,7 +285,7 @@ int compress2mem_from_mem(
         c_stream.next_out = compr;
         c_stream.avail_out = comprLen;
 
-        err = deflate(&c_stream, Z_FINISH);
+        err = _pyfits_deflate(&c_stream, Z_FINISH);
 
         if (err != Z_OK && err != Z_STREAM_END)
         {
@@ -320,7 +320,7 @@ int compress2mem_from_mem(
     *filesize = c_stream.total_out;
 
     /* End the compression */
-    err = deflateEnd(&c_stream);
+    err = _pyfits_deflateEnd(&c_stream);
 
     /* free temporary output data buffer */
     free(compr);
