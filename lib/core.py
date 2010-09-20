@@ -2832,6 +2832,8 @@ class _ValidHDU(_AllHDU, _Verify):
            Key        Value
            ========== ================================================
            file       File object associated with the HDU
+           filemode   Mode in which the file was opened (readonly, copyonwrite,
+                      update, append, ostream)
            hdrLoc     Starting byte location of header in file
            datLoc     Starting byte location of data block in file
            datSpan    Data size including padding
@@ -2839,7 +2841,8 @@ class _ValidHDU(_AllHDU, _Verify):
         """
 
         if hasattr(self,'_file') and self._file:
-           return {'file':self._file, 'hdrLoc':self._hdrLoc,
+           return {'file':self._file, 'filemode':self._ffile.mode,
+                   'hdrLoc':self._hdrLoc,
                    'datLoc':self._datLoc, 'datSpan':self._datSpan}
         else:
             return None
@@ -9874,18 +9877,20 @@ class HDUList(list, _Verify):
 
             Dictionary contents:
 
-            ========== ===========================================================
+            ========== =========================================================
             Key        Value
-            ========== ===========================================================
+            ========== =========================================================
             file       File object associated with the HDU
             filename   Name of associated file object
+            filemode   Mode in which the file was opened (readonly, copyonwrite,
+                       update, append, ostream)
             resized    Flag that when `True` indicates that the data has been
                        resized since the last read/write so the returned values
                        may not be valid.
             hdrLoc     Starting byte location of header in file
             datLoc     Starting byte location of data block in file
             datSpan    Data size including padding
-            ========== ===========================================================
+            ========== =========================================================
 
         """
 
@@ -9904,9 +9909,10 @@ class HDUList(list, _Verify):
 
                    if info:
                       f = info['file']
+                      fm = info['filemode']
                       break
 
-                output = {'file':f, 'hdrLoc':None,
+                output = {'file':f, 'filemode':fm, 'hdrLoc':None,
                           'datLoc':None, 'datSpan':None}
 
             output['filename'] = self.__file.name

@@ -55,6 +55,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         self.assertEqual(res['filename'], test_dir+'checksum.fits')
         self.assertEqual(res['datLoc'], 8640)
         self.assertEqual(res['hdrLoc'], 0)
+        self.assertEqual(res['filemode'], 'copyonwrite')
 
         res = hdul.fileinfo(1)
         self.assertEqual(res['datSpan'], 2880)
@@ -62,6 +63,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         self.assertEqual(res['filename'], test_dir+'checksum.fits')
         self.assertEqual(res['datLoc'], 17280)
         self.assertEqual(res['hdrLoc'], 11520)
+        self.assertEqual(res['filemode'], 'copyonwrite')
 
         hdu = pyfits.ImageHDU(data=hdul[0].data)
         hdul.insert(1,hdu)
@@ -72,6 +74,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         self.assertEqual(res['filename'], test_dir+'checksum.fits')
         self.assertEqual(res['datLoc'], 8640)
         self.assertEqual(res['hdrLoc'], 0)
+        self.assertEqual(res['filemode'], 'copyonwrite')
 
         res = hdul.fileinfo(1)
         self.assertEqual(res['datSpan'], None)
@@ -79,6 +82,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         self.assertEqual(res['filename'], test_dir+'checksum.fits')
         self.assertEqual(res['datLoc'], None)
         self.assertEqual(res['hdrLoc'], None)
+        self.assertEqual(res['filemode'], 'copyonwrite')
 
         res = hdul.fileinfo(2)
         self.assertEqual(res['datSpan'], 2880)
@@ -86,6 +90,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
         self.assertEqual(res['filename'], test_dir+'checksum.fits')
         self.assertEqual(res['datLoc'], 17280)
         self.assertEqual(res['hdrLoc'], 11520)
+        self.assertEqual(res['filemode'], 'copyonwrite')
 
 
     def testAppendPrimaryToEmptyList(self):
