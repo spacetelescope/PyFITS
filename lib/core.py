@@ -3103,7 +3103,18 @@ class _ValidHDU(_AllHDU, _Verify):
         -------
         ones complement checksum
         """
+        sum32 = np.array(sum32, dtype='uint32')
+        for i in range(0, len(bytes), 2880):
+            length = min(2880, len(bytes)-i)
+            sum32 = self._compute_hdu_checksum(bytes[i:i+length], sum32)
+        return sum32
+
+    def _compute_hdu_checksum(self, bytes, sum32=0):
+        # Translated from FITS Checksum Proposal by Seaman, Pence, and Rots.
         # Use uint32 literals as a hedge against type promotion to int64.
+
+        assert len(bytes) <= 2880   # Overflows occur if too long
+
         u8 = np.array(8, dtype='uint32')
         u16 = np.array(16, dtype='uint32')
         uFFFF = np.array(0xFFFF, dtype='uint32')
@@ -3212,12 +3223,12 @@ class _ValidHDU(_AllHDU, _Verify):
                 self._file.seek(self._datLoc)
                 raw_data = _fromfile(self._file, dtype='ubyte',
                                      count=self._datSpan, sep="")
-                return self._compute_checksum(raw_data,0)
+                return self._compute_checksum(raw_data)
             else:
                 return 0
         elif (self.data != None):
             return self._compute_checksum(
-                                 np.fromstring(self.data, dtype='ubyte'),0)
+                                 np.fromstring(self.data, dtype='ubyte'))
         else:
             return 0
 
@@ -4295,7 +4306,7 @@ class _ImageBaseHDU(_ValidHDU):
             else:
                 byteswapped = False
 
-            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),0)
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'))
 
             # If the data was byteswapped in this method then return it to
             # its original little-endian order.
@@ -4521,7 +4532,7 @@ class GroupsHDU(PrimaryHDU):
                 byteswapped = False
                 d = self.data
 
-            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),0)
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'))
 
             # If the data was byteswapped in this method then return it to
             # its original little-endian order.
@@ -6654,7 +6665,7 @@ class TableHDU(_TableBaseHDU):
                               np.fromstring(_padLength(self.size())*' ',
                                             dtype='ubyte'))
 
-            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),0)
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'))
             return cs
         else:
             # This is the case where the data has not been read from the file
@@ -6739,7 +6750,7 @@ class BinTableHDU(_TableBaseHDU):
                         dout = np.append(dout,
                                     np.fromstring(coldata,dtype='ubyte'))
 
-        cs = self._compute_checksum(dout,0)
+        cs = self._compute_checksum(dout)
         return cs
 
     def _calculate_datasum(self):
