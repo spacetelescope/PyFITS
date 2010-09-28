@@ -3527,7 +3527,12 @@ class _TempHDU(_ValidHDU):
             if classExtensions.has_key(header._hdutype):
                 header._hdutype = classExtensions[header._hdutype]
 
-            hdu = header._hdutype(data=DELAYED, header=header)
+            if ((header._hdutype == PrimaryHDU or header._hdutype == ImageHDU)
+                and (hasattr(self, '_do_not_scale_image_data'))):
+                    hdu = header._hdutype(data=DELAYED, header=header,
+                          do_not_scale_image_data=self._do_not_scale_image_data)
+            else:
+                hdu = header._hdutype(data=DELAYED, header=header)
 
             # pass these attributes
             hdu._file = self._file
@@ -3912,7 +3917,7 @@ class _ImageBaseHDU(_ValidHDU):
                'uint32':32, 'int64':64, 'uint64':64,
                'float32':-32, 'float64':-64}
 
-    def __init__(self, data=None, header=None):
+    def __init__(self, data=None, header=None, do_not_scale_image_data=False):
         self._file, self._datLoc = None, None
 
         if header is not None:
@@ -3956,8 +3961,14 @@ class _ImageBaseHDU(_ValidHDU):
 
             self._header = Header(_list)
 
-        self._bzero = self._header.get('BZERO', 0)
-        self._bscale = self._header.get('BSCALE', 1)
+        self._do_not_scale_image_data = do_not_scale_image_data
+
+        if do_not_scale_image_data:
+            self._bzero = 0
+            self._bscale = 1
+        else:
+            self._bzero = self._header.get('BZERO', 0)
+            self._bscale = self._header.get('BSCALE', 1)
 
         if (data is DELAYED): return
 
@@ -3967,9 +3978,10 @@ class _ImageBaseHDU(_ValidHDU):
         self.update_header()
         self._bitpix = self._header['BITPIX']
 
-        # delete the keywords BSCALE and BZERO
-        del self._header['BSCALE']
-        del self._header['BZERO']
+        if not do_not_scale_image_data:
+            # delete the keywords BSCALE and BZERO
+            del self._header['BSCALE']
+            del self._header['BZERO']
 
     def update_header(self):
         """
@@ -4124,9 +4136,11 @@ class _ImageBaseHDU(_ValidHDU):
 
                     self.data = data
 
-                    # delete the keywords BSCALE and BZERO after scaling
-                    del self._header['BSCALE']
-                    del self._header['BZERO']
+                    if not self._do_not_scale_image_data:
+                       # delete the keywords BSCALE and BZERO after scaling
+                       del self._header['BSCALE']
+                       del self._header['BZERO']
+
                     self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
                 else:
                     self.data = raw_data
@@ -4326,7 +4340,7 @@ class PrimaryHDU(_ImageBaseHDU):
     """
     FITS primary HDU class.
     """
-    def __init__(self, data=None, header=None):
+    def __init__(self, data=None, header=None, do_not_scale_image_data=False):
         """
         Construct a primary HDU.
 
@@ -4338,9 +4352,14 @@ class PrimaryHDU(_ImageBaseHDU):
         header : Header instance, optional
             The header to be used (as a template).  If `header` is
             `None`, a minimal header will be provided.
+
+        do_not_scale_image_data : bool, optional
+            If `True`, image data is not scaled using BSCALE/BZERO values
+            when read.
         """
 
-        _ImageBaseHDU.__init__(self, data=data, header=header)
+        _ImageBaseHDU.__init__(self, data=data, header=header,
+                               do_not_scale_image_data=do_not_scale_image_data)
         self.name = 'PRIMARY'
 
         # insert the keywords EXTEND
@@ -4356,7 +4375,8 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
     FITS image extension HDU class.
     """
 
-    def __init__(self, data=None, header=None, name=None):
+    def __init__(self, data=None, header=None, name=None,
+                 do_not_scale_image_data=False):
         """
         Construct an image HDU.
 
@@ -4372,10 +4392,15 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
         name : str, optional
             The name of the HDU, will be the value of the keyword
             ``EXTNAME``.
+
+        do_not_scale_image_data : bool, optional
+            If `True`, image data is not scaled using BSCALE/BZERO values
+            when read.
         """
 
         # no need to run _ExtensionHDU.__init__ since it is not doing anything.
-        _ImageBaseHDU.__init__(self, data=data, header=header)
+        _ImageBaseHDU.__init__(self, data=data, header=header,
+                               do_not_scale_image_data=do_not_scale_image_data)
         self._xtn = 'IMAGE'
 
         self._header._hdutype = ImageHDU
@@ -10645,6 +10670,11 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
             If `True`, treates compressed image HDU's like normal
             binary table HDU's.
 
+        - **do_not_scale_image_data** : bool
+
+            If `True`, image data is not scaled using BSCALE/BZERO values
+            when read.
+
     Returns
     -------
         hdulist : an HDUList object
@@ -10671,12 +10701,18 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
            parms['disable_image_compression']:
             compressionSupported = -1
 
+        if 'do_not_scale_image_data' in parms:
+            do_not_scale_image_data = parms['do_not_scale_image_data']
+        else:
+            do_not_scale_image_data = False
+
         if mode != 'ostream':
             # read all HDU's
             while 1:
                 try:
-                    hduList.append(ffo._readHDU(),
-                                   classExtensions=classExtensions)
+                    thdu = ffo._readHDU()
+                    thdu._do_not_scale_image_data = do_not_scale_image_data
+                    hduList.append(thdu, classExtensions=classExtensions)
                 except EOFError:
                     break
                 # check in the case there is extra space after the last HDU or

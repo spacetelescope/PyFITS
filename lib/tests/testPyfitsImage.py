@@ -725,6 +725,12 @@ CONTINUE  '&' / comments in line 1 comments with ''.                            
         self.assertEqual(fd[1].data.all(), data.all())
         os.remove(jfile)
 
+    def testDoNotScaleImageData(self):
+        hdul = pyfits.open(test_dir+'scale.fits',do_not_scale_image_data=True)
+        self.assertEqual(hdul[0].data.dtype,np.dtype('>i2'))
+        hdul = pyfits.open(test_dir+'scale.fits')
+        self.assertEqual(hdul[0].data.dtype,np.dtype('float32'))
+
 
 if __name__ == '__main__':
     unittest.main()
