@@ -9621,51 +9621,54 @@ class _File:
 
                 swapped = []
                 try:
-                  if not self._simulateonly:
+                    if not self._simulateonly:
+                        for i in range(output._nfields):
+                            coldata = output.field(i)
+                            if not isinstance(coldata, chararray.chararray):
+                                # only swap unswapped
+                                # deal with var length table
+                                if isinstance(coldata, _VLF):
+                                    k = 0
+                                    for j in coldata:
+                                        if (not isinstance(j, chararray.chararray) and
+                                            j.itemsize > 1 and
+                                            j.dtype.str[0] in swap_types):
+                                            j.byteswap(True)
+                                            swapped.append(j)
+                                        if (rec.recarray.field(output,i)[k:k+1].dtype.str[0] in
+                                            swap_types):
+                                            rec.recarray.field(output,i)[k:k+1].byteswap(True)
+                                            swapped.append(rec.recarray.field(output,i)[k:k+1])
+                                        k = k + 1
+                                else:
+                                    if (coldata.itemsize > 1 and
+                                        ((isinstance(output.dtype[i], str) and
+                                          output.dtype[i][0] in swap_types) or
+                                         (isinstance(output.dtype[i], tuple) and
+                                          output.dtype[i][0][0] in swap_types))):
+                                        rec.recarray.field(output, i).byteswap(True)
+                                        swapped.append(rec.recarray.field(output, i))
+
+                        _tofile(output, self.__file)
+
+                        # write out the heap of variable length array columns
+                        # this has to be done after the "regular" data is written
+                        # (above)
+                        self.__file.write(output._gap*'\0')
+
+                    nbytes = output._gap
+
                     for i in range(output._nfields):
-                        coldata = output.field(i)
-                        if not isinstance(coldata, chararray.chararray):
-                            # only swap unswapped
-                            # deal with var length table
-                            if isinstance(coldata, _VLF):
-                                k = 0
-                                for j in coldata:
-                                    if (not isinstance(j, chararray.chararray) and
-                                        j.itemsize > 1 and
-                                        j.dtype.str[0] in swap_types):
-                                        j.byteswap(True)
-                                        swapped.append(j)
-                                    if (rec.recarray.field(output,i)[k:k+1].dtype.str[0] in
-                                        swap_types):
-                                        rec.recarray.field(output,i)[k:k+1].byteswap(True)
-                                        swapped.append(rec.recarray.field(output,i)[k:k+1])
-                                    k = k + 1
-                            else:
-                                if (coldata.itemsize > 1 and
-                                    coldata.dtype.str[0] in swap_types):
-                                    rec.recarray.field(output, i).byteswap(True)
-                                    swapped.append(rec.recarray.field(output, i))
+                        if isinstance(output._coldefs._recformats[i], _FormatP):
+                            for j in range(len(output.field(i))):
+                                coldata = output.field(i)[j]
+                                if len(coldata) > 0:
+                                    nbytes = nbytes + coldata.nbytes
+                                    if not self._simulateonly:
+                                        coldata.tofile(self.__file)
 
-                    _tofile(output, self.__file)
-
-                    # write out the heap of variable length array columns
-                    # this has to be done after the "regular" data is written
-                    # (above)
-                    self.__file.write(output._gap*'\0')
-
-                  nbytes = output._gap
-
-                  for i in range(output._nfields):
-                      if isinstance(output._coldefs._recformats[i], _FormatP):
-                          for j in range(len(output.field(i))):
-                              coldata = output.field(i)[j]
-                              if len(coldata) > 0:
-                                  nbytes= nbytes + coldata.nbytes
-                                  if not self._simulateonly:
-                                      coldata.tofile(self.__file)
-
-                  output._heapsize = nbytes - output._gap
-                  _size = _size + nbytes
+                    output._heapsize = nbytes - output._gap
+                    _size = _size + nbytes
                 finally:
                     for obj in swapped:
                         obj.byteswap(True)
