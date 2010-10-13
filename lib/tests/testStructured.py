@@ -60,7 +60,7 @@ def compare_arrays(arr1in, arr2in, verbose=False):
 
 
 def get_test_data(verbose=False):
-    st = numpy.zeros(3, [('f1','i4'),('f2','S6'),('f3','2f8')])
+    st = numpy.zeros(3, [('f1','i4'),('f2','S6'),('f3','>2f8')])
 
     numpy.random.seed(35)
     st['f1'] = [1,3,5]
