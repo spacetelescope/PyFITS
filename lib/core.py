@@ -9633,18 +9633,18 @@ class _File:
                                         if (not isinstance(j, chararray.chararray) and
                                             j.itemsize > 1 and
                                             j.dtype.str[0] in swap_types):
-                                            j.byteswap(True)
                                             swapped.append(j)
                                         if (rec.recarray.field(output,i)[k:k+1].dtype.str[0] in
                                             swap_types):
-                                            rec.recarray.field(output,i)[k:k+1].byteswap(True)
                                             swapped.append(rec.recarray.field(output,i)[k:k+1])
                                         k = k + 1
                                 else:
                                     if (coldata.itemsize > 1 and
                                         output.dtype.descr[i][1][0] in swap_types):
-                                        rec.recarray.field(output, i).byteswap(True)
                                         swapped.append(rec.recarray.field(output, i))
+
+                        for obj in swapped:
+                            obj.byteswap(True)
 
                         _tofile(output, self.__file)
 
