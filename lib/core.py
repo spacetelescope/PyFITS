@@ -11310,7 +11310,7 @@ def writeto(filename, data, header=None, **keys):
                 checksum=checksum, classExtensions=classExtensions)
 
 def append(filename, data, header=None, classExtensions={}, checksum=False,
-           **keys):
+           verify=True, **keys):
     """
     Append the header/data to FITS file if filename exists, create if not.
 
@@ -11339,6 +11339,12 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
     checksum : bool, optional
         When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards to
         the header of the HDU when written to the file.
+
+    verify: bool, optional (True)
+        When `True`, the existing FITS file will be read in to verify
+        it for correctness before appending.  When `False`, content is
+        simply appended to the end of the file.  Setting *verify* to
+        `False` can be much faster.
     """
     name, closed, noexist_or_empty = _stat_filename_or_fileobj(filename)
 
@@ -11352,19 +11358,26 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
                 checksum=checksum, **keys)
     else:
         hdu=_makehdu(data, header, classExtensions)
+
         if isinstance(hdu, PrimaryHDU):
             if classExtensions.has_key(ImageHDU):
                 hdu = classExtensions[ImageHDU](data, header)
             else:
                 hdu = ImageHDU(data, header)
 
-        f = open(filename, mode='append', classExtensions=classExtensions)
-        f.append(hdu, classExtensions=classExtensions)
+        if verify or not closed:
+            f = open(filename, mode='append', classExtensions=classExtensions)
+            f.append(hdu, classExtensions=classExtensions)
 
-        # Set a flag in the HDU so that only this HDU gets a checksum
-        # when writing the file.
-        hdu._output_checksum = checksum
-        f.close(closed=closed)
+            # Set a flag in the HDU so that only this HDU gets a checksum
+            # when writing the file.
+            hdu._output_checksum = checksum
+            f.close(closed=closed)
+        else:
+            f = _File(filename, mode='append')
+            hdu._output_checksum = checksum
+            f.writeHDU(hdu)
+            f.close()
 
 def update(filename, data, *ext, **extkeys):
     """
