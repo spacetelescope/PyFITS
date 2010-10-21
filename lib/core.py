@@ -9327,7 +9327,14 @@ class _File:
                 # output streaming.
                 if not hasattr(self.__file, 'seek') or \
                    not hasattr(self.__file, 'tell'):
-                    self.mode = mode = 'ostream';
+                    self.mode = mode = 'ostream'
+
+                if (self.mode in ('copyonwrite', 'update', 'append') and
+                    not hasattr(self.__file, 'write')):
+                    raise IOError("File-like object does not have a 'write' method, required for mode '%s'" % self.mode)
+
+                if self.mode == 'readonly' and not hasattr(self.__file, 'read'):
+                    raise IOError("File-like object does not have a 'read' method, required for mode 'readonly'" % self.mode)
 
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
@@ -10621,8 +10628,7 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
     Parameters
     ----------
     name : file path, file object or file-like object
-        File to be
-        opened.
+        File to be opened.
 
     mode : str
         Open mode, 'copyonwrite' (default), 'readonly', 'update',
