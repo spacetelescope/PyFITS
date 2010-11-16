@@ -1468,7 +1468,7 @@ class _Card_with_continue(Card):
                 _val = re.sub("''", "'", _card.value).rstrip()
 
                 # drop the ending "&"
-                if _val[-1] == '&':
+                if len(_val) and _val[-1] == '&':
                     _val = _val[:-1]
                 longstring = longstring + _val
 
