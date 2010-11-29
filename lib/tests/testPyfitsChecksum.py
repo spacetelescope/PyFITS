@@ -1,6 +1,8 @@
 from __future__ import division # confidence high
 
 import unittest
+import warnings 
+
 import pyfits
 import numpy
 import numpy as np
@@ -36,7 +38,22 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         hdul=pyfits.open('tmp.fits',checksum=True)
         hdul.close()
         os.remove('tmp.fits')
-
+        
+    def testNonstandardChecksum(self):
+        warnings.filterwarnings("error", message="Warning:  Checksum verification failed")
+        warnings.filterwarnings("error", message="Warning:  Datasum verification failed")
+        hdu = pyfits.PrimaryHDU(np.arange(10.**6))
+        hdu.writeto('tmp.fits', clobber=True, checksum="nonstandard")
+        del hdu      
+        hdul = pyfits.open("tmp.fits", checksum="nonstandard")   # should pass
+        with self.assertRaises(UserWarning):
+            hdul = pyfits.open("tmp.fits", checksum=True)
+        with self.assertRaises(UserWarning):
+            hdul = pyfits.open("tmp.fits", checksum="standard")
+        warnings.filterwarnings("default", message="Warning:  Checksum verification failed")
+        warnings.filterwarnings("default", message="Warning:  Datasum verification failed")
+        os.remove("tmp.fits")
+    
     def testScaledData(self):
         hdul=pyfits.open(test_dir+'scale.fits')
         hdul[0].scale('int16','old')

@@ -37,8 +37,7 @@ int main(int argc, char *argv[])
 
 		fits_open_file(&fptr, argv[i], READONLY, &status);
 		if (status) { 
-			fprintf(stderr, "Bad open status for '%s' = %d", 
-				argv[i], status);
+			fits_report_error(stderr, status);
 			exit(-1); 
 		}
 

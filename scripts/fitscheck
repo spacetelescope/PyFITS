@@ -1,0 +1,153 @@
+#! /usr/bin/env python
+#-*-python-*-
+
+"""fitscheck is a command line script based on pyfits for verifying and updating the 
+CHECKSUM and DATASUM keywords of .fits files.   Fitscheck can also verify or fix
+standards compliance problems pyfits knows how to handle such as invalid
+keywords or misordered cards.
+
+Here are some example uses of fitscheck:
+
+1. Verify and update checksums,  tolerating non-standard checksums,  writing or updating 
+to standard checksums:
+
+% fitscheck --update --checksum-kind either *.fits
+
+2. Verify standard checksums and FITS compliance:
+
+% fitscheck *.fits
+
+3. Fix FITS compliance problems and checksums:
+
+% fitscheck --update --checksum-kind either --compliance fix  *.fits
+"""
+import sys
+import optparse
+import warnings
+
+import pyfits
+
+def handle_options(args):
+	parser = optparse.OptionParser(usage="""
+usage: %prog [options] <.fits files...>
+
+.e.g. fitscheck example.fits
+	
+Verifies and/or re-writes the CHECKSUM and DATASUM keywords
+associated with each .fits file.  Checks by default.
+Use -u to update checksums.""")
+
+	parser.add_option(
+        "-v", "--verbose", dest="verbose",
+        help="Generate extra output,  including output for passing checksums.",
+        default=False, action="store_true")
+	
+	parser.add_option(
+		"-c", "--compliance", dest="compliance",
+		type="choice", choices=["ignore", "fix", "silentfix", "warn"],
+		help="Control FITS compliance checking in addition to checksums.  Checks header keyword legality, required card order, etc.  Defaults to warn.", 
+		default="warn", metavar="[ignore | fix | silentfix | warn]")
+
+	parser.add_option(
+		"-k", "--kind", dest="checksum_kind",
+		type="choice", choices=["standard", "nonstandard", "either", "none"],
+		help="Choose FITS standard checksumming, original nonstandard algorithm,  permit either as valid,  or do no checksumming.  Defaults to either.", 
+		default="either", metavar="[standard | nonstandard | either | none]")	
+
+	parser.add_option(
+        "-u", "--update-file", dest="update_file",
+        help="Update files with new checksums or FITS standard fixes.  Defaults False.",
+        default=False, action="store_true")
+	
+	global OPTIONS
+	OPTIONS, fits_files = parser.parse_args(args)
+	
+	if OPTIONS.checksum_kind == "none":
+		OPTIONS.checksum_kind = False
+
+	return fits_files
+	
+EOL = "\n"   # global to know when an EOL wasn't just output.
+def out(*s, **keys):
+	global EOL
+	EOL = keys.get("eol", "\n")
+	file = keys.get("file", sys.stdout)
+	file.write(" ".join([str(x) for x in s]))
+	if EOL:
+		file.write("\n")
+
+def maybe_eol():
+	if EOL != "\n":
+		out()
+
+def err(*s, **keys):
+	keys["file"] = sys.stderr
+	out(*s, **keys)
+
+def verbose(*s, **keys):
+	if OPTIONS.verbose:
+		out(*s, **keys)
+		
+def get_checksum():
+	if OPTIONS.checksum_kind in ["standard", "nonstandard", "either"]:
+		return OPTIONS.checksum_kind
+	else:
+		return False
+		
+def verify(filename):
+    """Raises an exception if the CHECKSUM or DATASUM keyword values of some HDU 
+    do not match the contents of `filename`.
+    """
+    warnings.filterwarnings("error", message="Warning:  Checksum verification failed")
+    warnings.filterwarnings("error", message="Warning:  Datasum verification failed")
+    try:
+        hdulist = pyfits.open(filename, checksum=OPTIONS.checksum_kind)
+        hdulist.verify("exception")
+    finally:
+        warnings.filterwarnings("default", message="Warning:  Checksum verification failed")
+        warnings.filterwarnings("default", message="Warning:  Datasum verification failed")
+        
+def update_checksums(filename):
+    """Sets the ``CHECKSUM`` and ``DATASUM`` keywords for each HDU of `filename`.  Uses the
+    """
+    hdulist = pyfits.open(filename)
+    hdulist.writeto(filename, checksum=OPTIONS.checksum_kind, clobber=True, output_verify=OPTIONS.compliance)
+    hdulist.close()
+
+def main():
+	"""Processes command line parameters into options and files,  then checks
+	or update FITS DATASUM and CHECKSUM keywords for the specified files.
+	"""
+	errors = 0
+	fits_files = handle_options(sys.argv[1:])
+	for fits in fits_files:
+		try:
+			verify(fits)
+			verbose("OK ", fits)
+		except UserWarning, w:
+			remainder = ".. " + " ".join(str(w).split(" ")[1:]).strip()
+			if "Checksum verification" in str(w) or "Datasum verification" in str(w):
+				maybe_eol()
+				out("BAD", repr(fits), remainder)
+				errors += 1
+			else:
+				out("Unknown warning", repr(fits), repr(w), eol="")
+		except pyfits.VerifyError, e:
+			maybe_eol()
+			out("BAD", repr(fits), str(e).replace("\n"," "))
+			errors += 1
+		except Exception, e:
+			maybe_eol()
+			err("EXCEPTION", repr(fits), ":", repr(e))
+			errors += 1
+
+		if OPTIONS.update_file:
+			update_checksums(fits)
+	maybe_eol()
+	if errors:
+		out(str(errors), "errors")
+	sys.exit(errors)
+
+if __name__ == "__main__":
+	main()
+

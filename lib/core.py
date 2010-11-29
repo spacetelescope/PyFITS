@@ -3087,7 +3087,7 @@ class _ValidHDU(_AllHDU, _Verify):
 
         return _err
 
-    def _compute_checksum(self, bytes, sum32=0):
+    def _compute_checksum(self, bytes, sum32=0, blocking="standard"):
         """
         Compute the ones-complement checksum of a sequence of bytes.
 
@@ -3099,13 +3099,26 @@ class _ValidHDU(_AllHDU, _Verify):
         sum32
             incremental checksum value from another region
 
+        blocking
+            "standard", "nonstandard", or "either"
+            selects the block size on which to perform checksumming,  originally
+            the blocksize was chosen incorrectly.  "nonstandard" selects the
+            original approach,  "standard" selects the interoperable
+            blocking size of 2880 bytes.  In the context of _compute_checksum,
+            "either" is synonymous with "standard".
+            
         Returns
         -------
         ones complement checksum
         """
+        blocklen = {"standard" : 2880,
+                    "nonstandard" : len(bytes),
+                    "either":2880,  # do standard first
+                    True: 2880,
+                    }[blocking]
         sum32 = np.array(sum32, dtype='uint32')
-        for i in range(0, len(bytes), 2880):
-            length = min(2880, len(bytes)-i)
+        for i in range(0, len(bytes), blocklen):
+            length = min(blocklen, len(bytes)-i)   # ????
             sum32 = self._compute_hdu_checksum(bytes[i:i+length], sum32)
         return sum32
 
@@ -3113,7 +3126,10 @@ class _ValidHDU(_AllHDU, _Verify):
         # Translated from FITS Checksum Proposal by Seaman, Pence, and Rots.
         # Use uint32 literals as a hedge against type promotion to int64.
 
-        assert len(bytes) <= 2880   # Overflows occur if too long
+        # This code should only be called with blocks of 2880 bytes
+        # Longer blocks result in non-standard checksums with carry overflow
+        # Historically,  this code *was* called with larger blocks and for that
+        # reason still needs to be for backward compatibility.
 
         u8 = np.array(8, dtype='uint32')
         u16 = np.array(16, dtype='uint32')
@@ -3211,7 +3227,7 @@ class _ValidHDU(_AllHDU, _Verify):
         now = str(datetime.datetime.now()).split()
         return now[0] + "T" + now[1].split(".")[0]
 
-    def _calculate_datasum(self):
+    def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
@@ -3223,16 +3239,16 @@ class _ValidHDU(_AllHDU, _Verify):
                 self._file.seek(self._datLoc)
                 raw_data = _fromfile(self._file, dtype='ubyte',
                                      count=self._datSpan, sep="")
-                return self._compute_checksum(raw_data)
+                return self._compute_checksum(raw_data, blocking=blocking)
             else:
                 return 0
         elif (self.data != None):
             return self._compute_checksum(
-                                 np.fromstring(self.data, dtype='ubyte'))
+                                 np.fromstring(self.data, dtype='ubyte'), blocking=blocking)
         else:
             return 0
 
-    def _calculate_checksum(self, datasum):
+    def _calculate_checksum(self, datasum, blocking):
         """
         Calculate the value of the ``CHECKSUM`` card in the HDU.
         """
@@ -3244,7 +3260,7 @@ class _ValidHDU(_AllHDU, _Verify):
         s = s + _padLength(len(s))*' '
 
         # Calculate the checksum of the Header and data.
-        cs = self._compute_checksum(np.fromstring(s, dtype='ubyte'),datasum)
+        cs = self._compute_checksum(np.fromstring(s, dtype='ubyte'), datasum, blocking=blocking)
 
         # Encode the checksum into a string.
         s = self._char_encode(~cs)
@@ -3254,7 +3270,7 @@ class _ValidHDU(_AllHDU, _Verify):
 
         return s
 
-    def add_datasum(self, when=None):
+    def add_datasum(self, when=None, blocking="standard"):
         """
         Add the ``DATASUM`` card to this HDU with the value set to the
         checksum calculated for the data.
@@ -3264,6 +3280,9 @@ class _ValidHDU(_AllHDU, _Verify):
         when : str, optional
             Comment string for the card that by default represents the
             time when the checksum was calculated
+            
+        blocking: str, optional
+            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
 
         Returns
         -------
@@ -3277,7 +3296,7 @@ class _ValidHDU(_AllHDU, _Verify):
         enable the generation of a ``CHECKSUM`` card with a consistent
         value.
         """
-        cs = self._calculate_datasum()
+        cs = self._calculate_datasum(blocking)
 
         if when is None:
            when = "data unit checksum updated " + self._datetime_str()
@@ -3285,7 +3304,7 @@ class _ValidHDU(_AllHDU, _Verify):
         self.header.update("DATASUM", str(cs), when);
         return cs
 
-    def add_checksum(self, when=None, override_datasum=False):
+    def add_checksum(self, when=None, override_datasum=False, blocking="standard"):
         """
         Add the ``CHECKSUM`` and ``DATASUM`` cards to this HDU with
         the values set to the checksum calculated for the HDU and the
@@ -3301,6 +3320,9 @@ class _ValidHDU(_AllHDU, _Verify):
         override_datasum : bool, optional
            add the ``CHECKSUM`` card only
 
+        blocking: str, optional
+            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
+
         Notes
         -----
         For testing purposes, first call `add_datasum` with a `when`
@@ -3312,10 +3334,10 @@ class _ValidHDU(_AllHDU, _Verify):
 
         if not override_datasum:
            # Calculate and add the data checksum to the header.
-           data_cs = self.add_datasum(when)
+           data_cs = self.add_datasum(when, blocking)
         else:
            # Just calculate the data checksum
-           data_cs = self._calculate_datasum()
+           data_cs = self._calculate_datasum(blocking)
 
         if when is None:
             when = "HDU checksum updated " + self._datetime_str()
@@ -3326,15 +3348,18 @@ class _ValidHDU(_AllHDU, _Verify):
         else:
             self.header.update("CHECKSUM", "0"*16, when);
 
-        s = self._calculate_checksum(data_cs)
+        s = self._calculate_checksum(data_cs, blocking)
 
         # Update the header card.
         self.header.update("CHECKSUM", s, when);
 
-    def verify_datasum(self):
+    def verify_datasum(self, blocking="standard"):
         """
         Verify that the value in the ``DATASUM`` keyword matches the value
         calculated for the ``DATASUM`` of the current HDU data.
+
+        blocking: str, optional
+            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
 
         Returns
         -------
@@ -3344,17 +3369,22 @@ class _ValidHDU(_AllHDU, _Verify):
            - 2 - no ``DATASUM`` keyword present
         """
         if self.header.has_key('DATASUM'):
-            if self._calculate_datasum() == int(self.header['DATASUM']):
+            if self._calculate_datasum(blocking) == int(self.header['DATASUM']):
                 return 1
-            else:
+            elif blocking == "either": # i.e. standard failed,  try nonstandard
+                return self.verify_datasum(blocking="nonstandard")
+            else: # Failed with all permitted blocking kinds
                 return 0
         else:
             return 2
 
-    def verify_checksum(self):
+    def verify_checksum(self, blocking="standard"):
         """
         Verify that the value in the ``CHECKSUM`` keyword matches the
         value calculated for the current HDU CHECKSUM.
+
+        blocking: str, optional
+            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
 
         Returns
         -------
@@ -3365,16 +3395,17 @@ class _ValidHDU(_AllHDU, _Verify):
         """
         if self._header.has_key('CHECKSUM'):
             if self._header.has_key('DATASUM'):
-                datasum = self._calculate_datasum()
+                datasum = self._calculate_datasum(blocking)
             else:
                 datasum = 0
-            if self._calculate_checksum(datasum) == self.header['CHECKSUM']:
+            if self._calculate_checksum(datasum, blocking) == self.header['CHECKSUM']:
                 return 1
-            else:
+            elif blocking == "either": # i.e. standard failed,  try nonstandard
+                return self.verify_checksum(blocking="nonstandard")
+            else: # Failed with all permitted blocking kinds
                 return 0
         else:
             return 2
-
 
 class _TempHDU(_ValidHDU):
     """
@@ -4297,7 +4328,7 @@ class _ImageBaseHDU(_ValidHDU):
         #
         self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
 
-    def _calculate_datasum(self):
+    def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
@@ -4320,7 +4351,7 @@ class _ImageBaseHDU(_ValidHDU):
             else:
                 byteswapped = False
 
-            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'))
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'), blocking=blocking)
 
             # If the data was byteswapped in this method then return it to
             # its original little-endian order.
@@ -4334,7 +4365,7 @@ class _ImageBaseHDU(_ValidHDU):
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
             # all.  This can also be handled in a gereric manner.
-            return super(_ImageBaseHDU,self)._calculate_datasum()
+            return super(_ImageBaseHDU,self)._calculate_datasum(blocking=blocking)
 
 class PrimaryHDU(_ImageBaseHDU):
     """
@@ -4538,7 +4569,7 @@ class GroupsHDU(PrimaryHDU):
         self.req_cards('GROUPS', _pos, 'val == True', True, option, _err)
         return _err
 
-    def _calculate_datasum(self):
+    def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
@@ -4557,7 +4588,7 @@ class GroupsHDU(PrimaryHDU):
                 byteswapped = False
                 d = self.data
 
-            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'))
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'), blocking=blocking)
 
             # If the data was byteswapped in this method then return it to
             # its original little-endian order.
@@ -4571,7 +4602,7 @@ class GroupsHDU(PrimaryHDU):
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
             # all.  This can also be handled in a gereric manner.
-            return super(GroupsHDU,self)._calculate_datasum()
+            return super(GroupsHDU,self)._calculate_datasum(blocking=blocking)
 
 
 # --------------------------Table related code----------------------------------
@@ -6676,7 +6707,7 @@ class TableHDU(_TableBaseHDU):
         return strfmt
     '''
 
-    def _calculate_datasum(self):
+    def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
@@ -6690,14 +6721,14 @@ class TableHDU(_TableBaseHDU):
                               np.fromstring(_padLength(self.size())*' ',
                                             dtype='ubyte'))
 
-            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'))
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'), blocking=blocking)
             return cs
         else:
             # This is the case where the data has not been read from the file
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
             # all.  This can also be handled in a gereric manner.
-            return super(TableHDU,self)._calculate_datasum()
+            return super(TableHDU,self)._calculate_datasum(blocking)
 
     def _verify(self, option='warn'):
         """
@@ -6738,7 +6769,7 @@ class BinTableHDU(_TableBaseHDU):
 
         self._header._hdutype = BinTableHDU
 
-    def _calculate_datasum_from_data(self, data):
+    def _calculate_datasum_from_data(self, data, blocking):
         """
         Calculate the value for the ``DATASUM`` card given the input data
         """
@@ -6775,22 +6806,22 @@ class BinTableHDU(_TableBaseHDU):
                         dout = np.append(dout,
                                     np.fromstring(coldata,dtype='ubyte'))
 
-        cs = self._compute_checksum(dout)
+        cs = self._compute_checksum(dout, blocking=blocking)
         return cs
 
-    def _calculate_datasum(self):
+    def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
         if self.__dict__.has_key('data') and self.data != None:
             # We have the data to be used.
-            return self._calculate_datasum_from_data(self.data)
+            return self._calculate_datasum_from_data(self.data, blocking)
         else:
             # This is the case where the data has not been read from the file
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
             # all.  This can also be handled in a gereric manner.
-            return super(BinTableHDU,self)._calculate_datasum()
+            return super(BinTableHDU,self)._calculate_datasum(blocking)
 
     def tdump(self, datafile=None, cdfile=None, hfile=None, clobber=False):
         """
@@ -8949,20 +8980,20 @@ if compressionSupported:
             else:
                 del self.header['BSCALE']
 
-        def _calculate_datasum(self):
+        def _calculate_datasum(self, blocking):
             """
             Calculate the value for the ``DATASUM`` card in the HDU.
             """
             if self.__dict__.has_key('data') and self.data != None:
                 # We have the data to be used.
-                return self._calculate_datasum_from_data(self.compData)
+                return self._calculate_datasum_from_data(self.compData, blocking)
             else:
                 # This is the case where the data has not been read from the
                 # file yet.  We can handle that in a generic manner so we do
                 # it in the base class.  The other possibility is that there
                 # is no data at all.  This can also be handled in a gereric
                 # manner.
-                return super(CompImageHDU,self)._calculate_datasum()
+                return super(CompImageHDU,self)._calculate_datasum(blocking)
 
 
 else:
@@ -9488,11 +9519,15 @@ class _File:
 
         if checksum == 'datasum':
             hdu.add_datasum()
+        elif checksum == 'nonstandard_datasum':
+            hdu.add_datasum(blocking="nonstandard")
         elif checksum == 'test':
             hdu.add_datasum(hdu._datasum_comment)
             hdu.add_checksum(hdu._checksum_comment,True)
+        elif checksum == "nonstandard":
+            hdu.add_checksum(blocking="nonstandard")
         elif checksum:
-            hdu.add_checksum()
+            hdu.add_checksum(blocking="standard")
 
         blocks = repr(hdu._header.ascard) + _pad('END')
         blocks = blocks + _padLength(len(blocks))*' '
@@ -10750,7 +10785,7 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
                                 hdu._header.ascardlist()['CHECKSUM'].comment
 
                      if 'checksum' in parms and parms['checksum'] and \
-                     not hdu.verify_checksum():
+                     not hdu.verify_checksum(parms['checksum']):
                          warnings.warn('Warning:  Checksum verification failed '
                                    'for HDU #%d.\n' % i)
 
@@ -10765,7 +10800,7 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
                                    hdu.header.ascardlist()['DATASUM'].comment
 
                      if 'checksum' in parms and parms['checksum'] and \
-                     not hdu.verify_datasum():
+                     not hdu.verify_datasum(parms['checksum']):
                          warnings.warn('Warning:  Datasum verification failed '
                                        'for HDU #%d.\n' % (len(hduList)))
 
