@@ -10776,6 +10776,10 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
             # For each HDU, verify the checksum/datasum value if the cards
             # exist in the header and we are opening with checksum=True.
             # Always remove the checksum/datasum cards from the header.
+
+            # NOTE:  private data members _checksum and _datasum are
+            # used by the utility script "fitscheck" to detect missing
+            # checksums.
             for i in range(len(hduList)):
                 hdu = hduList.__getitem__(i, classExtensions)
 
