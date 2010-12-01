@@ -39,7 +39,7 @@ standard checksum:
 
 % fitscheck *.fits
 
-7. Delete checksum keywords 
+7. Delete checksum keywords
 
 % fitscheck --checksum none --write *.fits
 """
@@ -141,7 +141,7 @@ def verify_checksums(filename):
                 return 1
             if not hdu._datasum:
                 out("MISSING", repr(filename), ".. Datasum not found in HDU #" + str(i))
-                return 1   
+                return 1
     if not errors:
         verbose("OK", repr(filename))
     return errors
@@ -173,14 +173,18 @@ def process_file(fits):
     """Handle a single .fits file,  returning the count of checksum and compliance
     errors.
     """
-    checksum_errors = verify_checksums(fits)
-    if OPTIONS.compliance:
-        compliance_errors = verify_compliance(fits)
-    else:
-        compliance_errors = 0
-    if OPTIONS.write_file and checksum_errors == 0 or OPTIONS.force:
-        update(fits)
-    return checksum_errors + compliance_errors
+    try:
+        checksum_errors = verify_checksums(fits)
+        if OPTIONS.compliance:
+            compliance_errors = verify_compliance(fits)
+        else:
+            compliance_errors = 0
+        if OPTIONS.write_file and checksum_errors == 0 or OPTIONS.force:
+            update(fits)
+        return checksum_errors + compliance_errors
+    except Exception, e:
+        out("EXCEPTION",repr(fits),"..",str(e))
+        return 1
 
 def main():
     """Processes command line parameters into options and files,  then checks
