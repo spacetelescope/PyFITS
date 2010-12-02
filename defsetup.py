@@ -60,4 +60,5 @@ setupargs = {
     'cmdclass' :                {'build_ext': build_ext,},
     'package_dir' :             { 'pyfits' : 'lib', 'pyfits.tests' : 'lib/tests' },
     'data_files' :              [ ( 'pyfits/tests', [ 'lib/tests/*.fits' ] ) ],
+    'scripts' :                 ['scripts/fitscheck'],
 }
