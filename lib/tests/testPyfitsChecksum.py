@@ -46,10 +46,8 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         hdu.writeto('tmp.fits', clobber=True, checksum="nonstandard")
         del hdu      
         hdul = pyfits.open("tmp.fits", checksum="nonstandard")   # should pass
-        with self.assertRaises(UserWarning):
-            hdul = pyfits.open("tmp.fits", checksum=True)
-        with self.assertRaises(UserWarning):
-            hdul = pyfits.open("tmp.fits", checksum="standard")
+        self.assertRaises(UserWarning, pyfits.open, "tmp.fits", checksum=True)
+        self.assertRaises(UserWarning, pyfits.open, "tmp.fits", checksum="standard")
         warnings.filterwarnings("default", message="Warning:  Checksum verification failed")
         warnings.filterwarnings("default", message="Warning:  Datasum verification failed")
         os.remove("tmp.fits")
