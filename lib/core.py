@@ -3106,7 +3106,7 @@ class _ValidHDU(_AllHDU, _Verify):
             original approach,  "standard" selects the interoperable
             blocking size of 2880 bytes.  In the context of _compute_checksum,
             "either" is synonymous with "standard".
-            
+
         Returns
         -------
         ones complement checksum
@@ -3280,7 +3280,7 @@ class _ValidHDU(_AllHDU, _Verify):
         when : str, optional
             Comment string for the card that by default represents the
             time when the checksum was calculated
-            
+
         blocking: str, optional
             "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
 
@@ -3552,19 +3552,19 @@ class _TempHDU(_ValidHDU):
                 break
 
         # construct the Header object, using the cards.
+        header = Header(CardList(_cardList, keylist=_keyList))
+
+        if classExtensions.has_key(header._hdutype):
+            header._hdutype = classExtensions[header._hdutype]
+
+        if ((header._hdutype == PrimaryHDU or header._hdutype == ImageHDU)
+            and (hasattr(self, '_do_not_scale_image_data'))):
+            hdu = header._hdutype(data=DELAYED, header=header,
+                                  do_not_scale_image_data=self._do_not_scale_image_data)
+        else:
+            hdu = header._hdutype(data=DELAYED, header=header)
+
         try:
-            header = Header(CardList(_cardList, keylist=_keyList))
-
-            if classExtensions.has_key(header._hdutype):
-                header._hdutype = classExtensions[header._hdutype]
-
-            if ((header._hdutype == PrimaryHDU or header._hdutype == ImageHDU)
-                and (hasattr(self, '_do_not_scale_image_data'))):
-                    hdu = header._hdutype(data=DELAYED, header=header,
-                          do_not_scale_image_data=self._do_not_scale_image_data)
-            else:
-                hdu = header._hdutype(data=DELAYED, header=header)
-
             # pass these attributes
             hdu._file = self._file
             hdu._hdrLoc = self._hdrLoc
