@@ -5,7 +5,7 @@ import sys
 import logging
 
 pkg = [ "pyfits", "pyfits.tests" ]
- 
+
 
 try:
     import numpy
@@ -50,7 +50,7 @@ class build_ext(_build_ext):
 
 
 setupargs = {
-    'version' :                 "2.3.1",
+    'version' :                 "2.4.0",
     'description' :             "General Use Python Tools",
     'author' :                  "J. C. Hsu, Paul Barrett, Christopher Hanley, James Taylor, Michael Droettboom",
     'maintainer_email' :        "help@stsci.edu",
