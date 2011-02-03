@@ -6,9 +6,11 @@ import gzip
 import os
 import types
 import warnings
+
 import numpy as np
 
 from pyfits import rec
+from pyfits.file import PYTHON_MODES, _File
 
 __all__ = ['open', 'fitsopen', 'getheader', 'getdata', 'getval', 'setval',
            'delval', 'writeto', 'append', 'update', 'info', 'tdump', 'tcreate']
@@ -82,7 +84,7 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
     # instantiate a FITS file object (ffo)
 
     import pyfits.core
-    from pyfits.core import _File, HDUList
+    from pyfits.core import HDUList
 
     if classExtensions.has_key(_File):
         ffo = classExtensions[_File](name, mode=mode, memmap=memmap, **parms)
@@ -285,8 +287,6 @@ def getheader(filename, *ext, **extkeys):
     # and leave the file in the same state (opened or closed) as when
     # the function was called
 
-    from pyfits.core import _python_mode
-
     mode = 'readonly'
     closed = True
 
@@ -299,8 +299,8 @@ def getheader(filename, *ext, **extkeys):
         else:
             fileMode = filename.mode
 
-        for key in _python_mode.keys():
-            if _python_mode[key] == fileMode:
+        for key in PYTHON_MODES.keys():
+            if PYTHON_MODES[key] == fileMode:
                 mode = key
                 break
 
@@ -401,8 +401,6 @@ def getdata(filename, *ext, **extkeys):
         function will return a (`data`, `header`) tuple.
     """
 
-    from pyfits.core import _python_mode
-
     if 'header' in extkeys:
         _gethdr = extkeys['header']
         del extkeys['header']
@@ -439,8 +437,8 @@ def getdata(filename, *ext, **extkeys):
         else:
             fileMode = filename.mode
 
-        for key in _python_mode.keys():
-            if _python_mode[key] == fileMode:
+        for key in PYTHON_MODES.keys():
+            if PYTHON_MODES[key] == fileMode:
                 mode = key
                 break
 
@@ -761,7 +759,7 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
         `False` can be much faster.
     """
 
-    from pyfits.core import PrimaryHDU, ImageHDU, _File
+    from pyfits.core import PrimaryHDU, ImageHDU
 
     name, closed, noexist_or_empty = _stat_filename_or_fileobj(filename)
 
@@ -917,8 +915,8 @@ def info(filename, classExtensions={}, **parms):
         else:
             fmode = filename.mode
 
-        for key in _python_mode.keys():
-            if _python_mode[key] == fmode:
+        for key in PYTHON_MODES.keys():
+            if PYTHON_MODES[key] == fmode:
                 mode = key
                 break
 
@@ -998,8 +996,8 @@ def tdump(fitsFile, datafile=None, cdfile=None, hfile=None, ext=1,
         else:
             fmode = fitsFile.mode
 
-        for key in _python_mode.keys():
-            if _python_mode[key] == fmode:
+        for key in PYTHON_MODES.keys():
+            if PYTHON_MODES[key] == fmode:
                 mode = key
                 break
 
