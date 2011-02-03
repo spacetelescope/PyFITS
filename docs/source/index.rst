@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-pyfits API documentation
+PyFITS Documentation
 ========================
 
 Contents:
@@ -11,5 +11,6 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   api_docs.rst
+   users_guide/users_guide.rst
+   api_docs/api_docs.rst
 

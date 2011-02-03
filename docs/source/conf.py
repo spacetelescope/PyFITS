@@ -43,7 +43,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'pyfits'
+project = u'PyFITS'
 copyright = u'2009, J. C. Hsu, Paul Barrett, Christopher Hanley, James Taylor, Michael Droettboom'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -71,6 +71,8 @@ release = '2.2.2'
 # List of directories, relative to source directory, that shouldn't be searched
 # for source files.
 exclude_trees = []
+
+primary_domain = 'py'
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 default_role = 'obj'
@@ -110,7 +112,7 @@ pygments_style = 'sphinx'
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-#html_title = None
+# html_title = None
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #html_short_title = None
@@ -179,7 +181,7 @@ htmlhelp_basename = 'pyfitsdoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'pyfits.tex', u'pyfits Documentation',
+  ('index', 'pyfits.tex', u'PyFITS Documentation',
    u'J. C. Hsu, Paul Barrett, Christopher Hanley, James Taylor, Michael Droettboom', 'manual'),
 ]
 
