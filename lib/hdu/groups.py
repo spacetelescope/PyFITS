@@ -1,6 +1,6 @@
 import numpy as np
 
-from pyfits.column import Column, ColDefs
+from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.base import _AllHDU, _isInt
 from pyfits.hdu.image import PrimaryHDU, _ImageBaseHDU
@@ -33,6 +33,8 @@ class GroupsHDU(PrimaryHDU):
         group FITS file will be like a binary table's data.
         """
 
+        from pyfits.hdu.table import _get_tbdata
+
         if attr == 'data': # same code as in _TableBaseHDU
             size = self.size()
             if size:
@@ -63,7 +65,7 @@ class GroupsHDU(PrimaryHDU):
             _cols.append(Column(name='data', format = dat_format, bscale = _bscale, bzero = _bzero))
             _coldefs = ColDefs(_cols)
             _coldefs._shape = self._header['GCOUNT']
-            _coldefs._dat_format = _fits2rec[_format]
+            _coldefs._dat_format = FITS2NUMPY[_format]
             _coldefs._pnames = _pnames
             self.__dict__[attr] = _coldefs
 
@@ -194,8 +196,6 @@ class GroupData(FITS_rec):
             list of bzeros for the parameters
         """
 
-        from pyfits.core import _fits2rec
-
         if not isinstance(input, FITS_rec):
             _formats = ''
             _cols = []
@@ -212,7 +212,7 @@ class GroupData(FITS_rec):
             if bitpix is None:
                 bitpix = _ImageBaseHDU.ImgCode[input.dtype.name]
             fits_fmt = GroupsHDU._dict[bitpix] # -32 -> 'E'
-            _fmt = _fits2rec[fits_fmt] # 'E' -> 'f4'
+            _fmt = FITS2NUMPY[fits_fmt] # 'E' -> 'f4'
             _formats = (_fmt+',') * npars
             data_fmt = '%s%s' % (`input.shape[1:]`, _fmt)
             _formats += data_fmt

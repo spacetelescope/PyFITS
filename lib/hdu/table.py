@@ -1,3 +1,6 @@
+from __future__ import division # confidence high
+
+
 import re
 
 import numpy as np
@@ -5,7 +8,13 @@ from numpy import char as chararray
 
 from pyfits import rec
 from pyfits.card import Card, CardList
-from pyfits.column import Column, ColDefs
+# This module may have many dependencies on pyfits.column, but pyfits.column
+# has fewer dependencies overall, so it's easier to keep table/column-related
+# utilities in pyfits.column
+from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
+                          TDEF_RE, DELAYED, Delayed, Column, ColDefs, \
+                          _FormatX, _FormatP, _wrapx, _makep, _VLF, \
+                          _parse_tformat, _convert_format
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import _AllHDU, _isInt
 from pyfits.hdu.extension import _ExtensionHDU
@@ -29,7 +38,6 @@ class _TableBaseHDU(_ExtensionHDU):
             name to be populated in ``EXTNAME`` keyword
         """
 
-        from pyfits.core import DELAYED, _convert_format
         from pyfits.header import Header
 
         if header is not None:
@@ -144,8 +152,6 @@ class _TableBaseHDU(_ExtensionHDU):
         Get the `data` or `columns` attribute.
         """
 
-        from pyfits.core import _get_tbdata
-
         if attr == 'data':
             size = self.size()
             if size:
@@ -220,9 +226,6 @@ class _TableBaseHDU(_ExtensionHDU):
         Update header keywords to reflect recent changes of columns.
         """
 
-        from pyfits.core import Card, _tdef_re, _commonNames, _keyNames, \
-                                _FormatX, _FormatP, _convert_format
-
         _update = self._header.update
         _append = self._header.ascard.append
         _cols = self.columns
@@ -235,10 +238,10 @@ class _TableBaseHDU(_ExtensionHDU):
         _list = []
         for i in range(len(self._header.ascard)-1,-1,-1):
             _card = self._header.ascard[i]
-            _key = _tdef_re.match(_card.key)
+            _key = TDEF_RE.match(_card.key)
             try: keyword = _key.group('label')
             except: continue                # skip if there is no match
-            if (keyword in _keyNames):
+            if (keyword in KEYWORD_NAMES):
                 _list.append(i)
         for i in _list:
             del self._header.ascard[i]
@@ -246,10 +249,10 @@ class _TableBaseHDU(_ExtensionHDU):
 
         # populate the new table definition keywords
         for i in range(len(_cols)):
-            for cname in _commonNames:
+            for cname in KEYWORD_ATTRIBUTES:
                 val = getattr(_cols, cname+'s')[i]
                 if val != '':
-                    keyword = _keyNames[_commonNames.index(cname)]+`i+1`
+                    keyword = KEYWORD_NAMES[KEYWORD_ATTRIBUTES.index(cname)]+`i+1`
                     if cname == 'format' and isinstance(self, BinTableHDU):
                         val = _cols._recformats[i]
                         if isinstance(val, _FormatX):
@@ -339,7 +342,7 @@ class TableHDU(_TableBaseHDU):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        from pyfits.core import _padLength
+        from pyfits.file import _pad_length
 
         if self.__dict__.has_key('data') and self.data != None:
             # We have the data to be used.
@@ -348,7 +351,7 @@ class TableHDU(_TableBaseHDU):
 
             if self.size() > 0:
                 d = np.append(np.fromstring(self.data, dtype='ubyte'),
-                              np.fromstring(_padLength(self.size())*' ',
+                              np.fromstring(_pad_length(self.size())*' ',
                                             dtype='ubyte'))
 
             cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'), blocking=blocking)
@@ -403,8 +406,6 @@ class BinTableHDU(_TableBaseHDU):
         """
         Calculate the value for the ``DATASUM`` card given the input data
         """
-
-        from pyfits.core import _VLF, _FormatP
 
         # Check the byte order of the data.  If it is little endian we
         # must swap it before calculating the datasum.
@@ -542,7 +543,7 @@ class BinTableHDU(_TableBaseHDU):
                                   len(self.data.field(name)[i])
                     (repeat,dtype,option) = _parse_tformat(
                          self.columns.formats[self.columns.names.index(name)])
-                    VLA_format =  _fits2rec[option[0]][0]
+                    VLA_format =  FITS2NUMPY[option[0]][0]
 
                 if self.data.dtype.fields[name][0].subdtype:
                     # The column data is an array not a single element
@@ -849,7 +850,7 @@ class BinTableHDU(_TableBaseHDU):
             if isinstance(recFmt, _FormatP):
                 recFmt = 'O'
                 (repeat,dtype,option) = _parse_tformat(self.columns.formats[i])
-                VLA_formats = VLA_formats + [_fits2rec[option[0]]]
+                VLA_formats = VLA_formats + [FITS2NUMPY[option[0]]]
             elif isinstance(recFmt, _FormatX):
                 recFmt = np.uint8
                 (X_format_size[i],dtype,option) = \
@@ -933,3 +934,257 @@ class BinTableHDU(_TableBaseHDU):
         self.__dict__ = tmp.__dict__
 
     tcreate.__doc__ += tdumpFileFormat.replace("\n", "\n        ")
+
+
+def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
+    """
+    Create a new table from the input column definitions.
+
+    Parameters
+    ----------
+    input : sequence of Column or ColDefs objects
+        The data to create a table from.
+
+    header : Header instance
+        Header to be used to populate the non-required keywords.
+
+    nrows : int
+        Number of rows in the new table.
+
+    fill : bool
+        If `True`, will fill all cells with zeros or blanks.  If
+        `False`, copy the data from input, undefined cells will still
+        be filled with zeros/blanks.
+
+    tbtype : str
+        Table type to be created ("BinTableHDU" or "TableHDU").
+    """
+
+    # construct a table HDU
+    hdu = eval(tbtype)(header=header)
+
+    if isinstance(input, ColDefs):
+        if input._tbtype == tbtype:
+            # Create a new ColDefs object from the input object and assign
+            # it to the ColDefs attribute of the new hdu.
+            tmp = hdu.columns = ColDefs(input, tbtype)
+        else:
+            raise ValueError, 'column definitions have a different table type'
+    elif isinstance(input, FITS_rec): # input is a FITS_rec
+        # Create a new ColDefs object from the input FITS_rec's ColDefs
+        # object and assign it to the ColDefs attribute of the new hdu.
+        tmp = hdu.columns = ColDefs(input._coldefs, tbtype)
+    elif isinstance(input, np.ndarray):
+        tmp = hdu.columns = eval(tbtype)(input).data._coldefs
+    else:                 # input is a list of Columns
+        # Create a new ColDefs object from the input list of Columns and
+        # assign it to the ColDefs attribute of the new hdu.
+        tmp = hdu.columns = ColDefs(input, tbtype)
+
+    # read the delayed data
+    for i in range(len(tmp)):
+        _arr = tmp._arrays[i]
+        if isinstance(_arr, Delayed):
+            if _arr.hdu().data == None:
+                tmp._arrays[i] = None
+            else:
+                tmp._arrays[i] = rec.recarray.field(_arr.hdu().data,_arr.field)
+
+    # use the largest column shape as the shape of the record
+    if nrows == 0:
+        for arr in tmp._arrays:
+            if (arr is not None):
+                dim = arr.shape[0]
+            else:
+                dim = 0
+            if dim > nrows:
+                nrows = dim
+
+    if tbtype == 'TableHDU':
+        _itemsize = tmp.spans[-1]+tmp.starts[-1]-1
+        dtype = {}
+
+        for j in range(len(tmp)):
+           data_type = 'S'+str(tmp.spans[j])
+           dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
+
+        hdu.data = FITS_rec(rec.array(' '*_itemsize*nrows, dtype=dtype,
+                                      shape=nrows))
+        hdu.data.setflags(write=True)
+    else:
+        hdu.data = FITS_rec(rec.array(None, formats=",".join(tmp._recformats),
+                                      names=tmp.names, shape=nrows))
+
+    hdu.data._coldefs = hdu.columns
+    hdu.data.formats = hdu.columns.formats
+
+    # Populate data to the new table from the ndarrays in the input ColDefs
+    # object.
+    for i in range(len(tmp)):
+        # For each column in the ColDef object, determine the number
+        # of rows in that column.  This will be either the number of
+        # rows in the ndarray associated with the column, or the
+        # number of rows given in the call to this function, which
+        # ever is smaller.  If the input FILL argument is true, the
+        # number of rows is set to zero so that no data is copied from
+        # the original input data.
+        if tmp._arrays[i] is None:
+            size = 0
+        else:
+            size = len(tmp._arrays[i])
+
+        n = min(size, nrows)
+        if fill:
+            n = 0
+
+        # Get any scale factors from the FITS_rec
+        (_scale, _zero, bscale, bzero) = hdu.data._get_scale_factors(i)[3:]
+
+        if n > 0:
+            # Only copy data if there is input data to copy
+            # Copy all of the data from the input ColDefs object for this
+            # column to the new FITS_rec data array for this column.
+            if isinstance(tmp._recformats[i], _FormatX):
+                # Data is a bit array
+                if tmp._arrays[i][:n].shape[-1] == tmp._recformats[i]._nx:
+                    _wrapx(tmp._arrays[i][:n],
+                           rec.recarray.field(hdu.data,i)[:n],
+                           tmp._recformats[i]._nx)
+                else: # from a table parent data, just pass it
+                    rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
+            elif isinstance(tmp._recformats[i], _FormatP):
+                hdu.data._convert[i] = _makep(tmp._arrays[i][:n],
+                                            rec.recarray.field(hdu.data,i)[:n],
+                                            tmp._recformats[i]._dtype)
+            elif tmp._recformats[i][-2:] == FITS2NUMPY['L'] and \
+                 tmp._arrays[i].dtype == bool:
+                # column is boolean
+                rec.recarray.field(hdu.data,i)[:n] = \
+                           np.where(tmp._arrays[i]==False, ord('F'), ord('T'))
+            else:
+                if tbtype == 'TableHDU':
+
+                    # string no need to convert,
+                    if isinstance(tmp._arrays[i], chararray.chararray):
+                        rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
+                    else:
+                        hdu.data._convert[i] = np.zeros(nrows,
+                                                    dtype=tmp._arrays[i].dtype)
+                        if _scale or _zero:
+                            _arr = tmp._arrays[i].copy()
+                        else:
+                            _arr = tmp._arrays[i]
+                        if _scale:
+                            _arr *= bscale
+                        if _zero:
+                            _arr += bzero
+                        hdu.data._convert[i][:n] = _arr[:n]
+                else:
+                    rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
+
+        if n < nrows:
+            # If there are additional rows in the new table that were not
+            # copied from the input ColDefs object, initialize the new data
+            if tbtype == 'BinTableHDU':
+                if isinstance(rec.recarray.field(hdu.data,i), np.ndarray):
+                    # make the scaled data = 0
+                    rec.recarray.field(hdu.data,i)[n:] = -bzero/bscale
+                else:
+                    rec.recarray.field(hdu.data,i)[n:] = ''
+            else:
+                rec.recarray.field(hdu.data,i)[n:] = \
+                                                 ' '*hdu.data._coldefs.spans[i]
+
+    # Update the HDU header to match the data
+    hdu.update()
+
+    # Make the ndarrays in the Column objects of the ColDefs object of the HDU
+    # reference the same ndarray as the HDU's FITS_rec object.
+    for i in range(len(tmp)):
+        hdu.columns.data[i].array = hdu.data.field(i)
+
+    # Delete the _arrays attribute so that it is recreated to point to the
+    # new data placed in the column objects above
+    if hdu.columns.__dict__.has_key('_arrays'):
+        del hdu.columns.__dict__['_arrays']
+
+    return hdu
+
+
+def _get_tbdata(hdu):
+    """Get the table data from an input HDU object."""
+
+    from pyfits.file import _File
+    from pyfits.hdu.groups import GroupsHDU
+
+    tmp = hdu.columns
+    # get the right shape for the data part of the random group,
+    # since binary table does not support ND yet
+    if isinstance(hdu, GroupsHDU):
+        tmp._recformats[-1] = `hdu._dimShape()[:-1]` + tmp._dat_format
+    elif isinstance(hdu, TableHDU):
+        # determine if there are duplicate field names and if there
+        # are throw an exception
+        _dup = rec.find_duplicate(tmp.names)
+
+        if _dup:
+            raise ValueError, "Duplicate field names: %s" % _dup
+
+        itemsize = tmp.spans[-1]+tmp.starts[-1]-1
+        dtype = {}
+
+        for j in range(len(tmp)):
+            data_type = 'S'+str(tmp.spans[j])
+
+            if j == len(tmp)-1:
+                if hdu._header['NAXIS1'] > itemsize:
+                    data_type = 'S'+str(tmp.spans[j]+ \
+                                hdu._header['NAXIS1']-itemsize)
+            dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
+
+    if hdu._ffile.memmap:
+        if isinstance(hdu, TableHDU):
+            hdu._ffile.code = dtype
+        else:
+            hdu._ffile.code = rec.format_parser(",".join(tmp._recformats),
+                                                 tmp.names,None)._descr
+
+        hdu._ffile.dims = tmp._shape
+        hdu._ffile.offset = hdu._datLoc
+        _data = rec.recarray(shape=hdu._ffile.dims, buf=hdu._ffile._mm,
+                             dtype=hdu._ffile.code, names=tmp.names)
+    else:
+        if isinstance(hdu, TableHDU):
+            _data = rec.array(hdu._file, dtype=dtype, names=tmp.names,
+                              shape=tmp._shape)
+        else:
+            _data = rec.array(hdu._file, formats=",".join(tmp._recformats),
+                              names=tmp.names, shape=tmp._shape)
+
+    if isinstance(hdu._ffile, _File):
+#        _data._byteorder = 'big'
+        _data.dtype = _data.dtype.newbyteorder(">")
+
+    # pass datLoc, for P format
+    _data._heapoffset = hdu._theap + hdu._datLoc
+    _data._file = hdu._file
+    _tbsize = hdu._header['NAXIS1']*hdu._header['NAXIS2']
+    _data._gap = hdu._theap - _tbsize
+    # comment out to avoid circular reference of _pcount
+
+    # pass the attributes
+    for attr in ['formats', 'names']:
+        setattr(_data, attr, getattr(tmp, attr))
+    for i in range(len(tmp)):
+       # get the data for each column object from the rec.recarray
+        tmp.data[i].array = _data.field(i)
+
+    # delete the _arrays attribute so that it is recreated to point to the
+    # new data placed in the column object above
+    if tmp.__dict__.has_key('_arrays'):
+        del tmp.__dict__['_arrays']
+
+    # TODO: Probably a benign change, but I'd still like to get to
+    # the bottom of the root cause...
+    #return FITS_rec(_data)
+    return _data.view(FITS_rec)

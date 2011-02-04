@@ -1,8 +1,11 @@
 import numpy as np
 
 from pyfits.card import Card, CardList
+from pyfits.column import DELAYED
 from pyfits.hdu.base import _AllHDU, _ValidHDU, _isInt
 from pyfits.hdu.extension import _ExtensionHDU
+from pyfits.util import _fromfile, _is_pseudo_unsigned, _unsigned_zero, \
+                        _normalize_slice
 
 class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class.
@@ -31,7 +34,6 @@ class _ImageBaseHDU(_ValidHDU):
                'float32':-32, 'float64':-64}
 
     def __init__(self, data=None, header=None, do_not_scale_image_data=False):
-        from pyfits.core import DELAYED
         from pyfits.hdu.groups import GroupsHDU
         from pyfits.header import Header
 
@@ -169,7 +171,6 @@ class _ImageBaseHDU(_ValidHDU):
         Get the data attribute.
         """
 
-        from pyfits.core import Section, _fromfile
         from pyfits.hdu.groups import GroupsHDU
 
         if attr == 'section':
@@ -428,8 +429,6 @@ class _ImageBaseHDU(_ValidHDU):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        from pyfits.core import _is_pseudo_unsigned, _unsigned_zero
-
         if self.__dict__.has_key('data') and self.data != None:
             # We have the data to be used.
             d = self.data
@@ -526,6 +525,129 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
         return _err
 
 
+class Section:
+    """
+    Image section.
+
+    TODO: elaborate
+    """
+    def __init__(self, hdu):
+        self.hdu = hdu
+
+    def _getdata(self, key):
+        out = []
+        naxis = self.hdu.header['NAXIS']
+
+        # Determine the number of slices in the set of input keys.
+        # If there is only one slice then the result is a one dimensional
+        # array, otherwise the result will be a multidimensional array.
+        numSlices = 0
+        for i in range(len(key)):
+            if isinstance(key[i], slice):
+                numSlices = numSlices + 1
+
+        for i in range(len(key)):
+            if isinstance(key[i], slice):
+                # OK, this element is a slice so see if we can get the data for
+                # each element of the slice.
+                _naxis = self.hdu.header['NAXIS'+`naxis-i`]
+                ns = _normalize_slice(key[i], _naxis)
+
+                for k in range(ns.start, ns.stop):
+                    key1 = list(key)
+                    key1[i] = k
+                    key1 = tuple(key1)
+
+                    if numSlices > 1:
+                        # This is not the only slice in the list of keys so
+                        # we simply get the data for this section and append
+                        # it to the list that is output.  The out variable will
+                        # be a list of arrays.  When we are done we will pack
+                        # the list into a single multidimensional array.
+                        out.append(self.__getitem__(key1))
+                    else:
+                        # This is the only slice in the list of keys so if this
+                        # is the first element of the slice just set the output
+                        # to the array that is the data for the first slice.
+                        # If this is not the first element of the slice then
+                        # append the output for this slice element to the array
+                        # that is to be output.  The out variable is a single
+                        # dimensional array.
+                        if k == ns.start:
+                            out = self.__getitem__(key1)
+                        else:
+                            out = np.append(out,self.__getitem__(key1))
+
+                # We have the data so break out of the loop.
+                break
+
+        if isinstance(out, list):
+            out = np.array(out)
+
+        return out
+
+    def __getitem__(self, key):
+        dims = []
+        if not isinstance(key, tuple):
+            key = (key,)
+        naxis = self.hdu.header['NAXIS']
+        if naxis < len(key):
+            raise IndexError, 'too many indices.'
+        elif naxis > len(key):
+            key = key + (slice(None),) * (naxis-len(key))
+
+        offset = 0
+
+        for i in range(naxis):
+            _naxis = self.hdu.header['NAXIS'+`naxis-i`]
+            indx = _iswholeline(key[i], _naxis)
+            offset = offset * _naxis + indx.offset
+
+            # all elements after the first WholeLine must be WholeLine or
+            # OnePointAxis
+            if isinstance(indx, (_WholeLine, _LineSlice)):
+                dims.append(indx.npts)
+                break
+            elif isinstance(indx, _SteppedSlice):
+                raise IndexError, 'Stepped Slice not supported'
+
+        contiguousSubsection = True
+
+        for j in range(i+1,naxis):
+            _naxis = self.hdu.header['NAXIS'+`naxis-j`]
+            indx = _iswholeline(key[j], _naxis)
+            dims.append(indx.npts)
+            if not isinstance(indx, _WholeLine):
+                contiguousSubsection = False
+
+            # the offset needs to multiply the length of all remaining axes
+            else:
+                offset *= _naxis
+
+        if contiguousSubsection:
+            if dims == []:
+                dims = [1]
+            npt = 1
+            for n in dims:
+                npt *= n
+
+            # Now, get the data (does not include bscale/bzero for now XXX)
+            _bitpix = self.hdu.header['BITPIX']
+            code = _ImageBaseHDU.NumCode[_bitpix]
+            self.hdu._file.seek(self.hdu._datLoc+offset*abs(_bitpix)//8)
+            nelements = 1
+            for dim in dims:
+                nelements = nelements*dim
+            raw_data = _fromfile(self.hdu._file, dtype=code, count=nelements,
+                                 sep="")
+            raw_data.shape = dims
+            raw_data.dtype = raw_data.dtype.newbyteorder(">")
+            return raw_data
+        else:
+            out = self._getdata(key)
+            return out
+
+
 class PrimaryHDU(_ImageBaseHDU):
     """
     FITS primary HDU class.
@@ -558,3 +680,55 @@ class PrimaryHDU(_ImageBaseHDU):
             if dim == '0':
                 dim = ''
             self._header.update('EXTEND', True, after='NAXIS'+dim)
+
+
+def _iswholeline(indx, naxis):
+    if isinstance(indx, (int, long,np.integer)):
+        if indx >= 0 and indx < naxis:
+            if naxis > 1:
+                return _SinglePoint(1, indx)
+            elif naxis == 1:
+                return _OnePointAxis(1, 0)
+        else:
+            raise IndexError, 'Index %s out of range.' % indx
+    elif isinstance(indx, slice):
+        indx = _normalize_slice(indx, naxis)
+        if (indx.start == 0) and (indx.stop == naxis) and (indx.step == 1):
+            return _WholeLine(naxis, 0)
+        else:
+            if indx.step == 1:
+                return _LineSlice(indx.stop-indx.start, indx.start)
+            else:
+                return _SteppedSlice((indx.stop-indx.start)//indx.step, indx.start)
+    else:
+        raise IndexError, 'Illegal index %s' % indx
+
+
+class _KeyType:
+    def __init__(self, npts, offset):
+        self.npts = npts
+        self.offset = offset
+
+
+class _WholeLine(_KeyType):
+    pass
+
+
+class _SinglePoint(_KeyType):
+    pass
+
+
+class _OnePointAxis(_KeyType):
+    pass
+
+
+class _LineSlice(_KeyType):
+    pass
+
+
+class _SteppedSlice(_KeyType):
+    pass
+
+
+
+

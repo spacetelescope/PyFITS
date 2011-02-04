@@ -4,7 +4,10 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits import rec
-from pyfits.column import Column, ColDefs
+from pyfits.column import ASCIITNULL, Column, ColDefs, FITS2NUMPY, _FormatX, \
+                          _FormatP, _VLF, _get_index, _wrapx, _unwrapx, \
+                          _convert_format, _convert_ascii_format
+from pyfits.util import _fromfile
 
 
 class FITS_record(object):
@@ -75,8 +78,6 @@ class FITS_record(object):
         return self.__str__()
 
     def __getitem__(self,key):
-        from pyfits.core import _get_index
-
         if isinstance(key, (str, unicode)):
             indx = _get_index(self.array._coldefs.names, key)
 
@@ -91,8 +92,6 @@ class FITS_record(object):
         return self.array.field(indx)[self.row]
 
     def __setitem__(self,fieldName,value):
-        from pyfits.core import _get_index
-
         if isinstance(fieldName, (str, unicode)):
             indx = _get_index(self.array._coldefs.names, fieldName)
 
@@ -145,8 +144,6 @@ class FITS_rec(rec.recarray):
         return self
 
     def __array_finalize__(self,obj):
-        from pyfits.core import _convert_format
-
         if obj is None:
             return
 
@@ -213,7 +210,7 @@ class FITS_rec(rec.recarray):
         Overload this to make mask array indexing work properly.
         """
 
-        from pyfits.core import new_table
+        from pyfits.hdu.table import new_table
 
         hdu = new_table(self._coldefs, nrows=shape[0])
         return hdu.data
@@ -227,8 +224,6 @@ class FITS_rec(rec.recarray):
         return self.__getitem__(key)
 
     def __getitem__(self, key):
-        from pyfits.core import ColDefs
-
         if isinstance(key, (str, unicode)):
             return self.field(key)
         elif isinstance(key, slice) or isinstance(key,np.ndarray):
@@ -296,11 +291,9 @@ class FITS_rec(rec.recarray):
         `indx` is the index of the field.
         """
 
-        from pyfits.core import _booltype
-
         if self._coldefs._tbtype == 'BinTableHDU':
             _str = 'a' in self._coldefs.formats[indx]
-            _bool = self._coldefs._recformats[indx][-2:] == _booltype
+            _bool = self._coldefs._recformats[indx][-2:] == FITS2NUMPY['L']
         else:
             _str = self._coldefs.formats[indx][0] == 'A'
             _bool = 0             # there is no boolean in ASCII table
@@ -321,9 +314,6 @@ class FITS_rec(rec.recarray):
         """
         A view of a `Column`'s data as an array.
         """
-
-        from pyfits.core import _VLF, _FormatP, _FormatX, _get_index, \
-                                _booltype, _fromfile, _unwrapx, ASCIITNULL
 
         indx = _get_index(self._coldefs.names, key)
 
@@ -362,7 +352,7 @@ class FITS_rec(rec.recarray):
                         dummy[i][:] = dummy[i]*bscale+bzero
 
                 # Boolean (logical) column
-                if self._coldefs._recformats[indx]._dtype is _booltype:
+                if self._coldefs._recformats[indx]._dtype is FITS2NUMPY['L']:
                     for i in range(len(self)):
                         dummy[i] = np.equal(dummy[i], ord('T'))
 
@@ -408,16 +398,13 @@ class FITS_rec(rec.recarray):
         Update the parent array, using the (latest) scaled array.
         """
 
-        from pyfits.core import _convert_ASCII_format, _FormatX, _FormatP, \
-                                _wrapx
-
         _dict = {'A':'s', 'I':'d', 'F':'f', 'E':'E', 'D':'E'}
         # calculate the starting point and width of each field for ASCII table
         if self._coldefs._tbtype == 'TableHDU':
             _loc = self._coldefs.starts
             _width = []
             for i in range(len(self.dtype.names)):
-                _width.append(_convert_ASCII_format(self._coldefs._Formats[i])[1])
+                _width.append(_convert_ascii_format(self._coldefs._Formats[i])[1])
             _loc.append(_loc[-1]+rec.recarray.field(self,i).itemsize)
 
         self._heapsize = 0

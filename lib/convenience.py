@@ -1,7 +1,3 @@
-# For now any imports from pyfits.core will have to be inline to prevent
-# an import cycle; eventually this will mostly go away as we move more
-# objects out of pyfits.core
-
 import gzip
 import os
 import types
@@ -11,7 +7,10 @@ import numpy as np
 from pyfits import rec
 from pyfits.file import PYTHON_MODES, _File
 from pyfits.hdu.hdulist import fitsopen
+from pyfits.hdu.image import PrimaryHDU, ImageHDU
+from pyfits.hdu.table import BinTableHDU, _TableBaseHDU
 from pyfits.header import Header
+
 
 __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
            'append', 'update', 'info', 'tdump', 'tcreate']
@@ -440,7 +439,6 @@ def delval(filename, key, *ext, **extkeys):
 
 
 def _makehdu(data, header, classExtensions={}):
-    from pyfits.core import BinTableHDU, ImageHDU
     if header is None:
         if ((isinstance(data, np.ndarray) and data.dtype.fields is not None)
             or isinstance(data, np.recarray)
@@ -527,8 +525,6 @@ def writeto(filename, data, header=None, **keys):
         headers of all HDU's written to the file.
     """
 
-    from pyfits.core import PrimaryHDU, _TableBaseHDU
-
     if header is None:
         if 'header' in keys:
             header = keys['header']
@@ -584,8 +580,6 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
         simply appended to the end of the file.  Setting *verify* to
         `False` can be much faster.
     """
-
-    from pyfits.core import PrimaryHDU, ImageHDU
 
     name, closed, noexist_or_empty = _stat_filename_or_fileobj(filename)
 
@@ -874,8 +868,6 @@ def tcreate(datafile, cdfile, hfile=None):
     data and parameters.  The tdump function can be used to create the
     initial ASCII files.
     """
-
-    from pyfits.core import BinTableHDU
 
     # Construct an empty HDU
     hdu = BinTableHDU()

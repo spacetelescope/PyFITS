@@ -6,7 +6,13 @@ import warnings
 import numpy as np
 from numpy import char as chararray
 
-from pyfits.verify import _Verify
+from pyfits.verify import _Verify, _ErrList
+
+
+# translation tables for floating value strings
+FIX_FP_TABLE = string.maketrans('de', 'DE')
+FIX_FP_TABLE2 = string.maketrans('dD', 'eE')
+
 
 
 class Undefined:
@@ -240,8 +246,6 @@ class Card(_Verify):
         and `comment`.  Core code for `ascardimage`.
         """
 
-        from pyfits.core import _floatFormat
-
         # keyword string
         if self.__dict__.has_key('key') or self.__dict__.has_key('_cardimage'):
             if isinstance(self, _Hierarch):
@@ -276,12 +280,12 @@ class Card(_Verify):
         # XXX need to consider platform dependence of the format (e.g. E-009 vs. E-09)
         elif isinstance(self.value, (float, np.floating)):
             if self._valueModified:
-                valStr = '%20s' % _floatFormat(self.value)
+                valStr = '%20s' % _float_format(self.value)
             else:
                 valStr = '%20s' % self._valuestring
         elif isinstance(self.value, (complex,np.complexfloating)):
             if self._valueModified:
-                _tmp = '(' + _floatFormat(self.value.real) + ', ' + _floatFormat(self.value.imag) + ')'
+                _tmp = '(' + _float_format(self.value.real) + ', ' + _float_format(self.value.imag) + ')'
                 valStr = '%20s' % _tmp
             else:
                 valStr = '%20s' % self._valuestring
@@ -376,8 +380,6 @@ class Card(_Verify):
         Extract the keyword value or comment from the card image.
         """
 
-        from pyfits.core import _fix_table2
-
         # for commentary cards, no need to parse further
         if self.key in Card._commentaryKeys:
             self.__dict__['value'] = self._cardimage[8:].rstrip()
@@ -398,7 +400,7 @@ class Card(_Verify):
 
                 #  Check for numbers with leading 0s.
                 numr = Card._number_NFSC_RE.match(valu.group('numr'))
-                _digt = numr.group('digt').translate(_fix_table2, ' ')
+                _digt = numr.group('digt').translate(FIX_FP_TABLE2, ' ')
                 if numr.group('sign') == None:
                     _val = eval(_digt)
                 else:
@@ -407,13 +409,13 @@ class Card(_Verify):
 
                 #  Check for numbers with leading 0s.
                 real = Card._number_NFSC_RE.match(valu.group('real'))
-                _rdigt = real.group('digt').translate(_fix_table2, ' ')
+                _rdigt = real.group('digt').translate(FIX_FP_TABLE2, ' ')
                 if real.group('sign') == None:
                     _val = eval(_rdigt)
                 else:
                     _val = eval(real.group('sign')+_rdigt)
                 imag  = Card._number_NFSC_RE.match(valu.group('imag'))
-                _idigt = imag.group('digt').translate(_fix_table2, ' ')
+                _idigt = imag.group('digt').translate(FIX_FP_TABLE2, ' ')
                 if imag.group('sign') == None:
                     _val += eval(_idigt)*1j
                 else:
@@ -440,8 +442,6 @@ class Card(_Verify):
         """
         _valStr = None
 
-        from pyfits.core import _fix_table
-
         # for the unparsable case
         if input is None:
             _tmp = self._getValueCommentString()
@@ -454,18 +454,18 @@ class Card(_Verify):
 
         elif input.group('numr') != None:
             numr = Card._number_NFSC_RE.match(input.group('numr'))
-            _valStr = numr.group('digt').translate(_fix_table, ' ')
+            _valStr = numr.group('digt').translate(FIX_FP_TABLE, ' ')
             if numr.group('sign') is not None:
                 _valStr = numr.group('sign')+_valStr
 
         elif input.group('cplx') != None:
             real  = Card._number_NFSC_RE.match(input.group('real'))
-            _realStr = real.group('digt').translate(_fix_table, ' ')
+            _realStr = real.group('digt').translate(FIX_FP_TABLE, ' ')
             if real.group('sign') is not None:
                 _realStr = real.group('sign')+_realStr
 
             imag  = Card._number_NFSC_RE.match(input.group('imag'))
-            _imagStr = imag.group('digt').translate(_fix_table, ' ')
+            _imagStr = imag.group('digt').translate(FIX_FP_TABLE, ' ')
             if imag.group('sign') is not None:
                 _imagStr = imag.group('sign') + _imagStr
             _valStr = '(' + _realStr + ', ' + _imagStr + ')'
@@ -583,8 +583,6 @@ class Card(_Verify):
         contains ``CONTINUE`` card(s).
         """
 
-        from pyfits.core import _pad
-
         self.__dict__['_cardimage'] = _pad(input)
 
         if self._cardimage[:8].upper() == 'HIERARCH':
@@ -606,8 +604,6 @@ class Card(_Verify):
         """
         Card class verification method.
         """
-
-        from pyfits.core import _ErrList
 
         _err = _ErrList([])
         try:
@@ -975,14 +971,12 @@ class RecordValuedKeywordCard(Card):
         `field_specifier`, and `comment`.  Core code for `ascardimage`.
         """
 
-        from pyfits.core import _floatFormat
-
         Card._ascardimage(self)
         eqloc = self._cardimage.index("=")
         slashloc = self._cardimage.find("/")
 
         if '_valueModified' in self.__dict__ and self._valueModified:
-            valStr = _floatFormat(self.value)
+            valStr = _float_format(self.value)
         else:
             valStr = self._valuestring
 
@@ -1013,7 +1007,7 @@ class RecordValuedKeywordCard(Card):
 
             self.__dict__['field_specifier'] = valu.group('keyword')
             self.__dict__['value'] = \
-                           eval(valu.group('val').translate(_fix_table2, ' '))
+                           eval(valu.group('val').translate(FIX_FP_TABLE2, ' '))
 
             if '_valuestring' not in self.__dict__:
                 self.__dict__['_valuestring'] = valu.group('val')
@@ -1054,7 +1048,7 @@ class RecordValuedKeywordCard(Card):
             raise ValueError, self._err_text
         else:
             self.__dict__['_valuestring'] = \
-                                 input.group('val').translate(_fix_table, ' ')
+                                 input.group('val').translate(FIX_FP_TABLE, ' ')
             self._ascardimage()
 
 
@@ -1487,8 +1481,6 @@ class _Hierarch(Card):
     def _verify(self, option='warn'):
         """No verification (for now)."""
 
-        from pyfits.core import _ErrList
-
         return _ErrList([])
 
 
@@ -1616,3 +1608,46 @@ class _Card_with_continue(Card):
             xoffset = offset
 
         return list
+
+
+def _float_format(value):
+    """Format a floating number to make sure it gets the decimal point."""
+
+    valueStr = "%.16G" % value
+    if "." not in valueStr and "E" not in valueStr:
+        valueStr += ".0"
+
+    # Limit the value string to at most 20 characters.
+    strLen = len(valueStr)
+
+    if strLen > 20:
+        idx = valueStr.find('E')
+
+        if idx < 0:
+            valueStr = valueStr[:20]
+        else:
+            valueStr = valueStr[:20-(strLen-idx)] + valueStr[idx:]
+
+    return valueStr
+
+
+def _pad(input):
+    """
+    Pad blank space to the input string to be multiple of 80.
+    """
+    _len = len(input)
+    if _len == Card.length:
+        return input
+    elif _len > Card.length:
+        strlen = _len % Card.length
+        if strlen == 0:
+            return input
+        else:
+            return input + ' ' * (Card.length-strlen)
+
+    # minimum length is 80
+    else:
+        strlen = _len % Card.length
+        return input + ' ' * (Card.length-strlen)
+
+

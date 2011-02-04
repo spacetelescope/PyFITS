@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 
 from pyfits import rec
-from pyfits.column import Column, ColDefs
+from pyfits.column import DELAYED, Column, ColDefs, _FormatP, _makep
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
@@ -216,8 +216,6 @@ if COMPRESSION_SUPPORTED:
             factors.
             """
 
-            from pyfits.core import DELAYED
-
             self._file, self._datLoc = None, None
 
             if data is DELAYED:
@@ -308,8 +306,6 @@ if COMPRESSION_SUPPORTED:
                 is `None`, use the value already in the header; if
                 no value already in header, use 16
             """
-
-            from pyfits.core import _makep
 
             # Construct an ImageBaseHDU object using the input header
             # and data so that we can ensure that the input image header
@@ -1551,8 +1547,6 @@ if COMPRESSION_SUPPORTED:
             """
             Update the table header cards to match the compressed data.
             """
-
-            from pyfits.core import _FormatP
 
             # Get the _heapsize attribute to match the data.
             self.compData._scale_back()

@@ -5,8 +5,10 @@ import re
 import numpy as np
 
 from pyfits.card import Card, CardList, _Card_with_continue, \
-                        createCardFromString
-from pyfits.verify import _Verify
+                        createCardFromString, _pad
+from pyfits.column import DELAYED
+from pyfits.util import _fromfile
+from pyfits.verify import _Verify, _ErrList
 
 
 _isInt = "isinstance(val, (int, long, np.integer))"
@@ -17,8 +19,6 @@ class _AllHDU(object):
     Base class for all HDU (header data unit) classes.
     """
     def __init__(self, data=None, header=None):
-        from pyfits.core import DELAYED
-
         self._header = header
 
         if (data is DELAYED):
@@ -127,8 +127,6 @@ class _NonstandardHDU(_AllHDU, _Verify):
             raise AttributeError(attr)
 
     def _verify(self, option='warn'):
-        from pyfits.core import _ErrList
-
         _err = _ErrList([], unit='Card')
 
         # verify each card
@@ -401,7 +399,6 @@ class _ValidHDU(_AllHDU, _Verify):
 
 
     def _verify(self, option='warn'):
-        from pyfits.core import _ErrList
         from pyfits.hdu.extension import _ExtensionHDU
 
         _err = _ErrList([], unit='Card')
@@ -653,8 +650,6 @@ class _ValidHDU(_AllHDU, _Verify):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        from pyfits.core import _fromfile
-
         if (not self.__dict__.has_key('data')):
             # This is the case where the data has not been read from the file
             # yet.  We find the data in the file, read it, and calculate the
@@ -677,14 +672,14 @@ class _ValidHDU(_AllHDU, _Verify):
         Calculate the value of the ``CHECKSUM`` card in the HDU.
         """
 
-        from pyfits.core import _padLength, _pad
+        from pyfits.file import _pad_length
 
         oldChecksum = self.header['CHECKSUM']
         self.header.update('CHECKSUM', '0'*16);
 
         # Convert the header to a string.
         s = repr(self._header.ascard) + _pad('END')
-        s = s + _padLength(len(s))*' '
+        s = s + _pad_length(len(s))*' '
 
         # Calculate the checksum of the Header and data.
         cs = self._compute_checksum(np.fromstring(s, dtype='ubyte'), datasum, blocking=blocking)
@@ -931,15 +926,15 @@ class _TempHDU(_ValidHDU):
         but the beginning locations are computed.
         """
 
-        from pyfits.core import DELAYED, _blockLen
+        from pyfits.file import BLOCK_SIZE
         from pyfits.header import Header
 
         _cardList = []
         _keyList = []
 
         blocks = self._raw
-        if (len(blocks) % _blockLen) != 0:
-            raise IOError, 'Header size is not multiple of %d: %d' % (_blockLen, len(blocks))
+        if (len(blocks) % BLOCK_SIZE) != 0:
+            raise IOError, 'Header size is not multiple of %d: %d' % (BLOCK_SIZE, len(blocks))
         elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
             raise IOError, 'Block does not begin with SIMPLE or XTENSION'
 

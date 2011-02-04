@@ -13,16 +13,21 @@ from numpy import char as chararray
 from numpy import memmap as Memmap
 
 from pyfits import rec
-from pyfits.card import Card
+from pyfits.card import Card, _pad
+from pyfits.column import _FormatP, _VLF
 from pyfits.hdu import TableHDU, BinTableHDU, CompImageHDU
 from pyfits.hdu.base import _NonstandardHDU, _TempHDU
 from pyfits.hdu.extension import _NonstandardExtHDU
 from pyfits.hdu.groups import GroupData
 from pyfits.hdu.image import _ImageBaseHDU
+from pyfits.util import _tofile, _chunk_array, _unsigned_zero, \
+                        _is_pseudo_unsigned
 
 
+BLOCK_SIZE = 2880 # the FITS block size
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
                 'append': 'ab+', 'ostream': 'w'}  # open modes
+MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+'}
 
 
 class _File:
@@ -178,7 +183,7 @@ class _File:
         Get the `_mm` attribute.
         """
         if attr == '_mm':
-            return Memmap(self.name,offset=self.offset,mode=_memmap_mode[self.mode],dtype=self.code,shape=self.dims)
+            return Memmap(self.name,offset=self.offset,mode=MEMMAP_MODES[self.mode],dtype=self.code,shape=self.dims)
         try:
             return self.__dict__[attr]
         except KeyError:
@@ -193,14 +198,12 @@ class _File:
            may span across blocks.
         """
 
-        from pyfits.core import _blockLen
-
-        if len(block) != _blockLen:
-            raise IOError, 'Block length is not %d: %d' % (_blockLen, len(block))
+        if len(block) != BLOCK_SIZE:
+            raise IOError, 'Block length is not %d: %d' % (BLOCK_SIZE, len(block))
         elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
             raise IOError, 'Block does not begin with SIMPLE or XTENSION'
 
-        for i in range(0, len(_blockLen), Card.length):
+        for i in range(0, len(BLOCK_SIZE), Card.length):
             _card = Card('').fromstring(block[i:i+Card.length])
             _key = _card.key
 
@@ -214,8 +217,6 @@ class _File:
         Read the skeleton structure of the HDU.
         """
 
-        from pyfits.core import _padLength, _blockLen
-
         if not hasattr(self.__file, 'tell') or not hasattr(self.__file, 'read'):
             raise EOFError
 
@@ -223,7 +224,7 @@ class _File:
         _hdrLoc = self.__file.tell()
 
         # Read the first header block.
-        block = self.__file.read(_blockLen)
+        block = self.__file.read(BLOCK_SIZE)
         if block == '':
             raise EOFError
 
@@ -237,7 +238,7 @@ class _File:
             mo = end_RE.search(block)
             if mo is None:
                 hdu._raw += block
-                block = self.__file.read(_blockLen)
+                block = self.__file.read(BLOCK_SIZE)
                 if block == '':
                     break
             else:
@@ -260,7 +261,7 @@ class _File:
         hdu._datLoc = self.__file.tell()     # beginning of the data area
 
         # data area size, including padding
-        hdu._datSpan = _size + _padLength(_size)
+        hdu._datSpan = _size + _pad_length(_size)
         hdu._new = 0
         hdu._ffile = self
         if isinstance(hdu._file, gzip.GzipFile):
@@ -290,9 +291,6 @@ class _File:
         """
         Write FITS HDU header part.
         """
-
-        from pyfits.core import _unsigned_zero, _is_pseudo_unsigned, \
-                                _padLength, _pad, _blockLen
 
         # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
         # cards to header
@@ -328,9 +326,9 @@ class _File:
             hdu.add_checksum(blocking="standard")
 
         blocks = repr(hdu._header.ascard) + _pad('END')
-        blocks = blocks + _padLength(len(blocks))*' '
+        blocks = blocks + _pad_length(len(blocks))*' '
 
-        if len(blocks)%_blockLen != 0:
+        if len(blocks)%BLOCK_SIZE != 0:
             raise IOError
 
         loc = 0
@@ -373,9 +371,6 @@ class _File:
         Write FITS HDU data part.
         """
 
-        from pyfits.core import _is_pseudo_unsigned, _unsigned_zero, \
-                                _padLength, _tofile, _FormatP, _VLF
-
         loc = 0
         _size = 0
 
@@ -404,13 +399,13 @@ class _File:
 
             if not self._simulateonly:
                 # pad the fits data block
-                self.__file.write(_padLength(_size)*'\0')
+                self.__file.write(_pad_length(_size)*'\0')
 
                 # flush, to make sure the content is written
                 self.__file.flush()
 
             # return both the location and the size of the data area
-            return loc, _size+_padLength(_size)
+            return loc, _size+_pad_length(_size)
         elif hdu.data is not None:
             # Based on the system type, determine the byteorders that
             # would need to be swapped to get to big-endian output
@@ -524,16 +519,16 @@ class _File:
             # pad the FITS data block
             if _size > 0 and not self._simulateonly:
                 if isinstance(hdu, TableHDU):
-                    self.__file.write(_padLength(_size)*' ')
+                    self.__file.write(_pad_length(_size)*' ')
                 else:
-                    self.__file.write(_padLength(_size)*'\0')
+                    self.__file.write(_pad_length(_size)*'\0')
 
         # flush, to make sure the content is written
         if not self._simulateonly and hasattr(self.__file, 'flush'):
             self.__file.flush()
 
         # return both the location and the size of the data area
-        return loc, _size+_padLength(_size)
+        return loc, _size+_pad_length(_size)
 
     def close(self):
         """
@@ -553,4 +548,8 @@ class _File:
         self.close()
 
 
+def _pad_length(stringlen):
+    """Bytes needed to pad the input stringLen to the next FITS block."""
+
+    return (BLOCK_SIZE - (stringlen % BLOCK_SIZE)) % BLOCK_SIZE
 

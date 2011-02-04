@@ -68,7 +68,7 @@ class TestPyfitsImageFunctions(unittest.TestCase):
 
     def testBooleanValueCard(self):
         # Boolean value card
-        c=pyfits.Card("abc", pyfits.TRUE)
+        c=pyfits.Card("abc", True)
         self.assertEqual(str(c),"ABC     =                    T                                                  ")
 
         c=pyfits.Card().fromstring('abc     = F')
@@ -269,7 +269,7 @@ CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment                  
 
     def testLongStringValueViaFromstring(self):
         # long string value via fromstring() method
-        c=pyfits.Card().fromstring(pyfits.core._pad("abc     = 'longstring''s testing  &  ' / comments in line 1")+pyfits.core._pad("continue  'continue with long string but without the ampersand at the end' / ")+pyfits.core._pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
+        c=pyfits.Card().fromstring(pyfits.card._pad("abc     = 'longstring''s testing  &  ' / comments in line 1")+pyfits.card._pad("continue  'continue with long string but without the ampersand at the end' /")+pyfits.card._pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
         self.assertEqual(str(c.ascardimage()),"ABC     = 'longstring''s testing  continue with long string but without the &'  \
 CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  \
 CONTINUE  '&' / comments in line 1 comments with ''.                            ")

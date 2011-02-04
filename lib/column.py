@@ -1,7 +1,77 @@
+import re
+import warnings
+import weakref
+
 import numpy as np
 from numpy import char as chararray
 
 from pyfits.card import Card
+
+
+# mapping from TFORM data type to numpy data type (code)
+# L: Logical (Boolean)
+# B: Unsigned Byte
+# I: 16-bit Integer
+# J: 32-bit Integer
+# K: 64-bit Integer
+# E: Single-precision Floating Point
+# D: Double-precision Floating Point
+# C: Single-precision Complex
+# M: Double-precision Complex
+# A: Character
+FITS2NUMPY = {'L': 'i1', 'B': 'u1', 'I': 'i2', 'J': 'i4', 'K': 'i8', 'E': 'f4',
+              'D': 'f8', 'C': 'c8', 'M': 'c16', 'A': 'a'}
+
+# the inverse dictionary of the above
+NUMPY2FITS = dict([(val, key) for key, val in FITS2NUMPY.iteritems()])
+
+# lists of column/field definition common names and keyword names, make
+# sure to preserve the one-to-one correspondence when updating the list(s).
+# Use lists, instead of dictionaries so the names can be displayed in a
+# preferred order.
+KEYWORD_NAMES = ['TTYPE', 'TFORM', 'TUNIT', 'TNULL', 'TSCAL', 'TZERO',
+                 'TDISP', 'TBCOL', 'TDIM']
+KEYWORD_ATTRIBUTES = ['name', 'format', 'unit', 'null', 'bscale', 'bzero',
+                      'disp', 'start', 'dim']
+
+# TFORM regular expression
+TFORMAT_RE = re.compile(r'(?P<repeat>^[0-9]*)(?P<dtype>[A-Za-z])'
+                         '(?P<option>[!-~]*)')
+
+# table definition keyword regular expression
+TDEF_RE = re.compile(r'(?P<label>^T[A-Z]*)(?P<num>[1-9][0-9 ]*$)')
+
+ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
+                        # this can be reset by user.
+
+DELAYED = "delayed"     # used for lazy instantiation of table column data
+
+
+class Delayed:
+    """Delayed file-reading data."""
+
+    def __init__(self, hdu=None, field=None):
+        self.hdu = weakref.ref(hdu)
+        self.field = field
+
+    def __getitem__(self, key):
+        # This forces the data for the HDU to be read, which will replace
+        # the corresponding Delayed objects in the Tables Columns to be
+        # transformed into ndarrays.  It will also return the value of the
+        # requested data element.
+        return self.hdu().data[key][self.field]
+
+
+class _FormatX(str):
+    """For X format in binary tables."""
+
+    pass
+
+
+class _FormatP(str):
+    """For P format in variable length table."""
+
+    pass
 
 
 class Column:
@@ -48,15 +118,12 @@ class Column:
             column dimension corresponding to ``TDIM`` keyword
         """
 
-        from pyfits.core import Delayed, _convert_format, _FormatP, _VLF, \
-                                _commonNames, _keyNames, _booltype
-
         # any of the input argument (except array) can be a Card or just
         # a number/string
-        for cname in _commonNames:
+        for cname in KEYWORD_ATTRIBUTES:
             value = eval(cname)           # get the argument's value
 
-            keyword = _keyNames[_commonNames.index(cname)]
+            keyword = KEYWORD_NAMES[KEYWORD_ATTRIBUTES.index(cname)]
             if isinstance(value, Card):
                 setattr(self, cname, value.value)
             else:
@@ -114,7 +181,7 @@ class Column:
         if isinstance(array, np.ndarray):
 
             # boolean needs to be scaled too
-            if recfmt[-2:] == _booltype:
+            if recfmt[-2:] == FITS2NUMPY['L']:
                 _out = np.zeros(array.shape, dtype=recfmt)
                 array = np.where(array==0, ord('F'), ord('T'))
 
@@ -130,8 +197,6 @@ class Column:
         self.array = array
 
     def __checkValidDataType(self,array,format):
-        from pyfits.core import Delayed, _convert_format, _parse_tformat
-
         # Convert the format to a type we understand
         if isinstance(array,Delayed):
             return array
@@ -166,9 +231,8 @@ class Column:
                 return array
 
     def __repr__(self):
-        from pyfits.core import _commonNames
         text = ''
-        for cname in _commonNames:
+        for cname in KEYWORD_ATTRIBUTES:
             value = getattr(self, cname)
             if value != None:
                 text += cname + ' = ' + `value` + '\n'
@@ -205,8 +269,6 @@ class ColDefs(object):
             ``"TableHDU"`` (text table).
         """
 
-        from pyfits.core import Delayed, _convert_ASCII_format, _tdef_re, \
-                                _keyNames, _commonNames
         from pyfits.hdu.table import _TableBaseHDU
 
         ascii_fmt = {'A':'A1', 'I':'I10', 'E':'E14.6', 'F':'F16.7', 'D':'D24.16'}
@@ -227,7 +289,7 @@ class ColDefs(object):
             # if the format of an ASCII column has no width, add one
             if tbtype == 'TableHDU':
                 for i in range(len(self)):
-                    (type, width) = _convert_ASCII_format(self.data[i].format)
+                    (type, width) = _convert_ascii_format(self.data[i].format)
                     if width is None:
                         self.data[i].format = ascii_fmt[self.data[i].format[0]]
 
@@ -241,15 +303,15 @@ class ColDefs(object):
             # go through header keywords to pick out column definition keywords
             dict = [{} for i in range(_nfields)] # definition dictionaries for each field
             for _card in hdr.ascardlist():
-                _key = _tdef_re.match(_card.key)
+                _key = TDEF_RE.match(_card.key)
                 try:
                     keyword = _key.group('label')
                 except:
                     continue               # skip if there is no match
-                if (keyword in _keyNames):
+                if (keyword in KEYWORD_NAMES):
                     col = eval(_key.group('num'))
                     if col <= _nfields and col > 0:
-                        cname = _commonNames[_keyNames.index(keyword)]
+                        cname = KEYWORD_ATTRIBUTES[KEYWORD_NAMES.index(keyword)]
                         dict[col-1][cname] = _card.value
 
             # data reading will be delayed
@@ -268,11 +330,8 @@ class ColDefs(object):
         Populate the attributes.
         """
 
-        from pyfits.core import _convert_format, _convert_ASCII_format, \
-                                _commonNames
-
         cname = name[:-1]
-        if cname in _commonNames and name[-1] == 's':
+        if cname in KEYWORD_ATTRIBUTES and name[-1] == 's':
             attr = [''] * len(self)
             for i in range(len(self)):
                 val = getattr(self[i], cname)
@@ -298,7 +357,7 @@ class ColDefs(object):
                 last_end = 0
                 attr = [0] * len(self)
                 for i in range(len(self)):
-                    (_format, _width) = _convert_ASCII_format(self.formats[i])
+                    (_format, _width) = _convert_ascii_format(self.formats[i])
                     if self.starts[i] is '':
                         self.starts[i] = last_end + 1
                     _end = self.starts[i] + _width - 1
@@ -318,7 +377,7 @@ class ColDefs(object):
                 # make sure to consider the case that the starting column of
                 # a field may not be the column right after the last field
                 elif tbtype == 'TableHDU':
-                    (_format, _width) = _convert_ASCII_format(self.formats[i])
+                    (_format, _width) = _convert_ascii_format(self.formats[i])
                     if self.starts[i] is '':
                         self.starts[i] = last_end + 1
                     _end = self.starts[i] + _width - 1
@@ -359,8 +418,6 @@ class ColDefs(object):
         return self.__add__(other, 'right')
 
     def __sub__(self, other):
-        from pyfits.core import _get_index
-
         if not isinstance(other, (list, tuple)):
             other = [other]
         _other = [_get_index(self.names, key) for key in other]
@@ -385,11 +442,10 @@ class ColDefs(object):
             this function returned a new `ColDefs` with the new column
             at the end.
         """
-        from pyfits.core import _commonNames
 
         assert isinstance(column, Column)
 
-        for cname in _commonNames:
+        for cname in KEYWORD_ATTRIBUTES:
             attr = getattr(self, cname+'s')
             attr.append(getattr(column, cname))
 
@@ -416,11 +472,10 @@ class ColDefs(object):
         col_name : str or int
             The column's name or index
         """
-        from pyfits.core import _commonNames, _get_index
 
         indx = _get_index(self.names, col_name)
 
-        for cname in _commonNames:
+        for cname in KEYWORD_ATTRIBUTES:
             attr = getattr(self, cname+'s')
             del attr[indx]
 
@@ -453,8 +508,6 @@ class ColDefs(object):
         value : object
             The new value for the attribute
         """
-
-        from pyfits.core import _get_index
 
         indx = _get_index(self.names, col_name)
         getattr(self, attrib+'s')[indx] = new_value
@@ -506,7 +559,7 @@ class ColDefs(object):
         ----------
         attrib : str
            Can be one or more of the attributes listed in
-           `_commonNames`.  The default is ``"all"`` which will print
+           `KEYWORD_ATTRIBUTES`.  The default is ``"all"`` which will print
            out all attributes.  It forgives plurals and blanks.  If
            there are two or more attribute names, they must be
            separated by comma(s).
@@ -517,10 +570,8 @@ class ColDefs(object):
         stdout.
         """
 
-        from pyfits.core import _commonNames
-
         if attrib.strip().lower() in ['all', '']:
-            list = _commonNames
+            list = KEYWORD_ATTRIBUTES
         else:
             list = attrib.split(',')
             for i in range(len(list)):
@@ -529,7 +580,7 @@ class ColDefs(object):
                     list[i]=list[i][:-1]
 
         for att in list:
-            if att not in _commonNames:
+            if att not in KEYWORD_ATTRIBUTES:
                 print "'%s' is not an attribute of the column definitions."%att
                 continue
             print "%s:" % att
@@ -538,3 +589,297 @@ class ColDefs(object):
     #def change_format(self, col_name, new_format):
         #new_format = _convert_format(new_format)
         #self.change_attrib(col_name, 'format', new_format)
+
+
+class _VLF(np.ndarray):
+    """Variable length field object."""
+
+    def __new__(subtype, input):
+        """
+        Parameters
+        ----------
+        input
+            a sequence of variable-sized elements.
+        """
+        a = np.array(input,dtype=np.object)
+        self = np.ndarray.__new__(subtype, shape=(len(input)), buffer=a,
+                                  dtype=np.object)
+        self._max = 0
+        return self
+
+    def __array_finalize__(self,obj):
+        if obj is None:
+            return
+        self._max = obj._max
+
+    def __setitem__(self, key, value):
+        """
+        To make sure the new item has consistent data type to avoid
+        misalignment.
+        """
+        if isinstance(value, np.ndarray) and value.dtype == self.dtype:
+            pass
+        elif isinstance(value, chararray.chararray) and value.itemsize == 1:
+            pass
+        elif self._dtype == 'a':
+            value = chararray.array(value, itemsize=1)
+        else:
+            value = np.array(value, dtype=self._dtype)
+        np.ndarray.__setitem__(self, key, value)
+        self._max = max(self._max, len(value))
+
+
+def _get_index(nameList, key):
+    """Get the index of the `key` in the `nameList`.
+
+    The `key` can be an integer or string.  If integer, it is the index
+    in the list.  If string,
+
+        a. Field (column) names are case sensitive: you can have two
+           different columns called 'abc' and 'ABC' respectively.
+
+        b. When you *refer* to a field (presumably with the field
+           method), it will try to match the exact name first, so in
+           the example in (a), field('abc') will get the first field,
+           and field('ABC') will get the second field.
+
+        If there is no exact name matched, it will try to match the
+        name with case insensitivity.  So, in the last example,
+        field('Abc') will cause an exception since there is no unique
+        mapping.  If there is a field named "XYZ" and no other field
+        name is a case variant of "XYZ", then field('xyz'),
+        field('Xyz'), etc. will get this field.
+
+    """
+
+    if isinstance(key, (int, long,np.integer)):
+        indx = int(key)
+    elif isinstance(key, str):
+        # try to find exact match first
+        try:
+            indx = nameList.index(key.rstrip())
+        except ValueError:
+
+            # try to match case-insentively,
+            _key = key.lower().rstrip()
+            _list = map(lambda x: x.lower().rstrip(), nameList)
+            _count = operator.countOf(_list, _key) # occurrence of _key in _list
+            if _count == 1:
+                indx = _list.index(_key)
+            elif _count == 0:
+                raise KeyError, "Key '%s' does not exist." % key
+            else:              # multiple match
+                raise KeyError, "Ambiguous key name '%s'." % key
+    else:
+        raise KeyError, "Illegal key '%s'." % `key`
+
+    return indx
+
+
+def _unwrapx(input, output, nx):
+    """Unwrap the X format column into a Boolean array.
+
+    Parameters
+    ----------
+    input
+        input ``Uint8`` array of shape (`s`, `nbytes`)
+
+    output
+        output Boolean array of shape (`s`, `nx`)
+
+    nx
+        number of bits
+
+    """
+
+    pow2 = [128, 64, 32, 16, 8, 4, 2, 1]
+    nbytes = ((nx-1) // 8) + 1
+    for i in range(nbytes):
+        _min = i*8
+        _max = min((i+1)*8, nx)
+        for j in range(_min, _max):
+            np.bitwise_and(input[...,i], pow2[j-i*8], output[...,j])
+
+
+def _wrapx(input, output, nx):
+    """Wrap the X format column Boolean array into an ``UInt8`` array.
+
+    Parameters
+    ----------
+    input
+        input Boolean array of shape (`s`, `nx`)
+
+    output
+        output ``Uint8`` array of shape (`s`, `nbytes`)
+
+    nx
+        number of bits
+
+    """
+
+    output[...] = 0 # reset the output
+    nbytes = ((nx-1) // 8) + 1
+    unused = nbytes*8 - nx
+    for i in range(nbytes):
+        _min = i*8
+        _max = min((i+1)*8, nx)
+        for j in range(_min, _max):
+            if j != _min:
+                np.left_shift(output[...,i], 1, output[...,i])
+            np.add(output[...,i], input[...,j], output[...,i])
+
+    # shift the unused bits
+    np.left_shift(output[...,i], unused, output[...,i])
+
+
+def _makep(input, desp_output, dtype):
+    """Construct the P format column array, both the data descriptors and
+    the data.  It returns the output "data" array of data type `dtype`.
+
+    The descriptor location will have a zero offset for all columns
+    after this call.  The final offset will be calculated when the file
+    is written.
+
+    Parameters
+    ----------
+    input
+        input object array
+
+    desp_output
+        output "descriptor" array of data type ``Int32``
+
+    dtype
+        data type of the variable array
+
+    """
+
+    _offset = 0
+    data_output = _VLF([None]*len(input))
+    data_output._dtype = dtype
+
+    if dtype == 'a':
+        _nbytes = 1
+    else:
+        _nbytes = np.array([],dtype=np.typeDict[dtype]).itemsize
+
+    for i in range(len(input)):
+        if dtype == 'a':
+            data_output[i] = chararray.array(input[i], itemsize=1)
+        else:
+            data_output[i] = np.array(input[i], dtype=dtype)
+
+        desp_output[i,0] = len(data_output[i])
+        desp_output[i,1] = _offset
+        _offset += len(data_output[i]) * _nbytes
+
+    return data_output
+
+
+def _parse_tformat(tform):
+    """Parse the ``TFORM`` value into `repeat`, `dtype`, and `option`."""
+    try:
+        (repeat, dtype, option) = TFORMAT_RE.match(tform.strip()).groups()
+    except:
+        warnings.warn('Format "%s" is not recognized.' % tform)
+
+
+    if repeat == '': repeat = 1
+    else: repeat = eval(repeat)
+
+    return (repeat, dtype, option)
+
+
+def _convert_format(input_format, reverse=0):
+    """Convert FITS format spec to record format spec.  Do the opposite if
+    reverse = 1.
+    
+    """
+
+    if reverse and isinstance(input_format, np.dtype):
+        shape = input_format.shape
+        kind = input_format.base.kind
+        option = str(input_format.base.itemsize)
+        if kind == 'S':
+            kind = 'a'
+        dtype = kind
+
+        ndims = len(shape)
+        repeat = 1
+        if ndims > 0:
+            nel = np.array(shape, dtype='i8').prod()
+            if nel > 1:
+                repeat = nel
+    else:
+        fmt = input_format
+        (repeat, dtype, option) = _parse_tformat(fmt)
+
+    if reverse == 0:
+        if dtype in FITS2NUMPY.keys():                            # FITS format
+            if dtype == 'A':
+                output_format = FITS2NUMPY[dtype]+`repeat`
+                # to accomodate both the ASCII table and binary table column
+                # format spec, i.e. A7 in ASCII table is the same as 7A in
+                # binary table, so both will produce 'a7'.
+                if fmt.lstrip()[0] == 'A' and option != '':
+                    output_format = FITS2NUMPY[dtype]+`int(option)` # make sure option is integer
+            else:
+                _repeat = ''
+                if repeat != 1:
+                    _repeat = `repeat`
+                output_format = _repeat+FITS2NUMPY[dtype]
+
+        elif dtype == 'X':
+            nbytes = ((repeat-1) // 8) + 1
+            # use an array, even if it is only ONE u1 (i.e. use tuple always)
+            output_format = _FormatX(`(nbytes,)`+'u1')
+            output_format._nx = repeat
+
+        elif dtype == 'P':
+            output_format = _FormatP('2i4')
+            output_format._dtype = FITS2NUMPY[option[0]]
+        elif dtype == 'F':
+            output_format = 'f8'
+        else:
+            raise ValueError, "Illegal format %s" % fmt
+    else:
+        if dtype == 'a':
+            # This is a kludge that will place string arrays into a
+            # single field, so at least we won't lose data.  Need to
+            # use a TDIM keyword to fix this, declaring as (slength,
+            # dim1, dim2, ...)  as mwrfits does
+
+            ntot = int(repeat)*int(option)
+
+            output_format = str(ntot)+NUMPY2FITS[dtype]
+        elif isinstance(dtype, _FormatX):
+            warnings.warn('X format')
+        elif dtype+option in NUMPY2FITS.keys():                    # record format
+            _repeat = ''
+            if repeat != 1:
+                _repeat = `repeat`
+            output_format = _repeat+NUMPY2FITS[dtype+option]
+        else:
+            raise ValueError, "Illegal format %s" % fmt
+
+    return output_format
+
+
+def _convert_ascii_format(input_format):
+    """Convert ASCII table format spec to record format spec."""
+
+    ascii2rec = {'A': 'a', 'I': 'i4', 'F': 'f4', 'E': 'f4', 'D': 'f8'}
+    _re = re.compile(r'(?P<dtype>[AIFED])(?P<width>[0-9]*)')
+
+    # Parse the TFORM value into data type and width.
+    try:
+        (dtype, width) = _re.match(input_format.strip()).groups()
+        dtype = ascii2rec[dtype]
+        if width == '':
+            width = None
+        else:
+            width = eval(width)
+    except KeyError:
+        raise ValueError, 'Illegal format `%s` for ASCII table.' % input_format
+
+    return (dtype, width)
+

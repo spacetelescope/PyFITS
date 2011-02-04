@@ -4,7 +4,7 @@ import types
 
 from pyfits.hdu.hdulist import HDUList
 from pyfits.hdu.image import PrimaryHDU
-
+from pyfits.util import _tofile
 
 class StreamingHDU:
     """
@@ -155,6 +155,8 @@ class StreamingHDU:
         `TypeError` exception is raised.
         """
 
+        from pyfits.file import _pad_length
+
         curDataSize = self._ffo.getfile().tell() - self._datLoc
 
         if self.writeComplete or curDataSize + data.nbytes > self._size:
@@ -179,7 +181,7 @@ class StreamingHDU:
 #
 #           the stream is full so pad the data to the next FITS block
 #
-            self._ffo.getfile().write(_padLength(self._size)*'\0')
+            self._ffo.getfile().write(_pad_length(self._size)*'\0')
             self.writeComplete = 1
 
         self._ffo.getfile().flush()

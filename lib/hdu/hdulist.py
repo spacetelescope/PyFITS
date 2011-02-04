@@ -11,13 +11,15 @@ from numpy import memmap as Memmap
 
 import pyfits
 from pyfits.card import Card
+from pyfits.column import _FormatP
 from pyfits.hdu.base import _AllHDU, _ValidHDU, _TempHDU, _NonstandardHDU
 from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import PrimaryHDU, ImageHDU, _ImageBaseHDU
 from pyfits.hdu.table import _TableBaseHDU
-from pyfits.verify import _Verify
+from pyfits.util import _tmpName
+from pyfits.verify import _Verify, _ErrList
 
 
 def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
@@ -304,8 +306,6 @@ class HDUList(list, _Verify):
 
 
     def _verify (self, option='warn'):
-        from pyfits.core import _ErrList
-
         _text = ''
         _err = _ErrList([], unit='HDU')
 
@@ -339,7 +339,7 @@ class HDUList(list, _Verify):
         Side effect of setting the objects _resize attribute.
         """
 
-        from pyfits.core import _padLength
+        from pyfits.file import _pad_length
 
         if not self._resize:
 
@@ -351,7 +351,7 @@ class HDUList(list, _Verify):
                 _nch80 = reduce(operator.add, map(Card._ncards,
                                                   hdu.header.ascard))
                 _bytes = (_nch80+1) * Card.length
-                _bytes = _bytes + _padLength(_bytes)
+                _bytes = _bytes + _pad_length(_bytes)
                 if _bytes != (hdu._datLoc-hdu._hdrLoc):
                     self._resize = 1
                     self._truncate = 0
@@ -365,7 +365,7 @@ class HDUList(list, _Verify):
                 if hdu.data is None:
                     continue
                 _bytes = hdu.data.nbytes
-                _bytes = _bytes + _padLength(_bytes)
+                _bytes = _bytes + _pad_length(_bytes)
                 if _bytes != hdu._datSpan:
                     self._resize = 1
                     self._truncate = 0
@@ -665,8 +665,6 @@ class HDUList(list, _Verify):
         Update all table HDU's for scaled fields.
         """
 
-        from pyfits.core import _FormatP
-
         for hdu in self:
             if 'data' in dir(hdu) and not isinstance(hdu, CompImageHDU):
                 if isinstance(hdu, (GroupsHDU, _TableBaseHDU)) and hdu.data is not None:
@@ -714,7 +712,6 @@ class HDUList(list, _Verify):
             class.
         """
 
-        from pyfits.core import _tmpName
         from pyfits.file import _File
 
         # Get the name of the current thread and determine if this is a single treaded application
