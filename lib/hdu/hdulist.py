@@ -10,6 +10,7 @@ import numpy as np
 from numpy import memmap as Memmap
 
 import pyfits
+from pyfits.card import Card
 from pyfits.hdu.base import _AllHDU, _ValidHDU, _TempHDU, _NonstandardHDU
 from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.extension import _ExtensionHDU
@@ -338,7 +339,7 @@ class HDUList(list, _Verify):
         Side effect of setting the objects _resize attribute.
         """
 
-        from pyfits.core import Card, _padLength
+        from pyfits.core import _padLength
 
         if not self._resize:
 

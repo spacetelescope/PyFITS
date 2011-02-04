@@ -13,6 +13,7 @@ from numpy import char as chararray
 from numpy import memmap as Memmap
 
 from pyfits import rec
+from pyfits.card import Card
 from pyfits.hdu import TableHDU, BinTableHDU, CompImageHDU
 from pyfits.hdu.base import _NonstandardHDU, _TempHDU
 from pyfits.hdu.extension import _NonstandardExtHDU
@@ -192,7 +193,7 @@ class _File:
            may span across blocks.
         """
 
-        from pyfits.core import Card, _blockLen
+        from pyfits.core import _blockLen
 
         if len(block) != _blockLen:
             raise IOError, 'Block length is not %d: %d' % (_blockLen, len(block))

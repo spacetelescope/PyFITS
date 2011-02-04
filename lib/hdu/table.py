@@ -4,6 +4,7 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits import rec
+from pyfits.card import Card, CardList
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import _AllHDU, _isInt
 from pyfits.hdu.extension import _ExtensionHDU
@@ -27,8 +28,8 @@ class _TableBaseHDU(_ExtensionHDU):
             name to be populated in ``EXTNAME`` keyword
         """
 
-        from pyfits.core import Column, ColDefs, CardList, Card, Header, \
-                                DELAYED, _convert_format
+        from pyfits.core import Column, ColDefs, Header, DELAYED, \
+                                _convert_format
 
         if header is not None:
             if not isinstance(header, Header):

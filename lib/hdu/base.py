@@ -4,6 +4,8 @@ import re
 
 import numpy as np
 
+from pyfits.card import Card, CardList, _Card_with_continue, \
+                        createCardFromString
 from pyfits.verify import _Verify
 
 
@@ -929,8 +931,7 @@ class _TempHDU(_ValidHDU):
         but the beginning locations are computed.
         """
 
-        from pyfits.core import Header, Card, CardList, _Card_with_continue, \
-                                createCardFromString, DELAYED, _blockLen
+        from pyfits.core import Header, DELAYED, _blockLen
 
         _cardList = []
         _keyList = []

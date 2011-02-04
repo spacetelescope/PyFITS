@@ -180,7 +180,7 @@ class TestPyfitsImageFunctions(unittest.TestCase):
 
     def testSpecifyUndefinedValue(self):
         # this is how to specify an undefined value
-        c=pyfits.Card("undef", pyfits.UNDEFINED)
+        c=pyfits.Card("undef", pyfits.card.UNDEFINED)
         self.assertEqual(str(c),"UNDEF   =                                                                       ")
 
     def testComplexNumberUsingStringInput(self):

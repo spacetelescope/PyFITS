@@ -1,3 +1,4 @@
+from pyfits.card import Card
 from pyfits.hdu.base import _ValidHDU, _isInt
 
 
@@ -19,7 +20,7 @@ class _ExtensionHDU(_ValidHDU):
         Set an HDU attribute.
         """
 
-        from pyfits.core import EXTENSION_NAME_CASE_SENSITIVE, Card
+        from pyfits.core import EXTENSION_NAME_CASE_SENSITIVE
 
         if attr == 'name' and value:
             if not isinstance(value, str):
