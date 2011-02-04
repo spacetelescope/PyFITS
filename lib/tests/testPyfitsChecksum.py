@@ -74,8 +74,8 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         imdata.shape=(10,1,1,2,5)
         pdata1 = np.arange(10)+0.1
         pdata2 = 42
-        x = pyfits.GroupData(imdata,parnames=['abc','xyz'],
-                             pardata=[pdata1,pdata2],bitpix=-32)
+        x = pyfits.hdu.groups.GroupData(imdata,parnames=['abc','xyz'],
+                                        pardata=[pdata1,pdata2],bitpix=-32)
         hdu=pyfits.GroupsHDU(x)
         hdu.writeto('tmp.fits',clobber=True,checksum=True)
         hdul1=pyfits.open('tmp.fits',checksum=True)

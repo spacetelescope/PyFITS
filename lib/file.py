@@ -13,6 +13,11 @@ from numpy import char as chararray
 from numpy import memmap as Memmap
 
 from pyfits import rec
+from pyfits.hdu import TableHDU, BinTableHDU, CompImageHDU
+from pyfits.hdu.base import _NonstandardHDU, _TempHDU
+from pyfits.hdu.extension import _NonstandardExtHDU
+from pyfits.hdu.groups import GroupData
+from pyfits.hdu.image import _ImageBaseHDU
 
 
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
@@ -208,7 +213,7 @@ class _File:
         Read the skeleton structure of the HDU.
         """
 
-        from pyfits.core import _TempHDU, _padLength, _blockLen
+        from pyfits.core import _padLength, _blockLen
 
         if not hasattr(self.__file, 'tell') or not hasattr(self.__file, 'read'):
             raise EOFError
@@ -274,8 +279,6 @@ class _File:
         before calling this method.
         """
 
-        from pyfits.core import _ImageBaseHDU, CompImageHDU
-
         if isinstance(hdu, _ImageBaseHDU):
             hdu.update_header()
         elif isinstance(hdu, CompImageHDU):
@@ -287,8 +290,7 @@ class _File:
         Write FITS HDU header part.
         """
 
-        from pyfits.core import _NonstandardHDU, _NonstandardExtHDU, \
-                                _unsigned_zero, _is_pseudo_unsigned, \
+        from pyfits.core import _unsigned_zero, _is_pseudo_unsigned, \
                                 _padLength, _pad, _blockLen
 
         # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
@@ -370,10 +372,7 @@ class _File:
         Write FITS HDU data part.
         """
 
-        from pyfits.core import TableHDU, BinTableHDU, CompImageHDU, \
-                                GroupData, _NonstandardHDU, \
-                                _NonstandardExtHDU, _ImageBaseHDU, \
-                                _is_pseudo_unsigned, _unsigned_zero, \
+        from pyfits.core import _is_pseudo_unsigned, _unsigned_zero, \
                                 _padLength, _tofile, _FormatP, _VLF
 
         loc = 0

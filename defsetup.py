@@ -4,7 +4,7 @@ import distutils.extension
 import sys
 import logging
 
-pkg = [ "pyfits", "pyfits.tests" ]
+pkg = ['pyfits', 'pyfits.hdu', 'pyfits.tests']
 
 
 try:

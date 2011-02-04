@@ -11,6 +11,7 @@ import numpy as np
 
 from pyfits import rec
 from pyfits.file import PYTHON_MODES, _File
+from pyfits.hdu import compressed
 
 __all__ = ['open', 'fitsopen', 'getheader', 'getdata', 'getval', 'setval',
            'delval', 'writeto', 'append', 'update', 'info', 'tdump', 'tcreate']
@@ -96,7 +97,7 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
     else:
         hduList = HDUList(file=ffo)
 
-    savedCompressionSupported = pyfits.core.compressionSupported
+    savedCompressionSupported = compressed.COMPRESSION_SUPPORTED
 
     try:
         if 'disable_image_compression' in parms and \
@@ -184,7 +185,7 @@ def open(name, mode="copyonwrite", memmap=False, classExtensions={}, **parms):
         hduList._truncate = 0
 
     finally:
-        pyfits.core.compressionSupported = savedCompressionSupported
+        compressed.COMPRESSION_SUPPORTED = savedCompressionSupported
 
     return hduList
 
