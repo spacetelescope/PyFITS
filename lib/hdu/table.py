@@ -5,6 +5,7 @@ from numpy import char as chararray
 
 from pyfits import rec
 from pyfits.card import Card, CardList
+from pyfits.column import Column, ColDefs
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import _AllHDU, _isInt
 from pyfits.hdu.extension import _ExtensionHDU
@@ -28,7 +29,7 @@ class _TableBaseHDU(_ExtensionHDU):
             name to be populated in ``EXTNAME`` keyword
         """
 
-        from pyfits.core import Column, ColDefs, DELAYED, _convert_format
+        from pyfits.core import DELAYED, _convert_format
         from pyfits.header import Header
 
         if header is not None:
@@ -143,7 +144,7 @@ class _TableBaseHDU(_ExtensionHDU):
         Get the `data` or `columns` attribute.
         """
 
-        from pyfits.core import ColDefs, _get_tbdata
+        from pyfits.core import _get_tbdata
 
         if attr == 'data':
             size = self.size()

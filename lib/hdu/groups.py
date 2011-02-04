@@ -1,5 +1,6 @@
 import numpy as np
 
+from pyfits.column import Column, ColDefs
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.base import _AllHDU, _isInt
 from pyfits.hdu.image import PrimaryHDU, _ImageBaseHDU
@@ -193,7 +194,7 @@ class GroupData(FITS_rec):
             list of bzeros for the parameters
         """
 
-        from pyfits.core import Column, ColDefs, _fits2rec
+        from pyfits.core import _fits2rec
 
         if not isinstance(input, FITS_rec):
             _formats = ''

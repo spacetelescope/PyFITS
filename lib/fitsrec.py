@@ -4,6 +4,7 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits import rec
+from pyfits.column import Column, ColDefs
 
 
 class FITS_record(object):
@@ -144,7 +145,7 @@ class FITS_rec(rec.recarray):
         return self
 
     def __array_finalize__(self,obj):
-        from pyfits.core import Column, ColDefs, _convert_format
+        from pyfits.core import _convert_format
 
         if obj is None:
             return

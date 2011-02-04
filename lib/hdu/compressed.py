@@ -3,6 +3,8 @@ import warnings
 import numpy as np
 
 from pyfits import rec
+from pyfits.column import Column, ColDefs
+from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
@@ -307,7 +309,7 @@ if COMPRESSION_SUPPORTED:
                 no value already in header, use 16
             """
 
-            from pyfits.core import Column, ColDefs, FITS_rec, _makep
+            from pyfits.core import _makep
 
             # Construct an ImageBaseHDU object using the input header
             # and data so that we can ensure that the input image header
