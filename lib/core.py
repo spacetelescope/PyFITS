@@ -47,6 +47,18 @@ from pyfits.hdu.image import Section
 from pyfits.hdu.table import new_table
 from pyfits.header import Header
 
+# Additional imports for compatibility with stpyfits.py (which should be
+# updated at some point)
+from pyfits.file import _File
+from pyfits.hdu.base import _AllHDU
+from pyfits.hdu.image import _ImageBaseHDU
+
+
+# These are of course deprecated, but a handful of external code still uses
+# them
+TRUE = True
+FALSE = False
+
 
 # The following variable and function are used to support case sensitive
 # values for the value of a EXTNAME card in an extension header.  By default,

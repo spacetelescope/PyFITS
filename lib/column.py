@@ -882,4 +882,3 @@ def _convert_ascii_format(input_format):
         raise ValueError, 'Illegal format `%s` for ASCII table.' % input_format
 
     return (dtype, width)
-

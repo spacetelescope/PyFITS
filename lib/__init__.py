@@ -2,6 +2,11 @@
 
 from __future__ import division # confidence high
 
+# I've seen one example of code that's using datetime from pyfits;
+# That code should be fixed, but in the meantime this is here for
+# compatibility
+import datetime
+
 # Define the version of the pyfits package.
 try:
     from pyfits import svn_version
