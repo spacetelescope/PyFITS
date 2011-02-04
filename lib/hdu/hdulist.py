@@ -23,9 +23,8 @@ from pyfits.verify import _Verify, _ErrList
 
 
 def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
-             **parms):
-    """
-    Factory function to open a FITS file and return an `HDUList` object.
+             **kwargs):
+    """Factory function to open a FITS file and return an `HDUList` object.
 
     Parameters
     ----------
@@ -48,7 +47,7 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
 
-    parms : dict
+    kwargs : dict
         optional keyword arguments, possible values are:
 
         - **uint** : bool
@@ -88,114 +87,124 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
         hdulist : an HDUList object
             `HDUList` containing all of the header data units in the
             file.
-    """
-    # instantiate a FITS file object (ffo)
 
+    """
+    # TODO: eventually I would like to get rid of the classExtensions
+    # parameter throughout pyfits, and replace it with a simple plugin API
+    # based on metaclasses
+
+    # instantiate a FITS file object (ffo)
     import pyfits.core
     from pyfits.file import _File
     from pyfits.hdu import compressed
 
-    if classExtensions.has_key(_File):
-        ffo = classExtensions[_File](name, mode=mode, memmap=memmap, **parms)
-    else:
-        ffo = _File(name, mode=mode, memmap=memmap, **parms)
+    file_cls = classExtensions.get(_File, _File)
+    ffo = file_cls(name, mode=mode, memmap=memmap, **kwargs)
 
-    if classExtensions.has_key(HDUList):
-        hduList = classExtensions[HDUList](file=ffo)
-    else:
-        hduList = HDUList(file=ffo)
+    hdulist_cls = classExtensions.get(HDUList, HDUList)
+    hdulist = hdulist_cls(file=ffo)
 
-    savedCompressionSupported = compressed.COMPRESSION_SUPPORTED
+    saved_compression_supported = compressed.COMPRESSION_SUPPORTED
 
     try:
-        if 'disable_image_compression' in parms and \
-           parms['disable_image_compression']:
-            compressionSupported = -1
+        if 'disable_image_compression' in kwargs and \
+           kwargs['disable_image_compression']:
+            compressed.COMPRESSION_SUPPORTED = False
 
-        if 'do_not_scale_image_data' in parms:
-            do_not_scale_image_data = parms['do_not_scale_image_data']
+        if 'do_not_scale_image_data' in kwargs:
+            do_not_scale_image_data = kwargs['do_not_scale_image_data']
         else:
             do_not_scale_image_data = False
 
-        if mode != 'ostream':
-            # read all HDU's
-            while 1:
-                try:
-                    thdu = ffo._readHDU()
-                    thdu._do_not_scale_image_data = do_not_scale_image_data
-                    hduList.append(thdu, classExtensions=classExtensions)
-                except EOFError:
+        if mode == 'ostream':
+            # Output stream--not interested in reading/parsing the HDUs--just
+            # writing to the output file
+            return hdulist
+
+        # read all HDUs
+        while True:
+            try:
+                thdu = ffo._readHDU()
+                thdu._do_not_scale_image_data = do_not_scale_image_data
+                hdulist.append(thdu, classExtensions=classExtensions)
+            except EOFError:
+                break
+            # check in the case there is extra space after the last HDU or
+            # corrupted HDU
+            except ValueError, err:
+                warnings.warn(
+                    'Warning:  Required keywords missing when trying to read '
+                    'HDU #%d.\n          %s\n          There may be extra '
+                    'bytes after the last HDU or the file is corrupted.'
+                    % (len(hdulist), err))
+                break
+            except IOError, err:
+                if isinstance(ffo.getfile(), gzip.GzipFile) and \
+                   'on write-only GzipFile object' in str(err):
                     break
-                # check in the case there is extra space after the last HDU or
-                # corrupted HDU
-                except ValueError, e:
-                    warnings.warn('Warning:  Required keywords missing when trying to read HDU #%d.\n          %s\n          There may be extra bytes after the last HDU or the file is corrupted.' % (len(hduList),e))
-                    break
-                except IOError, e:
-                    if isinstance(ffo.getfile(), gzip.GzipFile) and \
-                       string.find(str(e),'on write-only GzipFile object'):
-                        break
-                    else:
-                        raise e
-
-            # If we're trying to read only and no header units were found,
-            # raise and exception
-            if mode == 'readonly' and len(hduList) == 0:
-                raise IOError("Empty FITS file")
-
-            # For each HDU, verify the checksum/datasum value if the cards
-            # exist in the header and we are opening with checksum=True.
-            # Always remove the checksum/datasum cards from the header.
-
-            # NOTE:  private data members _checksum and _datasum are
-            # used by the utility script "fitscheck" to detect missing
-            # checksums.
-            for i in range(len(hduList)):
-                hdu = hduList.__getitem__(i, classExtensions)
-
-                if hdu._header.has_key('CHECKSUM'):
-                     hdu._checksum = hdu._header['CHECKSUM']
-                     hdu._checksum_comment = \
-                                hdu._header.ascardlist()['CHECKSUM'].comment
-
-                     if 'checksum' in parms and parms['checksum'] and \
-                     not hdu.verify_checksum(parms['checksum']):
-                         warnings.warn('Warning:  Checksum verification failed '
-                                   'for HDU #%d.\n' % i)
-
-                     del hdu.header['CHECKSUM']
                 else:
-                     hdu._checksum = None
-                     hdu._checksum_comment = None
+                    raise err
 
-                if hdu._header.has_key('DATASUM'):
-                     hdu._datasum = hdu.header['DATASUM']
-                     hdu._datasum_comment = \
-                                   hdu.header.ascardlist()['DATASUM'].comment
+        # If we're trying to read only and no header units were found,
+        # raise and exception
+        if mode == 'readonly' and len(hdulist) == 0:
+            raise IOError('Empty FITS file')
 
-                     if 'checksum' in parms and parms['checksum'] and \
-                     not hdu.verify_datasum(parms['checksum']):
-                         warnings.warn('Warning:  Datasum verification failed '
-                                       'for HDU #%d.\n' % (len(hduList)))
+        # For each HDU, verify the checksum/datasum value if the cards
+        # exist in the header and we are opening with checksum=True.
+        # Always remove the checksum/datasum cards from the header.
 
-                     del hdu.header['DATASUM']
-                else:
-                     hdu._checksum = None
-                     hdu._checksum_comment = None
-                     hdu._datasum = None
-                     hdu._datasum_comment = None
+        # NOTE:  private data members _checksum and _datasum are
+        # used by the utility script "fitscheck" to detect missing
+        # checksums.
+        for idx in range(len(hdulist)):
+            # TODO: This is pretty bad--another reason to get rid of the
+            # classExtensions hack
+            hdu = hdulist.__getitem__(idx, classExtensions)
+
+            if 'CHECKSUM' in hdu._header:
+                 hdu._checksum = hdu._header['CHECKSUM']
+                 hdu._checksum_comment = \
+                            hdu._header.ascardlist()['CHECKSUM'].comment
+
+                 if 'checksum' in kwargs and kwargs['checksum'] and \
+                    not hdu.verify_checksum(kwargs['checksum']):
+                     warnings.warn('Warning:  Checksum verification failed '
+                                   'for HDU #%d.\n' % idx)
+
+                 del hdu.header['CHECKSUM'] # Delete from the user-visible hdr
+            else:
+                 hdu._checksum = None
+                 hdu._checksum_comment = None
+
+            if 'DATASUM' in hdu._header:
+                 hdu._datasum = hdu.header['DATASUM']
+                 hdu._datasum_comment = \
+                               hdu.header.ascardlist()['DATASUM'].comment
+
+                 if 'checksum' in kwargs and kwargs['checksum'] and \
+                    not hdu.verify_datasum(kwargs['checksum']):
+                     warnings.warn('Warning:  Datasum verification failed '
+                                   'for HDU #%d.\n' % idx)
+
+                 del hdu.header['DATASUM']
+            else:
+                 hdu._checksum = None
+                 hdu._checksum_comment = None
+                 hdu._datasum = None
+                 hdu._datasum_comment = None
 
         # initialize/reset attributes to be used in "update/append" mode
         # CardList needs its own _mod attribute since it has methods to change
         # the content of header without being able to pass it to the header
         # object
-        hduList._resize = 0
-        hduList._truncate = 0
+        hdulist._resize = 0
+        hdulist._truncate = 0
 
     finally:
-        compressed.COMPRESSION_SUPPORTED = savedCompressionSupported
+        compressed.COMPRESSION_SUPPORTED = saved_compression_supported
 
-    return hduList
+    return hdulist
 
 
 class HDUList(list, _Verify):

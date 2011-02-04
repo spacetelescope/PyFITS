@@ -17,8 +17,9 @@ except ImportError:
 __version__ = '2.4.0' + __svn_version__
 
 # Import the pyfits core module.
+import pyfits.core
 from pyfits.core import *
-__doc__ = core.__doc__
+__doc__ = pyfits.core.__doc__
 
 # Define modules available using from pyfits import *.
 __locals = list(locals())
