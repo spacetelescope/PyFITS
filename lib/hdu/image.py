@@ -31,8 +31,9 @@ class _ImageBaseHDU(_ValidHDU):
                'float32':-32, 'float64':-64}
 
     def __init__(self, data=None, header=None, do_not_scale_image_data=False):
-        from pyfits.core import DELAYED, Header
+        from pyfits.core import DELAYED
         from pyfits.hdu.groups import GroupsHDU
+        from pyfits.header import Header
 
         self._file, self._datLoc = None, None
 

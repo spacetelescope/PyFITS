@@ -11,6 +11,7 @@ import numpy as np
 from pyfits import rec
 from pyfits.file import PYTHON_MODES, _File
 from pyfits.hdu.hdulist import fitsopen
+from pyfits.header import Header
 
 __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
            'append', 'update', 'info', 'tdump', 'tcreate']

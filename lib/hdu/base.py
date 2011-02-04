@@ -931,7 +931,8 @@ class _TempHDU(_ValidHDU):
         but the beginning locations are computed.
         """
 
-        from pyfits.core import Header, DELAYED, _blockLen
+        from pyfits.core import DELAYED, _blockLen
+        from pyfits.header import Header
 
         _cardList = []
         _keyList = []

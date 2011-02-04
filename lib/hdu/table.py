@@ -28,8 +28,8 @@ class _TableBaseHDU(_ExtensionHDU):
             name to be populated in ``EXTNAME`` keyword
         """
 
-        from pyfits.core import Column, ColDefs, Header, DELAYED, \
-                                _convert_format
+        from pyfits.core import Column, ColDefs, DELAYED, _convert_format
+        from pyfits.header import Header
 
         if header is not None:
             if not isinstance(header, Header):
