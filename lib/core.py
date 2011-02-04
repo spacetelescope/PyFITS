@@ -30,21 +30,15 @@ import re, os, tempfile
 import operator
 import __builtin__
 import urllib
-import gzip
 import numpy as np
 from numpy import char as chararray
 import rec
-from numpy import memmap as Memmap
 from string import maketrans
 import string
 import types
-import signal
-import threading
 import sys
 import warnings
 import weakref
-import datetime
-import textwrap
 
 # Refactored imports--will move around a lot for a while
 from pyfits.file import _File
@@ -55,9 +49,10 @@ from pyfits.hdu.table import _TableBaseHDU
 from pyfits.verify import _Verify
 
 # API compatibility imports
+from pyfits.convenience import * 
 from pyfits.fitsrec import *
 from pyfits.hdu import *
-from pyfits.util import * 
+from pyfits.hdu.hdulist import fitsopen as open
 
 # Module variables
 _blockLen = 2880         # the FITS block size
