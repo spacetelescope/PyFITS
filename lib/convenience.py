@@ -1,6 +1,5 @@
 import gzip
 import os
-import types
 
 import numpy as np
 

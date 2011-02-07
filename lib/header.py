@@ -1,7 +1,7 @@
 import types
 
-from pyfits.card import Card, CardList, RecordValuedKeywordCard, createCard, \
-                        upperKey
+from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
+                        _HierarchCard, create_card, upper_key
 from pyfits.hdu.base import _NonstandardHDU, _CorruptedHDU, _ValidHDU
 from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
@@ -214,7 +214,7 @@ class Header:
             Returns `True` if found, otherwise, `False`.
         """
         try:
-            key = upperKey(key)
+            key = upper_key(key)
 
             if key[:8] == 'HIERARCH':
                 key = key[8:].strip()
@@ -239,20 +239,20 @@ class Header:
             When `True`, if new key name already exists, force to have
             duplicate name.
         """
-        oldkey = upperKey(oldkey)
-        newkey = upperKey(newkey)
+        oldkey = upper_key(oldkey)
+        newkey = upper_key(newkey)
 
         if newkey == 'CONTINUE':
             raise ValueError, 'Can not rename to CONTINUE'
-        if newkey in Card._commentaryKeys or oldkey in Card._commentaryKeys:
-            if not (newkey in Card._commentaryKeys and oldkey in Card._commentaryKeys):
+        if newkey in Card._commentary_keys or oldkey in Card._commentary_keys:
+            if not (newkey in Card._commentary_keys and oldkey in Card._commentary_keys):
                 raise ValueError, 'Regular and commentary keys can not be renamed to each other.'
         elif (force == 0) and self.has_key(newkey):
             raise ValueError, 'Intended keyword %s already exists in header.' % newkey
         _index = self.ascard.index_of(oldkey)
         _comment = self.ascard[_index].comment
         _value = self.ascard[_index].value
-        self.ascard[_index] = createCard(newkey, _value, _comment)
+        self.ascard[_index] = create_card(newkey, _value, _comment)
 
 
 #        self.ascard[_index].__dict__['key']=newkey
@@ -341,12 +341,12 @@ class Header:
                 _comment = comment
             else:
                 _comment = self.ascard[j].comment
-            self.ascard[j] = createCard(key, value, _comment)
+            self.ascard[j] = create_card(key, value, _comment)
         elif before != None or after != None:
-            _card = createCard(key, value, comment)
+            _card = create_card(key, value, comment)
             self.ascard._pos_insert(_card, before=before, after=after)
         else:
-            self.ascard.append(createCard(key, value, comment))
+            self.ascard.append(create_card(key, value, comment))
 
         self._mod = 1
 
@@ -697,7 +697,7 @@ class Header:
                     self.add_blank(card.value, after=prevKey)
                     prevKey += 1
             else:
-                if isinstance(card, _Hierarch):
+                if isinstance(card, _HierarchCard):
                     prefix = 'hierarch '
                 else:
                     prefix = ''

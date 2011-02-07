@@ -36,7 +36,8 @@ import sys
 import warnings
 
 # Public API compatibility imports
-from pyfits.card import Card, CardList, RecordValuedKeywordCard, createCard, \
+from pyfits.card import Card, CardList, RecordValuedKeywordCard, create_card, \
+                        create_card_from_string, createCard, \
                         createCardFromString
 from pyfits.column import Column, ColDefs
 from pyfits.convenience import * 

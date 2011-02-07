@@ -1,3 +1,4 @@
+import operator
 import re
 import warnings
 import weakref

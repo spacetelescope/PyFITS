@@ -4,8 +4,8 @@ import re
 
 import numpy as np
 
-from pyfits.card import Card, CardList, _Card_with_continue, \
-                        createCardFromString, _pad
+from pyfits.card import Card, CardList, _ContinueCard, \
+                        create_card_from_string, _pad
 from pyfits.column import DELAYED
 from pyfits.util import _fromfile
 from pyfits.verify import _Verify, _ErrList
@@ -939,7 +939,7 @@ class _TempHDU(_ValidHDU):
             raise IOError, 'Block does not begin with SIMPLE or XTENSION'
 
         for i in range(0, len(blocks), Card.length):
-            _card = createCardFromString(blocks[i:i+Card.length])
+            _card = create_card_from_string(blocks[i:i+Card.length])
             _key = _card.key
 
             if _key == 'END':
@@ -966,7 +966,7 @@ class _TempHDU(_ValidHDU):
                 _longstring = _cardList[_where-1]._cardimage
                 for c in _cardList[_where:_where+nc]:
                     _longstring += c._cardimage
-                _cardList[_where-1] = _Card_with_continue().fromstring(_longstring)
+                _cardList[_where-1] = _ContinueCard().fromstring(_longstring)
                 del _cardList[_where:_where+nc]
                 del _keyList[_where:_where+nc]
                 _start = _where
