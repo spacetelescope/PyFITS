@@ -1,6 +1,5 @@
 import re
 import string
-import types
 import warnings
 
 import numpy as np
@@ -146,9 +145,6 @@ class Card(_Verify):
         """Returns the keyword name parsed from the card image."""
 
         if not hasattr(self, '_key'):
-            # TODO: This can change the class to _HierarchCard--I think it
-            # would be better to detect to appropriate class to use upon
-            # instance creation (in __new__)
             head = self._get_key_string()
             if isinstance(self, _HierarchCard):
                 self._key = head.strip()
@@ -599,6 +595,8 @@ class Card(_Verify):
                 if comm is not None:
                     self._check_text(comm)
 
+    # TODO: It would probably make more sense for this to be a class method
+    # that returns a new instance; but we'll leave it for now.
     def fromstring(self, input):
         """Construct a `Card` object from a (raw) string. It will pad the
         string if it is not the length of a card image (80 columns).
@@ -695,7 +693,7 @@ class RecordValuedKeywordCard(Card):
     # card string.
     #
     identifier = r'[a-zA-Z_]\w*'
-    field = identifier + r'%s(\.\d+)?'
+    field = identifier + r'(\.\d+)?'
     field_specifier_s = r'%s(\.%s)*' % (field, field)
     field_specifier_val = r'(?P<keyword>%s): (?P<val>%s\s*)' \
                           % (field_specifier_s, Card._numr_FSC)
@@ -716,7 +714,7 @@ class RecordValuedKeywordCard(Card):
     # a card value; the value may not be FITS Standard Complient
     # (ex. 'AXIS.1: 2.0e5')
     #
-    field_specifier_NFSC_val_RE = re.compile(field_specifier_NFSC_val+'$')
+    field_specifier_NFSC_val_RE = re.compile(field_specifier_NFSC_val + '$')
     #
     # regular expression to extract the key and the field specifier from a
     # string that is being used to index into a card list that contains
@@ -756,15 +754,15 @@ class RecordValuedKeywordCard(Card):
         mo = self.keyword_name_RE.match(key)
 
         if mo:
-            self.__dict__['field_specifier'] = mo.group('field_spec')
+            self._field_specifier = mo.group('field_spec')
             key = mo.group('key')
         else:
             if isinstance(value, str):
-                if value != '':
+                if value:
                     mo = self.field_specifier_NFSC_val_RE.match(value)
 
                     if mo:
-                        self.__dict__['field_specifier'] = mo.group('keyword')
+                        self._field_specifier = mo.group('keyword')
                         value = float(mo.group('val'))
                     else:
                         raise ValueError(
@@ -773,27 +771,21 @@ class RecordValuedKeywordCard(Card):
             else:
                 raise ValueError('value %s is not a string' % value)
 
-        Card.__init__(self, key, value, comment)
+        super(RecordValuedKeywordCard, self).__init__(key, value, comment)
 
-    def __getattr__(self, name):
+    @property
+    def field_specifier(self):
+       self._extract_value()
+       return self._field_specifier
 
-        if name == 'field_specifier':
-            self._extract_value()
-        else:
-            Card.__getattr__(self, name)
 
-        return getattr(self, name)
-
-    def __setattr__(self, name, val):
-        if name == 'field_specifier':
-            raise SyntaxError('field_specifier cannot be reset.')
-        else:
-            if not isinstance(val, float):
-                try:
-                    val = float(val)
-                except ValueError:
-                    raise ValueError('value %s is not a float' % val)
-            Card.__setattr__(self, name, val)
+    def _setvalue(self, val):
+        if not isinstance(val, float):
+            try:
+                val = float(val)
+            except ValueError:
+                raise ValueError('value %s is not a float' % val)
+        super(RecordValuedKeywordCard, self)._setvalue(val)
 
     #
     # class method definitins
@@ -997,16 +989,16 @@ class RecordValuedKeywordCard(Card):
 
         """
 
-        super(Card, self)._updateimage(self)
-        eqloc = self._cardimage.index("=")
-        slashloc = self._cardimage.find("/")
+        super(RecordValuedKeywordCard, self)._update_cardimage()
+        eqloc = self._cardimage.index('=')
+        slashloc = self._cardimage.find('/')
 
-        if '_value_modified' in self.__dict__ and self._value_modified:
+        if hasattr(self, '_value_modified') and self._value_modified:
             val_str = _float_format(self.value)
         else:
             val_str = self._valuestring
 
-        val_str = "'" + self.field_specifier + ": " + val_str + "'"
+        val_str = "'%s: %s'" % (self._field_specifier, val_str)
         val_str = '%-20s' % val_str
 
         output = self._cardimage[:eqloc+2] + val_str
@@ -1015,7 +1007,7 @@ class RecordValuedKeywordCard(Card):
             output = output + self._cardimage[slashloc-1:]
 
         if len(output) <= Card.length:
-            output = "%-80s" % output
+            output = '%-80s' % output
 
         self._cardimage = output
 
@@ -1029,7 +1021,7 @@ class RecordValuedKeywordCard(Card):
             raise ValueError(
                 "Unparsable card, fix it first with .verify('fix').")
 
-        self.field_specifier = valu.group('keyword')
+        self._field_specifier = valu.group('keyword')
 
         if not hasattr(self, '_valuestring'):
             self._valuestring = valu.group('val')
