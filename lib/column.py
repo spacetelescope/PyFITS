@@ -7,6 +7,7 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits.card import Card
+from pyfits.util import lazyproperty
 
 
 # mapping from TFORM data type to numpy data type (code)
@@ -75,12 +76,13 @@ class _FormatP(str):
     pass
 
 
-class Column:
+class Column(object):
     """
     Class which contains the definition of one column, e.g.  `ttype`,
     `tform`, etc. and the array containing values for the column.
     Does not support `theap` yet.
     """
+
     def __init__(self, name=None, format=None, unit=None, null=None, \
                        bscale=None, bzero=None, disp=None, start=None, \
                        dim=None, array=None):
@@ -121,14 +123,13 @@ class Column:
 
         # any of the input argument (except array) can be a Card or just
         # a number/string
-        for cname in KEYWORD_ATTRIBUTES:
-            value = eval(cname)           # get the argument's value
+        for attr in KEYWORD_ATTRIBUTES:
+            value = locals()[attr]           # get the argument's value
 
-            keyword = KEYWORD_NAMES[KEYWORD_ATTRIBUTES.index(cname)]
             if isinstance(value, Card):
-                setattr(self, cname, value.value)
+                setattr(self, attr, value.value)
             else:
-                setattr(self, cname, value)
+                setattr(self, attr, value)
 
         # if the column data is not ndarray, make it to be one, i.e.
         # input arrays can be just list or tuple, not required to be ndarray
@@ -142,41 +143,46 @@ class Column:
                 try:
                     # legit recarray format?
                     recfmt = format
-                    format = _convert_format(recfmt, reverse=1)
+                    format = _convert_format(recfmt, reverse=True)
                 except ValueError:
-                    raise ValueError, "Illegal format `%s`." % format
+                    raise ValueError('Illegal format `%s`.' % format)
 
             self.format = format
 
             # does not include Object array because there is no guarantee
             # the elements in the object array are consistent.
-            if not isinstance(array, (np.ndarray, chararray.chararray, Delayed)):
+            if not isinstance(array,
+                              (np.ndarray, chararray.chararray, Delayed)):
                 try: # try to convert to a ndarray first
                     if array is not None:
                         array = np.array(array)
                 except:
                     try: # then try to conver it to a strings array
-                        array = chararray.array(array, itemsize=eval(recfmt[1:]))
+                        array = chararray.array(array,
+                                                itemsize=eval(recfmt[1:]))
 
                     # then try variable length array
                     except:
                         if isinstance(recfmt, _FormatP):
                             try:
-                                array=_VLF(array)
+                                array = _VLF(array)
                             except:
                                 try:
                                     # this handles ['abc'] and [['a','b','c']]
                                     # equally, beautiful!
-                                    _func = lambda x: chararray.array(x, itemsize=1)
+                                    _func = lambda x: \
+                                                chararray.array(x, itemsize=1)
                                     array = _VLF(map(_func, array))
                                 except:
-                                    raise ValueError, "Inconsistent input data array: %s" % array
+                                    raise ValueError('Inconsistent input data '
+                                                     'array: %s' % array)
                             array._dtype = recfmt._dtype
                         else:
-                            raise ValueError, "Data is inconsistent with the format `%s`." % format
+                            raise ValueError('Data is inconsistent with the '
+                                             'format `%s`.' % format)
 
         else:
-            raise ValueError, "Must specify format to construct Column"
+            raise ValueError('Must specify format to construct Column.')
 
         # scale the array back to storage values if there is bscale/bzero
         if isinstance(array, np.ndarray):
@@ -244,7 +250,7 @@ class Column:
         Return a copy of this `Column`.
         """
         tmp = Column(format='I') # just use a throw-away format
-        tmp.__dict__=self.__dict__.copy()
+        tmp.__dict__ = self.__dict__.copy()
         return tmp
 
 
@@ -257,6 +263,7 @@ class ColDefs(object):
     has `~Column.name`). Each attribute in `ColDefs` is a list of
     corresponding attribute values from all `Column` objects.
     """
+
     def __init__(self, input, tbtype='BinTableHDU'):
         """
         Parameters
@@ -272,7 +279,8 @@ class ColDefs(object):
 
         from pyfits.hdu.table import _TableBaseHDU
 
-        ascii_fmt = {'A':'A1', 'I':'I10', 'E':'E14.6', 'F':'F16.7', 'D':'D24.16'}
+        ascii_fmt = {'A': 'A1', 'I': 'I10', 'E': 'E14.6', 'F': 'F16.7',
+                     'D': 'D24.16'}
         self._tbtype = tbtype
 
         if isinstance(input, ColDefs):
@@ -283,7 +291,7 @@ class ColDefs(object):
             for col in input:
                 if not isinstance(col, Column):
                     raise TypeError(
-                           "Element %d in the ColDefs input is not a Column."
+                           'Element %d in the ColDefs input is not a Column.'
                            % input.index(col))
             self.data = [col.copy() for col in input]
 
@@ -302,7 +310,8 @@ class ColDefs(object):
             self._shape = hdr['NAXIS2']
 
             # go through header keywords to pick out column definition keywords
-            dict = [{} for i in range(_nfields)] # definition dictionaries for each field
+            # definition dictionaries for each field
+            fdicts = [{} for i in range(_nfields)]
             for _card in hdr.ascardlist():
                 _key = TDEF_RE.match(_card.key)
                 try:
@@ -310,84 +319,93 @@ class ColDefs(object):
                 except:
                     continue               # skip if there is no match
                 if (keyword in KEYWORD_NAMES):
-                    col = eval(_key.group('num'))
+                    col = int(_key.group('num'))
                     if col <= _nfields and col > 0:
-                        cname = KEYWORD_ATTRIBUTES[KEYWORD_NAMES.index(keyword)]
-                        dict[col-1][cname] = _card.value
+                        idx = KEYWORD_NAMES.index(keyword)
+                        cname = KEYWORD_ATTRIBUTES[idx]
+                        fdicts[col-1][cname] = _card.value
 
             # data reading will be delayed
             for col in range(_nfields):
-                dict[col]['array'] = Delayed(input, col)
+                fdicts[col]['array'] = Delayed(input, col)
 
             # now build the columns
-            tmp = [Column(**attrs) for attrs in dict]
+            tmp = [Column(**attrs) for attrs in fdicts]
             self.data = tmp
             self._listener = input
         else:
-            raise TypeError, "input to ColDefs must be a table HDU or a list of Columns"
+            raise TypeError('Input to ColDefs must be a table HDU or a list '
+                            'of Columns.')
 
     def __getattr__(self, name):
         """
-        Populate the attributes.
+        Automatically returns the values for the given keyword attribute for
+        all `Column`s in this list.
+
+        Implements for example self.units, self.formats, etc.
         """
 
         cname = name[:-1]
         if cname in KEYWORD_ATTRIBUTES and name[-1] == 's':
             attr = [''] * len(self)
-            for i in range(len(self)):
-                val = getattr(self[i], cname)
+            for idx in range(len(self)):
+                val = getattr(self[idx], cname)
                 if val != None:
-                    attr[i] = val
-        elif name == '_arrays':
-            attr = [col.array for col in self.data]
-        elif name == '_recformats':
-            if self._tbtype in ('BinTableHDU', 'CompImageHDU'):
-                attr = [_convert_format(fmt) for fmt in self.formats]
-            elif self._tbtype == 'TableHDU':
-                self._Formats = self.formats
-                if len(self) == 1:
-                    dummy = []
-                else:
-                    dummy = map(lambda x, y: x-y, self.starts[1:], [self.starts[0]]+self.starts[1:-1])
-                dummy.append(self._width-self.starts[-1]+1)
-                attr = map(lambda y: 'a'+`y`, dummy)
-        elif name == 'spans':
-            # make sure to consider the case that the starting column of
-            # a field may not be the column right after the last field
-            if self._tbtype == 'TableHDU':
-                last_end = 0
-                attr = [0] * len(self)
-                for i in range(len(self)):
-                    (_format, _width) = _convert_ascii_format(self.formats[i])
-                    if self.starts[i] is '':
-                        self.starts[i] = last_end + 1
-                    _end = self.starts[i] + _width - 1
-                    attr[i] = _width
-                    last_end = _end
-                self._width = _end
+                    attr[idx] = val
+            self.__dict__[name] = attr
+            return self.__dict__[name]
+        raise AttributeError(name)
+
+    @lazyproperty
+    def _arrays(self):
+        return [col.array for col in self.data]
+
+    @lazyproperty
+    def _recformats(self):
+        if self._tbtype in ('BinTableHDU', 'CompImageHDU'):
+            return [_convert_format(fmt) for fmt in self.formats]
+        elif self._tbtype == 'TableHDU':
+            self._Formats = self.formats
+            if len(self) == 1:
+                dummy = []
             else:
-                raise KeyError, 'Attribute %s not defined.' % name
+                dummy = map(lambda x, y: x - y, self.starts[1:],
+                            [self.starts[0]] + self.starts[1:-1])
+            dummy.append(self._width - self.starts[-1] + 1)
+            return map(lambda y: 'a' + repr(y), dummy)
+
+    @lazyproperty
+    def spans(self):
+        # make sure to consider the case that the starting column of
+        # a field may not be the column right after the last field
+        if self._tbtype == 'TableHDU':
+            last_end = 0
+            spans = [0] * len(self)
+            for i in range(len(self)):
+                (_format, _width) = _convert_ascii_format(self.formats[i])
+                if self.starts[i] is '':
+                    self.starts[i] = last_end + 1
+                _end = self.starts[i] + _width - 1
+                spans[i] = _width
+                last_end = _end
+            self._width = _end
+            return spans
         else:
-            raise KeyError, 'Attribute %s not defined.' % name
+            raise AttributeError('Attribute %s not defined.' % name)
 
-        self.__dict__[name] = attr
-        return self.__dict__[name]
-
-
-        """
-                # make sure to consider the case that the starting column of
-                # a field may not be the column right after the last field
-                elif tbtype == 'TableHDU':
-                    (_format, _width) = _convert_ascii_format(self.formats[i])
-                    if self.starts[i] is '':
-                        self.starts[i] = last_end + 1
-                    _end = self.starts[i] + _width - 1
-                    self.spans[i] = _end - last_end
-                    last_end = _end
-                    self._Formats = self.formats
-
-                self._arrays[i] = input[i].array
-        """
+# TODO: Not sure why this is commented out; should it just go away?
+#                # make sure to consider the case that the starting column of
+#                # a field may not be the column right after the last field
+#                elif tbtype == 'TableHDU':
+#                    (_format, _width) = _convert_ascii_format(self.formats[i])
+#                    if self.starts[i] is '':
+#                        self.starts[i] = last_end + 1
+#                    _end = self.starts[i] + _width - 1
+#                    self.spans[i] = _end - last_end
+#                    last_end = _end
+#                    self._Formats = self.formats
+#
+#                self._arrays[i] = input[i].array
 
     def __getitem__(self, key):
         x = self.data[key]
@@ -400,7 +418,7 @@ class ColDefs(object):
         return len(self.data)
 
     def __repr__(self):
-        return 'ColDefs'+ `tuple(self.data)`
+        return 'ColDefs' + repr(tuple(self.data))
 
     def __add__(self, other, option='left'):
         if isinstance(other, Column):
@@ -408,7 +426,7 @@ class ColDefs(object):
         elif isinstance(other, ColDefs):
             b = list(other.data)
         else:
-            raise TypeError, 'Wrong type of input'
+            raise TypeError('Wrong type of input.')
         if option == 'left':
             tmp = list(self.data) + b
         else:
@@ -422,7 +440,7 @@ class ColDefs(object):
         if not isinstance(other, (list, tuple)):
             other = [other]
         _other = [_get_index(self.names, key) for key in other]
-        indx=range(len(self))
+        indx = range(len(self))
         for x in _other:
             indx.remove(x)
         tmp = [self[i] for i in indx]
@@ -527,8 +545,9 @@ class ColDefs(object):
         new_name : str
             The new name of the column
         """
+
         if new_name != col_name and new_name in self.names:
-            raise ValueError, 'New name %s already exists.' % new_name
+            raise ValueError('New name %s already exists.' % new_name)
         else:
             self.change_attrib(col_name, 'name', new_name)
 
@@ -546,6 +565,7 @@ class ColDefs(object):
         new_unit : str
             The new unit for the column
         """
+
         self.change_attrib(col_name, 'unit', new_unit)
 
         # If this ColDefs is being tracked by a Table, inform the
@@ -595,20 +615,21 @@ class ColDefs(object):
 class _VLF(np.ndarray):
     """Variable length field object."""
 
-    def __new__(subtype, input):
+    def __new__(cls, args):
         """
         Parameters
         ----------
-        input
+        args
             a sequence of variable-sized elements.
         """
-        a = np.array(input,dtype=np.object)
-        self = np.ndarray.__new__(subtype, shape=(len(input)), buffer=a,
+
+        a = np.array(args, dtype=np.object)
+        self = np.ndarray.__new__(cls, shape=(len(args)), buffer=a,
                                   dtype=np.object)
         self._max = 0
         return self
 
-    def __array_finalize__(self,obj):
+    def __array_finalize__(self, obj):
         if obj is None:
             return
         self._max = obj._max
@@ -618,6 +639,7 @@ class _VLF(np.ndarray):
         To make sure the new item has consistent data type to avoid
         misalignment.
         """
+
         if isinstance(value, np.ndarray) and value.dtype == self.dtype:
             pass
         elif isinstance(value, chararray.chararray) and value.itemsize == 1:
@@ -631,7 +653,8 @@ class _VLF(np.ndarray):
 
 
 def _get_index(nameList, key):
-    """Get the index of the `key` in the `nameList`.
+    """
+    Get the index of the `key` in the `nameList`.
 
     The `key` can be an integer or string.  If integer, it is the index
     in the list.  If string,
@@ -650,10 +673,9 @@ def _get_index(nameList, key):
         mapping.  If there is a field named "XYZ" and no other field
         name is a case variant of "XYZ", then field('xyz'),
         field('Xyz'), etc. will get this field.
-
     """
 
-    if isinstance(key, (int, long,np.integer)):
+    if isinstance(key, (int, long, np.integer)):
         indx = int(key)
     elif isinstance(key, str):
         # try to find exact match first
@@ -668,17 +690,18 @@ def _get_index(nameList, key):
             if _count == 1:
                 indx = _list.index(_key)
             elif _count == 0:
-                raise KeyError, "Key '%s' does not exist." % key
+                raise KeyError("Key '%s' does not exist." % key)
             else:              # multiple match
-                raise KeyError, "Ambiguous key name '%s'." % key
+                raise KeyError("Ambiguous key name '%s'." % key)
     else:
-        raise KeyError, "Illegal key '%s'." % `key`
+        raise KeyError("Illegal key '%s'." % repr(key))
 
     return indx
 
 
 def _unwrapx(input, output, nx):
-    """Unwrap the X format column into a Boolean array.
+    """
+    Unwrap the X format column into a Boolean array.
 
     Parameters
     ----------
@@ -690,7 +713,6 @@ def _unwrapx(input, output, nx):
 
     nx
         number of bits
-
     """
 
     pow2 = [128, 64, 32, 16, 8, 4, 2, 1]
@@ -703,7 +725,8 @@ def _unwrapx(input, output, nx):
 
 
 def _wrapx(input, output, nx):
-    """Wrap the X format column Boolean array into an ``UInt8`` array.
+    """
+    Wrap the X format column Boolean array into an ``UInt8`` array.
 
     Parameters
     ----------
@@ -715,7 +738,6 @@ def _wrapx(input, output, nx):
 
     nx
         number of bits
-
     """
 
     output[...] = 0 # reset the output
@@ -734,7 +756,8 @@ def _wrapx(input, output, nx):
 
 
 def _makep(input, desp_output, dtype):
-    """Construct the P format column array, both the data descriptors and
+    """
+    Construct the P format column array, both the data descriptors and
     the data.  It returns the output "data" array of data type `dtype`.
 
     The descriptor location will have a zero offset for all columns
@@ -751,7 +774,6 @@ def _makep(input, desp_output, dtype):
 
     dtype
         data type of the variable array
-
     """
 
     _offset = 0
@@ -778,6 +800,7 @@ def _makep(input, desp_output, dtype):
 
 def _parse_tformat(tform):
     """Parse the ``TFORM`` value into `repeat`, `dtype`, and `option`."""
+
     try:
         (repeat, dtype, option) = TFORMAT_RE.match(tform.strip()).groups()
     except:
@@ -791,9 +814,9 @@ def _parse_tformat(tform):
 
 
 def _convert_format(input_format, reverse=0):
-    """Convert FITS format spec to record format spec.  Do the opposite if
+    """
+    Convert FITS format spec to record format spec.  Do the opposite if
     reverse = 1.
-    
     """
 
     if reverse and isinstance(input_format, np.dtype):
@@ -841,7 +864,7 @@ def _convert_format(input_format, reverse=0):
         elif dtype == 'F':
             output_format = 'f8'
         else:
-            raise ValueError, "Illegal format %s" % fmt
+            raise ValueError('Illegal format %s.' % fmt)
     else:
         if dtype == 'a':
             # This is a kludge that will place string arrays into a
@@ -860,7 +883,7 @@ def _convert_format(input_format, reverse=0):
                 _repeat = `repeat`
             output_format = _repeat+NUMPY2FITS[dtype+option]
         else:
-            raise ValueError, "Illegal format %s" % fmt
+            raise ValueError('Illegal format %s.' % fmt)
 
     return output_format
 
@@ -880,6 +903,7 @@ def _convert_ascii_format(input_format):
         else:
             width = eval(width)
     except KeyError:
-        raise ValueError, 'Illegal format `%s` for ASCII table.' % input_format
+        raise ValueError('Illegal format `%s` for ASCII table.'
+                         % input_format)
 
     return (dtype, width)
