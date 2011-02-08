@@ -16,9 +16,8 @@ FIX_FP_TABLE2 = string.maketrans('dD', 'eE')
 
 
 class Undefined:
-    """
-    Undefined value.
-    """
+    """Undefined value."""
+
     def __init__(self):
         # This __init__ is required to be here for Sphinx documentation
         pass
@@ -128,10 +127,9 @@ class Card(_Verify):
         """
 
         if key != '' or value != '' or comment != '':
-            self._setkey(key)
-            self._setvalue(value)
-            self._setcomment(comment)
-
+            self.key = key
+            self._update_value(value)
+            self._update_comment(comment)
             # for commentary cards, value can only be strings and there
             # is no comment
             if self.key in Card._commentary_keys:
@@ -139,132 +137,128 @@ class Card(_Verify):
                     raise ValueError('Value in a commentary card must be a '
                                      'string.')
         else:
-            self.__dict__['_cardimage'] = ' ' * 80
+            self._cardimage = ' ' * 80
 
     def __repr__(self):
-        return self._cardimage
+        return self.cardimage
 
-    def __getattr__(self, name):
-        """Instantiate specified attribute object."""
+    def _getkey(self):
+        """Returns the keyword name parsed from the card image."""
 
-        if name == '_cardimage':
-            self.ascardimage()
-        elif name == 'key':
-            self._extract_key()
-        elif name in ['value', 'comment']:
-            self._extract_value_comment(name)
-        else:
-            raise AttributeError, name
-
-        return getattr(self, name)
+        if not hasattr(self, '_key'):
+            # TODO: This can change the class to _HierarchCard--I think it
+            # would be better to detect to appropriate class to use upon
+            # instance creation (in __new__)
+            head = self._get_key_string()
+            if isinstance(self, _HierarchCard):
+                self._key = head.strip()
+            else:
+                self._key = head.strip().upper()
+        return self._key
 
     def _setkey(self, val):
-        """
-        Set the key attribute, surrogate for the `__setattr__` key case.
-        """
+        """Set the key attribute; once set it cannot be modified."""
+
+        if hasattr(self, '_key'):
+            raise AttributeError('Keyword name cannot be modified.')
 
         if isinstance(val, str):
             val = val.strip()
             if len(val) <= 8:
                 val = val.upper()
                 if val == 'END':
-                    raise ValueError, "keyword 'END' not allowed"
+                    raise ValueError("Keyword 'END' not allowed.")
                 self._check_key(val)
             else:
                 if val[:8].upper() == 'HIERARCH':
                     val = val[8:].strip()
                     self.__class__ = _HierarchCard
                 else:
-                    raise ValueError, 'keyword name %s is too long (> 8), use HIERARCH.' % val
+                    raise ValueError('Keyword name %s is too long (> 8), use HIERARCH.'
+                                     % val)
         else:
-            raise ValueError, 'keyword name %s is not a string' % val
-        self.__dict__['key'] = val
+            raise ValueError('Keyword name %s is not a string.' % repr(val))
+        self._key = val
+
+    # TODO: It would be nice to eventually use property.getter/setter/deleter,
+    # but those are not available prior to Python 2.6
+    key = property(_getkey, _setkey, doc='Card keyword')
+
+    def _getvalue(self):
+        """Get the value attribute from the card image if not already set."""
+
+        if not hasattr(self, '_value'):
+            # self._value assigned directly to avoid the checks in
+            # _setvalue() (and to avoid setting _value_modified = True)
+            self._value = self._extract_value()
+        return self._value
 
     def _setvalue(self, val):
-        """
-        Set the value attribute.
-        """
+        self._update_value(val)
+        if hasattr(self, '_cardimage'):
+            del self._cardimage
+
+    value = property(_getvalue, _setvalue, doc='Card value')
+
+    def _update_value(self, val):
+        """Set the value attribute."""
 
         if isinstance(val, (str, int, long, float, complex, bool, Undefined,
                             np.floating, np.integer, np.complexfloating)):
             if isinstance(val, str):
                 self._check_text(val)
-            self.__dict__['_value_modified'] = 1
+            self._value_modified = True
         else:
-            raise ValueError, 'Illegal value %s' % str(val)
-        self.__dict__['value'] = val
+            raise ValueError('Illegal value %s.' % repr(val))
+        self._value = val
+
+    def _getcomment(self):
+        """Get the comment attribute from the card image if not already set."""
+
+        if not hasattr(self, '_comment'):
+            self._comment = self._extract_comment()
+        return self._comment
 
     def _setcomment(self, val):
-        """
-        Set the comment attribute.
-        """
+        self._update_comment(val)
+        if hasattr(self, '_cardimage'):
+            del self._cardimage
 
-        if isinstance(val,str):
+    comment = property(_getcomment, _setcomment, doc='Card comment')
+
+    def _update_comment(self, val):
+        """Set the comment attribute."""
+
+        if isinstance(val, str):
             self._check_text(val)
         else:
             if val is not None:
-                raise ValueError, 'comment %s is not a string' % val
-        self.__dict__['comment'] = val
+                raise ValueError('Comment %s is not a string.' % repr(val))
+        self._comment = val
 
-    def __setattr__(self, name, val):
-        if name == 'key':
-            raise SyntaxError, 'keyword name cannot be reset.'
-        elif name == 'value':
-            self._setvalue(val)
-        elif name == 'comment':
-            self._setcomment(val)
-        elif name == '__class__':
-            _Verify.__setattr__(self, name, val)
-            return
-        else:
-            raise AttributeError, name
+    @property
+    def cardimage(self):
+        if not hasattr(self, '_cardimage'):
+            self.ascardimage()
+        return self._cardimage
 
-        # When an attribute (value or comment) is changed, will reconstructe
-        # the card image.
-        self._ascardimage()
-
-    # TODO: Wouldn't 'verification' be a better name for the 'option' keyword
-    # argument?  'option' is pretty vague.
-    def ascardimage(self, option='silentfix'):
-        """
-        Generate a (new) card image from the attributes: `key`, `value`,
-        and `comment`, or from raw string.
-
-        Parameters
-        ----------
-        option : str
-            Output verification option.  Must be one of ``"fix"``,
-            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  See :ref:`verify` for more info.
-        """
-
-        # Only if the card image already exist (to avoid infinite loop),
-        # fix it first.
-        if self.__dict__.has_key('_cardimage'):
-            self._check(option)
-        self._ascardimage()
-        return self.__dict__['_cardimage']
-
-    def _ascardimage(self):
-        """
-        Generate a (new) card image from the attributes: `key`, `value`,
+    def _update_cardimage(self):
+        """Generate a (new) card image from the attributes: `key`, `value`,
         and `comment`.  Core code for `ascardimage`.
         """
 
-        # keyword string
-        if self.__dict__.has_key('key') or self.__dict__.has_key('_cardimage'):
+        # keyword string (check both _key and _cardimage attributes to avoid an
+        # infinite loop
+        if hasattr(self, '_key') or hasattr(self, '_cardimage'):
             if isinstance(self, _HierarchCard):
                 key_str = 'HIERARCH %s ' % self.key
             else:
                 key_str = '%-8s' % self.key
         else:
-            key_str = ' ' *8
+            key_str = ' ' * 8
 
         # value string
-
-        # check if both value and _cardimage attributes are missing,
-        # to avoid infinite loops
-        if not (self.__dict__.has_key('value') or self.__dict__.has_key('_cardimage')):
+        if not (hasattr(self, '_value') or hasattr(self, '_cardimage')):
             val_str = ''
 
         # string value should occupies at least 8 columns, unless it is
@@ -305,11 +299,11 @@ class Card(_Verify):
         # comment string
         if key_str.strip() in Card._commentary_keys:  # do NOT use self.key
             comment_str = ''
-        elif self.__dict__.has_key('comment') or self.__dict__.has_key('_cardimage'):
+        elif hasattr(self, '_comment') or hasattr(self, '_cardimage'):
             if not self.comment:
                 comment_str = ''
             else:
-                comment_str = ' / ' + self.comment
+                comment_str = ' / ' + self._comment
         else:
             comment_str = ''
 
@@ -317,25 +311,29 @@ class Card(_Verify):
         eq_str = '= '
         if key_str.strip() in Card._commentary_keys:  # not using self.key
             eq_str = ''
-            if self.__dict__.has_key('value'):
+            if hasattr(self, '_value'):
+                # Value must be a string in commentary cards
                 val_str = str(self.value)
 
         # put all parts together
-        output = key_str + eq_str + val_str + comment_str
+        output = ''.join([key_str, eq_str, val_str, comment_str])
 
         # need this in case card-with-continue's value is shortened
         if not isinstance(self, _HierarchCard) and \
            not isinstance(self, RecordValuedKeywordCard):
             self.__class__ = Card
         else:
-            if len(key_str + eq_str + val_str) > Card.length:
+            key_val_len = len(key_str) + len(eq_str) + len(val_str)
+            if key_val_len > Card.length:
                 if isinstance(self, _HierarchCard) and \
-                   len(key_str + eq_str + val_str) == Card.length + 1 and \
+                   key_val_len == Card.length + 1 and \
                    key_str[-1] == ' ':
-                    output = key_str[:-1] + eq_str + val_str + comment_str
+                    output = ''.join([key_str[:-1], eq_str, val_str,
+                                      comment_str])
                 else:
                     raise ValueError('The keyword %s with its value is too '
                                      'long.' % self.key)
+
         if len(output) <= Card.length:
             output = '%-80s' % output
 
@@ -343,127 +341,139 @@ class Card(_Verify):
         else:
             # try not to use CONTINUE if the string value can fit in one line.
             # Instead, just truncate the comment
-            if isinstance(self.value, str) and len(val_str) > (Card.length-10):
+            if isinstance(self.value, str) and \
+               len(val_str) > (Card.length - 10):
                 self.__class__ = _ContinueCard
                 output = self._breakup_strings()
             else:
                 warnings.warn('Card is too long, comment is truncated.')
                 output = output[:Card.length]
 
-        self.__dict__['_cardimage'] = output
+        self._cardimage = output
+
+    # TODO: Wouldn't 'verification' be a better name for the 'option' keyword
+    # argument?  'option' is pretty vague.
+    def ascardimage(self, option='silentfix'):
+        """Generate a (new) card image from the attributes: `key`, `value`,
+        and `comment`, or from raw string.
+
+        Parameters
+        ----------
+        option : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  See :ref:`verify` for more info.
+        """
+
+        # Only if the card image already exist (to avoid infinite loop),
+        # fix it first.
+        if hasattr(self, '_cardimage'):
+            self._check(option)
+        self._update_cardimage()
+        return self._cardimage
 
     def _check_text(self, val):
         """Verify `val` to be printable ASCII text."""
 
         if Card._comment_FSC_RE.match(val) is None:
-            self.__dict__['_err_text'] = 'Unprintable string %s' % repr(val)
-            self.__dict__['_fixable'] = 0
-            raise ValueError, self._err_text
+            self._err_text = 'Unprintable string %s' % repr(val)
+            self._fixable = False
+            raise ValueError(self._err_text)
 
     def _check_key(self, val):
-        """
-        Verify the keyword `val` to be FITS standard.
-        """
+        """Verify the keyword `val` to be FITS standard."""
+
         # use repr (not str) in case of control character
-        if Card._keywd_FSC_RE.match(val) is None:
-            self.__dict__['_err_text'] = 'Illegal keyword name %s' % repr(val)
-            self.__dict__['_fixable'] = 0
-            raise ValueError, self._err_text
+        if not Card._keywd_FSC_RE.match(val):
+            self._err_text = 'Illegal keyword name %s' % repr(val)
+            self._fixable = False
+            raise ValueError(self._err_text)
 
-    def _extract_key(self):
-        """
-        Returns the keyword name parsed from the card image.
-        """
-        head = self._get_key_string()
-        if isinstance(self, _HierarchCard):
-            self.__dict__['key'] = head.strip()
-        else:
-            self.__dict__['key'] = head.strip().upper()
-
-    def _extract_value_comment(self, name):
-        """
-        Extract the keyword value or comment from the card image.
-        """
+    def _extract_value(self):
+        """Extract the keyword value from the card image."""
 
         # for commentary cards, no need to parse further
         if self.key in Card._commentary_keys:
-            self.__dict__['value'] = self._cardimage[8:].rstrip()
-            self.__dict__['comment'] = ''
-            return
+            return self.cardimage[8:].rstrip()
 
         valu = self._check(option='parse')
 
-        if name == 'value':
-            if valu is None:
-                raise ValueError, "Unparsable card (" + self.key + \
-                                  "), fix it first with .verify('fix')."
-            if valu.group('bool') != None:
-                _val = valu.group('bool')=='T'
-            elif valu.group('strg') != None:
-                _val = re.sub("''", "'", valu.group('strg'))
-            elif valu.group('numr') != None:
+        if valu is None:
+            raise ValueError("Unparsable card (%s), fix it first with "
+                             ".verify('fix')." % self.key)
+        if valu.group('bool') != None:
+            _val = valu.group('bool')=='T'
+        elif valu.group('strg') != None:
+            _val = re.sub("''", "'", valu.group('strg'))
+        elif valu.group('numr') != None:
 
-                #  Check for numbers with leading 0s.
-                numr = Card._number_NFSC_RE.match(valu.group('numr'))
-                _digt = numr.group('digt').translate(FIX_FP_TABLE2, ' ')
-                if numr.group('sign') == None:
-                    _val = eval(_digt)
-                else:
-                    _val = eval(numr.group('sign')+_digt)
-            elif valu.group('cplx') != None:
-
-                #  Check for numbers with leading 0s.
-                real = Card._number_NFSC_RE.match(valu.group('real'))
-                _rdigt = real.group('digt').translate(FIX_FP_TABLE2, ' ')
-                if real.group('sign') == None:
-                    _val = eval(_rdigt)
-                else:
-                    _val = eval(real.group('sign')+_rdigt)
-                imag  = Card._number_NFSC_RE.match(valu.group('imag'))
-                _idigt = imag.group('digt').translate(FIX_FP_TABLE2, ' ')
-                if imag.group('sign') == None:
-                    _val += eval(_idigt)*1j
-                else:
-                    _val += eval(imag.group('sign') + _idigt)*1j
+            #  Check for numbers with leading 0s.
+            numr = Card._number_NFSC_RE.match(valu.group('numr'))
+            _digt = numr.group('digt').translate(FIX_FP_TABLE2, ' ')
+            if numr.group('sign') == None:
+                _val = eval(_digt)
             else:
-                _val = UNDEFINED
+                _val = eval(numr.group('sign')+_digt)
+        elif valu.group('cplx') != None:
 
-            self.__dict__['value'] = _val
-            if '_valuestring' not in self.__dict__:
-                self.__dict__['_valuestring'] = valu.group('valu')
-            if '_value_modified' not in self.__dict__:
-                self.__dict__['_value_modified'] = 0
+            #  Check for numbers with leading 0s.
+            real = Card._number_NFSC_RE.match(valu.group('real'))
+            _rdigt = real.group('digt').translate(FIX_FP_TABLE2, ' ')
+            if real.group('sign') == None:
+                _val = eval(_rdigt)
+            else:
+                _val = eval(real.group('sign')+_rdigt)
+            imag  = Card._number_NFSC_RE.match(valu.group('imag'))
+            _idigt = imag.group('digt').translate(FIX_FP_TABLE2, ' ')
+            if imag.group('sign') == None:
+                _val += eval(_idigt)*1j
+            else:
+                _val += eval(imag.group('sign') + _idigt)*1j
+        else:
+            _val = UNDEFINED
 
-        elif name == 'comment':
-            self.__dict__['comment'] = ''
-            if valu is not None:
-                _comm = valu.group('comm')
-                if isinstance(_comm, str):
-                    self.__dict__['comment'] = _comm.rstrip()
+        if not hasattr(self, '_valuestring'):
+            self._valuestring = valu.group('valu')
+        if not hasattr(self, '_value_modified'):
+            self._value_modified = False
+        return _val
+
+    def _extract_comment(self):
+        """Extract the keyword value from the card image."""
+
+        # for commentary cards, no need to parse further
+        if self.key in Card._commentary_keys:
+            return ''
+
+        valu = self._check(option='parse')
+        if valu is not None:
+            comm = valu.group('comm')
+            if isinstance(comm, str):
+                return  comm.rstrip()
+        return ''
 
     def _fix_value(self, input):
-        """
-        Fix the card image for fixable non-standard compliance.
-        """
+        """Fix the card image for fixable non-standard compliance."""
+
         _val_str = None
 
         # for the unparsable case
         if input is None:
             _tmp = self._get_value_comment_string()
             try:
-                slashLoc = _tmp.index("/")
-                self.__dict__['value'] = _tmp[:slashLoc].strip()
-                self.__dict__['comment'] = _tmp[slashLoc+1:].strip()
+                slash_loc = _tmp.index("/")
+                self._value = _tmp[:slash_loc].strip()
+                self._comment = _tmp[slash_loc + 1:].strip()
             except:
-                self.__dict__['value'] = _tmp.strip()
+                self._value = _tmp.strip()
 
-        elif input.group('numr') != None:
+        elif input.group('numr') is not None:
             numr = Card._number_NFSC_RE.match(input.group('numr'))
             _val_str = numr.group('digt').translate(FIX_FP_TABLE, ' ')
             if numr.group('sign') is not None:
                 _val_str = numr.group('sign')+_val_str
 
-        elif input.group('cplx') != None:
+        elif input.group('cplx') is not None:
             real  = Card._number_NFSC_RE.match(input.group('real'))
             _realStr = real.group('digt').translate(FIX_FP_TABLE, ' ')
             if real.group('sign') is not None:
@@ -473,65 +483,67 @@ class Card(_Verify):
             _imagStr = imag.group('digt').translate(FIX_FP_TABLE, ' ')
             if imag.group('sign') is not None:
                 _imagStr = imag.group('sign') + _imagStr
-            _val_str = '(' + _realStr + ', ' + _imagStr + ')'
+            _val_str = '(%s, %s)' % (_realStr, _imagStr)
 
-        self.__dict__['_valuestring'] = _val_str
-        self._ascardimage()
+        self._valuestring = _val_str
+        self._update_cardimage()
 
     def _locate_eq(self):
-        """
-        Locate the equal sign in the card image before column 10 and
+        """Locate the equal sign in the card image before column 10 and
         return its location.  It returns `None` if equal sign is not
         present, or it is a commentary card.
+
         """
+
         # no equal sign for commentary cards (i.e. part of the string value)
-        _key = self._cardimage[:8].strip().upper()
+        _key = self.cardimage[:8].strip().upper()
         if _key in Card._commentary_keys:
-            eqLoc = None
+            eq_loc = None
         else:
             if _key == 'HIERARCH':
                 _limit = Card.length
             else:
                 _limit = 10
             try:
-                eqLoc = self._cardimage[:_limit].index("=")
+                eq_loc = self.cardimage[:_limit].index("=")
             except:
-                eqLoc = None
-        return eqLoc
+                eq_loc = None
+        return eq_loc
 
     def _get_key_string(self):
-        """
-        Locate the equal sign in the card image and return the string
+        """Locate the equal sign in the card image and return the string
         before the equal sign.  If there is no equal sign, return the
         string before column 9.
+
         """
-        eqLoc = self._locate_eq()
-        if eqLoc is None:
-            eqLoc = 8
-        _start = 0
-        if self._cardimage[:8].upper() == 'HIERARCH':
-            _start = 8
+
+        eq_loc = self._locate_eq()
+        if eq_loc is None:
+            eq_loc = 8
+        start = 0
+        if self.cardimage[:8].upper() == 'HIERARCH':
+            start = 8
             self.__class__ = _HierarchCard
-        return self._cardimage[_start:eqLoc]
+        return self.cardimage[start:eq_loc]
 
     def _get_value_comment_string(self):
-        """
-        Locate the equal sign in the card image and return the string
+        """Locate the equal sign in the card image and return the string
         after the equal sign.  If there is no equal sign, return the
         string after column 8.
+
         """
-        eqLoc = self._locate_eq()
-        if eqLoc is None:
-            eqLoc = 7
-        return self._cardimage[eqLoc+1:]
+
+        eq_loc = self._locate_eq()
+        if eq_loc is None:
+            eq_loc = 7
+        return self.cardimage[eq_loc+1:]
 
     def _check(self, option='ignore'):
-        """
-        Verify the card image with the specified option.
-        """
-        self.__dict__['_err_text'] = ''
-        self.__dict__['_fix_text'] = ''
-        self.__dict__['_fixable'] = 1
+        """Verify the card image with the specified option."""
+
+        self._err_text = ''
+        self._fix_text = ''
+        self._fixable = True
 
         if option == 'ignore':
             return
@@ -545,15 +557,19 @@ class Card(_Verify):
         else:
 
             # verify the equal sign position
-            if self.key not in Card._commentary_keys and self._cardimage.find('=') != 8:
+            if self.key not in Card._commentary_keys and \
+               self.cardimage.find('=') != 8:
                 if option in ['exception', 'warn']:
-                    self.__dict__['_err_text'] = 'Card image is not FITS standard (equal sign not at column 8).'
-                    raise ValueError, self._err_text + '\n%s' % self._cardimage
+                    self._err_text = \
+                        'Card image is not FITS standard (equal sign not at ' \
+                        'column 8).'
+                    raise ValueError(self._err_text + '\n%s' % self.cardimage)
                 elif option in ['fix', 'silentfix']:
                     result = self._check('parse')
                     self._fix_value(result)
                     if option == 'fix':
-                        self.__dict__['_fix_text'] = 'Fixed card to be FITS standard.: %s' % self.key
+                        self._fix_text = \
+                            'Fixed card to be FITS standard.: %s' % self.key
 
             # verify the key, it is never fixable
             # always fix silently the case where "=" is before column 9,
@@ -569,26 +585,29 @@ class Card(_Verify):
                     result = self._check('parse')
                     self._fix_value(result)
                     if option == 'fix':
-                        self.__dict__['_fix_text'] = 'Fixed card to be FITS standard.: %s' % self.key
+                        self._fix_text = \
+                            'Fixed card to be FITS standard.: %s' % self.key
                 else:
-                    self.__dict__['_err_text'] = 'Card image is not FITS standard (unparsable value string).'
-                    raise ValueError, self._err_text + '\n%s' % self._cardimage
+                    self._err_text = \
+                        'Card image is not FITS standard (unparsable value ' \
+                        'string).'
+                    raise ValueError(self._err_text + '\n%s' % self.cardimage)
 
             # verify the comment (string), it is never fixable
             if result is not None:
-                _str = result.group('comm')
-                if _str is not None:
-                    self._check_text(_str)
+                comm = result.group('comm')
+                if comm is not None:
+                    self._check_text(comm)
 
     def fromstring(self, input):
-        """
-        Construct a `Card` object from a (raw) string. It will pad the
+        """Construct a `Card` object from a (raw) string. It will pad the
         string if it is not the length of a card image (80 columns).
         If the card image is longer than 80 columns, assume it
         contains ``CONTINUE`` card(s).
+
         """
 
-        self.__dict__['_cardimage'] = _pad(input)
+        self._cardimage = _pad(input)
 
         if self._cardimage[:8].upper() == 'HIERARCH':
             self.__class__ = _HierarchCard
@@ -597,18 +616,16 @@ class Card(_Verify):
             self.__class__ = _ContinueCard
 
         # remove the key/value/comment attributes, some of them may not exist
-        for name in ['key', 'value', 'comment', '_value_modified']:
-            if self.__dict__.has_key(name):
+        for name in ['_key', '_value', '_comment', '_value_modified']:
+            if hasattr(self, name):
                 delattr(self, name)
         return self
 
     def _ncards(self):
-        return len(self._cardimage) // Card.length
+        return len(self.cardimage) // Card.length
 
     def _verify(self, option='warn'):
-        """
-        Card class verification method.
-        """
+        """Card class verification method."""
 
         err = _ErrList([])
         try:
@@ -669,7 +686,9 @@ class RecordValuedKeywordCard(Card):
         DP1     = 'AUX.1.POWER.0: 1'
         DP1     = 'AUX.1.COEFF.1: 0.00048828125'
         DP1     = 'AUX.1.POWER.1: 1'
+
     """
+
     #
     # A group of class level regular expression definitions that allow the
     # extraction of the key, field-specifier, value, and comment from a
@@ -759,7 +778,7 @@ class RecordValuedKeywordCard(Card):
     def __getattr__(self, name):
 
         if name == 'field_specifier':
-            self._extract_value_comment('value')
+            self._extract_value()
         else:
             Card.__getattr__(self, name)
 
@@ -804,6 +823,7 @@ class RecordValuedKeywordCard(Card):
                 the input card
 
         """
+
         mo = cls.field_specifier_NFSC_val_RE.match(card.value)
         if mo:
             return cls(card.key, card.value, card.comment)
@@ -971,13 +991,13 @@ class RecordValuedKeywordCard(Card):
         return objClass().fromstring(input)
     createCardFromString = create_card_from_string # For API backwards-compat
 
-    def _ascardimage(self):
-        """
-        Generate a (new) card image from the attributes: `key`, `value`,
+    def _update_cardimage(self):
+        """Generate a (new) card image from the attributes: `key`, `value`,
         `field_specifier`, and `comment`.  Core code for `ascardimage`.
+
         """
 
-        Card._ascardimage(self)
+        super(Card, self)._updateimage(self)
         eqloc = self._cardimage.index("=")
         slashloc = self._cardimage.find("/")
 
@@ -997,32 +1017,26 @@ class RecordValuedKeywordCard(Card):
         if len(output) <= Card.length:
             output = "%-80s" % output
 
-        self.__dict__['_cardimage'] = output
+        self._cardimage = output
 
 
-    def _extract_value_comment(self, name):
-        """
-        Extract the keyword value or comment from the card image.
-        """
+    def _extract_value(self):
+        """Extract the keyword value from the card image."""
+
         valu = self._check(option='parse')
 
-        if name == 'value':
-            if valu is None:
-                raise ValueError(
-                    "Unparsable card, fix it first with .verify('fix').")
+        if valu is None:
+            raise ValueError(
+                "Unparsable card, fix it first with .verify('fix').")
 
-            self.__dict__['field_specifier'] = valu.group('keyword')
-            self.__dict__['value'] = \
-                eval(valu.group('val').translate(FIX_FP_TABLE2, ' '))
+        self.field_specifier = valu.group('keyword')
 
-            if '_valuestring' not in self.__dict__:
-                self.__dict__['_valuestring'] = valu.group('val')
-            if '_value_modified' not in self.__dict__:
-                self.__dict__['_value_modified'] = 0
+        if not hasattr(self, '_valuestring'):
+            self._valuestring = valu.group('val')
+        if not hasattr(self, '_value_modified'):
+            self.__value_modified = False
 
-        elif name == 'comment':
-            Card._extract_value_comment(self, name)
-
+        return eval(valu.group('val').translate(FIX_FP_TABLE2, ' '))
 
     def strvalue(self):
         """Method to extract the field specifier and value from the card
@@ -1032,8 +1046,8 @@ class RecordValuedKeywordCard(Card):
 
         """
 
-        mo = self.field_specifier_NFSC_image_RE.search(self._cardimage)
-        return self._cardimage[mo.start():mo.end()]
+        mo = self.field_specifier_NFSC_image_RE.search(self.cardimage)
+        return self.cardimage[mo.start():mo.end()]
 
     def _fix_value(self, input):
         """Fix the card image for fixable non-standard compliance."""
@@ -1044,25 +1058,24 @@ class RecordValuedKeywordCard(Card):
             tmp = self._get_value_comment_string()
 
             try:
-                slashLoc = tmp.index("/")
+                slash_loc = tmp.index("/")
             except:
-                slashLoc = len(tmp)
+                slash_loc = len(tmp)
 
-            self.__dict__['_err_text'] = 'Illegal value %s' % tmp[:slashLoc]
-            self.__dict__['_fixable'] = 0
-            raise ValueError, self._err_text
+            self._err_text = 'Illegal value %s' % tmp[:slash_loc]
+            self._fixable = False
+            raise ValueError(self._err_text)
         else:
-            self.__dict__['_valuestring'] = \
-                input.group('val').translate(FIX_FP_TABLE, ' ')
-            self._ascardimage()
+            self._valuestring = input.group('val').translate(FIX_FP_TABLE, ' ')
+            self._update_cardimage()
 
 
     def _check(self, option='ignore'):
         """Verify the card image with the specified `option`."""
 
-        self.__dict__['_err_text'] = ''
-        self.__dict__['_fix_text'] = ''
-        self.__dict__['_fixable'] = 1
+        self._err_text = ''
+        self._fix_text = ''
+        self._fixable = True
 
         if option == 'ignore':
             return
@@ -1071,18 +1084,18 @@ class RecordValuedKeywordCard(Card):
                     self._get_value_comment_string())
         else:
             # verify the equal sign position
-            if self._cardimage.find('=') != 8:
+            if self.cardimage.find('=') != 8:
                 if option in ['exception', 'warn']:
-                    self.__dict__['_err_text'] = \
+                    self._err_text = \
                         'Card image is not FITS standard (equal sign not at ' \
                         'column 8).'
-                    raise ValueError(self._err_text + '\n%s' % self._cardimage)
+                    raise ValueError(self._err_text + '\n%s' % self.cardimage)
                 elif option in ['fix', 'silentfix']:
                     result = self._check('parse')
                     self._fix_value(result)
 
                     if option == 'fix':
-                        self.__dict__['_fix_text'] = \
+                        self._fix_text = \
                            'Fixed card to be FITS standard. : %s' % self.key
 
             # verify the key
@@ -1100,13 +1113,13 @@ class RecordValuedKeywordCard(Card):
                     self._fix_value(result)
 
                     if option == 'fix':
-                        self.__dict__['_fix_text'] = \
+                        self._fix_text = \
                               'Fixed card to be FITS standard.: %s' % self.key
                 else:
-                    self.__dict__['_err_text'] = \
+                    self._err_text = \
                         'Card image is not FITS standard (unparsable value ' \
                         'string).'
-                    raise ValueError(self._err_text + '\n%s' % self._cardimage)
+                    raise ValueError(self._err_text + '\n%s' % self.cardimage)
 
             # verify the comment (string), it is never fixable
             if result is not None:
@@ -1218,6 +1231,10 @@ class CardList(list):
                 self.count_blanks()
                 self._mod = 1
         else:
+            # TODO: Replace instances of SyntaxError with something more
+            # appropriate--the SyntaxError builtin is intended for Python
+            # parser errors.  Perhaps a custom exception like CardSyntaxError
+            # could be used.
             raise SyntaxError('%s is not a Card' % str(value))
 
     def __delitem__(self, key):
@@ -1476,10 +1493,11 @@ upperKey = upper_key # For API backward-compat
 
 
 class _HierarchCard(Card):
+    """Cards begins with ``HIERARCH`` which allows keyword name longer than 8
+    characters.
+
     """
-    Cards begins with ``HIERARCH`` which allows keyword name longer
-    than 8 characters.
-    """
+    
     def _verify(self, option='warn'):
         """No verification (for now)."""
 
@@ -1496,44 +1514,46 @@ class _ContinueCard(Card):
     def __str__(self):
         """Format a list of cards into a printable string."""
 
-        kard = self._cardimage
+        kard = self.cardimage
         output = ''
         for i in range(len(kard)//80):
             output += kard[i*80:(i+1)*80] + '\n'
         return output[:-1]
 
-    def _extract_value_comment(self, name):
-        """Extract the keyword value or comment from the card image."""
-
-        longstring = ''
-
+    def _iter_cards(self):
         ncards = self._ncards()
         for idx in range(ncards):
             # take each 80-char card as a regular card and use its methods.
-            _card = Card().fromstring(self._cardimage[idx*80:(idx+1)*80])
-            if idx > 0 and _card.key != 'CONTINUE':
+            card = Card().fromstring(self.cardimage[idx*80:(idx+1)*80])
+            if idx > 0 and card.key != 'CONTINUE':
                 raise ValueError('Long card image must have CONTINUE cards '
                                  'after the first card.')
-            if not isinstance(_card.value, str):
+            if not isinstance(card.value, str):
                 raise ValueError(
                     'Cards with CONTINUE must have string value.')
+            yield card
 
+    def _extract_value(self):
+        """Extract the keyword value from the card image."""
 
+        output = []
+        for card in self._iter_cards():
+            val = card.value.rstrip().replace("''", "'")
+            # drop the ending "&"
+            if val and val[-1] == '&':
+                val = val[:-1]
+            output.append(val)
+        return ''.join(output).rstrip()
 
-            if name == 'value':
-                _val = re.sub("''", "'", _card.value).rstrip()
+    def _extract_comment(self):
+        """Extract the comment from the card image."""
 
-                # drop the ending "&"
-                if len(_val) and _val[-1] == '&':
-                    _val = _val[:-1]
-                longstring = longstring + _val
-
-            elif name == 'comment':
-                _comm = _card.comment
-                if isinstance(_comm, str) and _comm != '':
-                    longstring = longstring + _comm.rstrip() + ' '
-
-            self.__dict__[name] = longstring.rstrip()
+        output = []
+        for card in self._iter_cards():
+            comm = card.comment
+            if isinstance(comm, str) and comm != '':
+                output.append(comm.rstrip() + ' ')
+        return ''.join(output).rstrip()
 
     def _breakup_strings(self):
         """Break up long string value/comment into ``CONTINUE`` cards.
@@ -1546,7 +1566,7 @@ class _ContinueCard(Card):
 
         val_len = 67
         comm_len = 64
-        output = ''
+        output = []
 
         # do the value string
         valfmt = "'%-s&'"
@@ -1558,7 +1578,7 @@ class _ContinueCard(Card):
             else:
                 headstr = "CONTINUE  "
             valstr = valfmt % val_list[idx]
-            output = output + '%-80s' % (headstr + valstr)
+            output.append('%-80s' % (headstr + valstr))
 
         # do the comment string
         if self.comment is None:
@@ -1570,9 +1590,9 @@ class _ContinueCard(Card):
             comm_list = self._words_group(comm, comm_len)
             for idx in comm_list:
                 commstr = "CONTINUE  '&' / " + commfmt % idx
-                output = output + '%-80s' % commstr
+                output.append('%-80s' % commstr)
 
-        return output
+        return ''.join(output)
 
     def _words_group(self, input, strlen):
         """Split a long string into parts where each part is no longer
