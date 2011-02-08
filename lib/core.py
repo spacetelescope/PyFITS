@@ -6236,7 +6236,7 @@ class GroupData(FITS_rec):
                                               names=_coldefs.names,
                                               shape=gcount))
             self._coldefs = _coldefs
-            self.parnames = [i.lower() for i in parnames]
+            self.parnames = parnames
 
             for i in range(npars):
                 (_scale, _zero)  = self._get_scale_factors(i)[3:5]
@@ -6263,7 +6263,7 @@ class GroupData(FITS_rec):
         if attr == '_unique':
             _unique = {}
             for i in range(len(self.parnames)):
-                _name = self.parnames[i]
+                _name = self.parnames[i].lower()
                 if _name in _unique:
                     _unique[_name].append(i)
                 else:
@@ -6312,7 +6312,7 @@ class _Group(FITS_record):
         if attr == '_unique':
             _unique = {}
             for i in range(len(self.parnames)):
-                _name = self.parnames[i]
+                _name = self.parnames[i].lower()
                 if _name in _unique:
                     _unique[_name].append(i)
                 else:
