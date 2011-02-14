@@ -5004,6 +5004,14 @@ class Column:
                     raise ValueError, "Illegal format `%s`." % format
 
             self.format = format
+            # Zero-length formats are legal in the FITS format, but since they
+            # are not supported by numpy we mark columns that use them as
+            # "phantom" columns, that are not considered when reading the data
+            # as a record array.
+            if self.format[0] == '0' or self.format[-1] == '0':
+                self._phantom = True
+            else:
+                self._phantom = False
 
             # does not include Object array because there is no guarantee
             # the elements in the object array are consistent.
@@ -5448,12 +5456,15 @@ def _get_tbdata(hdu):
     tmp = hdu.columns
     # get the right shape for the data part of the random group,
     # since binary table does not support ND yet
+    recformats = [f for idx, f in enumerate(tmp._recformats)
+                  if not tmp[idx]._phantom]
+    names = [n for idx, n in enumerate(tmp.names) if not tmp[idx]._phantom]
     if isinstance(hdu, GroupsHDU):
-        tmp._recformats[-1] = `hdu._dimShape()[:-1]` + tmp._dat_format
+        recformats[-1] = `hdu._dimShape()[:-1]` + tmp._dat_format
     elif isinstance(hdu, TableHDU):
         # determine if there are duplicate field names and if there
         # are throw an exception
-        _dup = rec.find_duplicate(tmp.names)
+        _dup = rec.find_duplicate(names)
 
         if _dup:
             raise ValueError, "Duplicate field names: %s" % _dup
@@ -5474,20 +5485,20 @@ def _get_tbdata(hdu):
         if isinstance(hdu, TableHDU):
             hdu._ffile.code = dtype
         else:
-            hdu._ffile.code = rec.format_parser(",".join(tmp._recformats),
-                                                 tmp.names,None)._descr
+            hdu._ffile.code = rec.format_parser(",".join(recformats),
+                                                names,None)._descr
 
         hdu._ffile.dims = tmp._shape
         hdu._ffile.offset = hdu._datLoc
         _data = rec.recarray(shape=hdu._ffile.dims, buf=hdu._ffile._mm,
-                             dtype=hdu._ffile.code, names=tmp.names)
+                             dtype=hdu._ffile.code, names=names)
     else:
         if isinstance(hdu, TableHDU):
-            _data = rec.array(hdu._file, dtype=dtype, names=tmp.names,
+            _data = rec.array(hdu._file, dtype=dtype, names=names,
                               shape=tmp._shape)
         else:
-            _data = rec.array(hdu._file, formats=",".join(tmp._recformats),
-                              names=tmp.names, shape=tmp._shape)
+            _data = rec.array(hdu._file, formats=",".join(recformats),
+                              names=names, shape=tmp._shape)
 
     if isinstance(hdu._ffile, _File):
 #        _data._byteorder = 'big'
@@ -5500,12 +5511,12 @@ def _get_tbdata(hdu):
     _data._gap = hdu._theap - _tbsize
     # comment out to avoid circular reference of _pcount
 
-    # pass the attributes
-    for attr in ['formats', 'names']:
-        setattr(_data, attr, getattr(tmp, attr))
+    fidx = 0
     for i in range(len(tmp)):
-       # get the data for each column object from the rec.recarray
-        tmp.data[i].array = _data.field(i)
+        if not tmp[i]._phantom:
+           # get the data for each column object from the rec.recarray
+            tmp.data[i].array = _data.field(fidx)
+            fidx += 1
 
     # delete the _arrays attribute so that it is recreated to point to the
     # new data placed in the column object above
@@ -5759,7 +5770,7 @@ class FITS_record(object):
 
     def __getitem__(self,key):
         if isinstance(key, (str, unicode)):
-            indx = _get_index(self.array._coldefs.names, key)
+            indx = _get_index(self.array.names, key)
 
             if indx < self.start or indx > self.end - 1:
                 raise KeyError("Key '%s' does not exist."%key)
@@ -5817,8 +5828,10 @@ class FITS_rec(rec.recarray):
         self._convert = [None]*len(self.dtype.names)
         self._coldefs = None
         self._gap = 0
-        self.names = self.dtype.names
-        self._names = self.dtype.names # This attribute added for backward compatibility with numarray version of FITS_rec
+        self.names = list(self.dtype.names)
+        # This attribute added for backward compatibility with numarray version 
+        # of FITS_rec
+        self._names = self.names 
         self.formats = None
         return self
 
@@ -5845,8 +5858,8 @@ class FITS_rec(rec.recarray):
 
             self._coldefs = None
             self._gap = 0
-            self.names = obj.dtype.names
-            self._names = obj.dtype.names # This attribute added for backward compatibility with numarray version of FITS_rec
+            self.names = list(obj.dtype.names)
+            self._names = self.names
             self.formats = None
 
             attrs=['_convert', '_coldefs', 'names', '_names', '_gap', 'formats']
@@ -5989,7 +6002,7 @@ class FITS_rec(rec.recarray):
         """
         A view of a `Column`'s data as an array.
         """
-        indx = _get_index(self._coldefs.names, key)
+        indx = _get_index(self.names, key)
 
         if (self._convert[indx] is None):
             # for X format

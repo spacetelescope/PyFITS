@@ -36,7 +36,7 @@ def comparefloats(a, b):
         if diff[mask0].max() != 0.:
             return False
     if num.any(masknz):
-        if (diff[masknz]/aa[masknz]).max() > precision:
+        if (diff[masknz]/num.absolute(aa[masknz])).max() > precision:
             return False
     return True
 
@@ -1583,7 +1583,36 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         t.close()
 
-
+    def testTableWithZeroWidthColumn(self):
+        hdul = pyfits.open(test_dir + 'zerowidth.fits')
+        tbhdu = hdul[2] # This HDU contains a zero-width column 'ORBPARM'
+        self.assert_('ORBPARM' in tbhdu.columns.names)
+        # The ORBPARM column should not be in the data, though the data should
+        # be readable
+        self.assert_('ORBPARM' not in tbhdu.data.names)
+        # Verify that some of the data columns are still correctly accessible
+        # by name
+        self.assert_(comparefloats(
+            tbhdu.data[0]['STABXYZ'],
+            num.array([499.85566663, -1317.99231554, -735.18866164],
+                      dtype=num.float64)))
+        self.assertEqual(tbhdu.data[0]['NOSTA'], 1)
+        self.assertEqual(tbhdu.data[0]['MNTSTA'], 0)
+        hdul.writeto('newtable.fits')
+        hdul.close()
+        hdul = pyfits.open('newtable.fits')
+        tbhdu = hdul[2]
+        # Verify that the previous tests still hold after writing
+        self.assert_('ORBPARM' in tbhdu.columns.names)
+        self.assert_('ORBPARM' not in tbhdu.data.names)
+        self.assert_(comparefloats(
+            tbhdu.data[0]['STABXYZ'],
+            num.array([499.85566663, -1317.99231554, -735.18866164],
+                      dtype=num.float64)))
+        self.assertEqual(tbhdu.data[0]['NOSTA'], 1)
+        self.assertEqual(tbhdu.data[0]['MNTSTA'], 0)
+        hdul.close()
+        os.remove('newtable.fits')
 
 
 
