@@ -3,7 +3,6 @@ import os
 import re
 import sys
 import tempfile
-import types
 import urllib
 import warnings
 import zipfile
@@ -30,36 +29,34 @@ PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
 MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+'}
 
 
-class _File:
+class _File(object):
     """
     A file I/O class.
     """
-    def __init__(self, name=None, mode='copyonwrite', memmap=0, **parms):
-        if name == None:
+
+    def __init__(self, name=None, mode='copyonwrite', memmap=False, **kwargs):
+        if name is None:
             self._simulateonly = True
             return
         else:
             self._simulateonly = False
 
         if mode not in PYTHON_MODES.keys():
-            raise ValueError, "Mode '%s' not recognized" % mode
+            raise ValueError("Mode '%s' not recognized" % mode)
 
 
+        # Determine what the _File object's name should be
         if isinstance(name, file):
             self.name = name.name
-        elif isinstance(name, types.StringType) or \
-             isinstance(name, types.UnicodeType):
+        elif isinstance(name, basestring):
             if mode != 'append' and not os.path.exists(name) and \
-            not os.path.splitdrive(name)[0]:
+               not os.path.splitdrive(name)[0]:
                 #
                 # Not writing file and file does not exist on local machine and
                 # name does not begin with a drive letter (Windows), try to
                 # get it over the web.
                 #
-                try:
-                    self.name, fileheader = urllib.urlretrieve(name)
-                except IOError, e:
-                    raise e
+                self.name, fileheader = urllib.urlretrieve(name)
             else:
                 self.name = name
         else:
@@ -78,23 +75,24 @@ class _File:
         self.dims = None
         self.offset = 0
 
-        if parms.has_key('ignore_missing_end'):
-            self.ignore_missing_end = parms['ignore_missing_end']
+        if 'ignore_missing_end' in kwargs:
+            self.ignore_missing_end = kwargs['ignore_missing_end']
         else:
-            self.ignore_missing_end = 0
+            self.ignore_missing_end = False
 
-        self.uint = parms.get('uint16', False) or parms.get('uint', False)
+        self.uint = kwargs.get('uint16', False) or kwargs.get('uint', False)
 
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise NotImplementedError(
                    "Memory mapping is not implemented for mode `%s`." % mode)
         else:
+            # Initialize the internal self.__file object
             if isinstance(name, file) or isinstance(name, gzip.GzipFile):
                 if hasattr(name, 'closed'):
                     closed = name.closed
                     foMode = name.mode
                 else:
-                    if name.fileobj != None:
+                    if name.fileobj is not None:
                         closed = name.fileobj.closed
                         foMode = name.fileobj.mode
                     else:
@@ -103,17 +101,16 @@ class _File:
 
                 if not closed:
                     if PYTHON_MODES[mode] != foMode:
-                        raise ValueError, "Input mode '%s' (%s) " \
-                              % (mode, PYTHON_MODES[mode]) + \
-                              "does not match mode of the input file (%s)." \
-                              % name.mode
+                        raise ValueError(
+                            "Input mode '%s' (%s) does not match mode of the "
+                            "input file (%s)." % (mode, PYTHON_MODES[mode],
+                                                  name.mode))
                     self.__file = name
                 elif isinstance(name, file):
-                    self.__file=open(self.name, PYTHON_MODES[mode])
+                    self.__file = open(self.name, PYTHON_MODES[mode])
                 else:
-                    self.__file=gzip.open(self.name, PYTHON_MODES[mode])
-            elif isinstance(name, types.StringType) or \
-                 isinstance(name, types.UnicodeType):
+                    self.__file = gzip.open(self.name, PYTHON_MODES[mode])
+            elif isinstance(name, basestring):
                 if os.path.splitext(self.name)[1] == '.gz':
                     # Handle gzip files
                     if mode in ['update', 'append']:
@@ -155,10 +152,15 @@ class _File:
 
                 if (self.mode in ('copyonwrite', 'update', 'append') and
                     not hasattr(self.__file, 'write')):
-                    raise IOError("File-like object does not have a 'write' method, required for mode '%s'" % self.mode)
+                    raise IOError("File-like object does not have a 'write' "
+                                  "method, required for mode '%s'."
+                                  % self.mode)
 
-                if self.mode == 'readonly' and not hasattr(self.__file, 'read'):
-                    raise IOError("File-like object does not have a 'read' method, required for mode 'readonly'" % self.mode)
+                if self.mode == 'readonly' and \
+                   not hasattr(self.__file, 'read'):
+                    raise IOError("File-like object does not have a 'read' "
+                                  "method, required for mode 'readonly'."
+                                  % self.mode)
 
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
@@ -166,8 +168,8 @@ class _File:
             if mode == 'ostream':
                 # For output stream start with a truncated file.
                 self._size = 0
-            elif isinstance(self.__file,gzip.GzipFile):
-                self.__file.fileobj.seek(0,2)
+            elif isinstance(self.__file, gzip.GzipFile):
+                self.__file.fileobj.seek(0, 2)
                 self._size = self.__file.fileobj.tell()
                 self.__file.fileobj.seek(0)
                 self.__file.seek(0)
@@ -178,38 +180,35 @@ class _File:
             else:
                 self._size = 0
 
-    def __getattr__(self, attr):
-        """
-        Get the `_mm` attribute.
-        """
-        if attr == '_mm':
-            return Memmap(self.name,offset=self.offset,mode=MEMMAP_MODES[self.mode],dtype=self.code,shape=self.dims)
-        try:
-            return self.__dict__[attr]
-        except KeyError:
-            raise AttributeError(attr)
+    @property
+    def _mm(self):
+        return Memmap(self.name, offset=self.offset,
+                      mode=MEMMAP_MODES[self.mode], dtype=self.code,
+                      shape=self.dims)
 
     def getfile(self):
         return self.__file
 
-    def _readheader(self, cardList, keyList, blocks):
-        """Read blocks of header, and put each card into a list of cards.
-           Will deal with CONTINUE cards in a later stage as CONTINUE cards
-           may span across blocks.
+    def _readheader(self, cardlist, keylist, blocks):
+        """
+        Read blocks of header, and put each card into a list of cards.
+        Will deal with CONTINUE cards in a later stage as CONTINUE cards
+        may span across blocks.
         """
 
         if len(block) != BLOCK_SIZE:
-            raise IOError, 'Block length is not %d: %d' % (BLOCK_SIZE, len(block))
+            raise IOError('Block length is not %d: %d.'
+                          % (BLOCK_SIZE, len(block)))
         elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
-            raise IOError, 'Block does not begin with SIMPLE or XTENSION'
+            raise IOError('Block does not begin with SIMPLE or XTENSION.')
 
         for i in range(0, len(BLOCK_SIZE), Card.length):
-            _card = Card('').fromstring(block[i:i+Card.length])
-            _key = _card.key
+            card = Card('').fromstring(block[i:i + Card.length])
+            key = card.key
 
-            cardList.append(_card)
-            keyList.append(_key)
-            if _key == 'END':
+            cardlist.append(card)
+            keylist.append(key)
+            if key == 'END':
                 break
 
     def _readHDU(self):
@@ -217,10 +216,11 @@ class _File:
         Read the skeleton structure of the HDU.
         """
 
-        if not hasattr(self.__file, 'tell') or not hasattr(self.__file, 'read'):
+        if not hasattr(self.__file, 'tell') or \
+           not hasattr(self.__file, 'read'):
             raise EOFError
 
-        end_RE = re.compile('END'+' '*77)
+        end_RE = re.compile('END' + ' '*77)
         _hdrLoc = self.__file.tell()
 
         # Read the first header block.
@@ -230,23 +230,26 @@ class _File:
 
         hdu = _TempHDU()
         hdu._raw = ''
+        blocks = []
 
         # continue reading header blocks until END card is reached
-        while 1:
+        while True:
 
             # find the END card
             mo = end_RE.search(block)
             if mo is None:
-                hdu._raw += block
+                blocks.append(block)
                 block = self.__file.read(BLOCK_SIZE)
                 if block == '':
                     break
             else:
                 break
-        hdu._raw += block
+        blocks.append(block)
 
         if not end_RE.search(block) and not self.ignore_missing_end:
-            raise IOError, "Header missing END card."
+            raise IOError('Header missing END card.')
+
+        hdu._raw = ''.join(blocks)
 
         _size, hdu.name = hdu._getsize(hdu._raw)
 
@@ -266,12 +269,14 @@ class _File:
         hdu._ffile = self
         if isinstance(hdu._file, gzip.GzipFile):
             pos = self.__file.tell()
-            self.__file.seek(pos+hdu._datSpan)
+            self.__file.seek(pos + hdu._datSpan)
         else:
             self.__file.seek(hdu._datSpan, 1)
 
             if self.__file.tell() > self._size:
-                warnings.warn('Warning: File may have been truncated: actual file length (%i) is smaller than the expected size (%i)'  % (self._size, self.__file.tell()))
+                warnings.warn('Warning: File may have been truncated: actual '
+                              'file length (%i) is smaller than the expected '
+                              'size (%i)'  % (self._size, self.__file.tell()))
 
         return hdu
 
@@ -280,6 +285,8 @@ class _File:
         Write *one* FITS HDU.  Must seek to the correct location
         before calling this method.
         """
+
+        #TODO: Maybe move some of the logic for this to the appropriate HDU classes
 
         if isinstance(hdu, _ImageBaseHDU):
             hdu.update_header()
@@ -292,47 +299,48 @@ class _File:
         Write FITS HDU header part.
         """
 
+        #TODO: Maybe some of the logic for this to the appropriate HDU classes
+
         # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
         # cards to header
 
-        if 'data' in dir(hdu) and hdu.data is not None \
-        and not isinstance(hdu, _NonstandardHDU) \
-        and not isinstance(hdu, _NonstandardExtHDU) \
-        and _is_pseudo_unsigned(hdu.data.dtype):
-            hdu._header.update(
-                'BSCALE', 1,
-                after='NAXIS'+`hdu.header.get('NAXIS')`)
-            hdu._header.update(
-                'BZERO', _unsigned_zero(hdu.data.dtype),
-                after='BSCALE')
+        if hasattr(hdu, 'data') and hdu.data is not None and \
+           not isinstance(hdu, _NonstandardHDU) and \
+           not isinstance(hdu, _NonstandardExtHDU) and \
+           and _is_pseudo_unsigned(hdu.data.dtype):
+            hdu._header.update('BSCALE', 1,
+                               after='NAXIS' + repr(hdu.header.get('NAXIS')))
+            hdu._header.update('BZERO', _unsigned_zero(hdu.data.dtype),
+                               after='BSCALE')
 
         # Handle checksum
-        if hdu._header.has_key('CHECKSUM'):
+        if 'CHECKSUM' hdu.header:
             del hdu.header['CHECKSUM']
 
-        if hdu._header.has_key('DATASUM'):
+        if 'DATASUM' in hdu._header:
             del hdu.header['DATASUM']
 
         if checksum == 'datasum':
             hdu.add_datasum()
         elif checksum == 'nonstandard_datasum':
-            hdu.add_datasum(blocking="nonstandard")
+            hdu.add_datasum(blocking='nonstandard')
         elif checksum == 'test':
             hdu.add_datasum(hdu._datasum_comment)
-            hdu.add_checksum(hdu._checksum_comment,True)
-        elif checksum == "nonstandard":
-            hdu.add_checksum(blocking="nonstandard")
+            hdu.add_checksum(hdu._checksum_comment, True)
+        elif checksum == 'nonstandard':
+            hdu.add_checksum(blocking='nonstandard')
         elif checksum:
-            hdu.add_checksum(blocking="standard")
+            hdu.add_checksum(blocking='standard')
 
         blocks = repr(hdu._header.ascard) + _pad('END')
-        blocks = blocks + _pad_length(len(blocks))*' '
-
-        if len(blocks)%BLOCK_SIZE != 0:
-            raise IOError
+        blocks = blocks + _pad_length(len(blocks)) * ' '
 
         loc = 0
         size = len(blocks)
+
+        if size % BLOCK_SIZE != 0:
+            raise IOError('Header size (%d) is not a multiple of block size '
+                          '(%d).' % (size, BLOCK_SIZE))
 
         if not self._simulateonly:
             if hasattr(self.__file, 'flush'):
@@ -357,10 +365,10 @@ class _File:
 
         # If data is unsigned integer 16, 32 or 64, remove the
         # BSCALE/BZERO cards
-        if 'data' in dir(hdu) and hdu.data is not None \
-        and not isinstance(hdu, _NonstandardHDU) \
-        and not isinstance(hdu, _NonstandardExtHDU) \
-        and _is_pseudo_unsigned(hdu.data.dtype):
+        if hasattr(hdu, 'data') and hdu.data is not None and \
+           not isinstance(hdu, _NonstandardHDU) and \
+           not isinstance(hdu, _NonstandardExtHDU) and \
+           _is_pseudo_unsigned(hdu.data.dtype):
             del hdu._header['BSCALE']
             del hdu._header['BZERO']
 
@@ -370,6 +378,8 @@ class _File:
         """
         Write FITS HDU data part.
         """
+
+        #TODO: Maybe move some of the logic for this to the appropriate HDU classes
 
         loc = 0
         _size = 0
@@ -392,6 +402,7 @@ class _File:
 
             # return both the location and the size of the data area
             return loc, len(hdu.data)
+
         elif isinstance(hdu, _NonstandardExtHDU) and hdu.data is not None:
             if not self._simulateonly:
                 self.__file.write(hdu.data)
@@ -399,13 +410,14 @@ class _File:
 
             if not self._simulateonly:
                 # pad the fits data block
-                self.__file.write(_pad_length(_size)*'\0')
+                self.__file.write(_pad_length(_size) * '\0')
 
                 # flush, to make sure the content is written
                 self.__file.flush()
 
             # return both the location and the size of the data area
-            return loc, _size+_pad_length(_size)
+            return loc, _size + _pad_length(_size)
+
         elif hdu.data is not None:
             # Based on the system type, determine the byteorders that
             # would need to be swapped to get to big-endian output
@@ -458,56 +470,10 @@ class _File:
                 else:
                     output = hdu.data
 
-                swapped = []
-                try:
-                    if not self._simulateonly:
-                        for i in range(output._nfields):
-                            coldata = output.field(i)
-                            if not isinstance(coldata, chararray.chararray):
-                                # only swap unswapped
-                                # deal with var length table
-                                if isinstance(coldata, _VLF):
-                                    k = 0
-                                    for j in coldata:
-                                        if (not isinstance(j, chararray.chararray) and
-                                            j.itemsize > 1 and
-                                            j.dtype.str[0] in swap_types):
-                                            swapped.append(j)
-                                        if (rec.recarray.field(output,i)[k:k+1].dtype.str[0] in
-                                            swap_types):
-                                            swapped.append(rec.recarray.field(output,i)[k:k+1])
-                                        k = k + 1
-                                else:
-                                    if (coldata.itemsize > 1 and
-                                        output.dtype.descr[i][1][0] in swap_types):
-                                        swapped.append(rec.recarray.field(output, i))
+                # And this is why it might make sense to move out some of the
+                # logic...
+                self._binary_table_byte_swap(output)
 
-                        for obj in swapped:
-                            obj.byteswap(True)
-
-                        _tofile(output, self.__file)
-
-                        # write out the heap of variable length array
-                        # columns this has to be done after the
-                        # "regular" data is written (above)
-                        self.__file.write(output._gap*'\0')
-
-                    nbytes = output._gap
-
-                    for i in range(output._nfields):
-                        if isinstance(output._coldefs._recformats[i], _FormatP):
-                            for j in range(len(output.field(i))):
-                                coldata = output.field(i)[j]
-                                if len(coldata) > 0:
-                                    nbytes= nbytes + coldata.nbytes
-                                    if not self._simulateonly:
-                                        coldata.tofile(self.__file)
-
-                    output._heapsize = nbytes - output._gap
-                    _size = _size + nbytes
-                finally:
-                    for obj in swapped:
-                        obj.byteswap(True)
             else:
                 output = hdu.data
 
@@ -539,6 +505,58 @@ class _File:
 
         if hasattr(self, 'tfile'):
             del self.tfile
+
+    def _binary_table_byte_swap(self, output)
+        swapped = []
+        try:
+            if not self._simulateonly:
+                for idx in range(output._nfields):
+                    coldata = output.field(idx)
+                    if isinstance(coldata, chararray.chararray):
+                        continue
+                    # only swap unswapped
+                    # deal with var length table
+                    if isinstance(coldata, _VLF):
+                        for jdx, c in enumerate(coldata):
+                            if (not isinstance(c, chararray.chararray) and
+                                c.itemsize > 1 and
+                                c.dtype.str[0] in swap_types):
+                                swapped.append(c)
+                            field = rec.recarray.field(output, idx)
+                            if (field[jdx:jdx+1].dtype.str[0] in swap_types):
+                                swapped.append(field[jdx:jdx+1])
+                    else:
+                        if (coldata.itemsize > 1 and
+                            output.dtype.descr[idx][1][0] in swap_types):
+                            swapped.append(rec.recarray.field(output, idx))
+
+                for obj in swapped:
+                    obj.byteswap(True)
+
+                _tofile(output, self.__file)
+
+                # write out the heap of variable length array
+                # columns this has to be done after the
+                # "regular" data is written (above)
+                self.__file.write(output._gap * '\0')
+
+            nbytes = output._gap
+
+            for idx in range(output._nfields):
+                if isinstance(output._coldefs._recformats[idx], _FormatP):
+                    for jdx in range(len(output.field(idx))):
+                        coldata = output.field(idx)[jdx]
+                        if len(coldata) > 0:
+                            nbytes = nbytes + coldata.nbytes
+                            if not self._simulateonly:
+                                coldata.tofile(self.__file)
+
+            output._heapsize = nbytes - output._gap
+            _size = _size + nbytes
+        finally:
+            for obj in swapped:
+                obj.byteswap(True)
+
 
     # Support the 'with' statement
     def __enter__(self):

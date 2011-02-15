@@ -18,7 +18,8 @@ __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
 
 
 def getheader(filename, *ext, **extkeys):
-    """Get the header from an extension of a FITS file.
+    """
+    Get the header from an extension of a FITS file.
 
     Parameters
     ----------
@@ -33,7 +34,6 @@ def getheader(filename, *ext, **extkeys):
     Returns
     -------
     header : `Header` object
-
     """
 
     mode, closed = _get_file_mode(filename)
@@ -46,7 +46,8 @@ def getheader(filename, *ext, **extkeys):
 
 
 def getdata(filename, *ext, **extkeys):
-    """Get the data from an extension of a FITS file (and optionally the
+    """
+    Get the data from an extension of a FITS file (and optionally the
     header).
 
     Parameters
@@ -105,7 +106,6 @@ def getdata(filename, *ext, **extkeys):
 
         If the optional keyword `header` is set to `True`, this
         function will return a (`data`, `header`) tuple.
-
     """
 
     if 'header' in extkeys:
@@ -195,7 +195,6 @@ def getval(filename, key, *ext, **extkeys):
     Returns
     -------
     keyword value : string, integer, or float
-
     """
 
     hdr = getheader(filename, *ext, **extkeys)
@@ -204,7 +203,8 @@ def getval(filename, key, *ext, **extkeys):
 
 def setval(filename, key, value="", comment=None, before=None, after=None,
            savecomment=False, *ext, **extkeys):
-    """Set a keyword's value from a header in a FITS file.
+    """
+    Set a keyword's value from a header in a FITS file.
 
     If the keyword already exists, it's value/comment will be updated.
     If it does not exist, a new card will be created and it will be
@@ -250,7 +250,6 @@ def setval(filename, key, value="", comment=None, before=None, after=None,
     ext
         The rest of the arguments are for extension specification.
         See `getdata` for explanations/examples.
-
     """
 
     hdulist, ext = _getext(filename, mode='update', *ext, **extkeys)
@@ -303,7 +302,8 @@ def delval(filename, key, *ext, **extkeys):
 
 
 def writeto(filename, data, header=None, **keys):
-    """Create a new FITS file using the supplied data/header.
+    """
+    Create a new FITS file using the supplied data/header.
 
     Parameters
     ----------
@@ -330,7 +330,6 @@ def writeto(filename, data, header=None, **keys):
     checksum : bool, optional
         If `True`, adds both ``DATASUM`` and ``CHECKSUM`` cards to the
         headers of all HDU's written to the file.
-
     """
 
     if header is None:
@@ -352,7 +351,8 @@ def writeto(filename, data, header=None, **keys):
 
 def append(filename, data, header=None, classExtensions={}, checksum=False,
            verify=True, **keys):
-    """Append the header/data to FITS file if filename exists, create if not.
+    """
+    Append the header/data to FITS file if filename exists, create if not.
 
     If only `data` is supplied, a minimal header is created.
 
@@ -385,7 +385,6 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
         it for correctness before appending.  When `False`, content is
         simply appended to the end of the file.  Setting *verify* to
         `False` can be much faster.
-
     """
 
     name, closed, noexist_or_empty = _stat_filename_or_fileobj(filename)
@@ -422,7 +421,8 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
 
 
 def update(filename, data, *ext, **extkeys):
-    """Update the specified extension with the input data/header.
+    """
+    Update the specified extension with the input data/header.
 
     Parameters
     ----------
@@ -452,7 +452,6 @@ def update(filename, data, *ext, **extkeys):
             >>> update(file, dat, 'sci', 2)  # update the 2nd SCI extension
             >>> update(file, dat, 3, header=hdr)  # update the 3rd extension
             >>> update(file, dat, header=hdr, ext=5)  # update the 5th extension
-
     """
 
     # parse the arguments
@@ -484,7 +483,8 @@ def update(filename, data, *ext, **extkeys):
 
 
 def info(filename, classExtensions={}, **kwargs):
-    """Print the summary information on a FITS file.
+    """
+    Print the summary information on a FITS file.
 
     This includes the name, type, length of header, data shape and type
     for each extension.
@@ -518,7 +518,6 @@ def info(filename, classExtensions={}, **kwargs):
             Do not issue an exception when opening a file that is
             missing an ``END`` card in the last header.  Default is
             `True`.
-
     """
 
     mode, closed = _get_file_mode(filename, default='copyonwrite')
@@ -536,7 +535,8 @@ def info(filename, classExtensions={}, **kwargs):
 
 def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
           clobber=False, classExtensions={}):
-    """Dump a table HDU to a file in ASCII format.  The table may be
+    """
+    Dump a table HDU to a file in ASCII format.  The table may be
     dumped in three separate files, one containing column definitions,
     one containing header parameters, and one for table data.
 
@@ -576,7 +576,6 @@ def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
     standard text editor of the table data and parameters.  The
     `tcreate` function can be used to reassemble the table from the
     three ASCII files.
-
     """
 
     # allow file object to already be opened in any of the valid modes
@@ -601,7 +600,8 @@ tdump.__doc__ += BinTableHDU.tdumpFileFormat.replace("\n", "\n    ")
 
 
 def tcreate(datafile, cdfile, hfile=None):
-    """Create a table from the input ASCII files.  The input is from up
+    """
+    Create a table from the input ASCII files.  The input is from up
     to three separate files, one containing column definitions, one
     containing header parameters, and one containing column data.  The
     header parameters file is not required.  When the header
@@ -629,7 +629,6 @@ def tcreate(datafile, cdfile, hfile=None):
     ASCII data that was edited in a standard text editor of the table
     data and parameters.  The tdump function can be used to create the
     initial ASCII files.
-
     """
 
     # Construct an empty HDU
@@ -754,10 +753,10 @@ def _stat_filename_or_fileobj(filename):
 
 
 def _get_file_mode(filename, default='readonly'):
-    """Allow file object to already be opened in any of the valid modes and
+    """
+    Allow file object to already be opened in any of the valid modes and
     and leave the file in the same state (opened or closed) as when
     the function was called.
-
     """
 
     mode = default

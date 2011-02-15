@@ -10,6 +10,9 @@ from pyfits.card import Card
 from pyfits.util import lazyproperty
 
 
+__all__ = ['Column', 'ColDefs']
+
+
 # mapping from TFORM data type to numpy data type (code)
 # L: Logical (Boolean)
 # B: Unsigned Byte

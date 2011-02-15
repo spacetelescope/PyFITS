@@ -21,12 +21,7 @@ import pyfits.core
 from pyfits.core import *
 __doc__ = pyfits.core.__doc__
 
-# Define modules available using from pyfits import *.
-__locals = list(locals())
-for __l in __locals[::-1]:
-    if __l[0] == '_' or __l in ['os', 'chararray', 'rec', 'open', 'warnings']:
-        __locals.remove(__l)
-__all__ = __locals
+__all__ = pyfits.core.__all__
 
 try:
     import pytools.tester

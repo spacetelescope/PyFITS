@@ -8,6 +8,10 @@ from numpy import char as chararray
 from pyfits.verify import _Verify, _ErrList
 
 
+__all__ = ['Card', 'CardList', 'RecordValuedKeywordCard', 'create_card',
+           'create_card_from_string', 'createCard', 'createCardFromString']
+
+
 # translation tables for floating value strings
 FIX_FP_TABLE = string.maketrans('de', 'DE')
 FIX_FP_TABLE2 = string.maketrans('dD', 'eE')
@@ -108,7 +112,8 @@ class Card(_Verify):
     _commentary_keys = ['', 'COMMENT', 'HISTORY']
 
     def __init__(self, key='', value='', comment=''):
-        """Construct a card from `key`, `value`, and (optionally) `comment`.
+        """
+        Construct a card from `key`, `value`, and (optionally) `comment`.
         Any specifed arguments, except defaults, must be compliant to FITS
         standard.
 
@@ -122,7 +127,6 @@ class Card(_Verify):
 
         comment : str, optional
             comment
-
         """
 
         if key != '' or value != '' or comment != '':
@@ -350,7 +354,8 @@ class Card(_Verify):
     # TODO: Wouldn't 'verification' be a better name for the 'option' keyword
     # argument?  'option' is pretty vague.
     def ascardimage(self, option='silentfix'):
-        """Generate a (new) card image from the attributes: `key`, `value`,
+        """
+        Generate a (new) card image from the attributes: `key`, `value`,
         and `comment`, or from raw string.
 
         Parameters
@@ -397,34 +402,36 @@ class Card(_Verify):
         if valu is None:
             raise ValueError("Unparsable card (%s), fix it first with "
                              ".verify('fix')." % self.key)
-        if valu.group('bool') != None:
-            _val = valu.group('bool')=='T'
-        elif valu.group('strg') != None:
+        if valu.group('bool') is not None:
+            _val = valu.group('bool') == 'T'
+        elif valu.group('strg') is not None:
             _val = re.sub("''", "'", valu.group('strg'))
-        elif valu.group('numr') != None:
-
+        elif valu.group('numr') is not None:
             #  Check for numbers with leading 0s.
             numr = Card._number_NFSC_RE.match(valu.group('numr'))
             _digt = numr.group('digt').translate(FIX_FP_TABLE2, ' ')
-            if numr.group('sign') == None:
-                _val = eval(_digt)
+            if numr.group('sign') is None:
+                _sign = ''
             else:
-                _val = eval(numr.group('sign')+_digt)
-        elif valu.group('cplx') != None:
+                _sign = numr.group('sign')
+            _val = _str_to_num(_sign + _digt)
 
+        elif valu.group('cplx') is not None:
             #  Check for numbers with leading 0s.
             real = Card._number_NFSC_RE.match(valu.group('real'))
             _rdigt = real.group('digt').translate(FIX_FP_TABLE2, ' ')
-            if real.group('sign') == None:
-                _val = eval(_rdigt)
+            if real.group('sign') is None:
+                _rsign = ''
             else:
-                _val = eval(real.group('sign')+_rdigt)
+                _rsign = real.group('sign')
+            _val = _str_to_num(_rsign + _rdigt)
             imag  = Card._number_NFSC_RE.match(valu.group('imag'))
             _idigt = imag.group('digt').translate(FIX_FP_TABLE2, ' ')
-            if imag.group('sign') == None:
-                _val += eval(_idigt)*1j
+            if imag.group('sign') is None:
+                _isign = ''
             else:
-                _val += eval(imag.group('sign') + _idigt)*1j
+                _isign = imag.group('sign')
+            _val += _str_to_num(_isign + _idigt)*1j
         else:
             _val = UNDEFINED
 
@@ -485,10 +492,10 @@ class Card(_Verify):
         self._update_cardimage()
 
     def _locate_eq(self):
-        """Locate the equal sign in the card image before column 10 and
+        """
+        Locate the equal sign in the card image before column 10 and
         return its location.  It returns `None` if equal sign is not
         present, or it is a commentary card.
-
         """
 
         # no equal sign for commentary cards (i.e. part of the string value)
@@ -507,10 +514,10 @@ class Card(_Verify):
         return eq_loc
 
     def _get_key_string(self):
-        """Locate the equal sign in the card image and return the string
+        """
+        Locate the equal sign in the card image and return the string
         before the equal sign.  If there is no equal sign, return the
         string before column 9.
-
         """
 
         eq_loc = self._locate_eq()
@@ -523,10 +530,10 @@ class Card(_Verify):
         return self.cardimage[start:eq_loc]
 
     def _get_value_comment_string(self):
-        """Locate the equal sign in the card image and return the string
+        """
+        Locate the equal sign in the card image and return the string
         after the equal sign.  If there is no equal sign, return the
         string after column 8.
-
         """
 
         eq_loc = self._locate_eq()
@@ -598,11 +605,11 @@ class Card(_Verify):
     # TODO: It would probably make more sense for this to be a class method
     # that returns a new instance; but we'll leave it for now.
     def fromstring(self, input):
-        """Construct a `Card` object from a (raw) string. It will pad the
+        """
+        Construct a `Card` object from a (raw) string. It will pad the
         string if it is not the length of a card image (80 columns).
         If the card image is longer than 80 columns, assume it
         contains ``CONTINUE`` card(s).
-
         """
 
         self._cardimage = _pad(input)
@@ -639,7 +646,8 @@ class Card(_Verify):
 
 
 class RecordValuedKeywordCard(Card):
-    """Class to manage record-valued keyword cards as described in the
+    """
+    Class to manage record-valued keyword cards as described in the
     FITS WCS Paper IV proposal for representing a more general
     distortion model.
 
@@ -684,7 +692,6 @@ class RecordValuedKeywordCard(Card):
         DP1     = 'AUX.1.POWER.0: 1'
         DP1     = 'AUX.1.COEFF.1: 0.00048828125'
         DP1     = 'AUX.1.POWER.1: 1'
-
     """
 
     #
@@ -736,7 +743,8 @@ class RecordValuedKeywordCard(Card):
     keyword_NFSC_val_comm_RE = re.compile(keyword_NFSC_val_comm)
 
     def __init__(self, key='', value='', comment=''):
-        """Parameters
+        """
+        Parameters
         ----------
         key : str, optional
             The key, either the simple key or one that contains
@@ -748,7 +756,6 @@ class RecordValuedKeywordCard(Card):
 
         comment : str, optional
             The comment
-
         """
 
         mo = self.keyword_name_RE.match(key)
@@ -793,7 +800,8 @@ class RecordValuedKeywordCard(Card):
 
     @classmethod
     def coerce(cls, card):
-        """Coerces an input `Card` object to a `RecordValuedKeywordCard`
+        """
+        Coerces an input `Card` object to a `RecordValuedKeywordCard`
         object if the value of the card meets the requirements of this
         type of card.
 
@@ -813,7 +821,6 @@ class RecordValuedKeywordCard(Card):
             - If the input card is not coercible:
 
                 the input card
-
         """
 
         mo = cls.field_specifier_NFSC_val_RE.match(card.value)
@@ -824,7 +831,8 @@ class RecordValuedKeywordCard(Card):
 
     @classmethod
     def upper_key(cls, key):
-        """`classmethod` to convert a keyword value that may contain a
+        """
+        `classmethod` to convert a keyword value that may contain a
         field-specifier to uppercase.  The effect is to raise the
         key to uppercase and leave the field specifier in its original
         case.
@@ -842,7 +850,6 @@ class RecordValuedKeywordCard(Card):
 
         String input
             the converted string
-
         """
 
         if isinstance(key, (int, long,np.integer)):
@@ -859,7 +866,8 @@ class RecordValuedKeywordCard(Card):
 
     @classmethod
     def valid_key_value(cls, key, value=0):
-        """Determine if the input key and value can be used to form a
+        """
+        Determine if the input key and value can be used to form a
         valid `RecordValuedKeywordCard` object.  The `key` parameter
         may contain the key only or both the key and field-specifier.
         The `value` may be the value only or the field-specifier and
@@ -887,7 +895,6 @@ class RecordValuedKeywordCard(Card):
         >>> validKeyValue('DP1','AXIS.1: 2')
         >>> validKeyValue('DP1.AXIS.1', 2)
         >>> validKeyValue('DP1.AXIS.1')
-
         """
 
         rtnKey = rtnFieldSpec = rtnValue = ''
@@ -921,7 +928,8 @@ class RecordValuedKeywordCard(Card):
 
     @classmethod
     def create_card(cls, key='', value='', comment=''):
-        """Create a card given the input `key`, `value`, and `comment`.
+        """
+        Create a card given the input `key`, `value`, and `comment`.
         If the input key and value qualify for a
         `RecordValuedKeywordCard` then that is the object created.
         Otherwise, a standard `Card` object is created.
@@ -941,7 +949,6 @@ class RecordValuedKeywordCard(Card):
         -------
         card
             Either a `RecordValuedKeywordCard` or a `Card` object.
-
         """
 
         if cls.validKeyValue(key, value):
@@ -954,7 +961,8 @@ class RecordValuedKeywordCard(Card):
 
     @classmethod
     def create_card_from_string(cls, input):
-        """Create a card given the `input` string.  If the `input` string
+        """
+        Create a card given the `input` string.  If the `input` string
         can be parsed into a key and value that qualify for a
         `RecordValuedKeywordCard` then that is the object created.
         Otherwise, a standard `Card` object is created.
@@ -968,7 +976,6 @@ class RecordValuedKeywordCard(Card):
         -------
         card
             either a `RecordValuedKeywordCard` or a `Card` object
-
         """
 
         idx1 = string.find(input, "'") + 1
@@ -984,9 +991,9 @@ class RecordValuedKeywordCard(Card):
     createCardFromString = create_card_from_string # For API backwards-compat
 
     def _update_cardimage(self):
-        """Generate a (new) card image from the attributes: `key`, `value`,
+        """
+        Generate a (new) card image from the attributes: `key`, `value`,
         `field_specifier`, and `comment`.  Core code for `ascardimage`.
-
         """
 
         super(RecordValuedKeywordCard, self)._update_cardimage()
@@ -1028,14 +1035,14 @@ class RecordValuedKeywordCard(Card):
         if not hasattr(self, '_value_modified'):
             self.__value_modified = False
 
-        return eval(valu.group('val').translate(FIX_FP_TABLE2, ' '))
+        return _str_to_num(valu.group('val').translate(FIX_FP_TABLE2, ' '))
 
     def strvalue(self):
-        """Method to extract the field specifier and value from the card
+        """
+        Method to extract the field specifier and value from the card
         image.  This is what is reported to the user when requesting
         the value of the `Card` using either an integer index or the
         card key without any field specifier.
-
         """
 
         mo = self.field_specifier_NFSC_image_RE.search(self.cardimage)
@@ -1124,7 +1131,8 @@ class CardList(list):
     """FITS header card list class."""
 
     def __init__(self, cards=[], keylist=None):
-        """Construct the `CardList` object from a list of `Card` objects.
+        """
+        Construct the `CardList` object from a list of `Card` objects.
 
         Parameters
         ----------
@@ -1132,7 +1140,7 @@ class CardList(list):
             A list of `Card` objects.
         """
 
-        list.__init__(self, cards)
+        super(CardList, self).__init__(cards)
         self._cards = cards
 
         # if the key list is not supplied (as in reading in the FITS file),
@@ -1147,9 +1155,9 @@ class CardList(list):
         self.count_blanks()
 
     def _has_filter_char(self, key):
-        """Return `True` if the input key contains one of the special filtering
+        """
+        Return `True` if the input key contains one of the special filtering
         characters (``*``, ``?``, or ...).
-
         """
 
         if isinstance(key, basestring) and (key.endswith('...') or \
@@ -1159,7 +1167,8 @@ class CardList(list):
             return False
 
     def filter_list(self, key):
-        """Construct a `CardList` that contains references to all of the cards in
+        """
+        Construct a `CardList` that contains references to all of the cards in
         this `CardList` that match the input key value including any special
         filter keys (``*``, ``?``, and ``...``).
 
@@ -1173,15 +1182,14 @@ class CardList(list):
         cardlist :
             A `CardList` object containing references to all the
             requested cards.
-
         """
 
         out_cl = CardList()
 
         mykey = upper_key(key)
-        re_str = string.replace(mykey,'*','\w*')+'$'
-        re_str = string.replace(reStr,'?','\w')
-        re_str = string.replace(reStr,'...','\S*')
+        re_str = mykey.replace('*', '\w*') + '$'
+        re_str = re_str.replace('?', '\w')
+        re_str = re_str.replace('...', '\S*')
         match_RE = re.compile(re_str)
 
         for card in self:
@@ -1202,12 +1210,12 @@ class CardList(list):
         if self._has_filter_char(key):
             return self.filter_list(key)
         else:
-            _key = self.index_of(key)
-            return super(CardList, self).__getitem__(_key)
+            key = self.index_of(key)
+            return super(CardList, self).__getitem__(key)
 
     def __getslice__(self, start, end):
-        _cards = super(CardList, self).__getslice__(start,end)
-        result = CardList(_cards, self._keylist[start:end])
+        cards = super(CardList, self).__getslice__(start, end)
+        result = CardList(cards, self._keylist[start:end])
         return result
 
     def __setitem__(self, key, value):
@@ -1223,11 +1231,7 @@ class CardList(list):
                 self.count_blanks()
                 self._mod = 1
         else:
-            # TODO: Replace instances of SyntaxError with something more
-            # appropriate--the SyntaxError builtin is intended for Python
-            # parser errors.  Perhaps a custom exception like CardSyntaxError
-            # could be used.
-            raise SyntaxError('%s is not a Card' % str(value))
+            raise ValueError('%s is not a Card' % str(value))
 
     def __delitem__(self, key):
         """Delete a `Card` from the `CardList`."""
@@ -1253,9 +1257,9 @@ class CardList(list):
             self._mod = 1
 
     def count_blanks(self):
-        """Returns how many blank cards are *directly* before the ``END``
+        """
+        Returns how many blank cards are *directly* before the ``END``
         card.
-
         """
 
         for idx in range(1, len(self)):
@@ -1264,7 +1268,8 @@ class CardList(list):
                 break
 
     def append(self, card, useblanks=True, bottom=False):
-        """Append a `Card` to the `CardList`.
+        """
+        Append a `Card` to the `CardList`.
 
         Parameters
         ----------
@@ -1285,7 +1290,6 @@ class CardList(list):
            If `False` the card will be appended after the last
            non-commentary card.  If `True` the card will be appended
            after the last non-blank card.
-
         """
 
         if isinstance (card, Card):
@@ -1303,25 +1307,26 @@ class CardList(list):
             self.count_blanks()
             self._mod = 1
         else:
-            raise SyntaxError("%s is not a Card" % str(card))
+            raise ValueError("%s is not a Card" % str(card))
 
     def _pos_insert(self, card, before, after, useblanks=1):
-        """Insert a `Card` to the location specified by before or after.
+        """
+        Insert a `Card` to the location specified by before or after.
 
         The argument `before` takes precedence over `after` if both
         specified.  They can be either a keyword name or index.
-
         """
 
-        if before != None:
+        if before is not None:
             loc = self.index_of(before)
             self.insert(loc, card, useblanks=useblanks)
-        elif after != None:
+        elif after is not None:
             loc = self.index_of(after)
             self.insert(loc + 1, card, useblanks=useblanks)
 
     def insert(self, pos, card, useblanks=True):
-        """Insert a `Card` to the `CardList`.
+        """
+        Insert a `Card` to the `CardList`.
 
         Parameters
         ----------
@@ -1339,7 +1344,6 @@ class CardList(list):
             space will not increase.  When `useblanks` is `False`, the
             card will be appended at the end, even if there are blank
             cards in front of ``END``.
-
         """
 
         if isinstance (card, Card):
@@ -1352,7 +1356,7 @@ class CardList(list):
             self.count_blanks()
             self._mod = 1
         else:
-            raise SyntaxError('%s is not a Card' % str(card))
+            raise ValueError('%s is not a Card' % str(card))
 
     def _use_blanks(self, how_many):
         if self._blanks > 0:
@@ -1360,7 +1364,8 @@ class CardList(list):
                 del self[-1] # it also delete the keylist item
 
     def keys(self):
-        """Return a list of all keywords from the `CardList`.
+        """
+        Return a list of all keywords from the `CardList`.
 
         Keywords include ``field_specifier`` for
         `RecordValuedKeywordCard` objects.
@@ -1384,18 +1389,19 @@ class CardList(list):
         return map(lambda x: getattr(x, 'key'), self)
 
     def values(self):
-        """Return a list of the values of all cards in the `CardList`.
+        """
+        Return a list of the values of all cards in the `CardList`.
 
         For `RecordValuedKeywordCard` objects, the value returned is
         the floating point value, exclusive of the
         ``field_specifier``.
-
         """
 
         return map(lambda x: getattr(x, 'value'), self)
 
     def index_of(self, key, backward=False):
-        """Get the index of a keyword in the `CardList`.
+        """
+        Get the index of a keyword in the `CardList`.
 
         Parameters
         ----------
@@ -1410,7 +1416,6 @@ class CardList(list):
         -------
         index : int
             The index of the `Card` with the given keyword.
-
         """
 
         if isinstance(key, (int, long,np.integer)):
@@ -1485,11 +1490,11 @@ upperKey = upper_key # For API backward-compat
 
 
 class _HierarchCard(Card):
-    """Cards begins with ``HIERARCH`` which allows keyword name longer than 8
-    characters.
-
     """
-    
+    Cards begins with ``HIERARCH`` which allows keyword name longer than 8
+    characters.
+    """
+
     def _verify(self, option='warn'):
         """No verification (for now)."""
 
@@ -1497,10 +1502,10 @@ class _HierarchCard(Card):
 
 
 class _ContinueCard(Card):
-    """Cards having more than one 80-char "physical" cards, the cards after
+    """
+    Cards having more than one 80-char "physical" cards, the cards after
     the first one must start with ``CONTINUE`` and the whole card must have
     string value.
-
     """
 
     def __str__(self):
@@ -1548,12 +1553,12 @@ class _ContinueCard(Card):
         return ''.join(output).rstrip()
 
     def _breakup_strings(self):
-        """Break up long string value/comment into ``CONTINUE`` cards.
+        """
+        Break up long string value/comment into ``CONTINUE`` cards.
         This is a primitive implementation: it will put the value
         string in one block and the comment string in another.  Also,
         it does not break at the blank space between words.  So it may
         not look pretty.
-
         """
 
         val_len = 67
@@ -1587,11 +1592,11 @@ class _ContinueCard(Card):
         return ''.join(output)
 
     def _words_group(self, input, strlen):
-        """Split a long string into parts where each part is no longer
+        """
+        Split a long string into parts where each part is no longer
         than `strlen` and no word is cut into two pieces.  But if
         there is one single word which is longer than `strlen`, then
         it will be split in the middle of the word.
-
         """
 
         lst = []
@@ -1624,6 +1629,17 @@ class _ContinueCard(Card):
             xoffset = offset
 
         return lst
+
+
+def _str_to_num(val):
+    """Converts a given string to either an int or a float if necessary."""
+
+    try:
+        num = int(val)
+    except ValueError:
+        # If this fails then an exception should be raised anyways
+        num = float(val)
+    return num
 
 
 def _float_format(value):

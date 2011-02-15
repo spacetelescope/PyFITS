@@ -3,6 +3,26 @@ import tempfile
 
 import numpy as np
 
+
+class lazyproperty(object):
+    """
+    Works similarly to property(), but computes the value only once.
+
+    Adapted from the recipe at
+    http://code.activestate.com/recipes/363602-lazy-property-evaluation
+    """
+
+    def __init__(self, func):
+        self._func = func
+
+    def __get__(self, obj, owner=None):
+        if obj is None:
+            return self
+        val = self._func(obj)
+        setattr(obj, self._func.func_name, val)
+        return val
+
+
 def _fromfile(infile, dtype, count, sep):
     """Create a numpy array from a file or a file-like object."""
 
@@ -10,8 +30,8 @@ def _fromfile(infile, dtype, count, sep):
         return np.fromfile(infile, dtype=dtype, count=count, sep=sep)
     else: # treat as file-like object with "read" method
         read_size=np.dtype(dtype).itemsize * count
-        str=infile.read(read_size)
-        return np.fromstring(str, dtype=dtype, count=count, sep=sep)
+        s = infile.read(read_size)
+        return np.fromstring(s, dtype=dtype, count=count, sep=sep)
 
 
 def _tofile(arr, outfile):
@@ -20,7 +40,7 @@ def _tofile(arr, outfile):
     if isinstance(outfile, file):
         arr.tofile(outfile)
     else: # treat as file-like object with "write" method
-        str=arr.tostring()
+        s = arr.tostring()
         outfile.write(str)
 
 
