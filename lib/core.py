@@ -401,7 +401,7 @@ class Card(_Verify):
             r')? *)'
         r'(?P<comm_field>'
             r'(?P<sepr>/ *)'
-            r'(?P<comm>.*)'
+            r'(?P<comm>.|\n*)'
         r')?$')
 
     # keys of commentary cards
