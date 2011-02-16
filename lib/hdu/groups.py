@@ -1,10 +1,11 @@
 import numpy as np
 
+from pyfits import rec
 from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
-from pyfits.hdu.base import _AllHDU, _isInt
+from pyfits.hdu.base import _AllHDU
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
-from pyfits import rec
+from pyfits.util import _is_int
 
 
 class GroupsHDU(PrimaryHDU):
@@ -99,30 +100,29 @@ class GroupsHDU(PrimaryHDU):
         return size
 
     def _verify(self, option='warn'):
-        _err = PrimaryHDU._verify(self, option=option)
+        errs = super(GroupsHDU, self)._verify(option=option)
 
         # Verify locations and values of mandatory keywords.
-        self.req_cards('NAXIS', '== 2', _isInt+" and val >= 1 and val <= 999", 1, option, _err)
-        self.req_cards('NAXIS1', '== 3', _isInt+" and val == 0", 0, option, _err)
-        _after = self._header['NAXIS'] + 3
+        self.req_cards('NAXIS', 2,
+                       lambda v: (_is_int(v) and v >= 1 and v <= 999), 1,
+                       option, errs)
+        self.req_cards('NAXIS1', 3, lambda v: (_is_int(v) and v == 0), 0,
+                       option, errs)
 
-        # if the card EXTEND exists, must be after it.
-        try:
-            _dum = self._header['EXTEND']
-            #_after += 1
-        except KeyError:
-            pass
-        _pos = '>= '+`_after`
-        self.req_cards('GCOUNT', _pos, _isInt, 1, option, _err)
-        self.req_cards('PCOUNT', _pos, _isInt, 0, option, _err)
-        self.req_cards('GROUPS', _pos, 'val == True', True, option, _err)
-        return _err
+        after = self._header['NAXIS'] + 3
+        pos = lambda x: x >= after
+
+        self.req_cards('GCOUNT', pos, _is_int, 1, option, errs)
+        self.req_cards('PCOUNT', pos, _is_int, 0, option, errs)
+        self.req_cards('GROUPS', pos, lambda v: (v is True), True, option, errs)
+        return errs
 
     def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
-        if self.__dict__.has_key('data') and self.data != None:
+
+        if self._data_loaded and self.data is not None:
             # We have the data to be used.
             # Check the byte order of the data.  If it is little endian we
             # must swap it before calculating the datasum.
@@ -137,7 +137,8 @@ class GroupsHDU(PrimaryHDU):
                 byteswapped = False
                 d = self.data
 
-            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'), blocking=blocking)
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),
+                                        blocking=blocking)
 
             # If the data was byteswapped in this method then return it to
             # its original little-endian order.

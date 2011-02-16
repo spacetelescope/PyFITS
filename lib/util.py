@@ -92,6 +92,10 @@ def _is_pseudo_unsigned(dtype):
     return dtype.kind == 'u' and dtype.itemsize >= 2
 
 
+def _is_int(val):
+    return isinstance(val, (int, long, np.integer))
+
+
 def _normalize_slice(input, naxis):
     """
     Set the slice's start/stop in the regular range.
@@ -109,7 +113,7 @@ def _normalize_slice(input, naxis):
     _start = input.start
     if _start is None:
         _start = 0
-    elif isinstance(_start, (int, long,np.integer)):
+    elif _is_int(_start):
         _start = _normalize(_start, naxis)
     else:
         raise IndexError('Illegal slice %s; start must be integer.' % input)
@@ -117,7 +121,7 @@ def _normalize_slice(input, naxis):
     _stop = input.stop
     if _stop is None:
         _stop = naxis
-    elif isinstance(_stop, (int, long,np.integer)):
+    elif _is_int(_stop):
         _stop = _normalize(_stop, naxis)
     else:
         raise IndexError('Illegal slice %s; stop must be integer.' % input)
@@ -128,7 +132,7 @@ def _normalize_slice(input, naxis):
     _step = input.step
     if _step is None:
         _step = 1
-    elif isinstance(_step, (int, long, np.integer)):
+    elif _is_int(_step):
         if _step <= 0:
             raise IndexError('Illegal slice %s; step must be positive.'
                              % input)

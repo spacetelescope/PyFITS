@@ -315,30 +315,34 @@ class HDUList(list, _Verify):
 
 
     def _verify (self, option='warn'):
-        _text = ''
-        _err = _ErrList([], unit='HDU')
+        text = ''
+        errs = _ErrList([], unit='HDU')
 
         # the first (0th) element must be a primary HDU
         if len(self) > 0 and (not isinstance(self[0], PrimaryHDU)) and \
                              (not isinstance(self[0], _NonstandardHDU)):
             err_text = "HDUList's 0th element is not a primary HDU."
             fix_text = 'Fixed by inserting one as 0th HDU.'
-            fix = "from pyfits.hdu.image import PrimaryHDU; self.insert(0, PrimaryHDU())"
-            _text = self.run_option(option, err_text=err_text, fix_text=fix_text, fix=fix)
-            _err.append(_text)
+
+            def fix(self=self):
+                self.insert(0, PrimaryHDU())
+
+            text = self.run_option(option, err_text=err_text,
+                                   fix_text=fix_text, fix=fix)
+            errs.append(text)
 
         # each element calls their own verify
-        for i in range(len(self)):
-            if i > 0 and (not isinstance(self[i], _ExtensionHDU)):
+        for idx, hdu in enumerate(self):
+            if idx > 0 and (not isinstance(hdu, _ExtensionHDU)):
                 err_text = "HDUList's element %s is not an extension HDU." % `i`
-                _text = self.run_option(option, err_text=err_text, fixable=0)
-                _err.append(_text)
+                text = self.run_option(option, err_text=err_text, fixable=True)
+                errs.append(text)
 
             else:
-                _result = self[i]._verify(option)
-                if _result:
-                    _err.append(_result)
-        return _err
+                result = hdu._verify(option)
+                if result:
+                    errs.append(result)
+        return errs
 
     def _wasresized(self, verbose=False):
         """
@@ -473,6 +477,7 @@ class HDUList(list, _Verify):
             classes.  When present in the dictionary, the extension class
             will be constructed in place of the pyfits class.
         """
+
         if isinstance(hdu, _AllHDU):
             num_hdus = len(self)
 

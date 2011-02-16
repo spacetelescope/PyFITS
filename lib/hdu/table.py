@@ -16,9 +16,9 @@ from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
                           _FormatX, _FormatP, _wrapx, _makep, _VLF, \
                           _parse_tformat, _convert_format
 from pyfits.fitsrec import FITS_rec
-from pyfits.hdu.base import _AllHDU, _isInt
+from pyfits.hdu.base import _AllHDU
 from pyfits.hdu.extension import _ExtensionHDU
-from pyfits.util import lazyproperty
+from pyfits.util import lazyproperty, _is_int
 
 
 class _TableBaseHDU(_ExtensionHDU):
@@ -246,49 +246,54 @@ class _TableBaseHDU(_ExtensionHDU):
         del _list
 
         # populate the new table definition keywords
-        for i in range(len(_cols)):
-            for cname in KEYWORD_ATTRIBUTES:
-                val = getattr(_cols, cname+'s')[i]
-                if val != '':
-                    keyword = KEYWORD_NAMES[KEYWORD_ATTRIBUTES.index(cname)]+`i+1`
-                    if cname == 'format' and isinstance(self, BinTableHDU):
-                        val = _cols._recformats[i]
+        for idx in range(len(_cols)):
+            for jdx, attr in enumerate(KEYWORD_ATTRIBUTES):
+                val = getattr(_cols, attr + 's')[idx]
+                if val:
+                    keyword = KEYWORD_NAMES[jdx] + str(idx + 1)
+                    if attr == 'format' and isinstance(self, BinTableHDU):
+                        val = _cols._recformats[idx]
                         if isinstance(val, _FormatX):
-                            val = `val._nx` + 'X'
+                            val = repr(val._nx) + 'X'
                         elif isinstance(val, _FormatP):
-                            VLdata = self.data.field(i)
+                            VLdata = self.data.field(idx)
                             VLdata._max = max(map(len, VLdata))
                             if val._dtype == 'a':
                                 fmt = 'A'
                             else:
-                                fmt = _convert_format(val._dtype, reverse=1)
-                            val = 'P' + fmt + '(%d)' %  VLdata._max
+                                fmt = _convert_format(val._dtype, reverse=True)
+                            val = 'P%s(%d)' % (fmt, VLdata._max)
                         else:
-                            val = _convert_format(val, reverse=1)
-                    #_update(keyword, val)
+                            val = _convert_format(val, reverse=True)
                     _append(Card(keyword, val))
 
     def copy(self):
         """
         Make a copy of the table HDU, both header and data are copied.
         """
+
         # touch the data, so it's defined (in the case of reading from a
         # FITS file)
         self.data
-        return new_table(self.columns, header=self._header, tbtype=self.columns._tbtype)
+        return new_table(self.columns, header=self._header,
+                         tbtype=self.columns._tbtype)
 
     def _verify(self, option='warn'):
         """
         _TableBaseHDU verify method.
         """
-        _err = _ExtensionHDU._verify(self, option=option)
-        self.req_cards('NAXIS', None, 'val == 2', 2, option, _err)
-        self.req_cards('BITPIX', None, 'val == 8', 8, option, _err)
-        self.req_cards('TFIELDS', '== 7', _isInt+" and val >= 0 and val <= 999", 0, option, _err)
+
+        errs = super(_TableBaseHDU, self)._verify(option=option)
+        self.req_cards('NAXIS', None, lambda v: (v == 2), 2, option, errs)
+        self.req_cards('BITPIX', None, lambda v: (v == 8), 8, option, errs)
+        self.req_cards('TFIELDS', 7,
+                       lambda v: (_is_int(v) and v >= 0 and v <= 999), 0,
+                       option, errs)
         tfields = self._header['TFIELDS']
-        for i in range(tfields):
-            self.req_cards('TFORM'+`i+1`, None, None, None, option, _err)
-        return _err
+        for idx in range(tfields):
+            self.req_cards('TFORM' + str(idx + 1), None, None, None, option,
+                           errs)
+        return errs
 
 
 class TableHDU(_TableBaseHDU):
@@ -356,7 +361,8 @@ class TableHDU(_TableBaseHDU):
                               np.fromstring(_pad_length(self.size())*' ',
                                             dtype='ubyte'))
 
-            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'), blocking=blocking)
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),
+                                        blocking=blocking)
             return cs
         else:
             # This is the case where the data has not been read from the file
@@ -369,12 +375,14 @@ class TableHDU(_TableBaseHDU):
         """
         `TableHDU` verify method.
         """
-        _err = _TableBaseHDU._verify(self, option=option)
-        self.req_cards('PCOUNT', None, 'val == 0', 0, option, _err)
+
+        errs = super(TableHDU, self)._verify(option=option)
+        self.req_cards('PCOUNT', None, lambda v: (v == 0), 0, option, errs)
         tfields = self._header['TFIELDS']
-        for i in range(tfields):
-            self.req_cards('TBCOL'+`i+1`, None, _isInt, None, option, _err)
-        return _err
+        for idx in range(tfields):
+            self.req_cards('TBCOL' + str(idx + 1), None, _is_int, None, option,
+                           errs)
+        return errs
 
 
 class BinTableHDU(_TableBaseHDU):

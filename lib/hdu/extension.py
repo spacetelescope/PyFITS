@@ -1,5 +1,6 @@
 from pyfits.card import Card
-from pyfits.hdu.base import _ValidHDU, _isInt, _getClassExtension
+from pyfits.hdu.base import _ValidHDU, _getClassExtension
+from pyfits.util import _is_int
 
 
 class _ExtensionHDU(_ValidHDU):
@@ -43,13 +44,15 @@ class _ExtensionHDU(_ValidHDU):
 
     def _verify(self, option='warn'):
 
-        _err = _ValidHDU._verify(self, option=option)
+        errs = super(_ExtensionHDU, self)._verify(option=option)
 
         # Verify location and value of mandatory keywords.
         naxis = self._header.get('NAXIS', 0)
-        self.req_cards('PCOUNT', '== '+`naxis+3`, _isInt+" and val >= 0", 0, option, _err)
-        self.req_cards('GCOUNT', '== '+`naxis+4`, _isInt+" and val == 1", 1, option, _err)
-        return _err
+        self.req_cards('PCOUNT', naxis + 3, lambda v: (_is_int(v) and v >= 0),
+                       0, option, errs)
+        self.req_cards('GCOUNT', naxis + 4, lambda v: (_is_int(v) and v == 1),
+                       1, option, errs)
+        return errs
 
 
 class _NonstandardExtHDU(_ExtensionHDU):

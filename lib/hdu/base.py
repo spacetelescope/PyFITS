@@ -7,11 +7,8 @@ import numpy as np
 from pyfits.card import Card, CardList, _ContinueCard, \
                         create_card_from_string, _pad
 from pyfits.column import DELAYED
-from pyfits.util import lazyproperty, _fromfile
+from pyfits.util import lazyproperty, _fromfile, _is_int
 from pyfits.verify import _Verify, _ErrList
-
-
-_isInt = "isinstance(val, (int, long, np.integer))"
 
 
 class _AllHDU(object):
@@ -329,6 +326,7 @@ class _ValidHDU(_AllHDU, _Verify):
             specified then the current comment will automatically be
             preserved.
         """
+
         self._header.update('extname', value, comment, before, after,
                             savecomment)
         self.name = value
@@ -369,6 +367,7 @@ class _ValidHDU(_AllHDU, _Verify):
             specified then the current comment will automatically be
             preserved.
         """
+
         self._header.update('extver', value, comment, before, after,
                             savecomment)
         self._extver = value
@@ -377,9 +376,9 @@ class _ValidHDU(_AllHDU, _Verify):
     def _verify(self, option='warn'):
         from pyfits.hdu.extension import _ExtensionHDU
 
-        _err = _ErrList([], unit='Card')
+        errs= _ErrList([], unit='Card')
 
-        isValid = "val in [8, 16, 32, 64, -32, -64]"
+        is_valid = lambda v: v in [8, 16, 32, 64, -32, -64]
 
         # Verify location and value of mandatory keywords.
         # Do the first card here, instead of in the respective HDU classes,
@@ -390,34 +389,44 @@ class _ValidHDU(_AllHDU, _Verify):
         else:
             firstkey = 'SIMPLE'
             firstval = True
-        self.req_cards(firstkey, '== 0', '', firstval, option, _err)
-        self.req_cards('BITPIX', '== 1', _isInt+" and "+isValid, 8, option, _err)
-        self.req_cards('NAXIS', '== 2', _isInt+" and val >= 0 and val <= 999", 0, option, _err)
+
+        self.req_cards(firstkey, 0, None, firstval, option, errs)
+        self.req_cards('BITPIX', 1, lambda v: (_is_int(v) and is_valid(v)), 8,
+                       option, errs)
+        self.req_cards('NAXIS', 2,
+                       lambda v: (_is_int(v) and v >= 0 and v <= 999), 0,
+                       option, errs)
 
         naxis = self._header.get('NAXIS', 0)
         if naxis < 1000:
-            for j in range(3, naxis+3):
-                self.req_cards('NAXIS'+`j-2`, '== '+`j`, _isInt+" and val>= 0", 1, option, _err)
+            for ax in range(3, naxis + 3):
+                self.req_cards('NAXIS' + str(ax - 2), ax,
+                               lambda v: (_is_int(v) and v >= 0), 1, option,
+                               errs)
+
             # Remove NAXISj cards where j is not in range 1, naxis inclusive.
-            for _card in self._header.ascard:
-                if _card.key.startswith("NAXIS") and len(_card.key) > 5:
+            for card in self._header.ascard:
+                if card.key.startswith('NAXIS') and len(card.key) > 5:
                     try:
-                        number = int(_card.key[5:])
+                        number = int(card.key[5:])
                         if number <= 0 or number > naxis:
                             raise ValueError
                     except ValueError:
-                        _err.append(self.run_option(
-                                option=option,
-                                err_text=("NAXISj keyword out of range ('%s' when NAXIS == %d)" %
-                                          (_card.key, naxis)),
-                                fix="del self._header['%s']" % _card.key,
-                                fix_text="Deleted."))
+                        err_text = "NAXISj keyword out of range ('%s' when " \
+                                   "NAXIS == %d)" % (card.key, naxis)
+ 
+                        def fix(self=self, card=card):
+                            del self._header[card.key]
+
+                        errs.append(
+                            self.run_option(option=option, err_text=err_text,
+                                            fix=fix, fix_text="Deleted."))
 
         # verify each card
-        for _card in self._header.ascard:
-            _err.append(_card._verify(option))
+        for card in self._header.ascard:
+            errs.append(card._verify(option))
 
-        return _err
+        return errs
 
     def req_cards(self, keywd, pos, test, fix_value, option, errlist):
         """
@@ -429,57 +438,74 @@ class _ValidHDU(_AllHDU, _Verify):
         the new card will have the `fix_value` as its value when created.
         Also check the card's value by using the `test` argument.
         """
-        _err = errlist
-        fix = ''
+
+        errs = errlist
+        fix = None
         cards = self._header.ascard
+
         try:
             _index = cards.index_of(keywd)
         except:
             _index = None
+
         fixable = fix_value is not None
 
-        insert_pos = len(cards)+1
+        insert_pos = len(cards) + 1
 
-        # if pos is a string, it must be of the syntax of "> n",
-        # where n is an int
-        if isinstance(pos, str):
-            _parse = pos.split()
-            if _parse[0] in ['>=', '==']:
-                insert_pos = eval(_parse[1])
+        # If pos is an int, insert at the given position (and convert it to a
+        # lambda)
+        if _is_int(pos):
+            insert_pos = pos
+            pos = lambda x: x == insert_pos
 
         # if the card does not exist
         if _index is None:
             err_text = "'%s' card does not exist." % keywd
             fix_text = "Fixed by inserting a new '%s' card." % keywd
             if fixable:
-
                 # use repr to accomodate both string and non-string types
                 # Boolean is also OK in this constructor
-                _card = "Card('%s', %s)" % (keywd, `fix_value`)
-                fix = "self._header.ascard.insert(%d, %s)" % (insert_pos, _card)
-            _err.append(self.run_option(option, err_text=err_text, fix_text=fix_text, fix=fix, fixable=fixable))
-        else:
+                card = "Card('%s', %s)" % (keywd, repr(fix_value))
 
+                def fix(self=self, insert_pos=insert_pos, card=card):
+                    self._header.ascard.insert(insert_pos, card)
+
+            errs.append(self.run_option(option, err_text=err_text,
+                        fix_text=fix_text, fix=fix, fixable=fixable))
+        else:
             # if the supposed location is specified
             if pos is not None:
-                test_pos = '_index '+ pos
-                if not eval(test_pos):
-                    err_text = "'%s' card at the wrong place (card %d)." % (keywd, _index)
-                    fix_text = "Fixed by moving it to the right place (card %d)." % insert_pos
-                    fix = "_cards=self._header.ascard; dummy=_cards[%d]; del _cards[%d];_cards.insert(%d, dummy)" % (_index, _index, insert_pos)
-                    _err.append(self.run_option(option, err_text=err_text, fix_text=fix_text, fix=fix))
+                if not pos(_index):
+                    err_text = "'%s' card at the wrong place (card %d)." \
+                               % (keywd, _index)
+                    fix_text = "Fixed by moving it to the right place " \
+                               "(card %d)." % insert_pos
+
+                    def fix(self=self, index=_index, insert_pos=insert_pos):
+                        cards = self._header.ascard
+                        dummy = cards[index]
+                        del cards[index]
+                        cards.insert(insert_pos, dummy)
+
+                    errs.append(self.run_option(option, err_text=err_text,
+                                fix_text=fix_text, fix=fix))
 
             # if value checking is specified
             if test:
                 val = self._header[keywd]
-                if not eval(test):
-                    err_text = "'%s' card has invalid value '%s'." % (keywd, val)
+                if not test(val):
+                    err_text = "'%s' card has invalid value '%s'." \
+                               % (keywd, val)
                     fix_text = "Fixed by setting a new value '%s'." % fix_value
-                    if fixable:
-                        fix = "self._header['%s'] = %s" % (keywd, `fix_value`)
-                    _err.append(self.run_option(option, err_text=err_text, fix_text=fix_text, fix=fix, fixable=fixable))
 
-        return _err
+                    if fixable:
+                        def fix(self=self, keyword=keyword, val=fix_value):
+                            self._header[keyword] = repr(fix_value)
+
+                    errs.append(self.run_option(option, err_text=err_text,
+                                fix_text=fix_text, fix=fix, fixable=fixable))
+
+        return errs
 
     def _compute_checksum(self, bytes, sum32=0, blocking="standard"):
         """

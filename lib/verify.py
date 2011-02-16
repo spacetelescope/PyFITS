@@ -16,26 +16,27 @@ class _Verify(object):
     Shared methods for verification.
     """
 
-    def run_option(self, option="warn", err_text="", fix_text="Fixed.", fix = "pass", fixable=1):
+    def run_option(self, option='warn', err_text='', fix_text='Fixed.',
+                   fix=None, fixable=True):
         """
         Execute the verification with selected option.
         """
-        _text = err_text
+
+        text = err_text
+
         if not fixable:
             option = 'unfixable'
-        if option in ['warn', 'exception']:
-            #raise VerifyError, _text
-        #elif option == 'warn':
-            pass
 
+        if option in ['warn', 'exception']:
+            pass
         # fix the value
         elif option == 'unfixable':
-            _text = "Unfixable error: %s" % _text
+            text = 'Unfixable error: %s' % text
         else:
-            exec(fix)
-            #if option != 'silentfix':
-            _text += '  ' + fix_text
-        return _text
+            if fix:
+                fix()
+            text += '  ' + fix_text
+        return text
 
     def verify(self, option='warn'):
         """
@@ -49,21 +50,21 @@ class _Verify(object):
             ``"exception"``.  See :ref:`verify` for more info.
         """
 
-        _option = option.lower()
-        if _option not in ['fix', 'silentfix', 'ignore', 'warn', 'exception']:
-            raise ValueError, 'Option %s not recognized.' % option
+        opt = option.lower()
+        if opt not in ['fix', 'silentfix', 'ignore', 'warn', 'exception']:
+            raise ValueError('Option %s not recognized.' % option)
 
-        if (_option == "ignore"):
+        if opt == 'ignore':
             return
 
-        x = str(self._verify(_option)).rstrip()
-        if _option in ['fix', 'silentfix'] and x.find('Unfixable') != -1:
-            raise VerifyError, '\n'+x
-        if (_option != "silentfix"and _option != 'exception') and x:
+        x = str(self._verify(opt)).rstrip()
+        if opt in ['fix', 'silentfix'] and 'Unfixable' in x:
+            raise VerifyError('\n' + x)
+        if opt not in ['silentfix', 'exception'] and x:
             warnings.warn('Output verification result:')
             warnings.warn(x)
-        if _option == 'exception' and x:
-            raise VerifyError, '\n'+x
+        if opt == 'exception' and x:
+            raise VerifyError('\n' + x)
 
 
 class _ErrList(list):
@@ -73,7 +74,7 @@ class _ErrList(list):
     different class levels.
     """
 
-    def __init__(self, val, unit="Element"):
+    def __init__(self, val, unit='Element'):
         list.__init__(self, val)
         self.unit = unit
 
@@ -81,6 +82,8 @@ class _ErrList(list):
         """
         Print out nested structure with corresponding indentations.
 
+        # TODO: Is this tab argument actually used anywhere? I think a better
+        # approach would be an indent() wrapper if you want indented output
         A tricky use of `__str__`, since normally `__str__` has only
         one argument.
         """
@@ -90,7 +93,7 @@ class _ErrList(list):
         # go through the list twice, first time print out all top level messages
         for item in self:
             if not isinstance(item, _ErrList):
-                result += _INDENT*tab+"%s\n" % item
+                result += _INDENT*tab + '%s\n' % item
 
         # second time go through the next level items, each of the next level
         # must present, even it has nothing.

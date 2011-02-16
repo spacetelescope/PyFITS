@@ -2,11 +2,11 @@ import numpy as np
 
 from pyfits.card import Card, CardList
 from pyfits.column import DELAYED
-from pyfits.hdu.base import _ValidHDU, _isInt
+from pyfits.hdu.base import _ValidHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.base import _AllHDU, _ValidHDU
 from pyfits.util import _fromfile, _is_pseudo_unsigned, _unsigned_zero, \
-                        _normalize_slice, lazyproperty
+                        _is_int, _normalize_slice, lazyproperty
 
 class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class.
@@ -650,8 +650,9 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
         """
 
         # no need to run _ExtensionHDU.__init__ since it is not doing anything.
-        _ImageBaseHDU.__init__(self, data=data, header=header,
-                               do_not_scale_image_data=do_not_scale_image_data)
+        super(ImageHDU, self).__init__(
+            data=data, header=header,
+            do_not_scale_image_data=do_not_scale_image_data)
 
         self._header._hdutype = ImageHDU
 
@@ -671,13 +672,14 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
         ImageHDU verify method.
         """
 
-        _err = _ValidHDU._verify(self, option=option)
+        errs = super(ImageHDU, self)._verify(option=option)
         naxis = self.header.get('NAXIS', 0)
-        self.req_cards('PCOUNT', '== '+`naxis+3`, _isInt+" and val == 0",
-                       0, option, _err)
-        self.req_cards('GCOUNT', '== '+`naxis+4`, _isInt+" and val == 1",
-                       1, option, _err)
-        return _err
+        # PCOUNT must == 0, GCOUNT must == 1; the former is verifed in
+        # _ExtensionHDU._verify, however _ExtensionHDU._verify allows PCOUNT
+        # to be >= 0, so we need to check it here
+        self.req_cards('PCOUNT', naxis + 3, lambda v: (_is_int(v) and v == 0),
+                       0, option, errs)
+        return errs
 
 def _iswholeline(indx, naxis):
     if isinstance(indx, (int, long,np.integer)):
