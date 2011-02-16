@@ -1,5 +1,5 @@
 from pyfits.card import Card
-from pyfits.hdu.base import _ValidHDU, _isInt
+from pyfits.hdu.base import _ValidHDU, _isInt, _getClassExtension
 
 
 class _ExtensionHDU(_ValidHDU):
@@ -10,10 +10,7 @@ class _ExtensionHDU(_ValidHDU):
     `BinTableHDU` classes.
     """
 
-    def __init__(self, data=None, header=None):
-        super(_ExtensionHDU, self).__init__(data, header)
-        self._file, self._offset, self._datLoc = None, None, None
-        self._xtn = ' '
+    _extension = ''
 
     def __setattr__(self, attr, value):
         """
@@ -34,8 +31,17 @@ class _ExtensionHDU(_ValidHDU):
 
         _ValidHDU.__setattr__(self,attr,value)
 
+    def writeto(self, name, output_verify='exception', clobber=False,
+                classExtensions={}, checksum=False):
+        from pyfits.hdu.hdulist import HDUList
+        from pyfits.hdu.image import PrimaryHDU
+
+        hdulist_cls = _getClassExtension(classExtensions, HDUList)
+        hdulist = hdulist_cls([PrimaryHDU(), self])
+        hdulist.writeto(name, output_verify, clobber=clobber,
+                        checksum=checksum, classExtensions=classExtensions)
+
     def _verify(self, option='warn'):
-        
 
         _err = _ValidHDU._verify(self, option=option)
 
@@ -115,7 +121,6 @@ class _NonstandardExtHDU(_ExtensionHDU):
         """
 
         from pyfits.hdu.hdulist import HDUList
-        from pyfits.hdu.image import PrimaryHDU
 
         if classExtensions.has_key(HDUList):
             hdulist = classExtensions[HDUList]([PrimaryHDU(),self])

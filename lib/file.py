@@ -304,17 +304,17 @@ class _File(object):
         # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
         # cards to header
 
-        if hasattr(hdu, 'data') and hdu.data is not None and \
+        if hdu._data_loaded and hdu.data is not None and \
            not isinstance(hdu, _NonstandardHDU) and \
            not isinstance(hdu, _NonstandardExtHDU) and \
-           and _is_pseudo_unsigned(hdu.data.dtype):
+           _is_pseudo_unsigned(hdu.data.dtype):
             hdu._header.update('BSCALE', 1,
                                after='NAXIS' + repr(hdu.header.get('NAXIS')))
             hdu._header.update('BZERO', _unsigned_zero(hdu.data.dtype),
                                after='BSCALE')
 
         # Handle checksum
-        if 'CHECKSUM' hdu.header:
+        if 'CHECKSUM' in hdu._header:
             del hdu.header['CHECKSUM']
 
         if 'DATASUM' in hdu._header:
@@ -365,7 +365,7 @@ class _File(object):
 
         # If data is unsigned integer 16, 32 or 64, remove the
         # BSCALE/BZERO cards
-        if hasattr(hdu, 'data') and hdu.data is not None and \
+        if hdu._data_loaded and hdu.data is not None and \
            not isinstance(hdu, _NonstandardHDU) and \
            not isinstance(hdu, _NonstandardExtHDU) and \
            _is_pseudo_unsigned(hdu.data.dtype):
@@ -439,8 +439,8 @@ class _File(object):
                     output = hdu.data
 
                     if isinstance(hdu.data, GroupData):
-                        byteorder = \
-                            output.dtype.fields[hdu.data.dtype.names[0]][0].str[0]
+                        fname = hdu.data.dtype.names[0]
+                        byteorder = output.dtype.fields[fname][0].str[0]
                     else:
                         byteorder = output.dtype.str[0]
                     should_swap = (byteorder in swap_types)
@@ -472,7 +472,7 @@ class _File(object):
 
                 # And this is why it might make sense to move out some of the
                 # logic...
-                self._binary_table_byte_swap(output)
+                _size += self._binary_table_byte_swap(output)
 
             else:
                 output = hdu.data
@@ -506,8 +506,13 @@ class _File(object):
         if hasattr(self, 'tfile'):
             del self.tfile
 
-    def _binary_table_byte_swap(self, output)
+    def _binary_table_byte_swap(self, output):
         swapped = []
+        nbytes = 0
+        if sys.byteorder == 'little':
+            swap_types = ('<', '=')
+        else:
+            swap_types = ('<',)
         try:
             if not self._simulateonly:
                 for idx in range(output._nfields):
@@ -552,10 +557,11 @@ class _File(object):
                                 coldata.tofile(self.__file)
 
             output._heapsize = nbytes - output._gap
-            _size = _size + nbytes
         finally:
             for obj in swapped:
                 obj.byteswap(True)
+
+        return nbytes
 
 
     # Support the 'with' statement

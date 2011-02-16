@@ -1,15 +1,13 @@
-import types
-
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _HierarchCard, create_card, upper_key
 from pyfits.hdu.base import _NonstandardHDU, _CorruptedHDU, _ValidHDU
-from pyfits.hdu.compressed import CompImageHDU
+from pyfits.hdu.compressed import COMPRESSION_SUPPORTED, CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
-from pyfits.hdu.image import PrimaryHDU, ImageHDU, _ImageBaseHDU
+from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU, ImageHDU
 from pyfits.hdu.table import TableHDU, BinTableHDU, _TableBaseHDU
 
 
-class _Header_iter:
+class _Header_iter(object):
     """
     Iterator class for a FITS header object.
 
@@ -35,7 +33,7 @@ class _Header_iter:
         return self.keys[self._lastIndex]
 
 
-class Header:
+class Header(object):
     """
     FITS header class.
 
@@ -66,6 +64,7 @@ class Header:
     which will allow iteration over the unique keywords in the header
     dictionary.
     """
+
     def __init__(self, cards=[], txtfile=None):
         """
         Construct a `Header` from a `CardList` and/or text file.
@@ -111,19 +110,18 @@ class Header:
                     self._hdutype = ImageHDU
                 elif xtension in ('BINTABLE', 'A3DTABLE'):
                     try:
-                        if self.ascard['ZIMAGE'].value == True:
-                            from pyfits.hdu import compressed
-
-                            if compressed.COMPRESSION_SUPPORTED:
+                        if cards['ZIMAGE'].value == True:
+                            if COMPRESSION_SUPPORTED:
                                 self._hdutype = CompImageHDU
                             else:
-                                warnings.warn("Failure creating a header for a " + \
-                                              "compressed image HDU.")
-                                warnings.warn( "The pyfitsComp module is not " + \
-                                              "available.")
-                                warnings.warn("The HDU will be treated as a " + \
-                                              "Binary Table HDU.")
-
+                                warnings.warn(
+                                    'Failure creating a header for a '
+                                    'compressed image HDU.')
+                                warnings.warn(
+                                    'The pyfitsComp module is not available.')
+                                warnings.warn(
+                                    'The HDU will be treated as a Binary '
+                                    'Table HDU.')
                                 raise KeyError
                     except KeyError:
                         self._hdutype = BinTableHDU
@@ -144,22 +142,22 @@ class Header:
         """
         Get a header keyword value.
         """
+
         card = self.ascard[key]
 
         if isinstance(card, RecordValuedKeywordCard) and \
-           (not isinstance(key, types.StringType) or string.find(key,'.') < 0):
-            returnVal = card.strvalue()
+           (not isinstance(key, basestring) or string.find(key, '.') < 0):
+            return card.strvalue()
         elif isinstance(card, CardList):
-            returnVal = card
+            return card
         else:
-            returnVal = card.value
-
-        return returnVal
+            return card.value
 
     def __setitem__ (self, key, value):
         """
         Set a header keyword value.
         """
+
         self.ascard[key].value = value
         self._mod = 1
 
@@ -167,9 +165,10 @@ class Header:
         """
         Delete card(s) with the name `key`.
         """
+
         # delete ALL cards with the same keyword name
-        if isinstance(key, str):
-            while 1:
+        if isinstance(key, basestring):
+            while True:
                 try:
                     del self.ascard[key]
                     self._mod = 1
@@ -182,18 +181,20 @@ class Header:
             self._mod = 1
 
     def __str__(self):
-        return self.ascard.__str__()
+        return str(self.ascard)
 
     def ascardlist(self):
         """
         Returns a `CardList` object.
         """
+
         return self.ascard
 
     def items(self):
         """
         Return a list of all keyword-value pairs from the `CardList`.
         """
+
         pairs = []
         for card in self.ascard:
             pairs.append((card.key, card.value))
@@ -213,6 +214,7 @@ class Header:
         has_key : bool
             Returns `True` if found, otherwise, `False`.
         """
+
         try:
             key = upper_key(key)
 
@@ -239,16 +241,20 @@ class Header:
             When `True`, if new key name already exists, force to have
             duplicate name.
         """
+
         oldkey = upper_key(oldkey)
         newkey = upper_key(newkey)
 
         if newkey == 'CONTINUE':
-            raise ValueError, 'Can not rename to CONTINUE'
+            raise ValueError('Can not rename to CONTINUE')
         if newkey in Card._commentary_keys or oldkey in Card._commentary_keys:
-            if not (newkey in Card._commentary_keys and oldkey in Card._commentary_keys):
-                raise ValueError, 'Regular and commentary keys can not be renamed to each other.'
+            if not (newkey in Card._commentary_keys and 
+                    oldkey in Card._commentary_keys):
+                raise ValueError('Regular and commentary keys can not be '
+                                 'renamed to each other.')
         elif (force == 0) and self.has_key(newkey):
-            raise ValueError, 'Intended keyword %s already exists in header.' % newkey
+            raise ValueError('Intended keyword %s already exists in header.'
+                             % newkey)
         _index = self.ascard.index_of(oldkey)
         _comment = self.ascard[_index].comment
         _value = self.ascard[_index].value
@@ -263,13 +269,14 @@ class Header:
         """
         Return a list of keys with duplicates removed.
         """
-        rtnVal = []
+
+        retval = []
 
         for key in self.ascard.keys():
-            if not key in rtnVal:
-                rtnVal.append(key)
+            if not key in retval:
+                retval.append(key)
 
-        return rtnVal
+        return retval
 
     def get(self, key, default=None):
         """
@@ -328,6 +335,7 @@ class Header:
             specified then the current comment will automatically be
             preserved.
         """
+
         keylist = RecordValuedKeywordCard.validKeyValue(key,value)
 
         if keylist:
@@ -351,16 +359,18 @@ class Header:
         self._mod = 1
 
         # If this header is associated with a compImageHDU then update
-        # the objects underlying header (_tableHeader) unless the update was
+        # the objects underlying header (_table_header) unless the update was
         # made to a card that describes the data.
 
-        if self.__dict__.has_key('_tableHeader') and \
-           key not in ('XTENSION','BITPIX','PCOUNT','GCOUNT','TFIELDS',
-                       'ZIMAGE','ZBITPIX','ZCMPTYPE') and \
+        # TODO: Consider creating a separate class for CompImageHDU headers
+
+        if hasattr(self, '_table_header') and \
+           key not in ('XTENSION', 'BITPIX', 'PCOUNT', 'GCOUNT', 'TFIELDS',
+                       'ZIMAGE', 'ZBITPIX', 'ZCMPTYPE') and \
            key[:4] not in ('ZVAL') and \
-           key[:5] not in ('NAXIS','TTYPE','TFORM','ZTILE','ZNAME') and \
+           key[:5] not in ('NAXIS', 'TTYPE', 'TFORM', 'ZTILE', 'ZNAME') and \
            key[:6] not in ('ZNAXIS'):
-            self._tableHeader.update(key,value,comment,before,after)
+            self._table_header.update(key, value, comment, before, after)
 
     def add_history(self, value, before=None, after=None):
         """
@@ -377,13 +387,14 @@ class Header:
         after : str or int, optional
             same as in `Header.update`
         """
+
         self._add_commentary('history', value, before=before, after=after)
 
         # If this header is associated with a compImageHDU then update
-        # the objects underlying header (_tableHeader).
+        # the objects underlying header (_table_header).
 
-        if self.__dict__.has_key('_tableHeader'):
-            self._tableHeader.add_history(value,before,after)
+        if hasattr('_table_header'):
+            self._table_header.add_history(value, before, after)
 
     def add_comment(self, value, before=None, after=None):
         """
@@ -400,13 +411,13 @@ class Header:
         after : str or int, optional
             same as in `Header.update`
         """
+
         self._add_commentary('comment', value, before=before, after=after)
 
         # If this header is associated with a compImageHDU then update
-        # the objects underlying header (_tableHeader).
-
-        if self.__dict__.has_key('_tableHeader'):
-            self._tableHeader.add_comment(value,before,after)
+        # the objects underlying header (_table_header).
+        if hasattr('_table_header'):
+            self._table_header.add_comment(value, before, after)
 
     def add_blank(self, value='', before=None, after=None):
         """
@@ -426,32 +437,24 @@ class Header:
         self._add_commentary(' ', value, before=before, after=after)
 
         # If this header is associated with a compImageHDU then update
-        # the objects underlying header (_tableHeader).
+        # the objects underlying header (_table_header).
 
-        if self.__dict__.has_key('_tableHeader'):
-            self._tableHeader.add_blank(value,before,after)
+        if hasattr('_table_header'):
+            self._table_header.add_blank(value,before,after)
 
     def get_history(self):
         """
         Get all history cards as a list of string texts.
         """
-        output = []
-        for _card in self.ascardlist():
-            if _card.key == 'HISTORY':
-                output.append(_card.value)
-        return output
+
+        return [c for c in self.ascardlist() if c.key == 'HISTORY']
 
     def get_comment(self):
         """
         Get all comment cards as a list of string texts.
         """
-        output = []
-        for _card in self.ascardlist():
-            if _card.key == 'COMMENT':
-                output.append(_card.value)
-        return output
 
-
+        return [c for c in self.ascardlist() if c.key == 'COMMENT']
 
     def _add_commentary(self, key, value, before=None, after=None):
         """
@@ -482,6 +485,7 @@ class Header:
         """
         Make a copy of the `Header`.
         """
+
         tmp = Header(self.ascard.copy())
 
         # also copy the class
@@ -495,6 +499,7 @@ class Header:
         Strip cards like ``SIMPLE``, ``BITPIX``, etc. so the rest of
         the header can be used to reconstruct another kind of header.
         """
+
         try:
 
             # have both SIMPLE and XTENSION to accomodate Extension
@@ -564,16 +569,15 @@ class Header:
         closeFile = False
 
         # check if the output file already exists
-        if (isinstance(outFile,types.StringType) or
-            isinstance(outFile,types.UnicodeType)):
+        if isinstance(outFile, basestring):
             if (os.path.exists(outFile) and os.path.getsize(outFile) != 0):
                 if clobber:
-                    warnings.warn( "Overwrite existing file '%s'." % outFile)
+                    warnings.warn("Overwriting existing file '%s'." % outFile)
                     os.remove(outFile)
                 else:
-                    raise IOError, "File '%s' already exist." % outFile
+                    raise IOError("File '%s' already exist." % outFile)
 
-            outFile = __builtin__.open(outFile,'w')
+            outFile = open(outFile, 'w')
             closeFile = True
 
         lines = []   # lines to go out to the header parameters file
@@ -581,7 +585,7 @@ class Header:
         # Add the card image for each card in the header to the lines list
 
         for j in range(len(self.ascardlist())):
-            lines.append(self.ascardlist()[j].__str__()+'\n')
+            lines.append(str(self.ascardlist()[j]) + '\n')
 
         # Write the header parameter lines out to the ASCII header
         # parameter file
@@ -614,9 +618,8 @@ class Header:
 
         closeFile = False
 
-        if isinstance(inFile, types.StringType) or \
-           isinstance(inFile, types.UnicodeType):
-            inFile = __builtin__.open(inFile,'r')
+        if isinstance(inFile, basestring):
+            inFile = open(inFile, 'r')
             closeFile = True
 
         lines = inFile.readlines()
@@ -629,11 +632,10 @@ class Header:
         else:
             if replace:
                 self.ascard = CardList([])
-
             prevKey = 0
 
         for line in lines:
-            card = Card().fromstring(line[:min(80,len(line)-1)])
+            card = Card().fromstring(line[:min(80, len(line)-1)])
             card.verify('silentfix')
 
             if card.key == 'SIMPLE':

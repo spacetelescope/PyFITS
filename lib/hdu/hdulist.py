@@ -16,9 +16,9 @@ from pyfits.hdu.base import _AllHDU, _ValidHDU, _TempHDU, _NonstandardHDU
 from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.groups import GroupsHDU
-from pyfits.hdu.image import PrimaryHDU, ImageHDU, _ImageBaseHDU
+from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
-from pyfits.util import _tmpName
+from pyfits.util import _tmp_name
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -369,9 +369,7 @@ class HDUList(list, _Verify):
                     break
 
                 # Data:
-                if 'data' not in dir(hdu):
-                    continue
-                if hdu.data is None:
+                if not hdu._data_loaded or hdu.data is None:
                     continue
                 _bytes = hdu.data.nbytes
                 _bytes = _bytes + _pad_length(_bytes)
@@ -675,7 +673,7 @@ class HDUList(list, _Verify):
         """
 
         for hdu in self:
-            if 'data' in dir(hdu) and not isinstance(hdu, CompImageHDU):
+            if hdu._data_loaded and not isinstance(hdu, CompImageHDU):
                 if isinstance(hdu, (GroupsHDU, _TableBaseHDU)) and hdu.data is not None:
                     hdu.data._scale_back()
                 if isinstance(hdu, _TableBaseHDU) and hdu.data is not None:
@@ -771,7 +769,7 @@ class HDUList(list, _Verify):
             if self._resize or isinstance(self.__file.getfile(), gzip.GzipFile):
                 oldName = self.__file.name
                 oldMemmap = self.__file.memmap
-                _name = _tmpName(oldName)
+                _name = _tmp_name(oldName)
 
                 if isinstance(self.__file.getfile(), file) or \
                    isinstance(self.__file.getfile(), gzip.GzipFile):
@@ -870,7 +868,7 @@ class HDUList(list, _Verify):
                         try: _extver = `hdu.header['extver']`
                         except: _extver = ''
 
-                    if 'data' in dir(hdu) and isinstance(hdu, _ImageBaseHDU):
+                    if hdu._data_loaded and isinstance(hdu, _ImageBaseHDU):
                         # If the data has changed update the image header to
                         # match the data
                         hdu.update_header()
@@ -886,7 +884,7 @@ class HDUList(list, _Verify):
                         self.__file.writeHDUheader(hdu,checksum=checksum)
                         if (verbose):
                             print "update header in place: Name =", hdu.name, _extver
-                    if 'data' in dir(hdu):
+                    if hdu._data_loaded:
                         if hdu.data is not None:
                             if isinstance(hdu.data,Memmap):
                                 hdu.data.sync()

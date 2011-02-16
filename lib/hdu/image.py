@@ -2,10 +2,11 @@ import numpy as np
 
 from pyfits.card import Card, CardList
 from pyfits.column import DELAYED
-from pyfits.hdu.base import _AllHDU, _ValidHDU, _isInt
+from pyfits.hdu.base import _ValidHDU, _isInt
 from pyfits.hdu.extension import _ExtensionHDU
+from pyfits.hdu.base import _AllHDU, _ValidHDU
 from pyfits.util import _fromfile, _is_pseudo_unsigned, _unsigned_zero, \
-                        _normalize_slice
+                        _normalize_slice, lazyproperty
 
 class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class.
@@ -34,10 +35,11 @@ class _ImageBaseHDU(_ValidHDU):
                'float32':-32, 'float64':-64}
 
     def __init__(self, data=None, header=None, do_not_scale_image_data=False):
+        from pyfits.hdu.extension import _ExtensionHDU
         from pyfits.hdu.groups import GroupsHDU
         from pyfits.header import Header
 
-        self._file, self._datLoc = None, None
+        super(_ImageBaseHDU, self).__init__(data=data, header=header)
 
         if header is not None:
             if not isinstance(header, Header):
@@ -166,117 +168,110 @@ class _ImageBaseHDU(_ValidHDU):
                 if _zero:
                     self._header.update('PZERO'+`i+1`, self.data._coldefs.bzeros[i])
 
-    def __getattr__(self, attr):
-        """
-        Get the data attribute.
-        """
+    @property
+    def section(self):
+        return Section(self)
 
+    @lazyproperty
+    def data(self):
         from pyfits.hdu.groups import GroupsHDU
 
-        if attr == 'section':
-            return Section(self)
-        elif attr == 'data':
-            self.__dict__[attr] = None
-            if self._header['NAXIS'] > 0:
-                _bitpix = self._header['BITPIX']
-                self._file.seek(self._datLoc)
-                if isinstance(self, GroupsHDU):
-                    dims = self.size()*8//abs(_bitpix)
-                else:
-                    dims = self._dimShape()
+        self._data_loaded = True
 
-                code = _ImageBaseHDU.NumCode[self._header['BITPIX']]
+        if self._header['NAXIS'] < 1:
+            return
 
-                if self._ffile.memmap:
-                    self._ffile.code = code
-                    self._ffile.dims = dims
-                    self._ffile.offset = self._datLoc
-                    raw_data = self._ffile._mm
-                else:
+        _bitpix = self._header['BITPIX']
+        self._file.seek(self._datLoc)
+        if isinstance(self, GroupsHDU):
+            dims = self.size()*8//abs(_bitpix)
+        else:
+            dims = self._dimShape()
 
-                    nelements = 1
-                    for x in range(len(dims)):
-                        nelements = nelements * dims[x]
+        code = _ImageBaseHDU.NumCode[self._header['BITPIX']]
 
-                    raw_data = _fromfile(self._file, dtype=code,
-                                         count=nelements,sep="")
+        if self._ffile.memmap:
+            self._ffile.code = code
+            self._ffile.dims = dims
+            self._ffile.offset = self._datLoc
+            raw_data = self._ffile._mm
+        else:
 
-                    raw_data.shape=dims
+            nelements = 1
+            for x in range(len(dims)):
+                nelements = nelements * dims[x]
+
+            raw_data = _fromfile(self._file, dtype=code,
+                                 count=nelements,sep="")
+
+            raw_data.shape=dims
 
 #                print "raw_data.shape: ",raw_data.shape
 #                raw_data._byteorder = 'big'
-                raw_data.dtype = raw_data.dtype.newbyteorder('>')
+        raw_data.dtype = raw_data.dtype.newbyteorder('>')
 
-                if (self._bzero != 0 or self._bscale != 1):
-                    data = None
-                    # Handle "pseudo-unsigned" integers, if the user
-                    # requested it.  In this case, we don't need to
-                    # handle BLANK to convert it to NAN, since we
-                    # can't do NaNs with integers, anyway, i.e. the
-                    # user is responsible for managing blanks.
-                    if self._ffile.uint and self._bscale == 1:
-                        for bits, dtype in ((16, np.uint16),
-                                            (32, np.uint32),
-                                            (64, np.uint64)):
-                            if _bitpix == bits and self._bzero == 1 << (bits - 1):
-                                # Convert the input raw data into an unsigned
-                                # integer array and then scale the data
-                                # adjusting for the value of BZERO.  Note
-                                # that we subtract the value of BZERO instead
-                                # of adding because of the way numpy converts
-                                # the raw signed array into an unsigned array.
-                                data = np.array(raw_data, dtype=dtype)
-                                data -= (1 << (bits - 1))
-                                break
+        if (self._bzero == 0 and self._bscale == 1):
+            return raw_data
 
-                    if data is None:
-                        # In these cases, we end up with
-                        # floating-point arrays and have to apply
-                        # bscale and bzero. We may have to handle
-                        # BLANK and convert to NaN in the resulting
-                        # floating-point arrays.
-                        if self._header.has_key('BLANK'):
-                            nullDvals = np.array(self._header['BLANK'],
-                                                 dtype='int64')
-                            blanks = (raw_data == nullDvals)
+        data = None
+        # Handle "pseudo-unsigned" integers, if the user
+        # requested it.  In this case, we don't need to
+        # handle BLANK to convert it to NAN, since we
+        # can't do NaNs with integers, anyway, i.e. the
+        # user is responsible for managing blanks.
+        if self._ffile.uint and self._bscale == 1:
+            for bits, dtype in ((16, np.uint16),
+                                (32, np.uint32),
+                                (64, np.uint64)):
+                if _bitpix == bits and self._bzero == 1 << (bits - 1):
+                    # Convert the input raw data into an unsigned
+                    # integer array and then scale the data
+                    # adjusting for the value of BZERO.  Note
+                    # that we subtract the value of BZERO instead
+                    # of adding because of the way numpy converts
+                    # the raw signed array into an unsigned array.
+                    data = np.array(raw_data, dtype=dtype)
+                    data -= (1 << (bits - 1))
+                    break
 
-                        if _bitpix > 16:  # scale integers to Float64
-                            data = np.array(raw_data, dtype=np.float64)
-                        elif _bitpix > 0:  # scale integers to Float32
-                            data = np.array(raw_data, dtype=np.float32)
-                        else:  # floating point cases
-                            if self._ffile.memmap:
-                                data = raw_data.copy()
-                            # if not memmap, use the space already in memory
-                            else:
-                                data = raw_data
+        if data is None:
+            # In these cases, we end up with
+            # floating-point arrays and have to apply
+            # bscale and bzero. We may have to handle
+            # BLANK and convert to NaN in the resulting
+            # floating-point arrays.
+            if self._header.has_key('BLANK'):
+                nullDvals = np.array(self._header['BLANK'],
+                                     dtype='int64')
+                blanks = (raw_data == nullDvals)
 
-                        if self._bscale != 1:
-                            np.multiply(data, self._bscale, data)
-                        if self._bzero != 0:
-                            data += self._bzero
-
-                        if self._header.has_key('BLANK'):
-                            data = np.where(blanks, np.nan, data)
-
-                    self.data = data
-
-                    if not self._do_not_scale_image_data:
-                       # delete the keywords BSCALE and BZERO after scaling
-                       del self._header['BSCALE']
-                       del self._header['BZERO']
-
-                    self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+            if _bitpix > 16:  # scale integers to Float64
+                data = np.array(raw_data, dtype=np.float64)
+            elif _bitpix > 0:  # scale integers to Float32
+                data = np.array(raw_data, dtype=np.float32)
+            else:  # floating point cases
+                if self._ffile.memmap:
+                    data = raw_data.copy()
+                # if not memmap, use the space already in memory
                 else:
-                    self.data = raw_data
+                    data = raw_data
 
-        else:
-            return _AllHDU.__getattr__(self, attr)
+            if self._bscale != 1:
+                np.multiply(data, self._bscale, data)
+            if self._bzero != 0:
+                data += self._bzero
 
-        try:
-            return self.__dict__[attr]
-        except KeyError:
-            raise AttributeError(attr)
+            if self._header.has_key('BLANK'):
+                data = np.where(blanks, np.nan, data)
+
+        if not self._do_not_scale_image_data:
+           # delete the keywords BSCALE and BZERO after scaling
+           del self._header['BSCALE']
+           del self._header['BZERO']
+
+        self._header['BITPIX'] = _ImageBaseHDU.ImgCode[data.dtype.name]
+
+        return data
 
     def _dimShape(self):
         """
@@ -303,7 +298,7 @@ class _ImageBaseHDU(_ValidHDU):
             type = type[type.find('_')+1:]
 
         # if data is touched, use data info.
-        if 'data' in dir(self):
+        if self._data_loaded:
             if self.data is None:
                 _shape, _format = (), ''
             else:
@@ -465,67 +460,7 @@ class _ImageBaseHDU(_ValidHDU):
             return super(_ImageBaseHDU,self)._calculate_datasum(blocking=blocking)
 
 
-class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
-    """
-    FITS image extension HDU class.
-    """
-
-    def __init__(self, data=None, header=None, name=None,
-                 do_not_scale_image_data=False):
-        """
-        Construct an image HDU.
-
-        Parameters
-        ----------
-        data : array
-            The data in the HDU.
-
-        header : Header instance
-            The header to be used (as a template).  If `header` is
-            `None`, a minimal header will be provided.
-
-        name : str, optional
-            The name of the HDU, will be the value of the keyword
-            ``EXTNAME``.
-
-        do_not_scale_image_data : bool, optional
-            If `True`, image data is not scaled using BSCALE/BZERO values
-            when read.
-        """
-
-        # no need to run _ExtensionHDU.__init__ since it is not doing anything.
-        _ImageBaseHDU.__init__(self, data=data, header=header,
-                               do_not_scale_image_data=do_not_scale_image_data)
-        self._xtn = 'IMAGE'
-
-        self._header._hdutype = ImageHDU
-
-        # insert the require keywords PCOUNT and GCOUNT
-        dim = `self._header['NAXIS']`
-        if dim == '0':
-            dim = ''
-
-
-        #  set extension name
-        if (name is None) and self._header.has_key('EXTNAME'):
-            name = self._header['EXTNAME']
-        self.name = name
-
-    def _verify(self, option='warn'):
-        """
-        ImageHDU verify method.
-        """
-
-        _err = _ValidHDU._verify(self, option=option)
-        naxis = self.header.get('NAXIS', 0)
-        self.req_cards('PCOUNT', '== '+`naxis+3`, _isInt+" and val == 0",
-                       0, option, _err)
-        self.req_cards('GCOUNT', '== '+`naxis+4`, _isInt+" and val == 1",
-                       1, option, _err)
-        return _err
-
-
-class Section:
+class Section(object):
     """
     Image section.
 
@@ -652,6 +587,7 @@ class PrimaryHDU(_ImageBaseHDU):
     """
     FITS primary HDU class.
     """
+
     def __init__(self, data=None, header=None, do_not_scale_image_data=False):
         """
         Construct a primary HDU.
@@ -670,8 +606,9 @@ class PrimaryHDU(_ImageBaseHDU):
             when read.
         """
 
-        _ImageBaseHDU.__init__(self, data=data, header=header,
-                               do_not_scale_image_data=do_not_scale_image_data)
+        super(PrimaryHDU, self).__init__(
+            data=data, header=header,
+            do_not_scale_image_data=do_not_scale_image_data)
         self.name = 'PRIMARY'
 
         # insert the keywords EXTEND
@@ -681,6 +618,66 @@ class PrimaryHDU(_ImageBaseHDU):
                 dim = ''
             self._header.update('EXTEND', True, after='NAXIS'+dim)
 
+
+class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
+    """
+    FITS image extension HDU class.
+    """
+
+    _extension = 'IMAGE'
+
+    def __init__(self, data=None, header=None, name=None,
+                 do_not_scale_image_data=False):
+        """
+        Construct an image HDU.
+
+        Parameters
+        ----------
+        data : array
+            The data in the HDU.
+
+        header : Header instance
+            The header to be used (as a template).  If `header` is
+            `None`, a minimal header will be provided.
+
+        name : str, optional
+            The name of the HDU, will be the value of the keyword
+            ``EXTNAME``.
+
+        do_not_scale_image_data : bool, optional
+            If `True`, image data is not scaled using BSCALE/BZERO values
+            when read.
+        """
+
+        # no need to run _ExtensionHDU.__init__ since it is not doing anything.
+        _ImageBaseHDU.__init__(self, data=data, header=header,
+                               do_not_scale_image_data=do_not_scale_image_data)
+
+        self._header._hdutype = ImageHDU
+
+        # insert the require keywords PCOUNT and GCOUNT
+        dim = `self._header['NAXIS']`
+        if dim == '0':
+            dim = ''
+
+
+        #  set extension name
+        if (name is None) and self._header.has_key('EXTNAME'):
+            name = self._header['EXTNAME']
+        self.name = name
+
+    def _verify(self, option='warn'):
+        """
+        ImageHDU verify method.
+        """
+
+        _err = _ValidHDU._verify(self, option=option)
+        naxis = self.header.get('NAXIS', 0)
+        self.req_cards('PCOUNT', '== '+`naxis+3`, _isInt+" and val == 0",
+                       0, option, _err)
+        self.req_cards('GCOUNT', '== '+`naxis+4`, _isInt+" and val == 1",
+                       1, option, _err)
+        return _err
 
 def _iswholeline(indx, naxis):
     if isinstance(indx, (int, long,np.integer)):

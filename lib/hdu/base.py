@@ -7,7 +7,7 @@ import numpy as np
 from pyfits.card import Card, CardList, _ContinueCard, \
                         create_card_from_string, _pad
 from pyfits.column import DELAYED
-from pyfits.util import _fromfile
+from pyfits.util import lazyproperty, _fromfile
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -20,29 +20,23 @@ class _AllHDU(object):
     """
     def __init__(self, data=None, header=None):
         self._header = header
+        self._file = None
+        self._offset = None
+        self._datLoc = None
+        self.name = None
+        self._data_loaded = False
 
         if (data is DELAYED):
             return
         else:
-            self.data = data
+            self._data_loaded = True
 
-    def __getattr__(self, attr):
-        if attr == 'header':
-            return self.__dict__['_header']
+    def _getheader(self):
+        return self._header
 
-        try:
-            return self.__dict__[attr]
-        except KeyError:
-            raise AttributeError(attr)
-
-    def __setattr__(self, attr, value):
-        """
-        Set an HDU attribute.
-        """
-        if attr == 'header':
-            self._header = value
-        else:
-            object.__setattr__(self,attr,value)
+    def _setheader(self, value):
+        self._header = value
+    header = property(_getheader, _setheader)
 
 
 class _CorruptedHDU(_AllHDU):
@@ -61,15 +55,12 @@ class _CorruptedHDU(_AllHDU):
        of the `Header` ends, but this task may be difficult when the
        extension is a `TableHDU` containing ASCII data.
     """
-    def __init__(self, data=None, header=None):
-        super(_CorruptedHDU, self).__init__(data, header)
-        self._file, self._offset, self._datLoc = None, None, None
-        self.name = None
 
     def size(self):
         """
         Returns the size (in bytes) of the HDU's data part.
         """
+
         self._file.seek(0, 2)
         return self._file.tell() - self._datLoc
 
@@ -94,15 +85,12 @@ class _NonstandardHDU(_AllHDU, _Verify):
     stream that begins at the first byte after the header ``END`` card
     and continues until the end of the file.
     """
-    def __init__(self, data=None, header=None):
-        super(_NonstandardHDU, self).__init__(data, header)
-        self._file, self._offset, self._datLoc = None, None, None
-        self.name = None
 
     def size(self):
         """
         Returns the size (in bytes) of the HDU's data part.
         """
+
         self._file.seek(0, 2)
         return self._file.tell() - self._datLoc
 
@@ -110,30 +98,24 @@ class _NonstandardHDU(_AllHDU, _Verify):
         return "%-7s  %-11s  %5d" % (self.name, "NonstandardHDU",
                                      len(self._header.ascard))
 
-    def __getattr__(self, attr):
+    @lazyproperty
+    def data(self):
         """
-        Get the data attribute.
+        Return the file data.
         """
-        if attr == 'data':
-            self.__dict__[attr] = None
-            self._file.seek(self._datLoc)
-            self.data = self._file.read()
-        else:
-            return _AllHDU.__getattr__(self, attr)
 
-        try:
-            return self.__dict__[attr]
-        except KeyError:
-            raise AttributeError(attr)
+        self._file.seek(self._datLoc)
+        self._data_loaded = True
+        return self._file.read()
 
     def _verify(self, option='warn'):
-        _err = _ErrList([], unit='Card')
+        errs = _ErrList([], unit='Card')
 
         # verify each card
-        for _card in self._header.ascard:
-            _err.append(_card._verify(option))
+        for card in self._header.ascard:
+            errs.append(card._verify(option))
 
-        return _err
+        return errs
 
     def writeto(self, name, output_verify='exception', clobber=False,
                 classExtensions={}, checksum=False):
@@ -169,10 +151,8 @@ class _NonstandardHDU(_AllHDU, _Verify):
 
         from pyfits.hdu.hdulist import HDUList
 
-        if classExtensions.has_key(HDUList):
-            hdulist = classExtensions[HDUList]([self])
-        else:
-            hdulist = HDUList([self])
+        hdulist_cls = _getClassExtension(classExtensions, HDUList)
+        hdulist = hdulist_cls([self])
 
         hdulist.writeto(name, output_verify, clobber=clobber,
                         checksum=checksum, classExtensions=classExtensions)
@@ -188,12 +168,13 @@ class _ValidHDU(_AllHDU, _Verify):
         """
         Size (in bytes) of the data portion of the HDU.
         """
+
         size = 0
         naxis = self._header.get('NAXIS', 0)
         if naxis > 0:
             size = 1
             for j in range(naxis):
-                size = size * self._header['NAXIS'+`j+1`]
+                size = size * self._header['NAXIS'+str(j+1)]
             bitpix = self._header['BITPIX']
             gcount = self._header.get('GCOUNT', 1)
             pcount = self._header.get('PCOUNT', 0)
@@ -216,8 +197,8 @@ class _ValidHDU(_AllHDU, _Verify):
 
         from pyfits.file import _File
 
-        file = _File()
-        return file.writeHDUheader(self)[1] + file.writeHDUdata(self)[1]
+        f = _File()
+        return f.writeHDUheader(self)[1] + f.writeHDUdata(self)[1]
 
     def fileinfo(self):
         """
@@ -252,10 +233,10 @@ class _ValidHDU(_AllHDU, _Verify):
            ========== ================================================
         """
 
-        if hasattr(self,'_file') and self._file:
-           return {'file':self._file, 'filemode':self._ffile.mode,
-                   'hdrLoc':self._hdrLoc,
-                   'datLoc':self._datLoc, 'datSpan':self._datSpan}
+        if hasattr(self, '_file') and self._file:
+           return {'file': self._file, 'filemode': self._ffile.mode,
+                   'hdrLoc': self._hdrLoc, 'datLoc': self._datLoc,
+                   'datSpan': self._datSpan}
         else:
             return None
 
@@ -263,11 +244,12 @@ class _ValidHDU(_AllHDU, _Verify):
         """
         Make a copy of the HDU, both header and data are copied.
         """
+
         if self.data is not None:
-            _data = self.data.copy()
+            data = self.data.copy()
         else:
-            _data = None
-        return self.__class__(data=_data, header=self._header.copy())
+            data = None
+        return self.__class__(data=data, header=self._header.copy())
 
     def writeto(self, name, output_verify='exception', clobber=False,
                 classExtensions={}, checksum=False):
@@ -275,6 +257,10 @@ class _ValidHDU(_AllHDU, _Verify):
         Write the HDU to a new file.  This is a convenience method to
         provide a user easier output interface if only one HDU needs
         to be written to a file.
+
+        By default this writes an HDU list containing this HDU alone (as
+        though it were a primary HDU).  However, extension HDUs should
+        be prepended with a PrimaryHDU.
 
         Parameters
         ----------
@@ -301,20 +287,10 @@ class _ValidHDU(_AllHDU, _Verify):
             to the header of the HDU when written to the file.
         """
 
-        from pyfits.hdu.extension import _ExtensionHDU
         from pyfits.hdu.hdulist import HDUList
-        from pyfits.hdu.image import PrimaryHDU
 
-        if isinstance(self, _ExtensionHDU):
-            if classExtensions.has_key(HDUList):
-                hdulist = classExtensions[HDUList]([PrimaryHDU(),self])
-            else:
-                hdulist = HDUList([PrimaryHDU(), self])
-        elif isinstance(self, PrimaryHDU):
-            if classExtensions.has_key(HDUList):
-                hdulist = classExtensions[HDUList]([self])
-            else:
-                hdulist = HDUList([self])
+        hdulist_cls = _getClassExtension(classExtensions, HDUList)
+        hdulist = hdulist_cls([self])
         hdulist.writeto(name, output_verify, clobber=clobber,
                         checksum=checksum, classExtensions=classExtensions)
 
@@ -410,7 +386,7 @@ class _ValidHDU(_AllHDU, _Verify):
         # so the checking is in order, in case of required cards in wrong order.
         if isinstance(self, _ExtensionHDU):
             firstkey = 'XTENSION'
-            firstval = self._xtn
+            firstval = self._extension
         else:
             firstkey = 'SIMPLE'
             firstval = True
@@ -1016,3 +992,25 @@ class _TempHDU(_ValidHDU):
            return True
         else:
            return False
+
+
+def _getClassExtension(classExtensions, cls):
+    """
+    Returns an extension for cls from classExtensions if it exists.
+    cls may be either a class object or a class name as a string.
+
+    If the base cls is not found in classExtensions, cls is just returned.
+
+    TODO: This currently does not work correctly--if a class name is passed
+    in, and that class is not in classExtensions, the class itself can't be
+    returned without some sort of Extendable class registry.
+    """
+
+    if isinstance(cls, basestring):
+        for k, v in classExtensions.iteritems():
+            if k.__name__ == cls:
+                return v
+    elif cls in classExtensions:
+        return classExtensions[cls]
+
+    return cls

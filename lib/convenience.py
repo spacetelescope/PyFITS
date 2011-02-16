@@ -5,6 +5,7 @@ import numpy as np
 
 from pyfits import rec
 from pyfits.file import PYTHON_MODES, _File
+from pyfits.hdu.base import _getClassExtension
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU, _TableBaseHDU
@@ -342,7 +343,7 @@ def writeto(filename, data, header=None, **keys):
     classExtensions = keys.get('classExtensions', {})
     hdu = _makehdu(data, header, classExtensions)
     if not isinstance(hdu, PrimaryHDU) and not isinstance(hdu, _TableBaseHDU):
-        hdu_cls = classExtensions.get(PrimaryHDU, PrimaryHDU)
+        hdu_cls = _getClassExtension(classExtensions, PrimaryHDU)
         hdu = hdu_cls(data, header=header)
     checksum = keys.get('checksum', False)
     hdu.writeto(filename, clobber=clobber, output_verify=output_verify,
@@ -401,7 +402,7 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
         hdu = _makehdu(data, header, classExtensions)
 
         if isinstance(hdu, PrimaryHDU):
-            hdu_cls = classExtensions.get(ImageHDU, ImageHDU)
+            hdu_cls = _getClassExtension(classExtensions, ImageHDU)
             hdu = hdu_cls(data, header)
 
         if verify or not closed:
@@ -703,16 +704,16 @@ def _makehdu(data, header, classExtensions={}):
         if ((isinstance(data, np.ndarray) and data.dtype.fields is not None)
             or isinstance(data, np.recarray)
             or isinstance(data, rec.recarray)):
-            hdu_cls = classExtensions.get(BinTableHDU, BinTableHDU)
+            hdu_cls = _getClassExtension(classExtensions, BinTableHDU)
             hdu = hdu_cls(data)
         elif isinstance(data, np.ndarray):
-            hdu_cls = classExtensions.get(ImageHDU, ImageHDU)
+            hdu_cls = _getClassExtension(classExtensions, ImageHDU)
             hdu = hdu_cls(data)
         else:
             raise KeyError('Data must be numarray or table data.')
     else:
-        if header._hdutype in classExtensions:
-            header._hdutype = classExtensions[header._hdutype]
+        header._hdutype = _getClassExtension(classExtensions,
+                                             header._hdutype)
 
         hdu = header._hdutype(data=data, header=header)
     return hdu

@@ -6,7 +6,7 @@ from pyfits.hdu.hdulist import HDUList
 from pyfits.hdu.image import PrimaryHDU
 from pyfits.util import _tofile
 
-class StreamingHDU:
+class StreamingHDU(object):
     """
     A class that provides the capability to stream data to a FITS file
     instead of requiring data to all be written at once.
@@ -25,6 +25,7 @@ class StreamingHDU:
 
         shdu.close()
     """
+
     def __init__(self, name, header):
         """
         Construct a `StreamingHDU` object given a file name and a header.
@@ -116,6 +117,10 @@ class StreamingHDU:
         self._ffo = _File(name, 'append')
         self._ffo.getfile().seek(0,2)
 
+        # This class doesn't keep an internal data attribute, so this will
+        # always be false
+        self._data_loaded = False
+
         self._hdrLoc = self._ffo.writeHDUheader(self)[0]
         self._datLoc = self._ffo.getfile().tell()
         self._size = self.size()
@@ -125,7 +130,7 @@ class StreamingHDU:
         else:
             self.writeComplete = 1
 
-    def write(self,data):
+    def write(self, data):
         """
         Write the given data to the stream.
 

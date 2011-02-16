@@ -3,7 +3,7 @@ import numpy as np
 from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.base import _AllHDU, _isInt
-from pyfits.hdu.image import PrimaryHDU, _ImageBaseHDU
+from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
 from pyfits import rec
 
 

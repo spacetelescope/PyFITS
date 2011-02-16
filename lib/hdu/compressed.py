@@ -8,6 +8,7 @@ from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
+from pyfits.util import lazyproperty
 
 try:
     from pyfits import pyfitsComp
@@ -216,15 +217,13 @@ if COMPRESSION_SUPPORTED:
             factors.
             """
 
-            self._file, self._datLoc = None, None
-
             if data is DELAYED:
                 # Reading the HDU from a file
-                BinTableHDU.__init__(self, data=data, header=header)
+                super(CompImageHDU, self).__init__(data=data, header=header)
             else:
                 # Create at least a skeleton HDU that matches the input
                 # header and data (if any were input)
-                BinTableHDU.__init__(self, data=None, header=header)
+                super(CompImageHDU, self).__init__(data=None, header=header)
 
                 # Store the input image data
                 self.data = data
@@ -247,7 +246,7 @@ if COMPRESSION_SUPPORTED:
             # Maintain a reference to the table header in the image header.
             # This reference will be used to update the table header whenever
             # a card in the image header is updated.
-            self.header._tableHeader = self._header
+            self.header._table_header = self._header
 
         def updateHeaderData(self, imageHeader,
                              name=None,
@@ -314,7 +313,7 @@ if COMPRESSION_SUPPORTED:
 
             self._imageHeader = \
               ImageHDU(data=self.data, header=imageHeader).header
-            self._imageHeader._tableHeader = self._header
+            self._imageHeader._table_header = self._header
 
             # Update the extension name in the table header
 
@@ -852,476 +851,464 @@ if COMPRESSION_SUPPORTED:
                 for i in range(requiredBlankCount - tableBlankCount):
                     self._header.add_blank()
 
+        def data(self):
+            # The data attribute is the image data (not the table data).
 
-        def __getattr__(self, attr):
-            """
-            Get an HDU attribute.
-            """
-            if attr == 'data':
-                # The data attribute is the image data (not the table data).
+            # First we will get the table data (the compressed
+            # data) from the file, if there is any.
+            self.compData = super(BinTableHDU, self).data
 
-                # First we will get the table data (the compressed
-                # data) from the file, if there is any.
-                self.compData = BinTableHDU.__getattr__(self, attr)
+            # Now that we have the compressed data, we need to uncompress
+            # it into the image data.
+            dataList = []
+            naxesList = []
+            tileSizeList = []
+            zvalList = []
+            uncompressedDataList = []
 
-                # Now that we have the compressed data, we need to uncompress
-                # it into the image data.
-                dataList = []
-                naxesList = []
-                tileSizeList = []
-                zvalList = []
-                uncompressedDataList = []
-
-                # Set up an array holding the integer value that represents
-                # undefined pixels.  This could come from the ZBLANK column
-                # from the table, or from the ZBLANK header card (if no
-                # ZBLANK column (all null values are the same for each tile)),
-                # or from the BLANK header card.
-                if not 'ZBLANK' in self.compData.names:
-                    if self._header.has_key('ZBLANK'):
-                        nullDvals = np.array(self._header['ZBLANK'],
-                                             dtype='int32')
-                        cn_zblank = -1 # null value is a constant
-                    elif self._header.has_key('BLANK'):
-                        nullDvals = np.array(self._header['BLANK'],
-                                             dtype='int32')
-                        cn_zblank = -1 # null value is a constant
-                    else:
-                        cn_zblank = 0 # no null value given so don't check
-                        nullDvals = np.array(0,dtype='int32')
+            # Set up an array holding the integer value that represents
+            # undefined pixels.  This could come from the ZBLANK column
+            # from the table, or from the ZBLANK header card (if no
+            # ZBLANK column (all null values are the same for each tile)),
+            # or from the BLANK header card.
+            if not 'ZBLANK' in self.compData.names:
+                if self._header.has_key('ZBLANK'):
+                    nullDvals = np.array(self._header['ZBLANK'],
+                                         dtype='int32')
+                    cn_zblank = -1 # null value is a constant
+                elif self._header.has_key('BLANK'):
+                    nullDvals = np.array(self._header['BLANK'],
+                                         dtype='int32')
+                    cn_zblank = -1 # null value is a constant
                 else:
-                    cn_zblank = 1  # null value supplied as a column
+                    cn_zblank = 0 # no null value given so don't check
+                    nullDvals = np.array(0,dtype='int32')
+            else:
+                cn_zblank = 1  # null value supplied as a column
 
-                    #if sys.byteorder == 'little':
-                    #    nullDvals = self.compData.field('ZBLANK').byteswap()
-                    #else:
-                    #    nullDvals = self.compData.field('ZBLANK')
-                    nullDvals = self.compData.field('ZBLANK')
+                #if sys.byteorder == 'little':
+                #    nullDvals = self.compData.field('ZBLANK').byteswap()
+                #else:
+                #    nullDvals = self.compData.field('ZBLANK')
+                nullDvals = self.compData.field('ZBLANK')
 
-                # Set up an array holding the linear scale factor values
-                # This could come from the ZSCALE column from the table, or
-                # from the ZSCALE header card (if no ZSCALE column (all
-                # linear scale factor values are the same for each tile)).
+            # Set up an array holding the linear scale factor values
+            # This could come from the ZSCALE column from the table, or
+            # from the ZSCALE header card (if no ZSCALE column (all
+            # linear scale factor values are the same for each tile)).
 
-                if self._header.has_key('BSCALE'):
-                    self._bscale = self._header['BSCALE']
-                    del self._header['BSCALE']
+            if self._header.has_key('BSCALE'):
+                self._bscale = self._header['BSCALE']
+                del self._header['BSCALE']
+            else:
+                self._bscale = 1.
+
+            if not 'ZSCALE' in self.compData.names:
+                if self._header.has_key('ZSCALE'):
+                    zScaleVals = np.array(self._header['ZSCALE'],
+                                          dtype='float64')
+                    cn_zscale = -1 # scale value is a constant
                 else:
-                    self._bscale = 1.
+                    cn_zscale = 0 # no scale factor given so don't scale
+                    zScaleVals = np.array(1.0,dtype='float64')
+            else:
+                cn_zscale = 1 # scale value supplied as a column
 
-                if not 'ZSCALE' in self.compData.names:
-                    if self._header.has_key('ZSCALE'):
-                        zScaleVals = np.array(self._header['ZSCALE'],
-                                              dtype='float64')
-                        cn_zscale = -1 # scale value is a constant
-                    else:
-                        cn_zscale = 0 # no scale factor given so don't scale
-                        zScaleVals = np.array(1.0,dtype='float64')
+                #if sys.byteorder == 'little':
+                #    zScaleVals = self.compData.field('ZSCALE').byteswap()
+                #else:
+                #    zScaleVals = self.compData.field('ZSCALE')
+                zScaleVals = self.compData.field('ZSCALE')
+
+            # Set up an array holding the zero point offset values
+            # This could come from the ZZERO column from the table, or
+            # from the ZZERO header card (if no ZZERO column (all
+            # zero point offset values are the same for each tile)).
+
+            if self._header.has_key('BZERO'):
+                self._bzero = self._header['BZERO']
+                del self._header['BZERO']
+            else:
+                self._bzero = 0.
+
+            if not 'ZZERO' in self.compData.names:
+                if self._header.has_key('ZZERO'):
+                    zZeroVals = np.array(self._header['ZZERO'],
+                                         dtype='float64')
+                    cn_zzero = -1 # zero value is a constant
                 else:
-                    cn_zscale = 1 # scale value supplied as a column
+                    cn_zzero = 0 # no zero value given so don't scale
+                    zZeroVals = np.array(1.0,dtype='float64')
+            else:
+                cn_zzero = 1 # zero value supplied as a column
 
-                    #if sys.byteorder == 'little':
-                    #    zScaleVals = self.compData.field('ZSCALE').byteswap()
-                    #else:
-                    #    zScaleVals = self.compData.field('ZSCALE')
-                    zScaleVals = self.compData.field('ZSCALE')
+                #if sys.byteorder == 'little':
+                #    zZeroVals = self.compData.field('ZZERO').byteswap()
+                #else:
+                #    zZeroVals = self.compData.field('ZZERO')
+                zZeroVals = self.compData.field('ZZERO')
 
-                # Set up an array holding the zero point offset values
-                # This could come from the ZZERO column from the table, or
-                # from the ZZERO header card (if no ZZERO column (all
-                # zero point offset values are the same for each tile)).
+            # Is uncompressed data supplied in a column?
+            if not 'UNCOMPRESSED_DATA' in self.compData.names:
+                cn_uncompressed = 0 # no uncompressed data supplied
+            else:
+                cn_uncompressed = 1 # uncompressed data supplied as column
 
-                if self._header.has_key('BZERO'):
-                    self._bzero = self._header['BZERO']
-                    del self._header['BZERO']
+            # Take the compressed data out of the array and put it into
+            # a list as character bytes to pass to the decompression
+            # routine.
+            for i in range(0,len(self.compData)):
+                dataList.append(
+                     self.compData[i].field('COMPRESSED_DATA').tostring())
+
+                # If we have a column with uncompressed data then create
+                # a list of lists of the data in the coulum.  Each
+                # underlying list contains the uncompressed data for a
+                # pixel in the tile.  There are one of these lists for
+                # each tile in the image.
+                if 'UNCOMPRESSED_DATA' in self.compData.names:
+                    tileUncDataList = []
+
+                    for j in range(0,
+                         len(self.compData.field('UNCOMPRESSED_DATA')[i])):
+                        tileUncDataList.append(
+                         self.compData.field('UNCOMPRESSED_DATA')[i][j])
+
+                    uncompressedDataList.append(tileUncDataList)
+
+            # Calculate the total number of elements (pixels) in the
+            # resulting image data array.  Create a list of the number
+            # of pixels along each axis in the image and a list of the
+            # number of pixels along each axis in the compressed tile.
+            nelem = 1
+
+            for i in range(0,self._header['ZNAXIS']):
+                naxesList.append(self._header['ZNAXIS'+`i+1`])
+                tileSizeList.append(self._header['ZTILE'+`i+1`])
+                nelem = nelem * self._header['ZNAXIS'+`i+1`]
+
+            # Create a list for the compression parameters.  The contents
+            # of the list is dependent on the compression type.
+
+            if self._header['ZCMPTYPE'] == 'RICE_1':
+                i = 1
+                blockSize = def_blockSize
+                bytePix = def_bytePix
+
+                while self._header.has_key('ZNAME'+`i`):
+                    if self._header['ZNAME'+`i`] == 'BLOCKSIZE':
+                        blockSize = self._header['ZVAL'+`i`]
+                    if self._header['ZNAME'+`i`] == 'BYTEPIX':
+                        bytePix = self._header['ZVAL'+`i`]
+                    i += 1
+
+                zvalList.append(blockSize)
+                zvalList.append(bytePix)
+            elif self._header['ZCMPTYPE'] == 'HCOMPRESS_1':
+                i = 1
+                hcompSmooth = def_hcompSmooth
+
+                while self._header.has_key('ZNAME'+`i`):
+                    if self._header['ZNAME'+`i`] == 'SMOOTH':
+                        hcompSmooth = self._header['ZVAL'+`i`]
+                    i += 1
+
+                zvalList.append(hcompSmooth)
+
+            # Treat the NOISEBIT and SCALE parameters separately because
+            # they are floats instead of integers
+
+            quantizeLevel = def_quantizeLevel
+
+            if self._header['ZBITPIX'] < 0:
+                i = 1
+
+                while self._header.has_key('ZNAME'+`i`):
+                    if self._header['ZNAME'+`i`] == 'NOISEBIT':
+                        quantizeLevel = self._header['ZVAL'+`i`]
+                    i += 1
+
+            hcompScale = def_hcompScale
+
+            if self._header['ZCMPTYPE'] == 'HCOMPRESS_1':
+                i = 1
+
+                while self._header.has_key('ZNAME'+`i`):
+                    if self._header['ZNAME'+`i`] == 'SCALE':
+                        hcompScale = self._header['ZVAL'+`i`]
+                    i += 1
+
+            # Create an array to hold the decompressed data.
+            naxesList.reverse()
+            data = np.empty(shape=naxesList,
+                       dtype=_ImageBaseHDU.NumCode[self._header['ZBITPIX']])
+            naxesList.reverse()
+
+            # Call the C decompression routine to decompress the data.
+            # Note that any errors in this routine will raise an
+            # exception.
+            status = pyfitsComp.decompressData(dataList,
+                                             self._header['ZNAXIS'],
+                                             naxesList, tileSizeList,
+                                             zScaleVals, cn_zscale,
+                                             zZeroVals, cn_zzero,
+                                             nullDvals, cn_zblank,
+                                             uncompressedDataList,
+                                             cn_uncompressed,
+                                             quantizeLevel,
+                                             hcompScale,
+                                             zvalList,
+                                             self._header['ZCMPTYPE'],
+                                             self._header['ZBITPIX'], 1,
+                                             nelem, 0.0, data)
+
+            # Scale the data if necessary
+            if (self._bzero != 0 or self._bscale != 1):
+                if self.header['BITPIX'] == -32:
+                    data = np.array(data,dtype=np.float32)
                 else:
-                    self._bzero = 0.
+                    data = np.array(data,dtype=np.float64)
 
-                if not 'ZZERO' in self.compData.names:
-                    if self._header.has_key('ZZERO'):
-                        zZeroVals = np.array(self._header['ZZERO'],
-                                             dtype='float64')
-                        cn_zzero = -1 # zero value is a constant
-                    else:
-                        cn_zzero = 0 # no zero value given so don't scale
-                        zZeroVals = np.array(1.0,dtype='float64')
-                else:
-                    cn_zzero = 1 # zero value supplied as a column
+                if cn_zblank:
+                    blanks = (data == nullDvals)
 
-                    #if sys.byteorder == 'little':
-                    #    zZeroVals = self.compData.field('ZZERO').byteswap()
-                    #else:
-                    #    zZeroVals = self.compData.field('ZZERO')
-                    zZeroVals = self.compData.field('ZZERO')
+                if self._bscale != 1:
+                    np.multiply(data, self._bscale, data)
+                if self._bzero != 0:
+                    data += self._bzero
 
-                # Is uncompressed data supplied in a column?
-                if not 'UNCOMPRESSED_DATA' in self.compData.names:
-                    cn_uncompressed = 0 # no uncompressed data supplied
-                else:
-                    cn_uncompressed = 1 # uncompressed data supplied as column
+                if cn_zblank:
+                    data = np.where(blanks, np.nan, data)
 
-                # Take the compressed data out of the array and put it into
-                # a list as character bytes to pass to the decompression
-                # routine.
-                for i in range(0,len(self.compData)):
-                    dataList.append(
-                         self.compData[i].field('COMPRESSED_DATA').tostring())
+            self._data_loaded = True
+            return data
 
-                    # If we have a column with uncompressed data then create
-                    # a list of lists of the data in the coulum.  Each
-                    # underlying list contains the uncompressed data for a
-                    # pixel in the tile.  There are one of these lists for
-                    # each tile in the image.
-                    if 'UNCOMPRESSED_DATA' in self.compData.names:
-                        tileUncDataList = []
+        def _setdata(self, value):
+            if (value is not None) and (not isinstance(value, np.ndarray) or
+                 value.dtype.fields is not None):
+                    raise TypeError('CompImageHDU data has incorrect type:%s; dtype.fields = %s'%
+                            (type(value), value.dtype.fields))
+        data = lazyproperty(data, _setdata)
 
-                        for j in range(0,
-                             len(self.compData.field('UNCOMPRESSED_DATA')[i])):
-                            tileUncDataList.append(
-                             self.compData.field('UNCOMPRESSED_DATA')[i][j])
+        @lazyproperty
+        def compData(self):
+            # In order to create the compressed data we will reference the
+            # image data.  Referencing the image data will cause the
+            # compressed data to be read from the file.
+            data = self.data
+            return self.compData
 
-                        uncompressedDataList.append(tileUncDataList)
-
-                # Calculate the total number of elements (pixels) in the
-                # resulting image data array.  Create a list of the number
-                # of pixels along each axis in the image and a list of the
-                # number of pixels along each axis in the compressed tile.
-                nelem = 1
-
-                for i in range(0,self._header['ZNAXIS']):
-                    naxesList.append(self._header['ZNAXIS'+`i+1`])
-                    tileSizeList.append(self._header['ZTILE'+`i+1`])
-                    nelem = nelem * self._header['ZNAXIS'+`i+1`]
-
-                # Create a list for the compression parameters.  The contents
-                # of the list is dependent on the compression type.
-
-                if self._header['ZCMPTYPE'] == 'RICE_1':
-                    i = 1
-                    blockSize = def_blockSize
-                    bytePix = def_bytePix
-
-                    while self._header.has_key('ZNAME'+`i`):
-                        if self._header['ZNAME'+`i`] == 'BLOCKSIZE':
-                            blockSize = self._header['ZVAL'+`i`]
-                        if self._header['ZNAME'+`i`] == 'BYTEPIX':
-                            bytePix = self._header['ZVAL'+`i`]
-                        i += 1
-
-                    zvalList.append(blockSize)
-                    zvalList.append(bytePix)
-                elif self._header['ZCMPTYPE'] == 'HCOMPRESS_1':
-                    i = 1
-                    hcompSmooth = def_hcompSmooth
-
-                    while self._header.has_key('ZNAME'+`i`):
-                        if self._header['ZNAME'+`i`] == 'SMOOTH':
-                            hcompSmooth = self._header['ZVAL'+`i`]
-                        i += 1
-
-                    zvalList.append(hcompSmooth)
-
-                # Treat the NOISEBIT and SCALE parameters separately because
-                # they are floats instead of integers
-
-                quantizeLevel = def_quantizeLevel
-
-                if self._header['ZBITPIX'] < 0:
-                    i = 1
-
-                    while self._header.has_key('ZNAME'+`i`):
-                        if self._header['ZNAME'+`i`] == 'NOISEBIT':
-                            quantizeLevel = self._header['ZVAL'+`i`]
-                        i += 1
-
-                hcompScale = def_hcompScale
-
-                if self._header['ZCMPTYPE'] == 'HCOMPRESS_1':
-                    i = 1
-
-                    while self._header.has_key('ZNAME'+`i`):
-                        if self._header['ZNAME'+`i`] == 'SCALE':
-                            hcompScale = self._header['ZVAL'+`i`]
-                        i += 1
-
-                # Create an array to hold the decompressed data.
-                naxesList.reverse()
-                data = np.empty(shape=naxesList,
-                           dtype=_ImageBaseHDU.NumCode[self._header['ZBITPIX']])
-                naxesList.reverse()
-
-                # Call the C decompression routine to decompress the data.
-                # Note that any errors in this routine will raise an
-                # exception.
-                status = pyfitsComp.decompressData(dataList,
-                                                 self._header['ZNAXIS'],
-                                                 naxesList, tileSizeList,
-                                                 zScaleVals, cn_zscale,
-                                                 zZeroVals, cn_zzero,
-                                                 nullDvals, cn_zblank,
-                                                 uncompressedDataList,
-                                                 cn_uncompressed,
-                                                 quantizeLevel,
-                                                 hcompScale,
-                                                 zvalList,
-                                                 self._header['ZCMPTYPE'],
-                                                 self._header['ZBITPIX'], 1,
-                                                 nelem, 0.0, data)
-
-                # Scale the data if necessary
-                if (self._bzero != 0 or self._bscale != 1):
-                    if self.header['BITPIX'] == -32:
-                        data = np.array(data,dtype=np.float32)
-                    else:
-                        data = np.array(data,dtype=np.float64)
-
-                    if cn_zblank:
-                        blanks = (data == nullDvals)
-
-                    if self._bscale != 1:
-                        np.multiply(data, self._bscale, data)
-                    if self._bzero != 0:
-                        data += self._bzero
-
-                    if cn_zblank:
-                        data = np.where(blanks, np.nan, data)
-
-                self.__dict__[attr] = data
-
-            elif attr == 'compData':
-                # In order to create the compressed data we will reference the
-                # image data.  Referencing the image data will cause the
-                # compressed data to be read from the file.
-                data = self.data
-            elif attr == 'header':
-                # The header attribute is the header for the image data.  It
-                # is not actually stored in the object dictionary.  Instead,
-                # the _imageHeader is stored.  If the _imageHeader attribute
-                # has already been defined we just return it.  If not, we nust
-                # create it from the table header (the _header attribute).
-                if not hasattr(self, '_imageHeader'):
-                    # Start with a copy of the table header.
-                    self._imageHeader = self._header.copy()
-                    cardList = self._imageHeader.ascardlist()
-
-                    try:
-                        # Set the extension type to IMAGE
-                        cardList['XTENSION'].value = 'IMAGE'
-                        cardList['XTENSION'].comment = 'extension type'
-                    except KeyError:
-                        pass
-
-                    # Delete cards that are related to the table.  And move
-                    # the values of those cards that relate to the image from
-                    # their corresponding table cards.  These include
-                    # ZBITPIX -> BITPIX, ZNAXIS -> NAXIS, and ZNAXISn -> NAXISn.
-                    try:
-                        del cardList['ZIMAGE']
-                    except KeyError:
-                        pass
-
-                    try:
-                        del cardList['ZCMPTYPE']
-                    except KeyError:
-                        pass
-
-                    try:
-                        del cardList['ZBITPIX']
-                        _bitpix = self._header['ZBITPIX']
-                        cardList['BITPIX'].value = self._header['ZBITPIX']
-
-                        if (self._bzero != 0 or self._bscale != 1):
-                            if _bitpix > 16:  # scale integers to Float64
-                                cardList['BITPIX'].value = -64
-                            elif _bitpix > 0:  # scale integers to Float32
-                                cardList['BITPIX'].value = -32
-
-                        cardList['BITPIX'].comment = \
-                                   self._header.ascardlist()['ZBITPIX'].comment
-                    except KeyError:
-                        pass
-
-                    try:
-                        del cardList['ZNAXIS']
-                        cardList['NAXIS'].value = self._header['ZNAXIS']
-                        cardList['NAXIS'].comment = \
-                                 self._header.ascardlist()['ZNAXIS'].comment
-
-                        for i in range(cardList['NAXIS'].value):
-                            del cardList['ZNAXIS'+`i+1`]
-                            self._imageHeader.update('NAXIS'+`i+1`,
-                              self._header['ZNAXIS'+`i+1`],
-                              self._header.ascardlist()['ZNAXIS'+`i+1`].comment,
-                              after='NAXIS'+`i`)
-                            lastNaxisCard = 'NAXIS'+`i+1`
-
-                        if lastNaxisCard == 'NAXIS1':
-                            # There is only one axis in the image data so we
-                            # need to delete the extra NAXIS2 card.
-                            del cardList['NAXIS2']
-                    except KeyError:
-                        pass
-
-                    try:
-                        for i in range(self._header['ZNAXIS']):
-                            del cardList['ZTILE'+`i+1`]
-
-                    except KeyError:
-                        pass
-
-                    try:
-                        del cardList['ZPCOUNT']
-                        self._imageHeader.update('PCOUNT',
-                                 self._header['ZPCOUNT'],
-                                 self._header.ascardlist()['ZPCOUNT'].comment)
-                    except KeyError:
-                        try:
-                            del cardList['PCOUNT']
-                        except KeyError:
-                            pass
-
-                    try:
-                        del cardList['ZGCOUNT']
-                        self._imageHeader.update('GCOUNT',
-                                 self._header['ZGCOUNT'],
-                                 self._header.ascardlist()['ZGCOUNT'].comment)
-                    except KeyError:
-                        try:
-                            del cardList['GCOUNT']
-                        except KeyError:
-                            pass
-
-                    try:
-                        del cardList['ZEXTEND']
-                        self._imageHeader.update('EXTEND',
-                                 self._header['ZEXTEND'],
-                                 self._header.ascardlist()['ZEXTEND'].comment,
-                                 after = lastNaxisCard)
-                    except KeyError:
-                        pass
-
-                    try:
-                        del cardList['ZBLOCKED']
-                        self._imageHeader.update('BLOCKED',
-                                 self._header['ZBLOCKED'],
-                                 self._header.ascardlist()['ZBLOCKED'].comment)
-                    except KeyError:
-                        pass
-
-                    try:
-                        del cardList['TFIELDS']
-
-                        for i in range(self._header['TFIELDS']):
-                            del cardList['TFORM'+`i+1`]
-
-                            if self._imageHeader.has_key('TTYPE'+`i+1`):
-                                del cardList['TTYPE'+`i+1`]
-
-                    except KeyError:
-                        pass
-
-                    i = 1
-
-                    while 1:
-                        try:
-                            del cardList['ZNAME'+`i`]
-                            del cardList['ZVAL'+`i`]
-                            i += 1
-                        except KeyError:
-                            break
-
-                    # delete the keywords BSCALE and BZERO
-
-                    try:
-                        del cardList['BSCALE']
-                    except KeyError:
-                        pass
-
-                    try:
-                        del cardList['BZERO']
-                    except KeyError:
-                        pass
-
-                    # Move the ZHECKSUM and ZDATASUM cards to the image header
-                    # as CHECKSUM and DATASUM
-                    try:
-                        del cardList['ZHECKSUM']
-                        self._imageHeader.update('CHECKSUM',
-                                self._header['ZHECKSUM'],
-                                self._header.ascardlist()['ZHECKSUM'].comment)
-                    except KeyError:
-                        pass
-
-                    try:
-                        del cardList['ZDATASUM']
-                        self._imageHeader.update('DATASUM',
-                                self._header['ZDATASUM'],
-                                self._header.ascardlist()['ZDATASUM'].comment)
-                    except KeyError:
-                        pass
-
-                    try:
-                        del cardList['ZSIMPLE']
-                        self._imageHeader.update('SIMPLE',
-                                self._header['ZSIMPLE'],
-                                self._header.ascardlist()['ZSIMPLE'].comment,
-                                before=1)
-                        del cardList['XTENSION']
-                    except KeyError:
-                        pass
-
-                    try:
-                        del cardList['ZTENSION']
-                        if self._header['ZTENSION'] != 'IMAGE':
-                            warnings.warn("ZTENSION keyword in compressed extension != 'IMAGE'")
-                        self._imageHeader.update('XTENSION',
-                                'IMAGE',
-                                self._header.ascardlist()['ZTENSION'].comment)
-                    except KeyError:
-                        pass
-
-                    # Remove the EXTNAME card if the value in the table header
-                    # is the default value of COMPRESSED_IMAGE.
-
-                    if self._header.has_key('EXTNAME') and \
-                       self._header['EXTNAME'] == 'COMPRESSED_IMAGE':
-                           del cardList['EXTNAME']
-
-                    # Look to see if there are any blank cards in the table
-                    # header.  If there are, there should be the same number
-                    # of blank cards in the image header.  Add blank cards to
-                    # the image header to make it so.
-                    self._header.ascardlist().count_blanks()
-                    tableHeaderBlankCount = self._header.ascardlist()._blanks
-                    self._imageHeader.ascardlist().count_blanks()
-                    imageHeaderBlankCount=self._imageHeader.ascardlist()._blanks
-
-                    for i in range(tableHeaderBlankCount-imageHeaderBlankCount):
-                        self._imageHeader.add_blank()
+        @lazyproperty
+        def header(self):
+            # The header attribute is the header for the image data.  It
+            # is not actually stored in the object dictionary.  Instead,
+            # the _imageHeader is stored.  If the _imageHeader attribute
+            # has already been defined we just return it.  If not, we nust
+            # create it from the table header (the _header attribute).
+            if not hasattr(self, '_imageHeader'):
+                # Start with a copy of the table header.
+                self._imageHeader = self._header.copy()
+                cardList = self._imageHeader.ascardlist()
 
                 try:
-                    return self._imageHeader
+                    # Set the extension type to IMAGE
+                    cardList['XTENSION'].value = 'IMAGE'
+                    cardList['XTENSION'].comment = 'extension type'
                 except KeyError:
-                    raise AttributeError(attr)
-            else:
-                # Call the base class __getattr__ method.
-                return BinTableHDU.__getattr__(self,attr)
+                    pass
+
+                # Delete cards that are related to the table.  And move
+                # the values of those cards that relate to the image from
+                # their corresponding table cards.  These include
+                # ZBITPIX -> BITPIX, ZNAXIS -> NAXIS, and ZNAXISn -> NAXISn.
+                try:
+                    del cardList['ZIMAGE']
+                except KeyError:
+                    pass
+
+                try:
+                    del cardList['ZCMPTYPE']
+                except KeyError:
+                    pass
+
+                try:
+                    del cardList['ZBITPIX']
+                    _bitpix = self._header['ZBITPIX']
+                    cardList['BITPIX'].value = self._header['ZBITPIX']
+
+                    if (self._bzero != 0 or self._bscale != 1):
+                        if _bitpix > 16:  # scale integers to Float64
+                            cardList['BITPIX'].value = -64
+                        elif _bitpix > 0:  # scale integers to Float32
+                            cardList['BITPIX'].value = -32
+
+                    cardList['BITPIX'].comment = \
+                               self._header.ascardlist()['ZBITPIX'].comment
+                except KeyError:
+                    pass
+
+                try:
+                    del cardList['ZNAXIS']
+                    cardList['NAXIS'].value = self._header['ZNAXIS']
+                    cardList['NAXIS'].comment = \
+                             self._header.ascardlist()['ZNAXIS'].comment
+
+                    for i in range(cardList['NAXIS'].value):
+                        del cardList['ZNAXIS'+`i+1`]
+                        self._imageHeader.update('NAXIS'+`i+1`,
+                          self._header['ZNAXIS'+`i+1`],
+                          self._header.ascardlist()['ZNAXIS'+`i+1`].comment,
+                          after='NAXIS'+`i`)
+                        lastNaxisCard = 'NAXIS'+`i+1`
+
+                    if lastNaxisCard == 'NAXIS1':
+                        # There is only one axis in the image data so we
+                        # need to delete the extra NAXIS2 card.
+                        del cardList['NAXIS2']
+                except KeyError:
+                    pass
+
+                try:
+                    for i in range(self._header['ZNAXIS']):
+                        del cardList['ZTILE'+`i+1`]
+
+                except KeyError:
+                    pass
+
+                try:
+                    del cardList['ZPCOUNT']
+                    self._imageHeader.update('PCOUNT',
+                             self._header['ZPCOUNT'],
+                             self._header.ascardlist()['ZPCOUNT'].comment)
+                except KeyError:
+                    try:
+                        del cardList['PCOUNT']
+                    except KeyError:
+                        pass
+
+                try:
+                    del cardList['ZGCOUNT']
+                    self._imageHeader.update('GCOUNT',
+                             self._header['ZGCOUNT'],
+                             self._header.ascardlist()['ZGCOUNT'].comment)
+                except KeyError:
+                    try:
+                        del cardList['GCOUNT']
+                    except KeyError:
+                        pass
+
+                try:
+                    del cardList['ZEXTEND']
+                    self._imageHeader.update('EXTEND',
+                             self._header['ZEXTEND'],
+                             self._header.ascardlist()['ZEXTEND'].comment,
+                             after = lastNaxisCard)
+                except KeyError:
+                    pass
+
+                try:
+                    del cardList['ZBLOCKED']
+                    self._imageHeader.update('BLOCKED',
+                             self._header['ZBLOCKED'],
+                             self._header.ascardlist()['ZBLOCKED'].comment)
+                except KeyError:
+                    pass
+
+                try:
+                    del cardList['TFIELDS']
+
+                    for i in range(self._header['TFIELDS']):
+                        del cardList['TFORM'+`i+1`]
+
+                        if self._imageHeader.has_key('TTYPE'+`i+1`):
+                            del cardList['TTYPE'+`i+1`]
+
+                except KeyError:
+                    pass
+
+                i = 1
+
+                while 1:
+                    try:
+                        del cardList['ZNAME'+`i`]
+                        del cardList['ZVAL'+`i`]
+                        i += 1
+                    except KeyError:
+                        break
+
+                # delete the keywords BSCALE and BZERO
+
+                try:
+                    del cardList['BSCALE']
+                except KeyError:
+                    pass
+
+                try:
+                    del cardList['BZERO']
+                except KeyError:
+                    pass
+
+                # Move the ZHECKSUM and ZDATASUM cards to the image header
+                # as CHECKSUM and DATASUM
+                try:
+                    del cardList['ZHECKSUM']
+                    self._imageHeader.update('CHECKSUM',
+                            self._header['ZHECKSUM'],
+                            self._header.ascardlist()['ZHECKSUM'].comment)
+                except KeyError:
+                    pass
+
+                try:
+                    del cardList['ZDATASUM']
+                    self._imageHeader.update('DATASUM',
+                            self._header['ZDATASUM'],
+                            self._header.ascardlist()['ZDATASUM'].comment)
+                except KeyError:
+                    pass
+
+                try:
+                    del cardList['ZSIMPLE']
+                    self._imageHeader.update('SIMPLE',
+                            self._header['ZSIMPLE'],
+                            self._header.ascardlist()['ZSIMPLE'].comment,
+                            before=1)
+                    del cardList['XTENSION']
+                except KeyError:
+                    pass
+
+                try:
+                    del cardList['ZTENSION']
+                    if self._header['ZTENSION'] != 'IMAGE':
+                        warnings.warn("ZTENSION keyword in compressed extension != 'IMAGE'")
+                    self._imageHeader.update('XTENSION',
+                            'IMAGE',
+                            self._header.ascardlist()['ZTENSION'].comment)
+                except KeyError:
+                    pass
+
+                # Remove the EXTNAME card if the value in the table header
+                # is the default value of COMPRESSED_IMAGE.
+
+                if self._header.has_key('EXTNAME') and \
+                   self._header['EXTNAME'] == 'COMPRESSED_IMAGE':
+                       del cardList['EXTNAME']
+
+                # Look to see if there are any blank cards in the table
+                # header.  If there are, there should be the same number
+                # of blank cards in the image header.  Add blank cards to
+                # the image header to make it so.
+                self._header.ascardlist().count_blanks()
+                tableHeaderBlankCount = self._header.ascardlist()._blanks
+                self._imageHeader.ascardlist().count_blanks()
+                imageHeaderBlankCount=self._imageHeader.ascardlist()._blanks
+
+                for i in range(tableHeaderBlankCount-imageHeaderBlankCount):
+                    self._imageHeader.add_blank()
 
             try:
-                return self.__dict__[attr]
+                return self._imageHeader
             except KeyError:
                 raise AttributeError(attr)
-
-        def __setattr__(self, attr, value):
-            """
-            Set an HDU attribute.
-            """
-            if attr == 'data':
-                if (value != None) and (not isinstance(value,np.ndarray) or
-                                        value.dtype.fields != None):
-                    raise TypeError, "CompImageHDU data has incorrect type"
-
-            _ExtensionHDU.__setattr__(self,attr,value)
 
         def _summary(self):
             """
@@ -1331,8 +1318,7 @@ if COMPRESSION_SUPPORTED:
             type  = class_name[class_name.rfind('.')+1:-2]
 
             # if data is touched, use data info.
-
-            if 'data' in dir(self):
+            if self._data_loaded:
                 if self.data is None:
                     _shape, _format = (), ''
                 else:
@@ -1361,6 +1347,7 @@ if COMPRESSION_SUPPORTED:
             """
             Compress the image data so that it may be written to a file.
             """
+
             naxesList = []
             tileSizeList = []
             zvalList = []

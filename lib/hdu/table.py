@@ -18,6 +18,7 @@ from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import _AllHDU, _isInt
 from pyfits.hdu.extension import _ExtensionHDU
+from pyfits.util import lazyproperty
 
 
 class _TableBaseHDU(_ExtensionHDU):
@@ -40,6 +41,8 @@ class _TableBaseHDU(_ExtensionHDU):
 
         from pyfits.header import Header
 
+        super(_TableBaseHDU, self).__init__(data=data, header=header)
+
         if header is not None:
             if not isinstance(header, Header):
                 raise ValueError, "header must be a Header object"
@@ -48,7 +51,7 @@ class _TableBaseHDU(_ExtensionHDU):
 
             # this should never happen
             if header is None:
-                raise ValueError, "No header to setup HDU."
+                raise ValueError('No header to setup HDU.')
 
             # if the file is read the first time, no need to copy, and keep it unchanged
             else:
@@ -90,7 +93,11 @@ class _TableBaseHDU(_ExtensionHDU):
                 self._header['NAXIS2'] = self.data.shape[0]
                 self._header['TFIELDS'] = self.data._nfields
 
-                if self.data._coldefs == None:
+                # TODO: This is almost exactly identical to code in 
+                # FITS_rec.__array_finalize__; we should centralize it
+                # somewhere (the purpose of the code is to create a ColDefs
+                # from a recarray-like object
+                if self.data._coldefs is None:
                     #
                     # The data does not have a _coldefs attribute so
                     # create one from the underlying recarray.
@@ -111,15 +118,14 @@ class _TableBaseHDU(_ExtensionHDU):
                        c = Column(name=cname,format=format,array=data[cname])
                        columns.append(c)
 
+                    tbtype = 'BinTableHDU'
                     try:
-                        tbtype = 'BinTableHDU'
-
-                        if self._xtn == 'TABLE':
+                        if self._extension == 'TABLE':
                             tbtype = 'TableHDU'
                     except AttributeError:
                         pass
 
-                    self.data._coldefs = ColDefs(columns,tbtype=tbtype)
+                    self.data._coldefs = ColDefs(columns, tbtype=tbtype)
 
                 self.columns = self.data._coldefs
                 self.update()
@@ -147,40 +153,33 @@ class _TableBaseHDU(_ExtensionHDU):
             name = self._header['EXTNAME']
         self.name = name
 
-    def __getattr__(self, attr):
-        """
-        Get the `data` or `columns` attribute.
-        """
-
-        if attr == 'data':
-            size = self.size()
-            if size:
-                self._file.seek(self._datLoc)
-                data = _get_tbdata(self)
-                data._coldefs = self.columns
-                data.formats = self.columns.formats
+    @lazyproperty
+    def data(self):
+        size = self.size()
+        if size:
+            self._file.seek(self._datLoc)
+            data = _get_tbdata(self)
+            data._coldefs = self.columns
+            data.formats = self.columns.formats
 #                print "Got data?"
-            else:
-                data = None
-            self.__dict__[attr] = data
-
-        elif attr == 'columns':
-            class_name = str(self.__class__)
-            class_name = class_name[class_name.rfind('.')+1:-2]
-            self.__dict__[attr] = ColDefs(self, tbtype=class_name)
-
-        elif attr == '_theap':
-            self.__dict__[attr] = self._header.get('THEAP', self._header['NAXIS1']*self._header['NAXIS2'])
-        elif attr == '_pcount':
-            self.__dict__[attr] = self._header.get('PCOUNT', 0)
         else:
-            return _AllHDU.__getattr__(self,attr)
+            data = None
+        self._data_loaded = True
+        return data
 
-        try:
-            return self.__dict__[attr]
-        except KeyError:
-            raise AttributeError(attr)
+    @lazyproperty
+    def columns(self):
+        class_name = str(self.__class__)
+        class_name = class_name[class_name.rfind('.')+1:-2]
+        return ColDefs(self, tbtype=class_name)
 
+    @lazyproperty
+    def _theap(self):
+        return self._header.get('THEAP', self._header['NAXIS1']*self._header['NAXIS2'])
+
+    @lazyproperty
+    def _pcount(self):
+        return self._header.get('PCOUNT', 0)
 
     def _summary(self):
         """
@@ -191,7 +190,7 @@ class _TableBaseHDU(_ExtensionHDU):
         type  = class_name[class_name.rfind('.')+1:-2]
 
         # if data is touched, use data info.
-        if 'data' in dir(self):
+        if self._data_loaded:
             if self.data is None:
                 _shape, _format = (), ''
                 _nrows = 0
@@ -206,10 +205,9 @@ class _TableBaseHDU(_ExtensionHDU):
             _shape = ()
             _nrows = self._header['NAXIS2']
             _ncols = self._header['TFIELDS']
-            _format = '['
-            for j in range(_ncols):
-                _format += self._header['TFORM'+`j+1`] + ', '
-            _format = _format[:-2] + ']'
+            _format = ', '.join([self._header['TFORM' + str(j + 1)]
+                                 for j in range(_ncols)])
+            _format = '[%s]' % _format
         _dims = "%dR x %dC" % (_nrows, _ncols)
 
         return "%-10s  %-11s  %5d  %-12s  %s" % \
@@ -297,6 +295,9 @@ class TableHDU(_TableBaseHDU):
     """
     FITS ASCII table extension HDU class.
     """
+
+    _extension = 'TABLE'
+
     __format_RE = re.compile(
         r'(?P<code>[ADEFI])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
 
@@ -313,10 +314,11 @@ class TableHDU(_TableBaseHDU):
         name : str
             the ``EXTNAME`` value
         """
-        self._xtn = 'TABLE'
-        _TableBaseHDU.__init__(self, data=data, header=header, name=name)
-        if self._header[0].rstrip() != self._xtn:
-            self._header[0] = self._xtn
+
+        super(TableHDU, self).__init__(data=data, header=header, name=name)
+
+        if self._header[0].rstrip() != self._extension:
+            self._header[0] = self._extension
             self._header.ascard[0].comment = 'ASCII table extension'
     '''
     def format(self):
@@ -379,6 +381,9 @@ class BinTableHDU(_TableBaseHDU):
     """
     Binary table HDU class.
     """
+
+    _extension = 'BINTABLE'
+
     def __init__(self, data=None, header=None, name=None):
         """
         Parameters
@@ -393,11 +398,11 @@ class BinTableHDU(_TableBaseHDU):
             the ``EXTNAME`` value
         """
 
-        self._xtn = 'BINTABLE'
-        _TableBaseHDU.__init__(self, data=data, header=header, name=name)
+        super(BinTableHDU, self).__init__(data=data, header=header, name=name)
+
         hdr = self._header
-        if hdr[0] != self._xtn:
-            hdr[0] = self._xtn
+        if hdr[0] != self._extension:
+            hdr[0] = self._extension
             hdr.ascard[0].comment = 'binary table extension'
 
         self._header._hdutype = BinTableHDU

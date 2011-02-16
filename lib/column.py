@@ -394,7 +394,7 @@ class ColDefs(object):
             self._width = _end
             return spans
         else:
-            raise AttributeError('Attribute %s not defined.' % name)
+            raise AttributeError('Attribute spans not defined.')
 
 # TODO: Not sure why this is commented out; should it just go away?
 #                # make sure to consider the case that the starting column of
