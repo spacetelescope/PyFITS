@@ -334,7 +334,8 @@ class HDUList(list, _Verify):
         # each element calls their own verify
         for idx, hdu in enumerate(self):
             if idx > 0 and (not isinstance(hdu, _ExtensionHDU)):
-                err_text = "HDUList's element %s is not an extension HDU." % `i`
+                err_text = "HDUList's element %s is not an extension HDU." \
+                           % str(idx)
                 text = self.run_option(option, err_text=err_text, fixable=True)
                 errs.append(text)
 
@@ -658,9 +659,10 @@ class HDUList(list, _Verify):
                         nfound += 1
 
         if (nfound == 0):
-            raise KeyError, 'extension %s not found' % `key`
+            raise KeyError('Extension %s not found.' % repr(key))
         elif (nfound > 1):
-            raise KeyError, 'there are %d extensions of %s' % (nfound, `key`)
+            raise KeyError('There are %d extensions of %s.'
+                           % (nfound, repr(key)))
         else:
             return found
 
@@ -679,7 +681,8 @@ class HDUList(list, _Verify):
 
         for hdu in self:
             if hdu._data_loaded and not isinstance(hdu, CompImageHDU):
-                if isinstance(hdu, (GroupsHDU, _TableBaseHDU)) and hdu.data is not None:
+                if isinstance(hdu, (GroupsHDU, _TableBaseHDU)) and \
+                   hdu.data is not None:
                     hdu.data._scale_back()
                 if isinstance(hdu, _TableBaseHDU) and hdu.data is not None:
 
@@ -696,10 +699,15 @@ class HDUList(list, _Verify):
                         hdu.header['PCOUNT'] = _pcount
 
                     # update TFORM for variable length columns
-                    for i in range(hdu.data._nfields):
-                        if isinstance(hdu.data._coldefs.formats[i], _FormatP):
-                            key = hdu.header['TFORM'+`i+1`]
-                            hdu.header['TFORM'+`i+1`] = key[:key.find('(')+1] + `hdu.data.field(i)._max` + ')'
+                    for idx in range(hdu.data._nfields):
+                        if isinstance(hdu.data._coldefs.formats[idx],
+                                      _FormatP):
+                            key = hdu.header['TFORM' + str(idx + 1)]
+                            # TODO: This looks overcomplicated, whatever it
+                            # is--simplify it
+                            hdu.header['TFORM'+ str(idx + 1)] = \
+                                key[:key.find('(') + 1] + \
+                                repr(hdu.data.field(idx)._max) + ')'
 
 
     def flush(self, output_verify='exception', verbose=False, classExtensions={}):
@@ -750,8 +758,10 @@ class HDUList(list, _Verify):
         if self.__file.mode in ('append', 'ostream'):
             for hdu in self:
                 if (verbose):
-                    try: _extver = `hdu.header['extver']`
-                    except: _extver = ''
+                    try:
+                        _extver = str(hdu.header['extver'])
+                    except:
+                        _extver = ''
 
                 # only append HDU's which are "new"
                 if not hasattr(hdu, '_new') or hdu._new:
@@ -870,8 +880,10 @@ class HDUList(list, _Verify):
             else:
                 for hdu in self:
                     if (verbose):
-                        try: _extver = `hdu.header['extver']`
-                        except: _extver = ''
+                        try: 
+                            _extver = str(hdu.header['extver'])
+                        except: 
+                            _extver = ''
 
                     if hdu._data_loaded and isinstance(hdu, _ImageBaseHDU):
                         # If the data has changed update the image header to
@@ -926,7 +938,7 @@ class HDUList(list, _Verify):
                 hdr.update('extend', True, after='naxis')
             else:
                 n = hdr['naxis']
-                hdr.update('extend', True, after='naxis'+`n`)
+                hdr.update('extend', True, after='naxis' + str(n))
 
     def writeto(self, name, output_verify='exception', clobber=False,
                 classExtensions={}, checksum=False):

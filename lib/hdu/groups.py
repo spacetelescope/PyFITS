@@ -5,7 +5,7 @@ from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.base import _AllHDU
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
-from pyfits.util import _is_int
+from pyfits.util import lazyproperty, _is_int
 
 
 class GroupsHDU(PrimaryHDU):
@@ -53,17 +53,19 @@ class GroupsHDU(PrimaryHDU):
             _pnames = []
             _pcount = self._header['PCOUNT']
             _format = GroupsHDU._dict[self._header['BITPIX']]
-            for i in range(self._header['PCOUNT']):
-                _bscale = self._header.get('PSCAL'+`i+1`, 1)
-                _bzero = self._header.get('PZERO'+`i+1`, 0)
-                _pnames.append(self._header['PTYPE'+`i+1`].lower())
-                _cols.append(Column(name='c'+`i+1`, format = _format, bscale = _bscale, bzero = _bzero))
+            for idx in range(self._header['PCOUNT']):
+                _bscale = self._header.get('PSCAL' + str(idx + 1), 1)
+                _bzero = self._header.get('PZERO' + str(idx + 1), 0)
+                _pnames.append(self._header['PTYPE' + str(idx + 1)].lower())
+                _cols.append(Column(name='c' + str(idx + 1), format=_format,
+                                    bscale=_bscale, bzero=_bzero))
             data_shape = self._dimShape()[:-1]
-            dat_format = `int(np.array(data_shape).sum())` + _format
+            dat_format = str(int(np.array(data_shape).sum())) + _format
 
             _bscale = self._header.get('BSCALE', 1)
             _bzero = self._header.get('BZERO', 0)
-            _cols.append(Column(name='data', format = dat_format, bscale = _bscale, bzero = _bzero))
+            _cols.append(Column(name='data', format=dat_format, bscale=_bscale,
+                                bzero = _bzero))
             _coldefs = ColDefs(_cols)
             _coldefs._shape = self._header['GCOUNT']
             _coldefs._dat_format = FITS2NUMPY[_format]
@@ -91,8 +93,8 @@ class GroupsHDU(PrimaryHDU):
         # for random group image, NAXIS1 should be 0, so we skip NAXIS1.
         if naxis > 1:
             size = 1
-            for j in range(1, naxis):
-                size = size * self._header['NAXIS'+`j+1`]
+            for idx in range(1, naxis):
+                size = size * self._header['NAXIS' + str(idx + 1)]
             bitpix = self._header['BITPIX']
             gcount = self._header.get('GCOUNT', 1)
             pcount = self._header.get('PCOUNT', 0)
@@ -114,7 +116,8 @@ class GroupsHDU(PrimaryHDU):
 
         self.req_cards('GCOUNT', pos, _is_int, 1, option, errs)
         self.req_cards('PCOUNT', pos, _is_int, 0, option, errs)
-        self.req_cards('GROUPS', pos, lambda v: (v is True), True, option, errs)
+        self.req_cards('GROUPS', pos, lambda v: (v is True), True, option,
+                       errs)
         return errs
 
     def _calculate_datasum(self, blocking):
@@ -127,7 +130,7 @@ class GroupsHDU(PrimaryHDU):
             # Check the byte order of the data.  If it is little endian we
             # must swap it before calculating the datasum.
             byteorder = \
-                     self.data.dtype.fields[self.data.dtype.names[0]][0].str[0]
+                 self.data.dtype.fields[self.data.dtype.names[0]][0].str[0]
 
             if byteorder != '>':
                 byteswapped = True
@@ -215,14 +218,14 @@ class GroupData(FITS_rec):
             fits_fmt = GroupsHDU._dict[bitpix] # -32 -> 'E'
             _fmt = FITS2NUMPY[fits_fmt] # 'E' -> 'f4'
             _formats = (_fmt+',') * npars
-            data_fmt = '%s%s' % (`input.shape[1:]`, _fmt)
+            data_fmt = '%s%s' % (str(input.shape[1:]), _fmt)
             _formats += data_fmt
             gcount = input.shape[0]
-            for i in range(npars):
-                _cols.append(Column(name='c'+`i+1`,
+            for idx in range(npars):
+                _cols.append(Column(name='c'+ str(idx + 1),
                                     format = fits_fmt,
-                                    bscale = parbscales[i],
-                                    bzero = parbzeros[i]))
+                                    bscale = parbscales[idx],
+                                    bzero = parbzeros[idx]))
             _cols.append(Column(name='data',
                                 format = fits_fmt,
                                 bscale = bscale,
@@ -237,50 +240,37 @@ class GroupData(FITS_rec):
             self._coldefs = _coldefs
             self.parnames = [i.lower() for i in parnames]
 
-            for i in range(npars):
-                (_scale, _zero)  = self._get_scale_factors(i)[3:5]
+            for idx in range(npars):
+                (_scale, _zero)  = self._get_scale_factors(idx)[3:5]
                 if _scale or _zero:
-                    self._convert[i] = pardata[i]
+                    self._convert[idx] = pardata[idx]
                 else:
-                    rec.recarray.field(self,i)[:] = pardata[i]
+                    rec.recarray.field(self,idx)[:] = pardata[idx]
             (_scale, _zero)  = self._get_scale_factors(npars)[3:5]
             if _scale or _zero:
                 self._convert[npars] = input
             else:
-                rec.recarray.field(self,npars)[:] = input
+                rec.recarray.field(self, npars)[:] = input
         else:
-             self = FITS_rec.__new__(subtype,input)
+             self = FITS_rec.__new__(subtype, input)
         return self
 
-    def __getattribute__(self, attr):
-        if attr == 'data':
-            return self.field('data')
-        else:
-            return super(GroupData, self).__getattribute__(attr)
+    @property
+    def data(self):
+        return self.field('data')
 
-    def __getattr__(self, attr):
-        if attr == '_unique':
-            _unique = {}
-            for i in range(len(self.parnames)):
-                _name = self.parnames[i]
-                if _name in _unique:
-                    _unique[_name].append(i)
-                else:
-                    _unique[_name] = [i]
-            self.__dict__[attr] = _unique
-        try:
-            return self.__dict__[attr]
-        except KeyError:
-            raise AttributeError(attr)
+    @lazyproperty
+    def _unique(self):
+        return _unique(self.parnames)
 
-    def par(self, parName):
+    def par(self, parname):
         """
         Get the group parameter values.
         """
-        if isinstance(parName, (int, long, np.integer)):
-            result = self.field(parName)
+        if _is_int(parname):
+            result = self.field(parname)
         else:
-            indx = self._unique[parName.lower()]
+            indx = self._unique[parname.lower()]
             if len(indx) == 1:
                 result = self.field(indx[0])
 
@@ -297,7 +287,7 @@ class GroupData(FITS_rec):
         return _Group(self, row)
 
     def __getitem__(self, key):
-        return _Group(self,key,self.parnames)
+        return _Group(self, key, self.parnames)
 
 
 class _Group(FITS_record):
@@ -308,20 +298,9 @@ class _Group(FITS_record):
         super(_Group, self).__init__(input, row)
         self.parnames = parnames
 
-    def __getattr__(self, attr):
-        if attr == '_unique':
-            _unique = {}
-            for i in range(len(self.parnames)):
-                _name = self.parnames[i]
-                if _name in _unique:
-                    _unique[_name].append(i)
-                else:
-                    _unique[_name] = [i]
-            self.__dict__[attr] = _unique
-        try:
-             return self.__dict__[attr]
-        except KeyError:
-            raise AttributeError(attr)
+    @lazyproperty
+    def _unique(self):
+        return _unique(self.parnames)
 
     def __str__(self):
         """
@@ -340,26 +319,27 @@ class _Group(FITS_record):
 
             outlist = []
 
-            for i in range(self.row.start, stop, step):
+            for idx in range(self.row.start, stop, step):
                 rowlist = []
 
-                for j in range(self.array._nfields):
-                    rowlist.append(`self.array.field(j)[i]`)
+                for jdx in range(self.array._nfields):
+                    rowlist.append(repr(self.array.field(jdx)[idx]))
 
-                outlist.append(" (" + ", ".join(rowlist) + ")")
+                outlist.append(' (%s)' % ', '.join(rowlist))
 
-            return "[" + ",\n".join(outlist) + "]"
+            return '[%s]' % ',\n'.join(outlist)
         else:
             return super(_Group, self).__str__()
 
-    def par(self, parName):
+    def par(self, parname):
         """
         Get the group parameter value.
         """
-        if isinstance(parName, (int, long, np.integer)):
-            result = self.array[self.row][parName]
+
+        if _is_int(parname):
+            result = self.array[self.row][parname]
         else:
-            indx = self._unique[parName.lower()]
+            indx = self._unique[parname.lower()]
             if len(indx) == 1:
                 result = self.array[self.row][indx[0]]
 
@@ -372,25 +352,35 @@ class _Group(FITS_record):
         return result
 
 
-    def setpar(self, parName, value):
+    def setpar(self, parname, value):
         """
         Set the group parameter value.
         """
-        if isinstance(parName, (int, long, np.integer)):
-            self.array[self.row][parName] = value
+
+        if _is_int(parname):
+            self.array[self.row][parname] = value
         else:
-            indx = self._unique[parName.lower()]
+            indx = self._unique[parname.lower()]
             if len(indx) == 1:
                 self.array[self.row][indx[0]] = value
 
             # if more than one group parameter have the same name, the
             # value must be a list (or tuple) containing arrays
             else:
-                if isinstance(value, (list, tuple)) and len(indx) == len(value):
+                if isinstance(value, (list, tuple)) and \
+                   len(indx) == len(value):
                     for i in range(len(indx)):
                         self.array[self.row][indx[i]] = value[i]
                 else:
-                    raise ValueError, "parameter value must be a sequence " + \
-                                      "with %d arrays/numbers." % len(indx)
+                    raise ValueError('Parameter value must be a sequence '
+                                     'with %d arrays/numbers.' % len(indx))
 
+def _unique(names):
+    unique = {}
+    for idx, name in enumerate(names):
+        if name in unique:
+            unique[name].append(idx)
+        else:
+            unique[name] = [idx]
+    return unique
 

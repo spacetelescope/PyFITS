@@ -595,20 +595,21 @@ class ColDefs(object):
         """
 
         if attrib.strip().lower() in ['all', '']:
-            list = KEYWORD_ATTRIBUTES
+            lst = KEYWORD_ATTRIBUTES
         else:
-            list = attrib.split(',')
-            for i in range(len(list)):
-                list[i]=list[i].strip().lower()
-                if list[i][-1] == 's':
-                    list[i]=list[i][:-1]
+            lst = attrib.split(',')
+            for idx in range(len(lst)):
+                lst[idx] = lst[idx].strip().lower()
+                if lst[idx][-1] == 's':
+                    lst[idx]=list[idx][:-1]
 
-        for att in list:
-            if att not in KEYWORD_ATTRIBUTES:
-                print "'%s' is not an attribute of the column definitions."%att
+        for attr in lst:
+            if attr not in KEYWORD_ATTRIBUTES:
+                print "'%s' is not an attribute of the column definitions." \
+                      % attr
                 continue
-            print "%s:" % att
-            print '    ', getattr(self, att+'s')
+            print "%s:" % attr
+            print '    ', getattr(self, attr + 's')
 
     #def change_format(self, col_name, new_format):
         #new_format = _convert_format(new_format)
@@ -816,7 +817,7 @@ def _parse_tformat(tform):
     return (repeat, dtype, option)
 
 
-def _convert_format(input_format, reverse=0):
+def _convert_format(input_format, reverse=False):
     """
     Convert FITS format spec to record format spec.  Do the opposite if
     reverse = 1.
@@ -840,25 +841,26 @@ def _convert_format(input_format, reverse=0):
         fmt = input_format
         (repeat, dtype, option) = _parse_tformat(fmt)
 
-    if reverse == 0:
+    if not reverse:
         if dtype in FITS2NUMPY.keys():                            # FITS format
             if dtype == 'A':
-                output_format = FITS2NUMPY[dtype]+`repeat`
+                output_format = FITS2NUMPY[dtype] + str(repeat)
                 # to accomodate both the ASCII table and binary table column
                 # format spec, i.e. A7 in ASCII table is the same as 7A in
                 # binary table, so both will produce 'a7'.
                 if fmt.lstrip()[0] == 'A' and option != '':
-                    output_format = FITS2NUMPY[dtype]+`int(option)` # make sure option is integer
+                     # make sure option is integer
+                    output_format = FITS2NUMPY[dtype] + str(int(option))
             else:
                 _repeat = ''
                 if repeat != 1:
-                    _repeat = `repeat`
+                    _repeat = repr(repeat)
                 output_format = _repeat+FITS2NUMPY[dtype]
 
         elif dtype == 'X':
             nbytes = ((repeat-1) // 8) + 1
             # use an array, even if it is only ONE u1 (i.e. use tuple always)
-            output_format = _FormatX(`(nbytes,)`+'u1')
+            output_format = _FormatX(repr((nbytes,)) + 'u1')
             output_format._nx = repeat
 
         elif dtype == 'P':
@@ -883,7 +885,7 @@ def _convert_format(input_format, reverse=0):
         elif dtype+option in NUMPY2FITS.keys():                    # record format
             _repeat = ''
             if repeat != 1:
-                _repeat = `repeat`
+                _repeat = repr(repeat)
             output_format = _repeat+NUMPY2FITS[dtype+option]
         else:
             raise ValueError('Illegal format %s.' % fmt)

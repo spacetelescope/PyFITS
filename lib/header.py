@@ -520,8 +520,8 @@ class Header(object):
                     _tfields = 0
 
             del self['NAXIS']
-            for i in range(_naxis):
-                del self['NAXIS'+`i+1`]
+            for idx in range(_naxis):
+                del self['NAXIS'+ str(idx + 1)]
 
             if issubclass(self._hdutype, PrimaryHDU):
                 del self['EXTEND']
@@ -537,18 +537,19 @@ class Header(object):
 
             if issubclass(self._hdutype, _TableBaseHDU):
                 del self['TFIELDS']
-                for name in ['TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE', 'TUNIT']:
-                    for i in range(_tfields):
-                        del self[name+`i+1`]
+                for name in ['TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE',
+                             'TUNIT']:
+                    for idx in range(_tfields):
+                        del self[name + str(idx + 1)]
 
             if issubclass(self._hdutype, BinTableHDU):
                 for name in ['TDISP', 'TDIM', 'THEAP']:
-                    for i in range(_tfields):
-                        del self[name+`i+1`]
+                    for idx in range(_tfields):
+                        del self[name + str(idx + 1)]
 
             if issubclass(self._hdutype, TableHDU):
-                for i in range(_tfields):
-                    del self['TBCOL'+`i+1`]
+                for idx in range(_tfields):
+                    del self['TBCOL' + str(idx + 1)]
 
         except KeyError:
             pass

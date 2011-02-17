@@ -325,24 +325,6 @@ class TableHDU(_TableBaseHDU):
         if self._header[0].rstrip() != self._extension:
             self._header[0] = self._extension
             self._header.ascard[0].comment = 'ASCII table extension'
-    '''
-    def format(self):
-        strfmt, strlen = '', 0
-        for j in range(self._header['TFIELDS']):
-            bcol = self._header['TBCOL'+`j+1`]
-            valu = self._header['TFORM'+`j+1`]
-            fmt  = self.__format_RE.match(valu)
-            if fmt:
-                code, width, prec = fmt.group('code', 'width', 'prec')
-            else:
-                raise ValueError, valu
-            size = eval(width)+1
-            strfmt = strfmt + 's'+str(size) + ','
-            strlen = strlen + size
-        else:
-            strfmt = '>' + strfmt[:-1]
-        return strfmt
-    '''
 
     def _calculate_datasum(self, blocking):
         """
@@ -1134,7 +1116,7 @@ def _get_tbdata(hdu):
     # get the right shape for the data part of the random group,
     # since binary table does not support ND yet
     if isinstance(hdu, GroupsHDU):
-        tmp._recformats[-1] = `hdu._dimShape()[:-1]` + tmp._dat_format
+        tmp._recformats[-1] = repr(hdu._dimShape()[:-1]) + tmp._dat_format
     elif isinstance(hdu, TableHDU):
         # determine if there are duplicate field names and if there
         # are throw an exception

@@ -133,40 +133,45 @@ class _ImageBaseHDU(_ValidHDU):
         self._header['NAXIS'] = len(axes)
 
         # add NAXISi if it does not exist
-        for j in range(len(axes)):
+        for idx, axis in enumerate(axes):
             try:
-                self._header['NAXIS'+`j+1`] = axes[j]
+                self._header['NAXIS'+ str(idx + 1)] = axis
             except KeyError:
-                if (j == 0):
-                    _after = 'naxis'
+                if (idx == 0):
+                    after = 'naxis'
                 else :
-                    _after = 'naxis'+`j`
-                self._header.update('naxis'+`j+1`, axes[j], after = _after)
+                    after = 'naxis' + str(idx)
+                self._header.update('naxis' + str(idx + 1), axis, after=after)
 
         # delete extra NAXISi's
-        for j in range(len(axes)+1, old_naxis+1):
+        for idx in range(len(axes)+1, old_naxis+1):
             try:
-                del self._header.ascard['NAXIS'+`j`]
+                del self._header.ascard['NAXIS' + str(idx)]
             except KeyError:
                 pass
 
         if isinstance(self.data, GroupData):
-            self._header.update('GROUPS', True, after='NAXIS'+`len(axes)`)
-            self._header.update('PCOUNT', len(self.data.parnames), after='GROUPS')
+            self._header.update('GROUPS', True, after='NAXIS' + str(len(axes)))
+            self._header.update('PCOUNT', len(self.data.parnames),
+                                after='GROUPS')
             self._header.update('GCOUNT', len(self.data), after='PCOUNT')
             npars = len(self.data.parnames)
             (_scale, _zero)  = self.data._get_scale_factors(npars)[3:5]
             if _scale:
-                self._header.update('BSCALE', self.data._coldefs.bscales[npars])
+                self._header.update('BSCALE',
+                                    self.data._coldefs.bscales[npars])
             if _zero:
                 self._header.update('BZERO', self.data._coldefs.bzeros[npars])
-            for i in range(npars):
-                self._header.update('PTYPE'+`i+1`, self.data.parnames[i])
-                (_scale, _zero)  = self.data._get_scale_factors(i)[3:5]
+            for idx in range(npars):
+                self._header.update('PTYPE' + str(idx + 1),
+                                    self.data.parnames[idx])
+                (_scale, _zero)  = self.data._get_scale_factors(idx)[3:5]
                 if _scale:
-                    self._header.update('PSCAL'+`i+1`, self.data._coldefs.bscales[i])
+                    self._header.update('PSCAL' + str(idx + 1),
+                                        self.data._coldefs.bscales[idx])
                 if _zero:
-                    self._header.update('PZERO'+`i+1`, self.data._coldefs.bzeros[i])
+                    self._header.update('PZERO' + str(idx + 1),
+                                        self.data._coldefs.bzeros[idx])
 
     @property
     def section(self):
@@ -279,8 +284,8 @@ class _ImageBaseHDU(_ValidHDU):
         """
         naxis = self._header['NAXIS']
         axes = naxis*[0]
-        for j in range(naxis):
-            axes[j] = self._header['NAXIS'+`j+1`]
+        for idx in range(naxis):
+            axes[idx] = self._header['NAXIS' + str(idx + 1)]
         axes.reverse()
 #        print "axes in _dimShape line 2081:",axes
         return tuple(axes)
@@ -319,18 +324,20 @@ class _ImageBaseHDU(_ValidHDU):
         # if data is not touched yet, use header info.
         else:
             _shape = ()
-            for j in range(self._header['NAXIS']):
-                if isinstance(self, GroupsHDU) and j == 0:
+            for idx in range(self._header['NAXIS']):
+                if isinstance(self, GroupsHDU) and idx == 0:
                     continue
-                _shape += (self._header['NAXIS'+`j+1`],)
+                _shape += (self._header['NAXIS' + str(idx + 1)],)
             _format = self.NumCode[self._header['BITPIX']]
 
         if isinstance(self, GroupsHDU):
-            _gcount = '   %d Groups  %d Parameters' % (self._header['GCOUNT'], self._header['PCOUNT'])
+            _gcount = '   %d Groups  %d Parameters' \
+                      % (self._header['GCOUNT'], self._header['PCOUNT'])
         else:
             _gcount = ''
-        return "%-10s  %-11s  %5d  %-12s  %s%s" % \
-            (self.name, type, len(self._header.ascard), _shape, _format, _gcount)
+        return "%-10s  %-11s  %5d  %-12s  %s%s" \
+               % (self.name, type, len(self._header.ascard), _shape, _format,
+                  _gcount)
 
     def scale(self, type=None, option="old", bscale=1, bzero=0):
         """
@@ -443,7 +450,8 @@ class _ImageBaseHDU(_ValidHDU):
             else:
                 byteswapped = False
 
-            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'), blocking=blocking)
+            cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),
+                                        blocking=blocking)
 
             # If the data was byteswapped in this method then return it to
             # its original little-endian order.
@@ -457,7 +465,8 @@ class _ImageBaseHDU(_ValidHDU):
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
             # all.  This can also be handled in a gereric manner.
-            return super(_ImageBaseHDU,self)._calculate_datasum(blocking=blocking)
+            return super(_ImageBaseHDU,self)._calculate_datasum(
+                    blocking=blocking)
 
 
 class Section(object):
@@ -469,7 +478,7 @@ class Section(object):
     def __init__(self, hdu):
         self.hdu = hdu
 
-    def _getdata(self, key):
+    def _getdata(self, keys):
         out = []
         naxis = self.hdu.header['NAXIS']
 
@@ -477,20 +486,20 @@ class Section(object):
         # If there is only one slice then the result is a one dimensional
         # array, otherwise the result will be a multidimensional array.
         numSlices = 0
-        for i in range(len(key)):
-            if isinstance(key[i], slice):
+        for idx, key in enumerate(keys):
+            if isinstance(key, slice):
                 numSlices = numSlices + 1
 
-        for i in range(len(key)):
-            if isinstance(key[i], slice):
+        for idx, key in enumerate(keys):
+            if isinstance(key, slice):
                 # OK, this element is a slice so see if we can get the data for
                 # each element of the slice.
-                _naxis = self.hdu.header['NAXIS'+`naxis-i`]
-                ns = _normalize_slice(key[i], _naxis)
+                _naxis = self.hdu.header['NAXIS' + str(naxis - idx)]
+                ns = _normalize_slice(key, _naxis)
 
                 for k in range(ns.start, ns.stop):
-                    key1 = list(key)
-                    key1[i] = k
+                    key1 = list(keys)
+                    key1[idx] = k
                     key1 = tuple(key1)
 
                     if numSlices > 1:
@@ -499,7 +508,7 @@ class Section(object):
                         # it to the list that is output.  The out variable will
                         # be a list of arrays.  When we are done we will pack
                         # the list into a single multidimensional array.
-                        out.append(self.__getitem__(key1))
+                        out.append(self[key1])
                     else:
                         # This is the only slice in the list of keys so if this
                         # is the first element of the slice just set the output
@@ -509,9 +518,9 @@ class Section(object):
                         # that is to be output.  The out variable is a single
                         # dimensional array.
                         if k == ns.start:
-                            out = self.__getitem__(key1)
+                            out = self[key1]
                         else:
-                            out = np.append(out,self.__getitem__(key1))
+                            out = np.append(out,self[key1])
 
                 # We have the data so break out of the loop.
                 break
@@ -533,9 +542,12 @@ class Section(object):
 
         offset = 0
 
-        for i in range(naxis):
-            _naxis = self.hdu.header['NAXIS'+`naxis-i`]
-            indx = _iswholeline(key[i], _naxis)
+        # Declare outside of loop scope for use below--don't abuse for loop
+        # scope leak defect
+        idx = 0
+        for idx in range(naxis):
+            _naxis = self.hdu.header['NAXIS'+ str(naxis - idx)]
+            indx = _iswholeline(key[idx], _naxis)
             offset = offset * _naxis + indx.offset
 
             # all elements after the first WholeLine must be WholeLine or
@@ -548,9 +560,9 @@ class Section(object):
 
         contiguousSubsection = True
 
-        for j in range(i+1,naxis):
-            _naxis = self.hdu.header['NAXIS'+`naxis-j`]
-            indx = _iswholeline(key[j], _naxis)
+        for jdx in range(idx + 1, naxis):
+            _naxis = self.hdu.header['NAXIS'+ str(naxis - jdx)]
+            indx = _iswholeline(key[jdx], _naxis)
             dims.append(indx.npts)
             if not isinstance(indx, _WholeLine):
                 contiguousSubsection = False
@@ -613,7 +625,7 @@ class PrimaryHDU(_ImageBaseHDU):
 
         # insert the keywords EXTEND
         if header is None:
-            dim = `self._header['NAXIS']`
+            dim = repr(self._header['NAXIS'])
             if dim == '0':
                 dim = ''
             self._header.update('EXTEND', True, after='NAXIS'+dim)
@@ -657,7 +669,7 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
         self._header._hdutype = ImageHDU
 
         # insert the require keywords PCOUNT and GCOUNT
-        dim = `self._header['NAXIS']`
+        dim = repr(self._header['NAXIS'])
         if dim == '0':
             dim = ''
 
@@ -698,7 +710,8 @@ def _iswholeline(indx, naxis):
             if indx.step == 1:
                 return _LineSlice(indx.stop-indx.start, indx.start)
             else:
-                return _SteppedSlice((indx.stop-indx.start)//indx.step, indx.start)
+                return _SteppedSlice((indx.stop-indx.start) // indx.step,
+                                     indx.start)
     else:
         raise IndexError, 'Illegal index %s' % indx
 

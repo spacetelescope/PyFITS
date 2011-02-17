@@ -212,8 +212,8 @@ class StreamingHDU(object):
 
             size = 1
 
-            for j in range(groups,naxis):
-                size = size * self._header['NAXIS'+`j+1`]
+            for idx in range(groups,naxis):
+                size = size * self._header['NAXIS' + str(idx + 1)]
             bitpix = self._header['BITPIX']
             gcount = self._header.get('GCOUNT', 1)
             pcount = self._header.get('PCOUNT', 0)

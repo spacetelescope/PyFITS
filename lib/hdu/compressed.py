@@ -317,7 +317,7 @@ if COMPRESSION_SUPPORTED:
 
             # Update the extension name in the table header
 
-            if not name and not self._header.has_key('EXTNAME'):
+            if not name and not 'EXTNAME' in self._header:
                 name = 'COMPRESSED_IMAGE'
 
             if name:
@@ -597,35 +597,39 @@ if COMPRESSION_SUPPORTED:
             # write the ZNAXISn and ZTILEn cards to the table header.
             nrows = 1
 
-            for i in range(0, self._imageHeader['NAXIS']):
+            for idx in range(0, self._imageHeader['NAXIS']):
+                naxis = 'NAXIS' + str(idx + 1)
+                znaxis = 'ZNAXIS' + str(idx + 1)
+                ztile = 'ZTILE' + str(idx + 1)
+
                 if tileSize:
-                    ts = tileSize[i]
-                elif not self._header.has_key('ZTILE'+`i+1`):
+                    ts = tileSize[idx]
+                elif not ztile in self._header:
                     # Default tile size
-                    if not i:
+                    if not idx:
                         ts = self._imageHeader['NAXIS1']
                     else:
                         ts = 1
                 else:
-                    ts = self._header['ZTILE'+`i+1`]
+                    ts = self._header[ztile]
 
-                naxisn = self._imageHeader['NAXIS'+`i+1`]
+                naxisn = self._imageHeader[naxis]
                 nrows = nrows * ((naxisn - 1) // ts + 1)
 
-                if imageHeader and imageHeader.has_key('NAXIS'+`i+1`):
-                    self._header.update('ZNAXIS'+`i+1`, naxisn,
-                              imageHeader.ascardlist()['NAXIS'+`i+1`].comment,
-                              after=after)
+                if imageHeader and naxis in imageHeader:
+                    self._header.update(
+                        znaxis, naxisn,imageHeader.ascardlist()[naxis].comment,
+                        after=after)
                 else:
-                    self._header.update('ZNAXIS'+`i+1`, naxisn,
-                              'length of original image axis',
-                              after=after)
+                    self._header.update(znaxis, naxisn,
+                                        'length of original image axis',
+                                        after=after)
 
-                self._header.update('ZTILE'+`i+1`, ts,
+                self._header.update(ztile, ts,
                                     'size of tiles to be compressed',
                                     after=after1)
-                after = 'ZNAXIS'+`i+1`
-                after1 = 'ZTILE'+`i+1`
+                after = znaxis
+                after1 = ztile
 
             # Set the NAXIS2 header card in the table hdu to the number of
             # rows in the table.
@@ -634,7 +638,7 @@ if COMPRESSION_SUPPORTED:
             # Create the record array to be used for the table data.
             self.columns = cols
             self.compData = FITS_rec(rec.array(None,
-                                             formats=",".join(cols._recformats),
+                                             formats=','.join(cols._recformats),
                                              names=cols.names, shape=nrows))
             self.compData._coldefs = self.columns
             self.compData.formats = self.columns.formats
@@ -644,12 +648,14 @@ if COMPRESSION_SUPPORTED:
             # UNCOMPRESSED_DATA) depending on whether we have floating point
             # data or not.  Note: the ZSCALE and ZZERO columns are fixed
             # length columns.
-            for i in range(min(2,len(cols))):
-                self.columns._arrays[i] = rec.recarray.field(self.compData,i)
-                rec.recarray.field(self.compData,i)[0:] = 0
-                self.compData._convert[i] = _makep(self.columns._arrays[i],
-                                            rec.recarray.field(self.compData,i),
-                                            self.columns._recformats[i]._dtype)
+            for idx in range(min(2, len(cols))):
+                self.columns._arrays[idx] = \
+                    rec.recarray.field(self.compData, idx)
+                rec.recarray.field(self.compData, idx)[0:] = 0
+                self.compData._convert[idx] = \
+                    _makep(self.columns._arrays[idx],
+                           rec.recarray.field(self.compData, idx),
+                           self.columns._recformats[idx]._dtype)
 
             # Set the compression parameters in the table header.
 
@@ -657,19 +663,23 @@ if COMPRESSION_SUPPORTED:
             # in case none were passed in.  This will be either the value
             # already in the table header for that parameter or the default
             # value.
-            i = 1
+            idx = 1
 
-            while self._header.has_key('ZNAME'+`i`):
-                if self._header['ZNAME'+`i`] == 'NOISEBIT':
+            while True:
+                zname = 'ZNAME' + str(idx)
+                if zname not in self._header:
+                    break
+                zval = 'ZVAL' + str(idx)
+                if self._header[zname] == 'NOISEBIT':
                     if quantizeLevel == None:
-                        quantizeLevel = self._header['ZVAL'+`i`]
-                if self._header['ZNAME'+`i`] == 'SCALE   ':
+                        quantizeLevel = self._header[zval]
+                if self._header[zname] == 'SCALE   ':
                     if hcompScale == None:
-                        hcompScale = self._header['ZVAL'+`i`]
-                if self._header['ZNAME'+`i`] == 'SMOOTH  ':
+                        hcompScale = self._header[zval]
+                if self._header[zname] == 'SMOOTH  ':
                     if hcompSmooth == None:
-                        hcompSmooth = self._header['ZVAL'+`i`]
-                i += 1
+                        hcompSmooth = self._header[zval]
+                idx += 1
 
             if quantizeLevel == None:
                 quantizeLevel = def_quantizeLevel
@@ -683,18 +693,22 @@ if COMPRESSION_SUPPORTED:
             # Next, strip the table header of all the ZNAMEn and ZVALn keywords
             # that may be left over from the previous data
 
-            i = 1
+            idx = 1
 
-            while self._header.has_key('ZNAME'+`i`):
-                del self._header.ascardlist()['ZNAME'+`i`]
-                del self._header.ascardlist()['ZVAL'+`i`]
-                i += 1
+            while True:
+                zname = 'ZNAME' + str(idx)
+                if zname not in self._header:
+                    break
+                zval = 'ZVAL' + str(idx)
+                del self._header.ascardlist()[zname]
+                del self._header.ascardlist()[zval]
+                idx += 1
 
             # Finally, put the appropriate keywords back based on the
             # compression type.
 
             afterCard = 'ZCMPTYPE'
-            i = 1
+            idx = 1
 
             if compressionType == 'RICE_1':
                 self._header.update('ZNAME1', 'BLOCKSIZE',
@@ -717,9 +731,9 @@ if COMPRESSION_SUPPORTED:
 
                 self._header.update('ZVAL2', bytepix,
                                     'bytes per pixel (1, 2, 4, or 8)',
-                                        after='ZNAME2')
+                                    after='ZNAME2')
                 afterCard = 'ZVAL2'
-                i = 3
+                idx = 3
             elif compressionType == 'HCOMPRESS_1':
                 self._header.update('ZNAME1', 'SCALE',
                                     'HCOMPRESS scale factor',
@@ -734,21 +748,21 @@ if COMPRESSION_SUPPORTED:
                                     'HCOMPRESS smooth option',
                                     after='ZNAME2')
                 afterCard = 'ZVAL2'
-                i = 3
+                idx = 3
 
             if self._imageHeader['BITPIX'] < 0:   # floating point image
-                self._header.update('ZNAME'+`i`, 'NOISEBIT',
+                self._header.update('ZNAME' + str(idx), 'NOISEBIT',
                                     'floating point quantization level',
                                     after=afterCard)
-                self._header.update('ZVAL'+`i`, quantizeLevel,
+                self._header.update('ZVAL' + str(idx), quantizeLevel,
                                     'floating point quantization level',
-                                    after='ZNAME'+`i`)
+                                    after='ZNAME' + str(idx))
 
             if imageHeader:
                 # Move SIMPLE card from the image header to the
                 # table header as ZSIMPLE card.
 
-                if imageHeader.has_key('SIMPLE'):
+                if 'SIMPLE' in imageHeader:
                     self._header.update('ZSIMPLE',
                             imageHeader['SIMPLE'],
                             imageHeader.ascardlist()['SIMPLE'].comment)
@@ -756,7 +770,7 @@ if COMPRESSION_SUPPORTED:
                 # Move EXTEND card from the image header to the
                 # table header as ZEXTEND card.
 
-                if imageHeader.has_key('EXTEND'):
+                if 'EXTEND' in imageHeader:
                     self._header.update('ZEXTEND',
                             imageHeader['EXTEND'],
                             imageHeader.ascardlist()['EXTEND'].comment)
@@ -764,7 +778,7 @@ if COMPRESSION_SUPPORTED:
                 # Move BLOCKED card from the image header to the
                 # table header as ZBLOCKED card.
 
-                if imageHeader.has_key('BLOCKED'):
+                if 'BLOCKED' in imageHeader:
                     self._header.update('ZBLOCKED',
                             imageHeader['BLOCKED'],
                             imageHeader.ascardlist()['BLOCKED'].comment)
@@ -775,7 +789,7 @@ if COMPRESSION_SUPPORTED:
                 # Since we only handle compressed IMAGEs, ZTENSION should
                 # always be IMAGE, even if the caller has passed in a header
                 # for some other type of extension.
-                if imageHeader.has_key('XTENSION'):
+                if 'XTENSION' in imageHeader:
                     self._header.update('ZTENSION',
                             'IMAGE',
                             imageHeader.ascardlist()['XTENSION'].comment)
@@ -783,12 +797,12 @@ if COMPRESSION_SUPPORTED:
                 # Move PCOUNT and GCOUNT cards from image header to the table
                 # header as ZPCOUNT and ZGCOUNT cards.
 
-                if imageHeader.has_key('PCOUNT'):
+                if 'PCOUNT' in imageHeader:
                     self._header.update('ZPCOUNT',
                             imageHeader['PCOUNT'],
                             imageHeader.ascardlist()['PCOUNT'].comment)
 
-                if imageHeader.has_key('GCOUNT'):
+                if 'GCOUNT' in imageHeader:
                     self._header.update('ZGCOUNT',
                             imageHeader['GCOUNT'],
                             imageHeader.ascardlist()['GCOUNT'].comment)
@@ -796,12 +810,12 @@ if COMPRESSION_SUPPORTED:
                 # Move CHECKSUM and DATASUM cards from the image header to the
                 # table header as XHECKSUM and XDATASUM cards.
 
-                if imageHeader.has_key('CHECKSUM'):
+                if 'CHECKSUM' in imageHeader:
                     self._header.update('ZHECKSUM',
                             imageHeader['CHECKSUM'],
                             imageHeader.ascardlist()['CHECKSUM'].comment)
 
-                if imageHeader.has_key('DATASUM'):
+                if 'DATASUM' in imageHeader:
                     self._header.update('ZDATASUM',
                             imageHeader['DATASUM'],
                             imageHeader.ascardlist()['DATASUM'].comment)
@@ -982,36 +996,44 @@ if COMPRESSION_SUPPORTED:
             # number of pixels along each axis in the compressed tile.
             nelem = 1
 
-            for i in range(0,self._header['ZNAXIS']):
-                naxesList.append(self._header['ZNAXIS'+`i+1`])
-                tileSizeList.append(self._header['ZTILE'+`i+1`])
-                nelem = nelem * self._header['ZNAXIS'+`i+1`]
+            for idx in range(self._header['ZNAXIS']):
+                naxesList.append(self._header['ZNAXIS' + str(idx + 1)])
+                tileSizeList.append(self._header['ZTILE' + str(idx + 1)])
+                nelem = nelem * self._header['ZNAXIS' + str(idx + 1)]
 
             # Create a list for the compression parameters.  The contents
             # of the list is dependent on the compression type.
 
             if self._header['ZCMPTYPE'] == 'RICE_1':
-                i = 1
+                idx = 1
                 blockSize = def_blockSize
                 bytePix = def_bytePix
 
-                while self._header.has_key('ZNAME'+`i`):
-                    if self._header['ZNAME'+`i`] == 'BLOCKSIZE':
-                        blockSize = self._header['ZVAL'+`i`]
-                    if self._header['ZNAME'+`i`] == 'BYTEPIX':
-                        bytePix = self._header['ZVAL'+`i`]
-                    i += 1
+                while True:
+                    zname = 'ZNAME' + str(idx)
+                    if zname not in self._header:
+                        break
+                    zval = 'ZVAL' + str(idx)
+                    if self._header[zname] == 'BLOCKSIZE':
+                        blockSize = self._header[zval]
+                    if self._header[zname] == 'BYTEPIX':
+                        bytePix = self._header[zval]
+                    idx += 1
 
                 zvalList.append(blockSize)
                 zvalList.append(bytePix)
             elif self._header['ZCMPTYPE'] == 'HCOMPRESS_1':
-                i = 1
+                idx = 1
                 hcompSmooth = def_hcompSmooth
 
-                while self._header.has_key('ZNAME'+`i`):
-                    if self._header['ZNAME'+`i`] == 'SMOOTH':
-                        hcompSmooth = self._header['ZVAL'+`i`]
-                    i += 1
+                while True:
+                    zname = 'ZNAME' + str(idx)
+                    if zname not in self._header:
+                        break
+                    zval = 'ZVAL' + str(idx)
+                    if self._header[zname] == 'SMOOTH':
+                        hcompSmooth = self._header[zval]
+                    idx += 1
 
                 zvalList.append(hcompSmooth)
 
@@ -1021,22 +1043,30 @@ if COMPRESSION_SUPPORTED:
             quantizeLevel = def_quantizeLevel
 
             if self._header['ZBITPIX'] < 0:
-                i = 1
+                idx = 1
 
-                while self._header.has_key('ZNAME'+`i`):
-                    if self._header['ZNAME'+`i`] == 'NOISEBIT':
-                        quantizeLevel = self._header['ZVAL'+`i`]
-                    i += 1
+                while True:
+                    zname = 'ZNAME' + str(idx)
+                    if zname not in self._header:
+                        break
+                    zval = 'ZVAL' + str(idx)
+                    if self._header[zname] == 'NOISEBIT':
+                        quantizeLevel = self._header[zval]
+                    idx += 1
 
             hcompScale = def_hcompScale
 
             if self._header['ZCMPTYPE'] == 'HCOMPRESS_1':
-                i = 1
+                idx = 1
 
-                while self._header.has_key('ZNAME'+`i`):
-                    if self._header['ZNAME'+`i`] == 'SCALE':
-                        hcompScale = self._header['ZVAL'+`i`]
-                    i += 1
+                while True:
+                    zname = 'ZNAME' + str(idx)
+                    if zname not in self._header:
+                        break
+                    zval = 'ZVAL' + str(idx)
+                    if self._header[zname] == 'SCALE':
+                        hcompScale = self._header[zval]
+                    idx += 1
 
             # Create an array to hold the decompressed data.
             naxesList.reverse()
@@ -1153,13 +1183,14 @@ if COMPRESSION_SUPPORTED:
                     cardList['NAXIS'].comment = \
                              self._header.ascardlist()['ZNAXIS'].comment
 
-                    for i in range(cardList['NAXIS'].value):
-                        del cardList['ZNAXIS'+`i+1`]
-                        self._imageHeader.update('NAXIS'+`i+1`,
-                          self._header['ZNAXIS'+`i+1`],
-                          self._header.ascardlist()['ZNAXIS'+`i+1`].comment,
-                          after='NAXIS'+`i`)
-                        lastNaxisCard = 'NAXIS'+`i+1`
+                    for idx in range(cardList['NAXIS'].value):
+                        znaxis = 'ZNAXIS' + str(idx + 1)
+                        del cardList[znaxis]
+                        self._imageHeader.update(znaxis,
+                          self._header[znaxis],
+                          self._header.ascardlist()[znaxis].comment,
+                          after='NAXIS' + str(idx))
+                        lastNaxisCard = znaxis
 
                     if lastNaxisCard == 'NAXIS1':
                         # There is only one axis in the image data so we
@@ -1169,8 +1200,8 @@ if COMPRESSION_SUPPORTED:
                     pass
 
                 try:
-                    for i in range(self._header['ZNAXIS']):
-                        del cardList['ZTILE'+`i+1`]
+                    for idx in range(self._header['ZNAXIS']):
+                        del cardList['ZTILE' + str(idx)]
 
                 except KeyError:
                     pass
@@ -1217,22 +1248,22 @@ if COMPRESSION_SUPPORTED:
                 try:
                     del cardList['TFIELDS']
 
-                    for i in range(self._header['TFIELDS']):
-                        del cardList['TFORM'+`i+1`]
-
-                        if self._imageHeader.has_key('TTYPE'+`i+1`):
-                            del cardList['TTYPE'+`i+1`]
+                    for idx in range(self._header['TFIELDS']):
+                        del cardList['TFORM' + str(idx)]
+                        ttype = 'TTYPE' + str(idx + 1)
+                        if ttype in self._imageHeader:
+                            del cardList[ttype]
 
                 except KeyError:
                     pass
 
-                i = 1
+                idx = 1
 
-                while 1:
+                while True:
                     try:
-                        del cardList['ZNAME'+`i`]
-                        del cardList['ZVAL'+`i`]
-                        i += 1
+                        del cardList['ZNAME' + str(idx)]
+                        del cardList['ZVAL' + str(idx)]
+                        idx += 1
                     except KeyError:
                         break
 
@@ -1279,7 +1310,8 @@ if COMPRESSION_SUPPORTED:
                 try:
                     del cardList['ZTENSION']
                     if self._header['ZTENSION'] != 'IMAGE':
-                        warnings.warn("ZTENSION keyword in compressed extension != 'IMAGE'")
+                        warnings.warn("ZTENSION keyword in compressed "
+                                      "extension != 'IMAGE'")
                     self._imageHeader.update('XTENSION',
                             'IMAGE',
                             self._header.ascardlist()['ZTENSION'].comment)
@@ -1335,8 +1367,8 @@ if COMPRESSION_SUPPORTED:
             else:
                 _shape = ()
 
-                for j in range(self.header['NAXIS']):
-                    _shape += (self.header['NAXIS'+`j+1`],)
+                for idx in range(self.header['NAXIS']):
+                    _shape += (self.header['NAXIS' + str(idx + 1)],)
 
                 _format = _ImageBaseHDU.NumCode[self.header['BITPIX']]
 
@@ -1361,9 +1393,9 @@ if COMPRESSION_SUPPORTED:
             # Create lists to hold the number of pixels along each axis of
             # the image data and the number of pixels in each tile of the
             # compressed image.
-            for i in range(0,self._header['ZNAXIS']):
-                naxesList.append(self._header['ZNAXIS'+`i+1`])
-                tileSizeList.append(self._header['ZTILE'+`i+1`])
+            for idx in range(self._header['ZNAXIS']):
+                naxesList.append(self._header['ZNAXIS' + str(idx + 1)])
+                tileSizeList.append(self._header['ZTILE' + str(idx + 1)])
 
             # Indicate if the linear scale factor is from a column, a single
             # scale value, or not given.
@@ -1392,27 +1424,40 @@ if COMPRESSION_SUPPORTED:
 
             # Create a list for the compression parameters.  The contents
             # of the list is dependent on the compression type.
+
+            # TODO: I'm pretty sure most of this is repeated almost exactly a
+            # little bit above; take a closer look at whether we can pare this
+            # down a bit.
+
             if self._header['ZCMPTYPE'] == 'RICE_1':
-                i = 1
+                idx = 1
                 blockSize = def_blockSize
                 bytePix = def_bytePix
 
-                while self._header.has_key('ZNAME'+`i`):
-                    if self._header['ZNAME'+`i`] == 'BLOCKSIZE':
-                        blockSize = self._header['ZVAL'+`i`]
-                    if self._header['ZNAME'+`i`] == 'BYTEPIX':
-                        bytePix = self._header['ZVAL'+`i`]
-                    i += 1
+                while True:
+                    zname = 'ZNAME' + str(idx)
+                    if zname not in self._header:
+                        break
+                    zval = 'ZVAL' + str(idx)
+                    if self._header[zname] == 'BLOCKSIZE':
+                        blockSize = self._header[zval]
+                    if self._header[zname] == 'BYTEPIX':
+                        bytePix = self._header[zval]
+                    idx += 1
 
                 zvalList.append(blockSize)
                 zvalList.append(bytePix)
             elif self._header['ZCMPTYPE'] == 'HCOMPRESS_1':
-                i = 1
+                idx = 1
                 hcompSmooth = def_hcompSmooth
 
-                while self._header.has_key('ZNAME'+`i`):
-                    if self._header['ZNAME'+`i`] == 'SMOOTH':
-                        hcompSmooth = self._header['ZVAL'+`i`]
+                while True:
+                    zname = 'ZNAME' + str(idx)
+                    if zname not in self._header:
+                        break
+                    zval = 'ZVAL' + str(idx)
+                    if self._header[zname] == 'SMOOTH':
+                        hcompSmooth = self._header[zval]
                     i += 1
 
                 zvalList.append(hcompSmooth)
@@ -1423,22 +1468,30 @@ if COMPRESSION_SUPPORTED:
             quantizeLevel = def_quantizeLevel
 
             if self._header['ZBITPIX'] < 0:
-                i = 1
+                idx = 1
 
-                while self._header.has_key('ZNAME'+`i`):
-                    if self._header['ZNAME'+`i`] == 'NOISEBIT':
-                        quantizeLevel = self._header['ZVAL'+`i`]
-                    i += 1
+                while True:
+                    zname = 'ZNAME' + str(idx)
+                    if zname not in self._header:
+                        break
+                    zval = 'ZVAL' + str(idx)
+                    if self._header[zname] == 'NOISEBIT':
+                        quantizeLevel = self._header[zval]
+                    idx += 1
 
             hcompScale = def_hcompScale
 
             if self._header['ZCMPTYPE'] == 'HCOMPRESS_1':
-                i = 1
+                idx = 1
 
-                while self._header.has_key('ZNAME'+`i`):
-                    if self._header['ZNAME'+`i`] == 'SCALE':
-                        hcompScale = self._header['ZVAL'+`i`]
-                    i += 1
+                while True:
+                    zname = 'ZNAME' + str(idx)
+                    if zname not in self._header:
+                        break
+                    zval = 'ZVAL' + str(idx)
+                    if self._header[zname] == 'SCALE':
+                        hcompScale = self._header[zval]
+                    idx += 1
 
             # Indicate if the null value is a constant or if no null value
             # is provided.
@@ -1552,11 +1605,14 @@ if COMPRESSION_SUPPORTED:
                 self._header['PCOUNT'] = _pcount
 
             # Update TFORM for variable length columns.
-            for i in range(self.compData._nfields):
-                if isinstance(self.compData._coldefs.formats[i], _FormatP):
-                    key = self._header['TFORM'+`i+1`]
-                    self._header['TFORM'+`i+1`] = key[:key.find('(')+1] + \
-                                              `hdu.compData.field(i)._max` + ')'
+            for idx in range(self.compData._nfields):
+                if isinstance(self.compData._coldefs.formats[idx], _FormatP):
+                    tform = 'TFORM' + str(idx + 1)
+                    key = self._header[tform]
+                    # TODO: This probably could be cleaned up, whatever it is
+                    self._header[tform] = \
+                        key[:key.find('(')+1] + \
+                        repr(hdu.compData.field(idx)._max) + ')'
             # Insure that for RICE_1 that the BLOCKSIZE and BYTEPIX cards
             # are present and set to the hard coded values used by the
             # compression algorithm.
@@ -1690,7 +1746,8 @@ if COMPRESSION_SUPPORTED:
             """
             if self.__dict__.has_key('data') and self.data != None:
                 # We have the data to be used.
-                return self._calculate_datasum_from_data(self.compData, blocking)
+                return self._calculate_datasum_from_data(self.compData,
+                                                         blocking)
             else:
                 # This is the case where the data has not been read from the
                 # file yet.  We can handle that in a generic manner so we do

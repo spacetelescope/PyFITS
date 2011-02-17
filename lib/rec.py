@@ -329,7 +329,7 @@ def fromarrays(arrayList, dtype=None, shape=None, formats=None,
                 raise ValueError("Item in the array list must be an ndarray.")
             formats += _typestr[obj.dtype.type]
             if issubclass(obj.dtype.type, nt.flexible):
-                formats += `obj.itemsize`
+                formats += repr(obj.itemsize)
             formats += ','
         formats = formats[:-1]
 
