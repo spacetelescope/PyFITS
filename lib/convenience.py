@@ -5,11 +5,11 @@ import numpy as np
 
 from pyfits import rec
 from pyfits.file import PYTHON_MODES, _File
-from pyfits.hdu.base import _getClassExtension
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU, _TableBaseHDU
 from pyfits.header import Header
+from pyfits.util import _with_extensions
 
 
 __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
@@ -171,6 +171,7 @@ def getdata(filename, *ext, **extkeys):
         return data
 
 
+@_with_extensions
 def getval(filename, key, *ext, **extkeys):
     """
     Get a keyword's value from a header in a FITS file.
@@ -265,6 +266,7 @@ def setval(filename, key, value="", comment=None, before=None, after=None,
     hdulist.close()
 
 
+@_with_extensions
 def delval(filename, key, *ext, **extkeys):
     """
     Delete all instances of keyword from a header in a FITS file.
@@ -302,6 +304,7 @@ def delval(filename, key, *ext, **extkeys):
     hdulist.close()
 
 
+@_with_extensions
 def writeto(filename, data, header=None, **keys):
     """
     Create a new FITS file using the supplied data/header.
@@ -340,16 +343,15 @@ def writeto(filename, data, header=None, **keys):
     clobber = keys.get('clobber', False)
     output_verify = keys.get('output_verify', 'exception')
 
-    classExtensions = keys.get('classExtensions', {})
-    hdu = _makehdu(data, header, classExtensions)
+    hdu = _makehdu(data, header)
     if not isinstance(hdu, PrimaryHDU) and not isinstance(hdu, _TableBaseHDU):
-        hdu_cls = _getClassExtension(classExtensions, PrimaryHDU)
-        hdu = hdu_cls(data, header=header)
+        hdu = PrimaryHDU(data, header=header)
     checksum = keys.get('checksum', False)
     hdu.writeto(filename, clobber=clobber, output_verify=output_verify,
-                checksum=checksum, classExtensions=classExtensions)
+                checksum=checksum)
 
 
+@_with_extensions
 def append(filename, data, header=None, classExtensions={}, checksum=False,
            verify=True, **keys):
     """
@@ -396,19 +398,16 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
         # empty.  Use the writeto convenience function to write the
         # output to the empty object.
         #
-        writeto(filename, data, header, classExtensions=classExtensions,
-                checksum=checksum, **keys)
+        writeto(filename, data, header, checksum=checksum, **keys)
     else:
-        hdu = _makehdu(data, header, classExtensions)
+        hdu = _makehdu(data, header)
 
         if isinstance(hdu, PrimaryHDU):
-            hdu_cls = _getClassExtension(classExtensions, ImageHDU)
-            hdu = hdu_cls(data, header)
+            hdu = ImageHDU(data, header)
 
         if verify or not closed:
-            f = fitsopen(filename, mode='append',
-                         classExtensions=classExtensions)
-            f.append(hdu, classExtensions=classExtensions)
+            f = fitsopen(filename, mode='append')
+            f.append(hdu)
 
             # Set a flag in the HDU so that only this HDU gets a checksum
             # when writing the file.
@@ -421,6 +420,7 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
             f.close()
 
 
+@_with_extensions
 def update(filename, data, *ext, **extkeys):
     """
     Update the specified extension with the input data/header.
@@ -468,9 +468,7 @@ def update(filename, data, *ext, **extkeys):
         header = extkeys['header']
         del extkeys['header']
 
-    classExtensions = extkeys.get('classExtensions', {})
-
-    new_hdu = _makehdu(data, header, classExtensions)
+    new_hdu = _makehdu(data, header)
 
     if not isinstance(filename, file) and hasattr(filename, 'closed'):
         closed = filename.closed
@@ -483,6 +481,7 @@ def update(filename, data, *ext, **extkeys):
     hdulist.close(closed=closed)
 
 
+@_with_extensions
 def info(filename, classExtensions={}, **kwargs):
     """
     Print the summary information on a FITS file.
@@ -526,14 +525,14 @@ def info(filename, classExtensions={}, **kwargs):
     if not kwargs.has_key('ignore_missing_end'):
         kwargs['ignore_missing_end'] = True
 
-    f = fitsopen(filename, mode=mode, classExtensions=classExtensions,
-                 **kwargs)
+    f = fitsopen(filename, mode=mode, **kwargs)
     f.info()
 
     if closed:
         f.close()
 
 
+@_with_extensions
 def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
           clobber=False, classExtensions={}):
     """
@@ -584,7 +583,7 @@ def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
     # the function was called
 
     mode, closed = _get_file_mode(filename, default='copyonwrite')
-    f = fitsopen(filename, mode=mode, classExtensions=classExtensions)
+    f = fitsopen(filename, mode=mode)
 
     # Create the default data file name if one was not provided
 
@@ -699,22 +698,18 @@ def _getext(filename, mode, *ext1, **ext2):
     return hdulist, ext
 
 
+@_with_extensions
 def _makehdu(data, header, classExtensions={}):
     if header is None:
         if ((isinstance(data, np.ndarray) and data.dtype.fields is not None)
             or isinstance(data, np.recarray)
             or isinstance(data, rec.recarray)):
-            hdu_cls = _getClassExtension(classExtensions, BinTableHDU)
-            hdu = hdu_cls(data)
+            hdu = BinTableHDU(data)
         elif isinstance(data, np.ndarray):
-            hdu_cls = _getClassExtension(classExtensions, ImageHDU)
-            hdu = hdu_cls(data)
+            hdu = ImageHDU(data)
         else:
             raise KeyError('Data must be numarray or table data.')
     else:
-        header._hdutype = _getClassExtension(classExtensions,
-                                             header._hdutype)
-
         hdu = header._hdutype(data=data, header=header)
     return hdu
 

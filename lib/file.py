@@ -19,7 +19,7 @@ from pyfits.hdu.base import _NonstandardHDU, _TempHDU
 from pyfits.hdu.extension import _NonstandardExtHDU
 from pyfits.hdu.groups import GroupData
 from pyfits.hdu.image import _ImageBaseHDU
-from pyfits.util import _tofile, _chunk_array, _unsigned_zero, \
+from pyfits.util import Extendable, _tofile, _chunk_array, _unsigned_zero, \
                         _is_pseudo_unsigned
 
 
@@ -33,6 +33,8 @@ class _File(object):
     """
     A file I/O class.
     """
+
+    __metaclass__ = Extendable
 
     def __init__(self, name=None, mode='copyonwrite', memmap=False, **kwargs):
         if name is None:

@@ -1,6 +1,6 @@
 from pyfits.card import Card
-from pyfits.hdu.base import _ValidHDU, _getClassExtension
-from pyfits.util import lazyproperty, _is_int
+from pyfits.hdu.base import _ValidHDU
+from pyfits.util import lazyproperty, _is_int, _with_extensions
 
 
 class _ExtensionHDU(_ValidHDU):
@@ -33,15 +33,15 @@ class _ExtensionHDU(_ValidHDU):
 
         _ValidHDU.__setattr__(self,attr,value)
 
+    @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,
                 classExtensions={}, checksum=False):
         from pyfits.hdu.hdulist import HDUList
         from pyfits.hdu.image import PrimaryHDU
 
-        hdulist_cls = _getClassExtension(classExtensions, HDUList)
-        hdulist = hdulist_cls([PrimaryHDU(), self])
+        hdulist = HDUList([PrimaryHDU(), self])
         hdulist.writeto(name, output_verify, clobber=clobber,
-                        checksum=checksum, classExtensions=classExtensions)
+                        checksum=checksum)
 
     def _verify(self, option='warn'):
 

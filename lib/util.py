@@ -1,7 +1,151 @@
 import os
 import tempfile
+import warnings
 
 import numpy as np
+
+
+__all__ = ['Extendable', 'register_extension', 'register_extensions',
+           'unregister_extensions']
+
+
+# TODO: I'm somewhat of the opinion that this should go in pyfits.core, but for
+# now that would create too much complication with imports (as many modules
+# need to use this).  Eventually all the intra-package imports will be removed
+# from pyfits.core, simplifying matters.  But for now they remain for
+# backwards-compatibility.
+class Extendable(type):
+    _extensions = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls in cls._extensions:
+            cls = cls._extensions[cls]
+        self = cls.__new__(cls, *args, **kwargs)
+        self.__init__(*args, **kwargs)
+        return self
+
+    # TODO: Touch up docstrings for sphinx
+    @classmethod
+    def register_extension(cls, extension, extends=None, silent=False):
+        """
+        Register an extension class.  This class will be used in all future
+        instances of the class it extends.
+
+        By default, the class it extends
+        will automatically be its immediate superclass.  In
+        multiple-inheritence cases, the left-most superclass is used.  In other
+        words, the first class in the extension's MRO (after itself).
+
+        Use the optional `extends` parameter to override the default behavior.
+        Either a single class to extend may be specified, or an iterable of
+        classes.  The classes to extend must still use the Extendable
+        metaclass.
+
+        Set `silent` to `True` to not output any warnings.
+        """
+
+        # If the extension class itself is not Extendable then we know it's no
+        # good, since it has to be a sublcass of an Extendable.
+        if not isinstance(extension, Extendable):
+            raise TypeError("Class '%s' is not a subclass of an Extendable "
+                            "class." % extension.__name__)
+
+        if extends:
+            try:
+                extends = iter(extends)
+            except TypeError:
+                extends = [extends]
+        else:
+            extends = [extension.mro()[1]]
+
+        # Don't allow the extension to be registered if *any* of the classes it
+        # extends are not Extendable
+        for c in extends:
+            if not isinstance(c, Extendable):
+                raise TypeError("Class '%s' is not an Extendable class."
+                                % c.__name__)
+
+        for c in extends:
+            if not silent and c in cls._extensions:
+                warnings.showwarning(
+                    "Extension '%s' for '%s' being replaced with '%s'."
+                    % (cls._extensions[c].__name__, c.__name__,
+                       extension.__name__))
+            cls._extensions[c] = extension
+
+    @classmethod
+    def register_extensions(cls, extensions, silent=False):
+        """
+        Register multiple extensions at once from a dict mapping extensions to
+        the classes they extend.
+        """
+
+        for k, v in extensions.iteritems():
+            if not isinstance(k, Extendable):
+                raise TypeError("Extension class '%s' is not a subclass of "
+                                "an Extendable class." % k.__name__)
+            if not isinstance(v, Extendable):
+                raise TypeError("Class '%s' is not an Extendable class.")
+
+        for k, v in extensions.iteritems():
+            if not silent and v in cls._extensions:
+                warnings.showwarning(
+                    "Extension '%s' for '%s' being replaced with '%s'."
+                    % (cls._extensions[v].__name__, v.__name__, k.__name__))
+            cls._extensions[v] = k
+
+    @classmethod
+    def unregister_extensions(cls, extensions):
+        """
+        Remove one or more extension classes from the extension registry.
+
+        If the class is not in the registry this is silently ignored.
+        """
+
+        try:
+            extensions = set(extensions)
+        except TypeError:
+            extensions = set([extensions])
+
+        for k, v in cls._extensions.items():
+            if v in extensions:
+                del cls._extensions[k]
+
+# Some shortcuts
+register_extension = Extendable.register_extension
+register_extensions = Extendable.register_extensions
+unregister_extensions = Extendable.unregister_extensions
+
+
+def _with_extensions(func):
+    """
+    This decorator exists mainly to support use of the new extension system in
+    functions that still have a classExtensions keyword argument (which should
+    be deprecated).
+
+    This registers the extensions passed in classExtensions and unregisters
+    them when the function exits.  It should be clear that any objects that
+    persist after the function exits will still use the extension classes they
+    were created from.
+    """
+
+    def _with_extensions_wrapper(*args, **kwargs):
+        extension_classes = []
+        if 'classExtensions' in kwargs:
+            extensions = kwargs['classExtensions']
+            if extensions:
+                register_extensions(extensions)
+                extension_classes = extensions.values()
+            del kwargs['classExtensions']
+        try:
+            return func(*args, **kwargs)
+        finally:
+            if extension_classes:
+                unregister_extensions(extension_classes)
+
+    _with_extensions_wrapper.__doc__ = func.__doc__
+
+    return _with_extensions_wrapper
 
 
 class lazyproperty(object):

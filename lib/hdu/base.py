@@ -7,7 +7,7 @@ import numpy as np
 from pyfits.card import Card, CardList, _ContinueCard, \
                         create_card_from_string, _pad
 from pyfits.column import DELAYED
-from pyfits.util import lazyproperty, _fromfile, _is_int
+from pyfits.util import lazyproperty, _fromfile, _is_int, _with_extensions
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -15,6 +15,7 @@ class _AllHDU(object):
     """
     Base class for all HDU (header data unit) classes.
     """
+
     def __init__(self, data=None, header=None):
         self._header = header
         self._file = None
@@ -114,6 +115,7 @@ class _NonstandardHDU(_AllHDU, _Verify):
 
         return errs
 
+    @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,
                 classExtensions={}, checksum=False):
         """
@@ -148,11 +150,9 @@ class _NonstandardHDU(_AllHDU, _Verify):
 
         from pyfits.hdu.hdulist import HDUList
 
-        hdulist_cls = _getClassExtension(classExtensions, HDUList)
-        hdulist = hdulist_cls([self])
-
+        hdulist = HDUList([self])
         hdulist.writeto(name, output_verify, clobber=clobber,
-                        checksum=checksum, classExtensions=classExtensions)
+                        checksum=checksum)
 
 
 class _ValidHDU(_AllHDU, _Verify):
@@ -248,6 +248,7 @@ class _ValidHDU(_AllHDU, _Verify):
             data = None
         return self.__class__(data=data, header=self._header.copy())
 
+    @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,
                 classExtensions={}, checksum=False):
         """
@@ -286,10 +287,9 @@ class _ValidHDU(_AllHDU, _Verify):
 
         from pyfits.hdu.hdulist import HDUList
 
-        hdulist_cls = _getClassExtension(classExtensions, HDUList)
-        hdulist = hdulist_cls([self])
+        hdulist = HDUList([self])
         hdulist.writeto(name, output_verify, clobber=clobber,
-                        checksum=checksum, classExtensions=classExtensions)
+                        checksum=checksum)
 
     def update_ext_name(self, value, comment=None, before=None,
                         after=None, savecomment=False):
@@ -922,6 +922,7 @@ class _TempHDU(_ValidHDU):
 
         return size, name
 
+    @_with_extensions
     def setupHDU(self, classExtensions={}):
         """
         Read one FITS HDU, data portions are not actually read here,
@@ -930,15 +931,17 @@ class _TempHDU(_ValidHDU):
 
         from pyfits.file import BLOCK_SIZE
         from pyfits.header import Header
+        from pyfits.hdu.image import PrimaryHDU, ImageHDU
 
         _cardList = []
         _keyList = []
 
         blocks = self._raw
         if (len(blocks) % BLOCK_SIZE) != 0:
-            raise IOError, 'Header size is not multiple of %d: %d' % (BLOCK_SIZE, len(blocks))
+            raise IOError('Header size is not multiple of %d: %d'
+                          % (BLOCK_SIZE, len(blocks)))
         elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
-            raise IOError, 'Block does not begin with SIMPLE or XTENSION'
+            raise IOError('Block does not begin with SIMPLE or XTENSION')
 
         for i in range(0, len(blocks), Card.length):
             _card = create_card_from_string(blocks[i:i+Card.length])
@@ -983,14 +986,11 @@ class _TempHDU(_ValidHDU):
         # construct the Header object, using the cards.
         header = Header(CardList(_cardList, keylist=_keyList))
 
-        if classExtensions.has_key(header._hdutype):
-            header._hdutype = classExtensions[header._hdutype]
-
-        from pyfits.hdu.image import PrimaryHDU, ImageHDU
         if ((header._hdutype == PrimaryHDU or header._hdutype == ImageHDU)
             and (hasattr(self, '_do_not_scale_image_data'))):
-            hdu = header._hdutype(data=DELAYED, header=header,
-                                  do_not_scale_image_data=self._do_not_scale_image_data)
+            hdu = header._hdutype(
+                data=DELAYED, header=header,
+                do_not_scale_image_data=self._do_not_scale_image_data)
         else:
             hdu = header._hdutype(data=DELAYED, header=header)
 
@@ -1018,25 +1018,3 @@ class _TempHDU(_ValidHDU):
            return True
         else:
            return False
-
-
-def _getClassExtension(classExtensions, cls):
-    """
-    Returns an extension for cls from classExtensions if it exists.
-    cls may be either a class object or a class name as a string.
-
-    If the base cls is not found in classExtensions, cls is just returned.
-
-    TODO: This currently does not work correctly--if a class name is passed
-    in, and that class is not in classExtensions, the class itself can't be
-    returned without some sort of Extendable class registry.
-    """
-
-    if isinstance(cls, basestring):
-        for k, v in classExtensions.iteritems():
-            if k.__name__ == cls:
-                return v
-    elif cls in classExtensions:
-        return classExtensions[cls]
-
-    return cls

@@ -18,7 +18,7 @@ from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import _AllHDU
 from pyfits.hdu.extension import _ExtensionHDU
-from pyfits.util import lazyproperty, _is_int
+from pyfits.util import Extendable, lazyproperty, _is_int
 
 
 class _TableBaseHDU(_ExtensionHDU):
@@ -301,6 +301,8 @@ class TableHDU(_TableBaseHDU):
     FITS ASCII table extension HDU class.
     """
 
+    __metaclass__ = Extendable
+
     _extension = 'TABLE'
 
     __format_RE = re.compile(
@@ -371,6 +373,8 @@ class BinTableHDU(_TableBaseHDU):
     """
     Binary table HDU class.
     """
+
+    __metaclass__ = Extendable
 
     _extension = 'BINTABLE'
 
