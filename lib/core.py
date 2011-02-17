@@ -401,7 +401,7 @@ class Card(_Verify):
             r')? *)'
         r'(?P<comm_field>'
             r'(?P<sepr>/ *)'
-            r'(?P<comm>.|\n*)'
+            r'(?P<comm>(.|\n)*)'
         r')?$')
 
     # keys of commentary cards
@@ -5829,9 +5829,9 @@ class FITS_rec(rec.recarray):
         self._coldefs = None
         self._gap = 0
         self.names = list(self.dtype.names)
-        # This attribute added for backward compatibility with numarray version 
+        # This attribute added for backward compatibility with numarray version
         # of FITS_rec
-        self._names = self.names 
+        self._names = self.names
         self.formats = None
         return self
 
