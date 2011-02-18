@@ -1,3 +1,5 @@
+from UserDict import DictMixin
+
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _HierarchCard, create_card, upper_key
 from pyfits.hdu.base import _NonstandardHDU, _CorruptedHDU, _ValidHDU
@@ -7,33 +9,10 @@ from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU, ImageHDU
 from pyfits.hdu.table import TableHDU, BinTableHDU, _TableBaseHDU
 
 
-class _Header_iter(object):
-    """
-    Iterator class for a FITS header object.
-
-    Returns the key values of the cards in the header.  Duplicate key
-    values are not returned.
-    """
-
-    def __init__(self, header):
-        self._lastIndex = -1  # last index into the card list
-                              # accessed by the class iterator
-        self.keys = header.keys()  # the unique keys from the header
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        self._lastIndex += 1
-
-        if self._lastIndex >= len(self.keys):
-            self._lastIndex = -1
-            raise StopIteration()
-
-        return self.keys[self._lastIndex]
-
-
-class Header(object):
+# TODO: The UserDict documentation recommends using the
+# collections.MutableMapping ABC in Python >= 2.6, but we're not requiring 2.6
+# yet
+class Header(DictMixin):
     """
     FITS header class.
 
@@ -89,54 +68,25 @@ class Header(object):
             # decide which kind of header it belongs to
             self._updateHDUtype()
 
-    def _updateHDUtype(self):
-        cards = self.ascard
+    def __contains__(self, key):
+        """
+        Check for existence of a keyword.
 
-        try:
-            if cards[0].key == 'SIMPLE':
-                if 'GROUPS' in cards._keylist and cards['GROUPS'].value == True:
-                    self._hdutype = GroupsHDU
-                elif cards[0].value == True:
-                    self._hdutype = PrimaryHDU
-                elif cards[0].value == False:
-                    self._hdutype = _NonstandardHDU
-                else:
-                    self._hdutype = _CorruptedHDU
-            elif cards[0].key == 'XTENSION':
-                xtension = cards[0].value.rstrip()
-                if xtension == 'TABLE':
-                    self._hdutype = TableHDU
-                elif xtension == 'IMAGE':
-                    self._hdutype = ImageHDU
-                elif xtension in ('BINTABLE', 'A3DTABLE'):
-                    try:
-                        if cards['ZIMAGE'].value == True:
-                            if COMPRESSION_SUPPORTED:
-                                self._hdutype = CompImageHDU
-                            else:
-                                warnings.warn(
-                                    'Failure creating a header for a '
-                                    'compressed image HDU.')
-                                warnings.warn(
-                                    'The pyfitsComp module is not available.')
-                                warnings.warn(
-                                    'The HDU will be treated as a Binary '
-                                    'Table HDU.')
-                                raise KeyError
-                    except KeyError:
-                        self._hdutype = BinTableHDU
-                else:
-                    self._hdutype = _NonstandardExtHDU
-            else:
-                self._hdutype = _ValidHDU
-        except:
-            self._hdutype = _CorruptedHDU
+        Parameters
+        ----------
+        key : str or int
+           Keyword name.  If given an index, always returns 0.
 
-    def __contains__(self, item):
-        return self.has_key(item)
+        Returns
+        -------
+        has_key : bool
+            Returns `True` if found, otherwise, `False`.
+        """
 
-    def __iter__(self):
-        return _Header_iter(self)
+        key = upper_key(key)
+        if key[:8] == 'HIERARCH':
+            key = key[8:].strip()
+        return key in self.ascard
 
     def __getitem__ (self, key):
         """
@@ -146,7 +96,7 @@ class Header(object):
         card = self.ascard[key]
 
         if isinstance(card, RecordValuedKeywordCard) and \
-           (not isinstance(key, basestring) or string.find(key, '.') < 0):
+           (not isinstance(key, basestring) or '.' not in key):
             return card.strvalue()
         elif isinstance(card, CardList):
             return card
@@ -183,88 +133,6 @@ class Header(object):
     def __str__(self):
         return str(self.ascard)
 
-    def ascardlist(self):
-        """
-        Returns a `CardList` object.
-        """
-
-        return self.ascard
-
-    def items(self):
-        """
-        Return a list of all keyword-value pairs from the `CardList`.
-        """
-
-        pairs = []
-        for card in self.ascard:
-            pairs.append((card.key, card.value))
-        return pairs
-
-    def has_key(self, key):
-        """
-        Check for existence of a keyword.
-
-        Parameters
-        ----------
-        key : str or int
-           Keyword name.  If given an index, always returns 0.
-
-        Returns
-        -------
-        has_key : bool
-            Returns `True` if found, otherwise, `False`.
-        """
-
-        try:
-            key = upper_key(key)
-
-            if key[:8] == 'HIERARCH':
-                key = key[8:].strip()
-            _index = self.ascard[key]
-            return True
-        except:
-            return False
-
-    def rename_key(self, oldkey, newkey, force=0):
-        """
-        Rename a card's keyword in the header.
-
-        Parameters
-        ----------
-        oldkey : str or int
-            old keyword
-
-        newkey : str
-            new keyword
-
-        force : bool
-            When `True`, if new key name already exists, force to have
-            duplicate name.
-        """
-
-        oldkey = upper_key(oldkey)
-        newkey = upper_key(newkey)
-
-        if newkey == 'CONTINUE':
-            raise ValueError('Can not rename to CONTINUE')
-        if newkey in Card._commentary_keys or oldkey in Card._commentary_keys:
-            if not (newkey in Card._commentary_keys and 
-                    oldkey in Card._commentary_keys):
-                raise ValueError('Regular and commentary keys can not be '
-                                 'renamed to each other.')
-        elif (force == 0) and self.has_key(newkey):
-            raise ValueError('Intended keyword %s already exists in header.'
-                             % newkey)
-        _index = self.ascard.index_of(oldkey)
-        _comment = self.ascard[_index].comment
-        _value = self.ascard[_index].value
-        self.ascard[_index] = create_card(newkey, _value, _comment)
-
-
-#        self.ascard[_index].__dict__['key']=newkey
-#        self.ascard[_index].ascardimage()
-#        self.ascard._keylist[_index] = newkey
-
     def keys(self):
         """
         Return a list of keys with duplicates removed.
@@ -277,25 +145,6 @@ class Header(object):
                 retval.append(key)
 
         return retval
-
-    def get(self, key, default=None):
-        """
-        Get a keyword value from the `CardList`.  If no keyword is
-        found, return the default value.
-
-        Parameters
-        ----------
-        key : str or int
-            keyword name or index
-
-        default : object, optional
-            if no keyword is found, the value to be returned.
-        """
-
-        try:
-            return self[key]
-        except KeyError:
-            return default
 
     def update(self, key, value, comment=None, before=None, after=None,
                savecomment=False):
@@ -336,7 +185,7 @@ class Header(object):
             preserved.
         """
 
-        keylist = RecordValuedKeywordCard.validKeyValue(key,value)
+        keylist = RecordValuedKeywordCard.validKeyValue(key, value)
 
         if keylist:
             keyword = keylist[0] + '.' + keylist[1]
@@ -371,6 +220,64 @@ class Header(object):
            key[:5] not in ('NAXIS', 'TTYPE', 'TFORM', 'ZTILE', 'ZNAME') and \
            key[:6] not in ('ZNAXIS'):
             self._table_header.update(key, value, comment, before, after)
+
+    def copy(self):
+        """
+        Make a copy of the `Header`.
+        """
+
+        tmp = Header(self.ascard.copy())
+
+        # also copy the class
+        tmp._hdutype = self._hdutype
+        return tmp
+
+    def ascardlist(self):
+        """
+        Returns a `CardList` object.
+        """
+
+        return self.ascard
+
+    def rename_key(self, oldkey, newkey, force=False):
+        """
+        Rename a card's keyword in the header.
+
+        Parameters
+        ----------
+        oldkey : str or int
+            old keyword
+
+        newkey : str
+            new keyword
+
+        force : bool
+            When `True`, if new key name already exists, force to have
+            duplicate name.
+        """
+
+        oldkey = upper_key(oldkey)
+        newkey = upper_key(newkey)
+
+        if newkey == 'CONTINUE':
+            raise ValueError('Can not rename to CONTINUE')
+        if newkey in Card._commentary_keys or oldkey in Card._commentary_keys:
+            if not (newkey in Card._commentary_keys and 
+                    oldkey in Card._commentary_keys):
+                raise ValueError('Regular and commentary keys can not be '
+                                 'renamed to each other.')
+        elif (force == 0) and self.has_key(newkey):
+            raise ValueError('Intended keyword %s already exists in header.'
+                             % newkey)
+        _index = self.ascard.index_of(oldkey)
+        _comment = self.ascard[_index].comment
+        _value = self.ascard[_index].value
+        self.ascard[_index] = create_card(newkey, _value, _comment)
+
+
+#        self.ascard[_index].__dict__['key']=newkey
+#        self.ascard[_index].ascardimage()
+#        self.ascard._keylist[_index] = newkey
 
     def add_history(self, value, before=None, after=None):
         """
@@ -434,6 +341,7 @@ class Header(object):
         after : str or int, optional
             same as in `Header.update`
         """
+
         self._add_commentary(' ', value, before=before, after=after)
 
         # If this header is associated with a compImageHDU then update
@@ -455,104 +363,6 @@ class Header(object):
         """
 
         return [c for c in self.ascardlist() if c.key == 'COMMENT']
-
-    def _add_commentary(self, key, value, before=None, after=None):
-        """
-        Add a commentary card.
-
-        If `before` and `after` are `None`, add to the last occurrence
-        of cards of the same name (except blank card).  If there is no
-        card (or blank card), append at the end.
-        """
-
-        new_card = Card(key, value)
-        if before != None or after != None:
-            self.ascard._pos_insert(new_card, before=before, after=after)
-        else:
-            if key[0] == ' ':
-                useblanks = new_card._cardimage != ' '*80
-                self.ascard.append(new_card, useblanks=useblanks, bottom=1)
-            else:
-                try:
-                    _last = self.ascard.index_of(key, backward=1)
-                    self.ascard.insert(_last+1, new_card)
-                except:
-                    self.ascard.append(new_card, bottom=1)
-
-        self._mod = 1
-
-    def copy(self):
-        """
-        Make a copy of the `Header`.
-        """
-
-        tmp = Header(self.ascard.copy())
-
-        # also copy the class
-        tmp._hdutype = self._hdutype
-        return tmp
-
-    def _strip(self):
-        """
-        Strip cards specific to a certain kind of header.
-
-        Strip cards like ``SIMPLE``, ``BITPIX``, etc. so the rest of
-        the header can be used to reconstruct another kind of header.
-        """
-
-        try:
-
-            # have both SIMPLE and XTENSION to accomodate Extension
-            # and Corrupted cases
-            del self['SIMPLE']
-            del self['XTENSION']
-            del self['BITPIX']
-
-            if self.has_key('NAXIS'):
-                _naxis = self['NAXIS']
-            else:
-                _naxis = 0
-
-            if issubclass(self._hdutype, _TableBaseHDU):
-                if self.has_key('TFIELDS'):
-                    _tfields = self['TFIELDS']
-                else:
-                    _tfields = 0
-
-            del self['NAXIS']
-            for idx in range(_naxis):
-                del self['NAXIS'+ str(idx + 1)]
-
-            if issubclass(self._hdutype, PrimaryHDU):
-                del self['EXTEND']
-            del self['PCOUNT']
-            del self['GCOUNT']
-
-            if issubclass(self._hdutype, PrimaryHDU):
-                del self['GROUPS']
-
-            if issubclass(self._hdutype, _ImageBaseHDU):
-                del self['BSCALE']
-                del self['BZERO']
-
-            if issubclass(self._hdutype, _TableBaseHDU):
-                del self['TFIELDS']
-                for name in ['TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE',
-                             'TUNIT']:
-                    for idx in range(_tfields):
-                        del self[name + str(idx + 1)]
-
-            if issubclass(self._hdutype, BinTableHDU):
-                for name in ['TDISP', 'TDIM', 'THEAP']:
-                    for idx in range(_tfields):
-                        del self[name + str(idx + 1)]
-
-            if issubclass(self._hdutype, TableHDU):
-                for idx in range(_tfields):
-                    del self['TBCOL' + str(idx + 1)]
-
-        except KeyError:
-            pass
 
     def toTxtFile(self, outFile, clobber=False):
         """
@@ -713,4 +523,135 @@ class Header(object):
 
         # update the hdu type of the header to match the parameters read in
         self._updateHDUtype()
+
+    def _add_commentary(self, key, value, before=None, after=None):
+        """
+        Add a commentary card.
+
+        If `before` and `after` are `None`, add to the last occurrence
+        of cards of the same name (except blank card).  If there is no
+        card (or blank card), append at the end.
+        """
+
+        new_card = Card(key, value)
+        if before != None or after != None:
+            self.ascard._pos_insert(new_card, before=before, after=after)
+        else:
+            if key[0] == ' ':
+                useblanks = new_card._cardimage != ' '*80
+                self.ascard.append(new_card, useblanks=useblanks, bottom=1)
+            else:
+                try:
+                    _last = self.ascard.index_of(key, backward=1)
+                    self.ascard.insert(_last+1, new_card)
+                except:
+                    self.ascard.append(new_card, bottom=1)
+
+        self._mod = 1
+
+    def _updateHDUtype(self):
+        cards = self.ascard
+
+        try:
+            if cards[0].key == 'SIMPLE':
+                if 'GROUPS' in cards._keylist and cards['GROUPS'].value == True:
+                    self._hdutype = GroupsHDU
+                elif cards[0].value == True:
+                    self._hdutype = PrimaryHDU
+                elif cards[0].value == False:
+                    self._hdutype = _NonstandardHDU
+                else:
+                    self._hdutype = _CorruptedHDU
+            elif cards[0].key == 'XTENSION':
+                xtension = cards[0].value.rstrip()
+                if xtension == 'TABLE':
+                    self._hdutype = TableHDU
+                elif xtension == 'IMAGE':
+                    self._hdutype = ImageHDU
+                elif xtension in ('BINTABLE', 'A3DTABLE'):
+                    try:
+                        if cards['ZIMAGE'].value == True:
+                            if COMPRESSION_SUPPORTED:
+                                self._hdutype = CompImageHDU
+                            else:
+                                warnings.warn(
+                                    'Failure creating a header for a '
+                                    'compressed image HDU.')
+                                warnings.warn(
+                                    'The pyfitsComp module is not available.')
+                                warnings.warn(
+                                    'The HDU will be treated as a Binary '
+                                    'Table HDU.')
+                                raise KeyError
+                    except KeyError:
+                        self._hdutype = BinTableHDU
+                else:
+                    self._hdutype = _NonstandardExtHDU
+            else:
+                self._hdutype = _ValidHDU
+        except:
+            self._hdutype = _CorruptedHDU
+
+    def _strip(self):
+        """
+        Strip cards specific to a certain kind of header.
+
+        Strip cards like ``SIMPLE``, ``BITPIX``, etc. so the rest of
+        the header can be used to reconstruct another kind of header.
+        """
+
+        try:
+
+            # have both SIMPLE and XTENSION to accomodate Extension
+            # and Corrupted cases
+            del self['SIMPLE']
+            del self['XTENSION']
+            del self['BITPIX']
+
+            if self.has_key('NAXIS'):
+                _naxis = self['NAXIS']
+            else:
+                _naxis = 0
+
+            if issubclass(self._hdutype, _TableBaseHDU):
+                if self.has_key('TFIELDS'):
+                    _tfields = self['TFIELDS']
+                else:
+                    _tfields = 0
+
+            del self['NAXIS']
+            for idx in range(_naxis):
+                del self['NAXIS'+ str(idx + 1)]
+
+            if issubclass(self._hdutype, PrimaryHDU):
+                del self['EXTEND']
+            del self['PCOUNT']
+            del self['GCOUNT']
+
+            if issubclass(self._hdutype, PrimaryHDU):
+                del self['GROUPS']
+
+            if issubclass(self._hdutype, _ImageBaseHDU):
+                del self['BSCALE']
+                del self['BZERO']
+
+            if issubclass(self._hdutype, _TableBaseHDU):
+                del self['TFIELDS']
+                for name in ['TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE',
+                             'TUNIT']:
+                    for idx in range(_tfields):
+                        del self[name + str(idx + 1)]
+
+            if issubclass(self._hdutype, BinTableHDU):
+                for name in ['TDISP', 'TDIM', 'THEAP']:
+                    for idx in range(_tfields):
+                        del self[name + str(idx + 1)]
+
+            if issubclass(self._hdutype, TableHDU):
+                for idx in range(_tfields):
+                    del self['TBCOL' + str(idx + 1)]
+
+        except KeyError:
+            pass
+
 

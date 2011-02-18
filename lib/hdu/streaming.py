@@ -1,10 +1,9 @@
 import gzip
 import os
-import types
 
 from pyfits.hdu.hdulist import HDUList
 from pyfits.hdu.image import PrimaryHDU
-from pyfits.util import _tofile
+from pyfits.util import _tofile, _pad_length
 
 class StreamingHDU(object):
     """
@@ -59,7 +58,7 @@ class StreamingHDU(object):
         from pyfits.file import _File
 
         if isinstance(name, gzip.GzipFile):
-            raise TypeError, 'StreamingHDU not supported for GzipFile objects'
+            raise TypeError('StreamingHDU not supported for GzipFile objects.')
 
         self._header = header.copy()
 
@@ -67,8 +66,7 @@ class StreamingHDU(object):
 
         if isinstance(name, file):
            filename = name.name
-        elif isinstance(name, types.StringType) or \
-             isinstance(name, types.UnicodeType):
+        elif isinstance(name, basestring):
             filename = name
         else:
             filename = ''
@@ -83,25 +81,24 @@ class StreamingHDU(object):
         if filename:
             if not os.path.exists(filename) or os.path.getsize(filename) == 0:
                 newFile = True
-        elif (hasattr(name,'len') and name.len == 0):
+        elif (hasattr(name, 'len') and name.len == 0):
             newFile = True
 
-        if newFile:
-            if not self._header.has_key('SIMPLE'):
+        if not 'SIMPLE' in self._header:
+            if newFile:
                 hdulist = HDUList([PrimaryHDU()])
                 hdulist.writeto(name, 'exception')
-        else:
-            if self._header.has_key('SIMPLE'):
+            else:
 #
 #               This will not be the first extension in the file so we
 #               must change the Primary header provided into an image
 #               extension header.
 #
                 self._header.update('XTENSION','IMAGE','Image extension',
-                                   after='SIMPLE')
+                                    after='SIMPLE')
                 del self._header['SIMPLE']
 
-                if not self._header.has_key('PCOUNT'):
+                if 'PCOUNT' not in self._header:
                     dim = self._header['NAXIS']
 
                     if dim == 0:
@@ -109,10 +106,12 @@ class StreamingHDU(object):
                     else:
                         dim = str(dim)
 
-                    self._header.update('PCOUNT', 0, 'number of parameters',                                            after='NAXIS'+dim)
+                    self._header.update('PCOUNT', 0, 'number of parameters',
+                                        after='NAXIS' + dim)
 
-                if not self._header.has_key('GCOUNT'):
-                    self._header.update('GCOUNT', 1, 'number of groups',                                                after='PCOUNT')
+                if 'GCOUNT' not in self._header:
+                    self._header.update('GCOUNT', 1, 'number of groups',
+                                        after='PCOUNT')
 
         self._ffo = _File(name, 'append')
         self._ffo.getfile().seek(0,2)
@@ -129,6 +128,13 @@ class StreamingHDU(object):
             self.writeComplete = 0
         else:
             self.writeComplete = 1
+
+    # Support the 'with' statement
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
 
     def write(self, data):
         """
@@ -160,17 +166,15 @@ class StreamingHDU(object):
         `TypeError` exception is raised.
         """
 
-        from pyfits.file import _pad_length
-
         curDataSize = self._ffo.getfile().tell() - self._datLoc
 
         if self.writeComplete or curDataSize + data.nbytes > self._size:
-            raise IOError, \
-            "Attempt to write more data to the stream than the header specified"
+            raise IOError('Attempt to write more data to the stream than the '
+                          'header specified.')
 
         if _ImageBaseHDU.NumCode[self._header['BITPIX']] != data.dtype.name:
-            raise TypeError, \
-            "Supplied data does not match the type specified in the header."
+            raise TypeError('Supplied data does not match the type specified '
+                            'in the header.')
 
         if data.dtype.str[0] != '>':
 #
@@ -202,8 +206,8 @@ class StreamingHDU(object):
         naxis = self._header.get('NAXIS', 0)
 
         if naxis > 0:
-            simple = self._header.get('SIMPLE','F')
-            randomGroups = self._header.get('GROUPS','F')
+            simple = self._header.get('SIMPLE', 'F')
+            randomGroups = self._header.get('GROUPS', 'F')
 
             if simple == 'T' and randomGroups == 'T':
                 groups = 1
@@ -227,9 +231,3 @@ class StreamingHDU(object):
 
         self._ffo.close()
 
-    # Support the 'with' statement
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.close()

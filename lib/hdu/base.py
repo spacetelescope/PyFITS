@@ -7,7 +7,8 @@ import numpy as np
 from pyfits.card import Card, CardList, _ContinueCard, \
                         create_card_from_string, _pad
 from pyfits.column import DELAYED
-from pyfits.util import lazyproperty, _fromfile, _is_int, _with_extensions
+from pyfits.util import lazyproperty, _fromfile, _is_int, _with_extensions, \
+                        _pad_length, BLOCK_SIZE
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -21,8 +22,8 @@ class _AllHDU(object):
         self._file = None
         self._offset = None
         self._datLoc = None
-        self.name = None
         self._data_loaded = False
+        self.name = None
 
         if (data is DELAYED):
             return
@@ -35,6 +36,45 @@ class _AllHDU(object):
     def _setheader(self, value):
         self._header = value
     header = property(_getheader, _setheader)
+
+    @_with_extensions
+    def writeto(self, name, output_verify='exception', clobber=False,
+                classExtensions={}, checksum=False):
+        """
+        Write the HDU to a new file.  This is a convenience method to
+        provide a user easier output interface if only one HDU needs
+        to be written to a file.
+
+        Parameters
+        ----------
+        name : file path, file object or file-like object
+            Output FITS file.  If opened, must be opened for append
+            ("ab+")).
+
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  See :ref:`verify` for more info.
+
+        clobber : bool
+            Overwrite the output file if exists.
+
+        classExtensions : dict
+            A dictionary that maps pyfits classes to extensions of
+            those classes.  When present in the dictionary, the
+            extension class will be constructed in place of the pyfits
+            class.
+
+        checksum : bool
+            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+            to the header of the HDU when written to the file.
+        """
+
+        from pyfits.hdu.hdulist import HDUList
+
+        hdulist = HDUList([self])
+        hdulist.writeto(name, output_verify, clobber=clobber,
+                        checksum=checksum)
 
 
 class _CorruptedHDU(_AllHDU):
@@ -114,45 +154,6 @@ class _NonstandardHDU(_AllHDU, _Verify):
             errs.append(card._verify(option))
 
         return errs
-
-    @_with_extensions
-    def writeto(self, name, output_verify='exception', clobber=False,
-                classExtensions={}, checksum=False):
-        """
-        Write the HDU to a new file.  This is a convenience method to
-        provide a user easier output interface if only one HDU needs
-        to be written to a file.
-
-        Parameters
-        ----------
-        name : file path, file object or file-like object
-            Output FITS file.  If opened, must be opened for append
-            ("ab+")).
-
-        output_verify : str
-            Output verification option.  Must be one of ``"fix"``,
-            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  See :ref:`verify` for more info.
-
-        clobber : bool
-            Overwrite the output file if exists.
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of
-            those classes.  When present in the dictionary, the
-            extension class will be constructed in place of the pyfits
-            class.
-
-        checksum : bool
-            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
-            to the header of the HDU when written to the file.
-        """
-
-        from pyfits.hdu.hdulist import HDUList
-
-        hdulist = HDUList([self])
-        hdulist.writeto(name, output_verify, clobber=clobber,
-                        checksum=checksum)
 
 
 class _ValidHDU(_AllHDU, _Verify):
@@ -248,48 +249,6 @@ class _ValidHDU(_AllHDU, _Verify):
             data = None
         return self.__class__(data=data, header=self._header.copy())
 
-    @_with_extensions
-    def writeto(self, name, output_verify='exception', clobber=False,
-                classExtensions={}, checksum=False):
-        """
-        Write the HDU to a new file.  This is a convenience method to
-        provide a user easier output interface if only one HDU needs
-        to be written to a file.
-
-        By default this writes an HDU list containing this HDU alone (as
-        though it were a primary HDU).  However, extension HDUs should
-        be prepended with a PrimaryHDU.
-
-        Parameters
-        ----------
-        name : file path, file object or file-like object
-            Output FITS file.  If opened, must be opened for append
-            ("ab+")).
-
-        output_verify : str
-            Output verification option.  Must be one of ``"fix"``,
-            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  See :ref:`verify` for more info.
-
-        clobber : bool
-            Overwrite the output file if exists, default = False.
-
-        classExtensions : dict
-           A dictionary that maps pyfits classes to extensions of
-           those classes.  When present in the dictionary, the
-           extension class will be constructed in place of the pyfits
-           class.
-
-        checksum : bool
-            When `True`, adds both ``DATASUM`` and ``CHECKSUM`` cards
-            to the header of the HDU when written to the file.
-        """
-
-        from pyfits.hdu.hdulist import HDUList
-
-        hdulist = HDUList([self])
-        hdulist.writeto(name, output_verify, clobber=clobber,
-                        checksum=checksum)
 
     def update_ext_name(self, value, comment=None, before=None,
                         after=None, savecomment=False):
@@ -665,7 +624,7 @@ class _ValidHDU(_AllHDU, _Verify):
                 return 0
         elif (self.data != None):
             return self._compute_checksum(
-                                 np.fromstring(self.data, dtype='ubyte'), blocking=blocking)
+                np.fromstring(self.data, dtype='ubyte'), blocking=blocking)
         else:
             return 0
 
@@ -673,8 +632,6 @@ class _ValidHDU(_AllHDU, _Verify):
         """
         Calculate the value of the ``CHECKSUM`` card in the HDU.
         """
-
-        from pyfits.file import _pad_length
 
         oldChecksum = self.header['CHECKSUM']
         self.header.update('CHECKSUM', '0'*16);
@@ -684,7 +641,8 @@ class _ValidHDU(_AllHDU, _Verify):
         s = s + _pad_length(len(s))*' '
 
         # Calculate the checksum of the Header and data.
-        cs = self._compute_checksum(np.fromstring(s, dtype='ubyte'), datasum, blocking=blocking)
+        cs = self._compute_checksum(np.fromstring(s, dtype='ubyte'), datasum,
+                                    blocking=blocking)
 
         # Encode the checksum into a string.
         s = self._char_encode(~cs)
@@ -929,7 +887,6 @@ class _TempHDU(_ValidHDU):
         but the beginning locations are computed.
         """
 
-        from pyfits.file import BLOCK_SIZE
         from pyfits.header import Header
         from pyfits.hdu.image import PrimaryHDU, ImageHDU
 

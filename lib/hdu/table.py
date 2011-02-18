@@ -18,13 +18,15 @@ from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import _AllHDU
 from pyfits.hdu.extension import _ExtensionHDU
-from pyfits.util import Extendable, lazyproperty, _is_int
+from pyfits.util import Extendable, lazyproperty, _is_int, _str_to_num, \
+                        _pad_length
 
 
 class _TableBaseHDU(_ExtensionHDU):
     """
     FITS table extension base HDU class.
     """
+
     def __init__(self, data=None, header=None, name=None):
         """
         Parameters
@@ -43,12 +45,10 @@ class _TableBaseHDU(_ExtensionHDU):
 
         super(_TableBaseHDU, self).__init__(data=data, header=header)
 
-        if header is not None:
-            if not isinstance(header, Header):
-                raise ValueError, "header must be a Header object"
+        if header is not None and not isinstance(header, Header):
+            raise ValueError('header must be a Header object.')
 
         if data is DELAYED:
-
             # this should never happen
             if header is None:
                 raise ValueError('No header to setup HDU.')
@@ -57,7 +57,6 @@ class _TableBaseHDU(_ExtensionHDU):
             else:
                 self._header = header
         else:
-
             # construct a list of cards of minimal header
             _list = CardList([
                 Card('XTENSION',      '', ''),
@@ -80,8 +79,7 @@ class _TableBaseHDU(_ExtensionHDU):
 
             self._header = Header(_list)
 
-        if (data is not DELAYED):
-            if isinstance(data,np.ndarray) and not data.dtype.fields == None:
+            if isinstance(data, np.ndarray) and not data.dtype.fields == None:
                 if isinstance(data, FITS_rec):
                     self.data = data
                 elif isinstance(data, rec.recarray):
@@ -104,18 +102,16 @@ class _TableBaseHDU(_ExtensionHDU):
                     #
                     columns = []
 
-                    for i in range(len(data.dtype.names)):
-                       cname = data.dtype.names[i]
+                    for idx in range(len(data.dtype.names)):
+                       cname = data.dtype.names[idx]
+                       ftype = data.dtype.fields[cname][0]
 
-                       if data.dtype.fields[cname][0].type == np.string_:
-                           format = \
-                            'A'+str(data.dtype.fields[cname][0].itemsize)
+                       if ftype.type == np.string_:
+                           format = 'A' + str(ftype.itemsize)
                        else:
-                           format = \
-                            _convert_format(data.dtype.fields[cname][0].str[1:],
-                            True)
+                           format = _convert_format(ftype.str[1:], True)
 
-                       c = Column(name=cname,format=format,array=data[cname])
+                       c = Column(name=cname, format=format, array=data[cname])
                        columns.append(c)
 
                     tbtype = 'BinTableHDU'
@@ -134,24 +130,30 @@ class _TableBaseHDU(_ExtensionHDU):
                    # Make the ndarrays in the Column objects of the ColDefs
                    # object of the HDU reference the same ndarray as the HDU's
                    # FITS_rec object.
-                    for i in range(len(self.columns)):
-                        self.columns.data[i].array = self.data.field(i)
+                    for idx in range(len(self.columns)):
+                        self.columns.data[idx].array = self.data.field(idx)
 
                     # Delete the _arrays attribute so that it is recreated to
                     # point to the new data placed in the column objects above
-                    if self.columns.__dict__.has_key('_arrays'):
-                        del self.columns.__dict__['_arrays']
+                    del self.columns._array
                 except (TypeError, AttributeError), e:
+                    # This shouldn't happen as long as self.columns._array
+                    # is a lazyproperty
                     pass
             elif data is None:
                 pass
             else:
-                raise TypeError, "table data has incorrect type"
+                raise TypeError('Table data has incorrect type.')
 
         #  set extension name
-        if not name and self._header.has_key('EXTNAME'):
+        if not name and 'EXTNAME' in self._header:
             name = self._header['EXTNAME']
         self.name = name
+
+        if self._header[0].rstrip() != self._extension:
+            self._header[0] = self._extension
+            self._header.ascard[0].comment = self._ext_comment
+
 
     @lazyproperty
     def data(self):
@@ -161,7 +163,6 @@ class _TableBaseHDU(_ExtensionHDU):
             data = _get_tbdata(self)
             data._coldefs = self.columns
             data.formats = self.columns.formats
-#                print "Got data?"
         else:
             data = None
         self._data_loaded = True
@@ -175,48 +176,18 @@ class _TableBaseHDU(_ExtensionHDU):
 
     @lazyproperty
     def _theap(self):
-        return self._header.get('THEAP', self._header['NAXIS1']*self._header['NAXIS2'])
+        size = self._header['NAXIS1'] * self._header['NAXIS2']
+        return self._header.get('THEAP', size)
 
     @lazyproperty
     def _pcount(self):
         return self._header.get('PCOUNT', 0)
 
-    def _summary(self):
-        """
-        Summarize the HDU: name, dimensions, and formats.
-        """
-
-        class_name  = str(self.__class__)
-        type  = class_name[class_name.rfind('.')+1:-2]
-
-        # if data is touched, use data info.
-        if self._data_loaded:
-            if self.data is None:
-                _shape, _format = (), ''
-                _nrows = 0
-            else:
-                _nrows = len(self.data)
-
-            _ncols = len(self.columns.formats)
-            _format = self.columns.formats
-
-        # if data is not touched yet, use header info.
-        else:
-            _shape = ()
-            _nrows = self._header['NAXIS2']
-            _ncols = self._header['TFIELDS']
-            _format = ', '.join([self._header['TFORM' + str(j + 1)]
-                                 for j in range(_ncols)])
-            _format = '[%s]' % _format
-        _dims = "%dR x %dC" % (_nrows, _ncols)
-
-        return "%-10s  %-11s  %5d  %-12s  %s" % \
-            (self.name, type, len(self._header.ascard), _dims, _format)
-
     def get_coldefs(self):
         """
-        Returns the table's column definitions.
+        **[Deprecated]** Returns the table's column definitions.
         """
+
         return self.columns
 
     def update(self):
@@ -295,6 +266,38 @@ class _TableBaseHDU(_ExtensionHDU):
                            errs)
         return errs
 
+    def _summary(self):
+        """
+        Summarize the HDU: name, dimensions, and formats.
+        """
+
+        class_name = self.__class__.__name__
+
+        # if data is touched, use data info.
+        if self._data_loaded:
+            if self.data is None:
+                shape, format = (), ''
+                nrows = 0
+            else:
+                nrows = len(self.data)
+
+            ncols = len(self.columns.formats)
+            format = self.columns.formats
+
+        # if data is not touched yet, use header info.
+        else:
+            shape = ()
+            nrows = self._header['NAXIS2']
+            ncols = self._header['TFIELDS']
+            format = ', '.join([self._header['TFORM' + str(j + 1)]
+                                for j in range(ncols)])
+            format = '[%s]' % format
+        dims = "%dR x %dC" % (nrows, ncols)
+        ncards = len(self._header.ascard)
+
+        return "%-10s  %-11s  %5d  %-12s  %s" \
+               % (self.name, class_name, ncards, dims, format)
+
 
 class TableHDU(_TableBaseHDU):
     """
@@ -304,45 +307,24 @@ class TableHDU(_TableBaseHDU):
     __metaclass__ = Extendable
 
     _extension = 'TABLE'
+    _ext_comment = 'ASCII table extension'
 
     __format_RE = re.compile(
         r'(?P<code>[ADEFI])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
-
-    def __init__(self, data=None, header=None, name=None):
-        """
-        Parameters
-        ----------
-        data : array
-            data of the table
-
-        header : Header instance
-            header to be used for the HDU
-
-        name : str
-            the ``EXTNAME`` value
-        """
-
-        super(TableHDU, self).__init__(data=data, header=header, name=name)
-
-        if self._header[0].rstrip() != self._extension:
-            self._header[0] = self._extension
-            self._header.ascard[0].comment = 'ASCII table extension'
 
     def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        from pyfits.file import _pad_length
-
-        if self.__dict__.has_key('data') and self.data != None:
+        if self._data_loaded and self.data is not None:
             # We have the data to be used.
             # We need to pad the data to a block length before calculating
             # the datasum.
 
             if self.size() > 0:
                 d = np.append(np.fromstring(self.data, dtype='ubyte'),
-                              np.fromstring(_pad_length(self.size())*' ',
+                              np.fromstring(_pad_length(self.size()) * ' ',
                                             dtype='ubyte'))
 
             cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),
@@ -377,6 +359,7 @@ class BinTableHDU(_TableBaseHDU):
     __metaclass__ = Extendable
 
     _extension = 'BINTABLE'
+    _ext_comment = 'binary table extension'
 
     def __init__(self, data=None, header=None, name=None):
         """
@@ -393,12 +376,7 @@ class BinTableHDU(_TableBaseHDU):
         """
 
         super(BinTableHDU, self).__init__(data=data, header=header, name=name)
-
-        hdr = self._header
-        if hdr[0] != self._extension:
-            hdr[0] = self._extension
-            hdr.ascard[0].comment = 'binary table extension'
-
+        # TODO: This shouldn't be necessary
         self._header._hdutype = BinTableHDU
 
     def _calculate_datasum_from_data(self, data, blocking):
@@ -413,31 +391,30 @@ class BinTableHDU(_TableBaseHDU):
 
             if not isinstance(coldata, chararray.chararray):
                 if isinstance(coldata, _VLF):
-                    k = 0
-                    for j in coldata:
-                        if not isinstance(j, chararray.chararray):
-                            if j.itemsize > 1:
-                                if j.dtype.str[0] != '>':
-                                    j[:] = j.byteswap()
-                                    j.dtype = j.dtype.newbyteorder('>')
-                        if rec.recarray.field(data,i)[k:k+1].dtype.str[0]!='>':
-                            rec.recarray.field(data,i)[k:k+1].byteswap(True)
-                        k = k + 1
+                    for j, d in enumerate(coldata):
+                        if not isinstance(d, chararray.chararray):
+                            if d.itemsize > 1:
+                                if d.dtype.str[0] != '>':
+                                    d[:] = d.byteswap()
+                                    d.dtype = d.dtype.newbyteorder('>')
+                        # TODO: Any reason this isn't just data.field(i)?
+                        field = rec.recarray.field(data, i)[j:j + 1]
+                        if field.dtype.str[0] != '>':
+                            field.byteswap(True)
                 else:
                     if coldata.itemsize > 1:
                         if data.field(i).dtype.str[0] != '>':
                             data.field(i)[:] = data.field(i).byteswap()
         data.dtype = data.dtype.newbyteorder('>')
 
-        dout=np.fromstring(data, dtype='ubyte')
+        dout = np.fromstring(data, dtype='ubyte')
 
         for i in range(data._nfields):
             if isinstance(data._coldefs._recformats[i], _FormatP):
-                for j in range(len(data.field(i))):
-                    coldata = data.field(i)[j]
+                for coldata in data.field(i):
                     if len(coldata) > 0:
                         dout = np.append(dout,
-                                    np.fromstring(coldata,dtype='ubyte'))
+                                         np.fromstring(coldata, dtype='ubyte'))
 
         cs = self._compute_checksum(dout, blocking=blocking)
         return cs
@@ -446,7 +423,8 @@ class BinTableHDU(_TableBaseHDU):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
-        if self.__dict__.has_key('data') and self.data != None:
+
+        if self._data_loaded and self.data is not None:
             # We have the data to be used.
             return self._calculate_datasum_from_data(self.data, blocking)
         else:
@@ -487,23 +465,26 @@ class BinTableHDU(_TableBaseHDU):
         `tcreate` method can be used to reassemble the table from the
         three ASCII files.
         """
+
+        # TODO: This is looking pretty long and complicated--might be a few
+        # places we can break this up into smaller functions
+
         # check if the output files already exist
-        exceptMessage = 'File '
+        exist = []
         files = [datafile, cdfile, hfile]
 
         for f in files:
-            if (isinstance(f,types.StringType) or
-                isinstance(f,types.UnicodeType)):
-                if (os.path.exists(f) and os.path.getsize(f) != 0):
+            if isinstance(f, basestring):
+                if os.path.exists(f) and os.path.getsize(f) != 0:
                     if clobber:
-                        warnings.warn(" Overwrite existing file '%s'." % f)
+                        warnings.warn("Overwriting existing file '%s'." % f)
                         os.remove(f)
                     else:
-                        exceptMessage = exceptMessage + "'%s', " % f
+                        exist.append(f)
 
-        if exceptMessage != 'File ':
-            exceptMessage = exceptMessage[:-2] + ' already exist.'
-            raise IOError, exceptMessage
+        if exist:
+            raise IOError('  '.join(["File '%s' already exists."
+                                     for f in exist]))
 
         # Process the data
 
@@ -513,9 +494,8 @@ class BinTableHDU(_TableBaseHDU):
 
         closeDfile = False
 
-        if isinstance(datafile, types.StringType) or \
-           isinstance(datafile, types.UnicodeType):
-            datafile = __builtin__.open(datafile,'w')
+        if isinstance(datafile, basestring):
+            datafile = open(datafile, 'w')
             closeDfile = True
 
         dlines = []   # lines to go out to the data file
@@ -562,14 +542,14 @@ class BinTableHDU(_TableBaseHDU):
                             if len(string.split(val)) != 1:
                                 # there is whitespace in the string so put it
                                 # in quotes
-                                width = val.itemsize+3
+                                width = val.itemsize + 3
                                 str = '"' + val + '" '
                             else:
                                 # no whitespace
-                                width = val.itemsize+1
+                                width = val.itemsize + 1
                                 str = val
 
-                            line = line + '%-*s'%(width,str)
+                            line = line + '%-*s' % (width, str)
                         elif arrayFormat in np.typecodes['AllInteger']:
                             # output integer
                             line = line + '%21d ' % val
@@ -617,9 +597,8 @@ class BinTableHDU(_TableBaseHDU):
         if cdfile:
             closeCdfile = False
 
-            if isinstance(cdfile, types.StringType) or \
-               isinstance(cdfile, types.UnicodeType):
-                cdfile = __builtin__.open(cdfile,'w')
+            if isinstance(cdfile, basestring):
+                cdfile = open(cdfile, 'w')
                 closeCdfile = True
 
             cdlines = []   # lines to go out to the column definitions file
@@ -661,7 +640,7 @@ class BinTableHDU(_TableBaseHDU):
                 #Append the line for this column to the list of output lines
                 cdlines.append(
                    "%-16s %-16s %-16s %-16s %-16s %-16s %-16s %-16s\n" %
-                   (self.columns.names[j],self.columns.formats[j],
+                   (self.columns.names[j], self.columns.formats[j],
                     disp, unit, dim, null, bscale, bzero))
 
             # Write the column definition lines out to the ASCII column
@@ -722,7 +701,7 @@ class BinTableHDU(_TableBaseHDU):
   image.
 """
 
-    tdump.__doc__ += tdumpFileFormat.replace("\n", "\n        ")
+    tdump.__doc__ += tdumpFileFormat.replace('\n', '\n        ')
 
     def tcreate(self, datafile, cdfile=None, hfile=None, replace=False):
         """
@@ -766,12 +745,13 @@ class BinTableHDU(_TableBaseHDU):
         """
         # Process the column definitions file
 
+        # TODO: This also might be good to break up a bit.
+
         if cdfile:
             closeCdfile = False
 
-            if isinstance(cdfile, types.StringType) or \
-               isinstance(cdfile, types.UnicodeType):
-                cdfile = __builtin__.open(cdfile,'r')
+            if isinstance(cdfile, basestring):
+                cdfile = open(cdfile, 'r')
                 closeCdfile = True
 
             cdlines = cdfile.readlines()
@@ -789,30 +769,30 @@ class BinTableHDU(_TableBaseHDU):
             self.columns.bzeros = []
 
             for line in cdlines:
-                words = string.split(line[:-1])
+                words = line[:-1].split()
                 self.columns.names.append(words[0])
                 self.columns.formats.append(words[1])
-                self.columns.disps.append(string.replace(words[2],'""',''))
-                self.columns.units.append(string.replace(words[3],'""',''))
-                self.columns.dims.append(string.replace(words[4],'""',''))
-                null = string.replace(words[5],'""','')
+                self.columns.disps.append(words[2].replace('""', ''))
+                self.columns.units.append(words[3].replace('""', ''))
+                self.columns.dims.append(words[4].replace('""', ''))
+                null = words[5].replace('""', '')
 
-                if null != '':
-                    self.columns.nulls.append(eval(null))
+                if null:
+                    self.columns.nulls.append(_str_to_num(null))
                 else:
                     self.columns.nulls.append(null)
 
-                bscale = string.replace(words[6],'""','')
+                bscale = words[6].replace('""', '')
 
-                if bscale != '':
-                    self.columns.bscales.append(eval(bscale))
+                if bscale:
+                    self.columns.bscales.append(_str_to_num(bscape))
                 else:
                     self.columns.bscales.append(bscale)
 
-                bzero = string.replace(words[7],'""','')
+                bzero = words[7].replace('""', '')
 
-                if bzero != '':
-                    self.columns.bzeros.append(eval(bzero))
+                if bzero:
+                    self.columns.bzeros.append(_str_to_num(bzero))
                 else:
                     self.columns.bzeros.append(bzero)
 
@@ -825,9 +805,8 @@ class BinTableHDU(_TableBaseHDU):
 
         closeDfile = False
 
-        if isinstance(datafile, types.StringType) or \
-           isinstance(datafile, types.UnicodeType):
-            datafile = __builtin__.open(datafile,'r')
+        if isinstance(datafile, basestring):
+            datafile = open(datafile, 'r')
             closeDfile = True
 
         dlines = datafile.readlines()
@@ -854,7 +833,7 @@ class BinTableHDU(_TableBaseHDU):
                 recFmt = np.uint8
                 (X_format_size[i],dtype,option) = \
                                      _parse_tformat(self.columns.formats[i])
-                arrayShape = (len(dlines),X_format_size[i])
+                arrayShape = (len(dlines), X_format_size[i])
 
             arrays.append(np.empty(arrayShape,recFmt))
 
@@ -866,26 +845,25 @@ class BinTableHDU(_TableBaseHDU):
             VLA_Lengths = []
 
             while idx < len(line):
-
                 if line[idx:idx+12] == 'VLA_Length= ':
                     VLA_Lengths = VLA_Lengths + [int(line[idx+12:idx+34])]
                     idx += 34
 
-                idx1 = string.find(line[idx:],'"')
+                idx1 = line[idx:].find('"')
 
                 if idx1 >=0:
-                    words = words + string.split(line[idx:idx+idx1])
-                    idx2 = string.find(line[idx+idx1+1:],'"')
+                    words = words + line[idx:idx+idx1].split()
+                    idx2 = line[idx+idx1+1:].find('"')
                     words = words + [line[idx1+1:idx1+idx2+1]]
                     idx = idx + idx1 + idx2 + 2
                 else:
-                    idx2 = string.find(line[idx:],'VLA_Length= ')
+                    idx2 = line[idx:].find('VLA_Length= ')
 
                     if idx2 < 0:
-                        words = words + string.split(line[idx:])
+                        words = words + line[idx:].split()
                         idx = len(line)
                     else:
-                        words = words + string.split(line[idx:idx+idx2])
+                        words = words + line[idx:idx+idx2].split()
                         idx = idx + idx2
 
             idx = 0
@@ -960,6 +938,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     """
 
     # construct a table HDU
+    # TODO: Something needs to be done about this....
     hdu = eval(tbtype)(header=header)
 
     if isinstance(input, ColDefs):
@@ -968,7 +947,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
             # it to the ColDefs attribute of the new hdu.
             tmp = hdu.columns = ColDefs(input, tbtype)
         else:
-            raise ValueError, 'column definitions have a different table type'
+            raise ValueError('Column definitions have a different table type.')
     elif isinstance(input, FITS_rec): # input is a FITS_rec
         # Create a new ColDefs object from the input FITS_rec's ColDefs
         # object and assign it to the ColDefs attribute of the new hdu.
@@ -987,6 +966,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
             if _arr.hdu().data == None:
                 tmp._arrays[i] = None
             else:
+                # TODO: Why not _arr.hdu().data.field()?
                 tmp._arrays[i] = rec.recarray.field(_arr.hdu().data,_arr.field)
 
     # use the largest column shape as the shape of the record

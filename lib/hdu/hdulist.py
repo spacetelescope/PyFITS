@@ -3,7 +3,6 @@ import operator
 import os
 import signal
 import threading
-import types
 import warnings
 
 import numpy as np
@@ -12,13 +11,15 @@ from numpy import memmap as Memmap
 import pyfits
 from pyfits.card import Card
 from pyfits.column import _FormatP
+from pyfits.hdu import compressed
 from pyfits.hdu.base import _AllHDU, _ValidHDU, _TempHDU, _NonstandardHDU
 from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
-from pyfits.util import Extendable, _tmp_name, _with_extensions
+from pyfits.util import Extendable, _is_int, _tmp_name, _with_extensions, \
+                        _pad_length
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -92,10 +93,9 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
     """
 
     # instantiate a FITS file object (ffo)
-    import pyfits.core
+    # TODO: This needs to be imported inline for now, otherwise we get a
+    # circular import; maybe this can be moved eventually?
     from pyfits.file import _File
-    from pyfits.hdu import compressed
-
     ffo = _File(name, mode=mode, memmap=memmap, **kwargs)
     hdulist = HDUList(file=ffo)
 
@@ -221,6 +221,7 @@ class HDUList(list, _Verify):
         file : file object, optional
             The opened physical file associated with the `HDUList`.
         """
+
         self.__file = file
         if hdus is None:
             hdus = []
@@ -229,17 +230,13 @@ class HDUList(list, _Verify):
         if isinstance(hdus, _ValidHDU):
             hdus = [hdus]
         elif not isinstance(hdus, (HDUList, list)):
-            raise TypeError, "Invalid input for HDUList."
+            raise TypeError("Invalid input for HDUList.")
 
-        for hdu in hdus:
+        for idx, hdu in enumerate(hdus):
             if not isinstance(hdu, _AllHDU):
                 raise TypeError(
-                      "Element %d in the HDUList input is not an HDU."
-                      % hdus.index(hdu))
+                      "Element %d in the HDUList input is not an HDU." % idx)
         list.__init__(self, hdus)
-
-    def __iter__(self):
-        return [self[i] for i in range(len(self))].__iter__()
 
     @_with_extensions
     def __getitem__(self, key, classExtensions={}):
@@ -248,36 +245,37 @@ class HDUList(list, _Verify):
         """
 
         key = self.index_of(key)
-        _item = super(HDUList, self).__getitem__(key)
-        if isinstance(_item, _TempHDU):
-            super(HDUList, self).__setitem__(key, _item.setupHDU())
+        item = super(HDUList, self).__getitem__(key)
+        if isinstance(item, _TempHDU):
+            super(HDUList, self).__setitem__(key, item.setupHDU())
 
         return super(HDUList, self).__getitem__(key)
 
     def __getslice__(self, start, end):
-        _hdus = super(HDUList, self).__getslice__(start,end)
-        result = HDUList(_hdus)
-        return result
+        hdus = super(HDUList, self).__getslice__(start, end)
+        return HDUList(hdus)
 
     def __setitem__(self, key, hdu):
         """
         Set an HDU to the `HDUList`, indexed by number or name.
         """
+
         _key = self.index_of(key)
         if isinstance(hdu, (slice, list)):
-            if isinstance(_key, (int,np.integer)):
-                raise ValueError, "An element in the HDUList must be an HDU."
+            if _is_int(_key):
+                raise ValueError('An element in the HDUList must be an HDU.')
             for item in hdu:
                 if not isinstance(item, _AllHDU):
-                    raise ValueError, "%s is not an HDU." % item
+                    raise ValueError('%s is not an HDU.' % item)
         else:
             if not isinstance(hdu, _AllHDU):
-                raise ValueError, "%s is not an HDU." % hdu
+                raise ValueError('%s is not an HDU.' % hdu)
 
         try:
             super(HDUList, self).__setitem__(_key, hdu)
         except IndexError:
-            raise IndexError, 'Extension %s is out of bound or not found.' % key
+            raise IndexError('Extension %s is out of bound or not found.'
+                             % key)
         self._resize = 1
         self._truncate = 0
 
@@ -285,12 +283,13 @@ class HDUList(list, _Verify):
         """
         Delete an HDU from the `HDUList`, indexed by number or name.
         """
+
         key = self.index_of(key)
 
-        endIndex = len(self)-1
+        end_index = len(self) - 1
         super(HDUList, self).__delitem__(key)
 
-        if ( key == endIndex or key == -1 and not self._resize):
+        if (key == end_index or key == -1 and not self._resize):
             self._truncate = 1
         else:
             self._truncate = 0
@@ -300,95 +299,22 @@ class HDUList(list, _Verify):
         """
         Delete a slice of HDUs from the `HDUList`, indexed by number only.
         """
-        endIndex = len(self)
+
+        end_index = len(self)
         super(HDUList, self).__delslice__(i, j)
 
-        if ( j == endIndex or j == sys.maxint and not self._resize):
+        if (j == end_index or j == sys.maxint and not self._resize):
             self._truncate = 1
         else:
             self._truncate = 0
             self._resize = 1
 
+    # Support the 'with' statement
+    def __enter__(self):
+        return self
 
-    def _verify (self, option='warn'):
-        text = ''
-        errs = _ErrList([], unit='HDU')
-
-        # the first (0th) element must be a primary HDU
-        if len(self) > 0 and (not isinstance(self[0], PrimaryHDU)) and \
-                             (not isinstance(self[0], _NonstandardHDU)):
-            err_text = "HDUList's 0th element is not a primary HDU."
-            fix_text = 'Fixed by inserting one as 0th HDU.'
-
-            def fix(self=self):
-                self.insert(0, PrimaryHDU())
-
-            text = self.run_option(option, err_text=err_text,
-                                   fix_text=fix_text, fix=fix)
-            errs.append(text)
-
-        # each element calls their own verify
-        for idx, hdu in enumerate(self):
-            if idx > 0 and (not isinstance(hdu, _ExtensionHDU)):
-                err_text = "HDUList's element %s is not an extension HDU." \
-                           % str(idx)
-                text = self.run_option(option, err_text=err_text, fixable=True)
-                errs.append(text)
-
-            else:
-                result = hdu._verify(option)
-                if result:
-                    errs.append(result)
-        return errs
-
-    def _wasresized(self, verbose=False):
-        """
-        Determine if any changes to the HDUList will require a file resize
-        when flushing the file.
-
-        Side effect of setting the objects _resize attribute.
-        """
-
-        from pyfits.file import _pad_length
-
-        if not self._resize:
-
-            # determine if any of the HDU is resized
-            for hdu in self:
-
-                # Header:
-                # Add 1 to .ascard to include the END card
-                _nch80 = reduce(operator.add, map(Card._ncards,
-                                                  hdu.header.ascard))
-                _bytes = (_nch80+1) * Card.length
-                _bytes = _bytes + _pad_length(_bytes)
-                if _bytes != (hdu._datLoc-hdu._hdrLoc):
-                    self._resize = 1
-                    self._truncate = 0
-                    if verbose:
-                        print "One or more header is resized."
-                    break
-
-                # Data:
-                if not hdu._data_loaded or hdu.data is None:
-                    continue
-                _bytes = hdu.data.nbytes
-                _bytes = _bytes + _pad_length(_bytes)
-                if _bytes != hdu._datSpan:
-                    self._resize = 1
-                    self._truncate = 0
-                    if verbose:
-                        print "One or more data area is resized."
-                    break
-
-            if self._truncate:
-               try:
-                   self.__file.getfile().truncate(hdu._datLoc+hdu._datSpan)
-               except IOError:
-                   self._resize = 1
-               self._truncate = 0
-
-        return self._resize
+    def __exit__(self, type, value, traceback):
+        self.close()
 
     def fileinfo(self, index):
         """
@@ -976,8 +902,7 @@ class HDUList(list, _Verify):
             if not closed:
                 fileMode = name.fileobj.mode
 
-        elif isinstance(name, types.StringType) or \
-             isinstance(name, types.UnicodeType):
+        elif isinstance(name, basestring):
             filename = name
         else:
             if hasattr(name, 'closed'):
@@ -996,25 +921,23 @@ class HDUList(list, _Verify):
                 filename = str(type(name))
 
         # check if the output file already exists
-        if (isinstance(name,types.StringType) or
-            isinstance(name,types.UnicodeType) or isinstance(name,file) or
-            isinstance(name,gzip.GzipFile)):
+        if isinstance(name, (basestring, file, gzip.GzipFile)):
             if (os.path.exists(filename) and os.path.getsize(filename) != 0):
                 if clobber:
-                    warnings.warn( "Overwrite existing file '%s'." % filename)
-                    if (isinstance(name,file) and not name.closed) or \
-                       (isinstance(name,gzip.GzipFile) and name.fileobj != None
-                        and not name.fileobj.closed):
-                       name.close()
+                    warnings.warn("Overwriting existing file '%s'." % filename)
+                    if (isinstance(name, file) and not name.closed) or \
+                       (isinstance(name,gzip.GzipFile) and \
+                       name.fileobj is not None and not name.fileobj.closed):
+                        name.close()
                     os.remove(filename)
                 else:
-                    raise IOError, "File '%s' already exist." % filename
-        elif (hasattr(name,'len') and name.len > 0):
+                    raise IOError("File '%s' already exists." % filename)
+        elif (hasattr(name, 'len') and name.len > 0):
             if clobber:
-                warnings.warn( "Overwrite existing file '%s'." % filename)
+                warnings.warn("Overwriting existing file '%s'." % filename)
                 name.truncate(0)
             else:
-                raise IOError, "File '%s' already exist." % filename
+                raise IOError("File '%s' already exists." % filename)
 
         # make sure the EXTEND keyword is there if there is extension
         if len(self) > 1:
@@ -1025,11 +948,11 @@ class HDUList(list, _Verify):
                 mode = key
                 break
 
-        hduList = fitsopen(name, mode=mode)
+        hdulist = fitsopen(name, mode=mode)
 
         for hdu in self:
-            hduList.__file.writeHDU(hdu, checksum)
-        hduList.close(output_verify=output_verify,closed=closed)
+            hdulist.__file.writeHDU(hdu, checksum)
+        hdulist.close(output_verify=output_verify,closed=closed)
 
 
     def close(self, output_verify='exception', verbose=False, closed=True):
@@ -1072,17 +995,18 @@ class HDUList(list, _Verify):
         Note that this function prints its results to the console---it
         does not return a value.
         """
-        if self.__file is None:
-            _name = '(No file associated with this HDUList)'
-        else:
-            _name = self.__file.name
-        results = "Filename: %s\nNo.    Name         Type"\
-                  "      Cards   Dimensions   Format\n" % _name
 
-        for j in range(len(self)):
-            results = results + "%-3d  %s\n"%(j, self[j]._summary())
-        results = results[:-1]
-        print results
+        if self.__file is None:
+            name = '(No file associated with this HDUList)'
+        else:
+            name = self.__file.name
+
+        results = ['Filename: %s' % name,
+                   'No.    Name         Type      Cards   Dimensions   Format']
+
+        for idx, hdu in enumerate(self):
+            results.append('%-3d  %s' % (idx, hdu._summary()))
+        print '\n'.join(results)
 
     def filename(self):
         """
@@ -1100,10 +1024,80 @@ class HDUList(list, _Verify):
               return self.__file.name
         return None
 
-    # Support the 'with' statement
-    def __enter__(self):
-        return self
+    def _verify(self, option='warn'):
+        text = ''
+        errs = _ErrList([], unit='HDU')
 
-    def __exit__(self, type, value, traceback):
-        self.close()
+        # the first (0th) element must be a primary HDU
+        if len(self) > 0 and (not isinstance(self[0], PrimaryHDU)) and \
+                             (not isinstance(self[0], _NonstandardHDU)):
+            err_text = "HDUList's 0th element is not a primary HDU."
+            fix_text = 'Fixed by inserting one as 0th HDU.'
 
+            def fix(self=self):
+                self.insert(0, PrimaryHDU())
+
+            text = self.run_option(option, err_text=err_text,
+                                   fix_text=fix_text, fix=fix)
+            errs.append(text)
+
+        # each element calls their own verify
+        for idx, hdu in enumerate(self):
+            if idx > 0 and (not isinstance(hdu, _ExtensionHDU)):
+                err_text = "HDUList's element %s is not an extension HDU." \
+                           % str(idx)
+                text = self.run_option(option, err_text=err_text, fixable=True)
+                errs.append(text)
+
+            else:
+                result = hdu._verify(option)
+                if result:
+                    errs.append(result)
+        return errs
+
+    def _wasresized(self, verbose=False):
+        """
+        Determine if any changes to the HDUList will require a file resize
+        when flushing the file.
+
+        Side effect of setting the objects _resize attribute.
+        """
+
+        if not self._resize:
+
+            # determine if any of the HDU is resized
+            for hdu in self:
+
+                # Header:
+                # Add 1 to .ascard to include the END card
+                _nch80 = reduce(operator.add, map(Card._ncards,
+                                                  hdu.header.ascard))
+                _bytes = (_nch80+1) * Card.length
+                _bytes = _bytes + _pad_length(_bytes)
+                if _bytes != (hdu._datLoc-hdu._hdrLoc):
+                    self._resize = 1
+                    self._truncate = 0
+                    if verbose:
+                        print 'One or more header is resized.'
+                    break
+
+                # Data:
+                if not hdu._data_loaded or hdu.data is None:
+                    continue
+                _bytes = hdu.data.nbytes
+                _bytes = _bytes + _pad_length(_bytes)
+                if _bytes != hdu._datSpan:
+                    self._resize = 1
+                    self._truncate = 0
+                    if verbose:
+                        print 'One or more data area is resized.'
+                    break
+
+            if self._truncate:
+               try:
+                   self.__file.getfile().truncate(hdu._datLoc+hdu._datSpan)
+               except IOError:
+                   self._resize = 1
+               self._truncate = 0
+
+        return self._resize

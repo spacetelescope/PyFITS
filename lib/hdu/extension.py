@@ -21,21 +21,27 @@ class _ExtensionHDU(_ValidHDU):
         from pyfits.core import EXTENSION_NAME_CASE_SENSITIVE
 
         if attr == 'name' and value:
-            if not isinstance(value, str):
-                raise TypeError, 'bad value type'
+            if not isinstance(value, basestring):
+                raise TypeError("'name' attribute must be a string")
             if not EXTENSION_NAME_CASE_SENSITIVE:
                 value = value.upper()
-            if self._header.has_key('EXTNAME'):
+            if 'EXTNAME' in self._header:
                 self._header['EXTNAME'] = value
             else:
-                self._header.ascard.append(Card('EXTNAME', value,
-                                                'extension name'))
+                self._header.ascard.append(
+                    Card('EXTNAME', value, 'extension name'))
 
-        _ValidHDU.__setattr__(self,attr,value)
+        super(_ExtensionHDU, self).__setattr__(attr, value)
 
     @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,
                 classExtensions={}, checksum=False):
+        """
+        Works similarly to the normal writeto(), but prepends a default
+        `PrimaryHDU` are required by extension HDUs (which cannot stand on
+        their own).
+        """
+
         from pyfits.hdu.hdulist import HDUList
         from pyfits.hdu.image import PrimaryHDU
 
@@ -69,7 +75,7 @@ class _NonstandardExtHDU(_ExtensionHDU):
     """
 
     def _summary(self):
-        return "%-6s  %-10s  %3d" % (self.name, "NonstandardExtHDU",
+        return "%-6s  %-10s  %3d" % (self.name, 'NonstandardExtHDU',
                                      len(self._header.ascard))
 
     @lazyproperty

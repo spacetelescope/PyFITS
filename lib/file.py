@@ -20,10 +20,9 @@ from pyfits.hdu.extension import _NonstandardExtHDU
 from pyfits.hdu.groups import GroupData
 from pyfits.hdu.image import _ImageBaseHDU
 from pyfits.util import Extendable, _tofile, _chunk_array, _unsigned_zero, \
-                        _is_pseudo_unsigned
+                        _is_pseudo_unsigned, _pad_length, BLOCK_SIZE
 
 
-BLOCK_SIZE = 2880 # the FITS block size
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
                 'append': 'ab+', 'ostream': 'w'}  # open modes
 MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+'}
@@ -572,10 +571,4 @@ class _File(object):
 
     def __exit__(self, type, value, traceback):
         self.close()
-
-
-def _pad_length(stringlen):
-    """Bytes needed to pad the input stringLen to the next FITS block."""
-
-    return (BLOCK_SIZE - (stringlen % BLOCK_SIZE)) % BLOCK_SIZE
 

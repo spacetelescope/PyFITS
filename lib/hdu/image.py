@@ -104,6 +104,106 @@ class _ImageBaseHDU(_ValidHDU):
             del self._header['BSCALE']
             del self._header['BZERO']
 
+    @property
+    def section(self):
+        return Section(self)
+
+    @lazyproperty
+    def data(self):
+        self._data_loaded = True
+
+        if self._header['NAXIS'] < 1:
+            return
+
+        bitpix = self._header['BITPIX']
+        self._file.seek(self._datLoc)
+        dims = self._dimShape()
+
+        code = _ImageBaseHDU.NumCode[bitpix]
+
+        if self._ffile.memmap:
+            self._ffile.code = code
+            self._ffile.dims = dims
+            self._ffile.offset = self._datLoc
+            raw_data = self._ffile._mm
+        else:
+
+            nelements = 1
+            for x in range(len(dims)):
+                nelements = nelements * dims[x]
+
+            raw_data = _fromfile(self._file, dtype=code,
+                                 count=nelements,sep="")
+
+            raw_data.shape=dims
+
+#                print "raw_data.shape: ",raw_data.shape
+#                raw_data._byteorder = 'big'
+        raw_data.dtype = raw_data.dtype.newbyteorder('>')
+
+        if (self._bzero == 0 and self._bscale == 1):
+            return raw_data
+
+        data = None
+        # Handle "pseudo-unsigned" integers, if the user
+        # requested it.  In this case, we don't need to
+        # handle BLANK to convert it to NAN, since we
+        # can't do NaNs with integers, anyway, i.e. the
+        # user is responsible for managing blanks.
+        if self._ffile.uint and self._bscale == 1:
+            for bits, dtype in ((16, np.uint16),
+                                (32, np.uint32),
+                                (64, np.uint64)):
+                if bitpix == bits and self._bzero == 1 << (bits - 1):
+                    # Convert the input raw data into an unsigned
+                    # integer array and then scale the data
+                    # adjusting for the value of BZERO.  Note
+                    # that we subtract the value of BZERO instead
+                    # of adding because of the way numpy converts
+                    # the raw signed array into an unsigned array.
+                    data = np.array(raw_data, dtype=dtype)
+                    data -= (1 << (bits - 1))
+                    break
+
+        if data is None:
+            # In these cases, we end up with
+            # floating-point arrays and have to apply
+            # bscale and bzero. We may have to handle
+            # BLANK and convert to NaN in the resulting
+            # floating-point arrays.
+            if self._header.has_key('BLANK'):
+                nullDvals = np.array(self._header['BLANK'],
+                                     dtype='int64')
+                blanks = (raw_data == nullDvals)
+
+            if bitpix > 16:  # scale integers to Float64
+                data = np.array(raw_data, dtype=np.float64)
+            elif bitpix > 0:  # scale integers to Float32
+                data = np.array(raw_data, dtype=np.float32)
+            else:  # floating point cases
+                if self._ffile.memmap:
+                    data = raw_data.copy()
+                # if not memmap, use the space already in memory
+                else:
+                    data = raw_data
+
+            if self._bscale != 1:
+                np.multiply(data, self._bscale, data)
+            if self._bzero != 0:
+                data += self._bzero
+
+            if self._header.has_key('BLANK'):
+                data = np.where(blanks, np.nan, data)
+
+        if not self._do_not_scale_image_data:
+           # delete the keywords BSCALE and BZERO after scaling
+           del self._header['BSCALE']
+           del self._header['BZERO']
+
+        self._header['BITPIX'] = _ImageBaseHDU.ImgCode[data.dtype.name]
+
+        return data
+
     def update_header(self):
         """
         Update the header keywords to agree with the data.
@@ -172,172 +272,6 @@ class _ImageBaseHDU(_ValidHDU):
                 if _zero:
                     self._header.update('PZERO' + str(idx + 1),
                                         self.data._coldefs.bzeros[idx])
-
-    @property
-    def section(self):
-        return Section(self)
-
-    @lazyproperty
-    def data(self):
-        from pyfits.hdu.groups import GroupsHDU
-
-        self._data_loaded = True
-
-        if self._header['NAXIS'] < 1:
-            return
-
-        _bitpix = self._header['BITPIX']
-        self._file.seek(self._datLoc)
-        if isinstance(self, GroupsHDU):
-            dims = self.size()*8//abs(_bitpix)
-        else:
-            dims = self._dimShape()
-
-        code = _ImageBaseHDU.NumCode[self._header['BITPIX']]
-
-        if self._ffile.memmap:
-            self._ffile.code = code
-            self._ffile.dims = dims
-            self._ffile.offset = self._datLoc
-            raw_data = self._ffile._mm
-        else:
-
-            nelements = 1
-            for x in range(len(dims)):
-                nelements = nelements * dims[x]
-
-            raw_data = _fromfile(self._file, dtype=code,
-                                 count=nelements,sep="")
-
-            raw_data.shape=dims
-
-#                print "raw_data.shape: ",raw_data.shape
-#                raw_data._byteorder = 'big'
-        raw_data.dtype = raw_data.dtype.newbyteorder('>')
-
-        if (self._bzero == 0 and self._bscale == 1):
-            return raw_data
-
-        data = None
-        # Handle "pseudo-unsigned" integers, if the user
-        # requested it.  In this case, we don't need to
-        # handle BLANK to convert it to NAN, since we
-        # can't do NaNs with integers, anyway, i.e. the
-        # user is responsible for managing blanks.
-        if self._ffile.uint and self._bscale == 1:
-            for bits, dtype in ((16, np.uint16),
-                                (32, np.uint32),
-                                (64, np.uint64)):
-                if _bitpix == bits and self._bzero == 1 << (bits - 1):
-                    # Convert the input raw data into an unsigned
-                    # integer array and then scale the data
-                    # adjusting for the value of BZERO.  Note
-                    # that we subtract the value of BZERO instead
-                    # of adding because of the way numpy converts
-                    # the raw signed array into an unsigned array.
-                    data = np.array(raw_data, dtype=dtype)
-                    data -= (1 << (bits - 1))
-                    break
-
-        if data is None:
-            # In these cases, we end up with
-            # floating-point arrays and have to apply
-            # bscale and bzero. We may have to handle
-            # BLANK and convert to NaN in the resulting
-            # floating-point arrays.
-            if self._header.has_key('BLANK'):
-                nullDvals = np.array(self._header['BLANK'],
-                                     dtype='int64')
-                blanks = (raw_data == nullDvals)
-
-            if _bitpix > 16:  # scale integers to Float64
-                data = np.array(raw_data, dtype=np.float64)
-            elif _bitpix > 0:  # scale integers to Float32
-                data = np.array(raw_data, dtype=np.float32)
-            else:  # floating point cases
-                if self._ffile.memmap:
-                    data = raw_data.copy()
-                # if not memmap, use the space already in memory
-                else:
-                    data = raw_data
-
-            if self._bscale != 1:
-                np.multiply(data, self._bscale, data)
-            if self._bzero != 0:
-                data += self._bzero
-
-            if self._header.has_key('BLANK'):
-                data = np.where(blanks, np.nan, data)
-
-        if not self._do_not_scale_image_data:
-           # delete the keywords BSCALE and BZERO after scaling
-           del self._header['BSCALE']
-           del self._header['BZERO']
-
-        self._header['BITPIX'] = _ImageBaseHDU.ImgCode[data.dtype.name]
-
-        return data
-
-    def _dimShape(self):
-        """
-        Returns a tuple of image dimensions, reverse the order of ``NAXIS``.
-        """
-        naxis = self._header['NAXIS']
-        axes = naxis*[0]
-        for idx in range(naxis):
-            axes[idx] = self._header['NAXIS' + str(idx + 1)]
-        axes.reverse()
-#        print "axes in _dimShape line 2081:",axes
-        return tuple(axes)
-
-    def _summary(self):
-        """
-        Summarize the HDU: name, dimensions, and formats.
-        """
-        from pyfits.hdu.groups import GroupsHDU
-
-        class_name  = str(self.__class__)
-        type  = class_name[class_name.rfind('.')+1:-2]
-
-        if type.find('_') != -1:
-            type = type[type.find('_')+1:]
-
-        # if data is touched, use data info.
-        if self._data_loaded:
-            if self.data is None:
-                _shape, _format = (), ''
-            else:
-
-                # the shape will be in the order of NAXIS's which is the
-                # reverse of the numarray shape
-                if isinstance(self, GroupsHDU):
-                    _shape = list(self.data.data.shape)[1:]
-                    _format = \
-                       self.data.dtype.fields[self.data.dtype.names[0]][0].name
-                else:
-                    _shape = list(self.data.shape)
-                    _format = self.data.dtype.name
-                _shape.reverse()
-                _shape = tuple(_shape)
-                _format = _format[_format.rfind('.')+1:]
-
-        # if data is not touched yet, use header info.
-        else:
-            _shape = ()
-            for idx in range(self._header['NAXIS']):
-                if isinstance(self, GroupsHDU) and idx == 0:
-                    continue
-                _shape += (self._header['NAXIS' + str(idx + 1)],)
-            _format = self.NumCode[self._header['BITPIX']]
-
-        if isinstance(self, GroupsHDU):
-            _gcount = '   %d Groups  %d Parameters' \
-                      % (self._header['GCOUNT'], self._header['PCOUNT'])
-        else:
-            _gcount = ''
-        return "%-10s  %-11s  %5d  %-12s  %s%s" \
-               % (self.name, type, len(self._header.ascard), _shape, _format,
-                  _gcount)
 
     def scale(self, type=None, option="old", bscale=1, bzero=0):
         """
@@ -426,6 +360,67 @@ class _ImageBaseHDU(_ValidHDU):
         #
         self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
 
+    def _dimShape(self):
+        """
+        Returns a tuple of image dimensions, reverse the order of ``NAXIS``.
+        """
+        naxis = self._header['NAXIS']
+        axes = naxis*[0]
+        for idx in range(naxis):
+            axes[idx] = self._header['NAXIS' + str(idx + 1)]
+        axes.reverse()
+#        print "axes in _dimShape line 2081:",axes
+        return tuple(axes)
+
+    def _summary(self):
+        """
+        Summarize the HDU: name, dimensions, and formats.
+        """
+        from pyfits.hdu.groups import GroupsHDU
+
+        class_name  = str(self.__class__)
+        type  = class_name[class_name.rfind('.')+1:-2]
+
+        if type.find('_') != -1:
+            type = type[type.find('_')+1:]
+
+        # if data is touched, use data info.
+        if self._data_loaded:
+            if self.data is None:
+                _shape, _format = (), ''
+            else:
+
+                # the shape will be in the order of NAXIS's which is the
+                # reverse of the numarray shape
+                if isinstance(self, GroupsHDU):
+                    _shape = list(self.data.data.shape)[1:]
+                    _format = \
+                       self.data.dtype.fields[self.data.dtype.names[0]][0].name
+                else:
+                    _shape = list(self.data.shape)
+                    _format = self.data.dtype.name
+                _shape.reverse()
+                _shape = tuple(_shape)
+                _format = _format[_format.rfind('.')+1:]
+
+        # if data is not touched yet, use header info.
+        else:
+            _shape = ()
+            for idx in range(self._header['NAXIS']):
+                if isinstance(self, GroupsHDU) and idx == 0:
+                    continue
+                _shape += (self._header['NAXIS' + str(idx + 1)],)
+            _format = self.NumCode[self._header['BITPIX']]
+
+        if isinstance(self, GroupsHDU):
+            _gcount = '   %d Groups  %d Parameters' \
+                      % (self._header['GCOUNT'], self._header['PCOUNT'])
+        else:
+            _gcount = ''
+        return "%-10s  %-11s  %5d  %-12s  %s%s" \
+               % (self.name, type, len(self._header.ascard), _shape, _format,
+                  _gcount)
+
     def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
@@ -475,60 +470,9 @@ class Section(object):
 
     TODO: elaborate
     """
+
     def __init__(self, hdu):
         self.hdu = hdu
-
-    def _getdata(self, keys):
-        out = []
-        naxis = self.hdu.header['NAXIS']
-
-        # Determine the number of slices in the set of input keys.
-        # If there is only one slice then the result is a one dimensional
-        # array, otherwise the result will be a multidimensional array.
-        numSlices = 0
-        for idx, key in enumerate(keys):
-            if isinstance(key, slice):
-                numSlices = numSlices + 1
-
-        for idx, key in enumerate(keys):
-            if isinstance(key, slice):
-                # OK, this element is a slice so see if we can get the data for
-                # each element of the slice.
-                _naxis = self.hdu.header['NAXIS' + str(naxis - idx)]
-                ns = _normalize_slice(key, _naxis)
-
-                for k in range(ns.start, ns.stop):
-                    key1 = list(keys)
-                    key1[idx] = k
-                    key1 = tuple(key1)
-
-                    if numSlices > 1:
-                        # This is not the only slice in the list of keys so
-                        # we simply get the data for this section and append
-                        # it to the list that is output.  The out variable will
-                        # be a list of arrays.  When we are done we will pack
-                        # the list into a single multidimensional array.
-                        out.append(self[key1])
-                    else:
-                        # This is the only slice in the list of keys so if this
-                        # is the first element of the slice just set the output
-                        # to the array that is the data for the first slice.
-                        # If this is not the first element of the slice then
-                        # append the output for this slice element to the array
-                        # that is to be output.  The out variable is a single
-                        # dimensional array.
-                        if k == ns.start:
-                            out = self[key1]
-                        else:
-                            out = np.append(out,self[key1])
-
-                # We have the data so break out of the loop.
-                break
-
-        if isinstance(out, list):
-            out = np.array(out)
-
-        return out
 
     def __getitem__(self, key):
         dims = []
@@ -593,6 +537,58 @@ class Section(object):
         else:
             out = self._getdata(key)
             return out
+
+    def _getdata(self, keys):
+        out = []
+        naxis = self.hdu.header['NAXIS']
+
+        # Determine the number of slices in the set of input keys.
+        # If there is only one slice then the result is a one dimensional
+        # array, otherwise the result will be a multidimensional array.
+        numSlices = 0
+        for idx, key in enumerate(keys):
+            if isinstance(key, slice):
+                numSlices = numSlices + 1
+
+        for idx, key in enumerate(keys):
+            if isinstance(key, slice):
+                # OK, this element is a slice so see if we can get the data for
+                # each element of the slice.
+                _naxis = self.hdu.header['NAXIS' + str(naxis - idx)]
+                ns = _normalize_slice(key, _naxis)
+
+                for k in range(ns.start, ns.stop):
+                    key1 = list(keys)
+                    key1[idx] = k
+                    key1 = tuple(key1)
+
+                    if numSlices > 1:
+                        # This is not the only slice in the list of keys so
+                        # we simply get the data for this section and append
+                        # it to the list that is output.  The out variable will
+                        # be a list of arrays.  When we are done we will pack
+                        # the list into a single multidimensional array.
+                        out.append(self[key1])
+                    else:
+                        # This is the only slice in the list of keys so if this
+                        # is the first element of the slice just set the output
+                        # to the array that is the data for the first slice.
+                        # If this is not the first element of the slice then
+                        # append the output for this slice element to the array
+                        # that is to be output.  The out variable is a single
+                        # dimensional array.
+                        if k == ns.start:
+                            out = self[key1]
+                        else:
+                            out = np.append(out,self[key1])
+
+                # We have the data so break out of the loop.
+                break
+
+        if isinstance(out, list):
+            out = np.array(out)
+
+        return out
 
 
 class PrimaryHDU(_ImageBaseHDU):

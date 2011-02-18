@@ -34,6 +34,7 @@ if COMPRESSION_SUPPORTED:
         """
         Compressed Image HDU class.
         """
+
         def __init__(self, data=None, header=None, name=None,
                      compressionType=def_compressionType,
                      tileSize=None,

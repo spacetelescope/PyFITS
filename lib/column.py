@@ -52,7 +52,7 @@ ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
 DELAYED = "delayed"     # used for lazy instantiation of table column data
 
 
-class Delayed:
+class Delayed(object):
     """Delayed file-reading data."""
 
     def __init__(self, hdu=None, field=None):
@@ -267,6 +267,7 @@ class ColDefs(object):
     corresponding attribute values from all `Column` objects.
     """
 
+    # TODO: Do something about this tbtype option
     def __init__(self, input, tbtype='BinTableHDU'):
         """
         Parameters

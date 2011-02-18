@@ -1,3 +1,4 @@
+import functools
 import os
 import tempfile
 import warnings
@@ -7,6 +8,9 @@ import numpy as np
 
 __all__ = ['Extendable', 'register_extension', 'register_extensions',
            'unregister_extensions']
+
+
+BLOCK_SIZE = 2880 # the FITS block size
 
 
 # TODO: I'm somewhat of the opinion that this should go in pyfits.core, but for
@@ -129,6 +133,7 @@ def _with_extensions(func):
     were created from.
     """
 
+    @functools.wraps(func)
     def _with_extensions_wrapper(*args, **kwargs):
         extension_classes = []
         if 'classExtensions' in kwargs:
@@ -142,8 +147,6 @@ def _with_extensions(func):
         finally:
             if extension_classes:
                 unregister_extensions(extension_classes)
-
-    _with_extensions_wrapper.__doc__ = func.__doc__
 
     return _with_extensions_wrapper
 
@@ -238,6 +241,23 @@ def _is_pseudo_unsigned(dtype):
 
 def _is_int(val):
     return isinstance(val, (int, long, np.integer))
+
+
+def _str_to_num(val):
+    """Converts a given string to either an int or a float if necessary."""
+
+    try:
+        num = int(val)
+    except ValueError:
+        # If this fails then an exception should be raised anyways
+        num = float(val)
+    return num
+
+
+def _pad_length(stringlen):
+    """Bytes needed to pad the input stringlen to the next FITS block."""
+
+    return (BLOCK_SIZE - (stringlen % BLOCK_SIZE)) % BLOCK_SIZE
 
 
 def _normalize_slice(input, naxis):

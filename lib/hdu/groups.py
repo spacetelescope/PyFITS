@@ -5,6 +5,7 @@ from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.base import _AllHDU
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
+from pyfits.hdu.table import _get_tbdata
 from pyfits.util import lazyproperty, _is_int
 
 
@@ -13,14 +14,18 @@ class GroupsHDU(PrimaryHDU):
     FITS Random Groups HDU class.
     """
 
-    _dict = {8:'B', 16:'I', 32:'J', 64:'K', -32:'E', -64:'D'}
+    _width2format = {8: 'B', 16: 'I', 32: 'J', 64: 'K', -32: 'E', -64: 'D'}
 
     def __init__(self, data=None, header=None, name=None):
         """
         TODO: Write me
         """
-        PrimaryHDU.__init__(self, data=data, header=header)
-        self._header._hdutype = GroupsHDU
+
+        super(GroupsHDU, self).__init__(data=data, header=header)
+        # TODO: The assignment of the header's hdutype should probably be
+        # something that happens in _AllHDU, or at least further up the
+        # hierarchy
+        self._header._hdutype = self.__class__
         self.name = name
 
         if self._header['NAXIS'] <= 0:
@@ -28,65 +33,62 @@ class GroupsHDU(PrimaryHDU):
         self._header.update('NAXIS1', 0, after='NAXIS')
 
 
-    def __getattr__(self, attr):
+    @lazyproperty
+    def data(self):
         """
-        Get the `data` or `columns` attribute.  The data of random
-        group FITS file will be like a binary table's data.
+        The data of random group FITS file will be like a binary table's data.
         """
 
-        from pyfits.hdu.table import _get_tbdata
-
-        if attr == 'data': # same code as in _TableBaseHDU
-            size = self.size()
-            if size:
-                self._file.seek(self._datLoc)
-                data = GroupData(_get_tbdata(self))
-                data._coldefs = self.columns
-                data.formats = self.columns.formats
-                data.parnames = self.columns._pnames
-            else:
-                data = None
-            self.__dict__[attr] = data
-
-        elif attr == 'columns':
-            _cols = []
-            _pnames = []
-            _pcount = self._header['PCOUNT']
-            _format = GroupsHDU._dict[self._header['BITPIX']]
-            for idx in range(self._header['PCOUNT']):
-                _bscale = self._header.get('PSCAL' + str(idx + 1), 1)
-                _bzero = self._header.get('PZERO' + str(idx + 1), 0)
-                _pnames.append(self._header['PTYPE' + str(idx + 1)].lower())
-                _cols.append(Column(name='c' + str(idx + 1), format=_format,
-                                    bscale=_bscale, bzero=_bzero))
-            data_shape = self._dimShape()[:-1]
-            dat_format = str(int(np.array(data_shape).sum())) + _format
-
-            _bscale = self._header.get('BSCALE', 1)
-            _bzero = self._header.get('BZERO', 0)
-            _cols.append(Column(name='data', format=dat_format, bscale=_bscale,
-                                bzero = _bzero))
-            _coldefs = ColDefs(_cols)
-            _coldefs._shape = self._header['GCOUNT']
-            _coldefs._dat_format = FITS2NUMPY[_format]
-            _coldefs._pnames = _pnames
-            self.__dict__[attr] = _coldefs
-
-        elif attr == '_theap':
-            self.__dict__[attr] = 0
+        # Nearly the same code as in _TableBaseHDU
+        size = self.size()
+        if size:
+            self._file.seek(self._datLoc)
+            data = GroupData(_get_tbdata(self))
+            data._coldefs = self.columns
+            data.formats = self.columns.formats
+            data.parnames = self.columns._pnames
         else:
-            return _AllHDU.__getattr__(self,attr)
+            data = None
+        return data
 
-        try:
-            return self.__dict__[attr]
-        except KeyError:
-            raise AttributeError(attr)
+    @lazyproperty
+    def columns(self):
+        cols = []
+        pnames = []
+        pcount = self._header['PCOUNT']
+        format = self._width2format[self._header['BITPIX']]
+
+        for idx in range(self._header['PCOUNT']):
+            bscale = self._header.get('PSCAL' + str(idx + 1), 1)
+            bzero = self._header.get('PZERO' + str(idx + 1), 0)
+            pnames.append(self._header['PTYPE' + str(idx + 1)].lower())
+            cols.append(Column(name='c' + str(idx + 1), format=format,
+                               bscale=bscale, bzero=bzero))
+
+        data_shape = self._dimShape()[:-1]
+        dat_format = str(int(np.array(data_shape).sum())) + format
+
+        bscale = self._header.get('BSCALE', 1)
+        bzero = self._header.get('BZERO', 0)
+        cols.append(Column(name='data', format=dat_format, bscale=bscale,
+                           bzero=bzero))
+        coldefs = ColDefs(cols)
+        coldefs._shape = self._header['GCOUNT']
+        coldefs._dat_format = FITS2NUMPY[format]
+        coldefs._pnames = pnames
+        return coldefs
+
+    @lazyproperty
+    def _theap(self):
+        # Only really a lazyproperty for symmetry with _TableBaseHDU
+        return 0
 
     # 0.6.5.5
     def size(self):
         """
         Returns the size (in bytes) of the HDU's data part.
         """
+
         size = 0
         naxis = self._header.get('NAXIS', 0)
 
@@ -167,7 +169,7 @@ class GroupData(FITS_rec):
     """
 
     def __new__(subtype, input=None, bitpix=None, pardata=None, parnames=[],
-                 bscale=None, bzero=None, parbscales=None, parbzeros=None):
+                bscale=None, bzero=None, parbscales=None, parbzeros=None):
         """
         Parameters
         ----------
@@ -215,7 +217,7 @@ class GroupData(FITS_rec):
 
             if bitpix is None:
                 bitpix = _ImageBaseHDU.ImgCode[input.dtype.name]
-            fits_fmt = GroupsHDU._dict[bitpix] # -32 -> 'E'
+            fits_fmt = GroupsHDU._width2format[bitpix] # -32 -> 'E'
             _fmt = FITS2NUMPY[fits_fmt] # 'E' -> 'f4'
             _formats = (_fmt+',') * npars
             data_fmt = '%s%s' % (str(input.shape[1:]), _fmt)
@@ -255,6 +257,9 @@ class GroupData(FITS_rec):
              self = FITS_rec.__new__(subtype, input)
         return self
 
+    def __getitem__(self, key):
+        return _Group(self, key, self.parnames)
+
     @property
     def data(self):
         return self.field('data')
@@ -267,6 +272,7 @@ class GroupData(FITS_rec):
         """
         Get the group parameter values.
         """
+
         if _is_int(parname):
             result = self.field(parname)
         else:
@@ -282,30 +288,21 @@ class GroupData(FITS_rec):
 
         return result
 
-    def _getitem(self, key):
-        row = (offset - self._byteoffset) // self._strides[0]
-        return _Group(self, row)
-
-    def __getitem__(self, key):
-        return _Group(self, key, self.parnames)
-
 
 class _Group(FITS_record):
     """
     One group of the random group data.
     """
+
     def __init__(self, input, row, parnames):
         super(_Group, self).__init__(input, row)
         self.parnames = parnames
-
-    @lazyproperty
-    def _unique(self):
-        return _unique(self.parnames)
 
     def __str__(self):
         """
         Print one row.
         """
+
         if isinstance(self.row, slice):
             if self.row.step:
                 step = self.row.step
@@ -330,6 +327,10 @@ class _Group(FITS_record):
             return '[%s]' % ',\n'.join(outlist)
         else:
             return super(_Group, self).__str__()
+
+    @lazyproperty
+    def _unique(self):
+        return _unique(self.parnames)
 
     def par(self, parname):
         """

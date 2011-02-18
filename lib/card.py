@@ -5,6 +5,7 @@ import warnings
 import numpy as np
 from numpy import char as chararray
 
+from pyfits.util import _str_to_num, _is_int
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -978,11 +979,11 @@ class RecordValuedKeywordCard(Card):
             either a `RecordValuedKeywordCard` or a `Card` object
         """
 
-        idx1 = string.find(input, "'") + 1
-        idx2 = string.rfind(input, "'")
+        idx1 = input.find("'") + 1
+        idx2 = input.rfind("'")
 
         if idx2 > idx1 and idx1 >= 0 and \
-           cls.validKeyValue('',value=input[idx1:idx2]):
+           cls.validKeyValue('', value=input[idx1:idx2]):
             objClass = cls
         else:
             objClass = Card
@@ -1204,6 +1205,10 @@ class CardList(list):
         return out_cl
     filterList = filter_list # For API backwards-compatibility
 
+    def __contains__(self, key):
+        key = upper_key(key)
+        return key in self.keys()
+
     def __getitem__(self, key):
         """Get a `Card` by indexing or by the keyword name."""
 
@@ -1386,7 +1391,7 @@ class CardList(list):
     def _keys(self):
         """Return a list of all keywords from the `CardList`."""
 
-        return map(lambda x: getattr(x, 'key'), self)
+        return [c.key for c in self]
 
     def values(self):
         """
@@ -1418,16 +1423,15 @@ class CardList(list):
             The index of the `Card` with the given keyword.
         """
 
-        if isinstance(key, (int, long,np.integer)):
+        if _is_int(key):
             return key
-        elif isinstance(key, str):
+        elif isinstance(key, basestring):
             _key = key.strip().upper()
             if _key[:8] == 'HIERARCH':
                 _key = _key[8:].strip()
             _keylist = self._keylist
             if backward:
-                _keylist = self._keylist[:]  # make a copy
-                _keylist.reverse()
+                _keylist = reversed(_keylist)
             try:
                 _indx = _keylist.index(_key)
             except ValueError:
@@ -1629,17 +1633,6 @@ class _ContinueCard(Card):
             xoffset = offset
 
         return lst
-
-
-def _str_to_num(val):
-    """Converts a given string to either an int or a float if necessary."""
-
-    try:
-        num = int(val)
-    except ValueError:
-        # If this fails then an exception should be raised anyways
-        num = float(val)
-    return num
 
 
 def _float_format(value):

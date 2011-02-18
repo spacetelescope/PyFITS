@@ -3,7 +3,6 @@
 from __future__ import division # confidence high
 
 import os
-import string
 import StringIO
 import logging
 
@@ -30,13 +29,12 @@ H.run(pytools_version = pytools_version)
 if finalMessages.getvalue() != '':
     print ""
 
-    s = string.split(finalMessages.getvalue(),'\n')
+    s = finalMessages.getvalue().split('\n')
 
-    for i in range(len(s)):
-
-        if i == 0:
-            print "WARNING: %s" % (s[i])
+    for idx, msg in enumerate(s):
+        if idx == 0:
+            print "WARNING: %s" % msg
         else:
-            print "         %s" % (s[i])
+            print "         %s" % msg
 
 
