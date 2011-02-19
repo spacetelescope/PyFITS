@@ -43,14 +43,14 @@ class _ImageBaseHDU(_ValidHDU):
 
         if header is not None:
             if not isinstance(header, Header):
-                raise ValueError, "header must be a Header object"
+                raise ValueError('header must be a Header object')
 
 
         if data is DELAYED:
 
             # this should never happen
             if header is None:
-                raise ValueError, "No header to setup HDU."
+                raise ValueError('No header to setup HDU.')
 
             # if the file is read the first time, no need to copy, and keep it unchanged
             else:
@@ -228,7 +228,7 @@ class _ImageBaseHDU(_ValidHDU):
         elif self.data is None:
             axes = []
         else:
-            raise ValueError, "incorrect array type"
+            raise ValueError('incorrect array type')
 
         self._header['NAXIS'] = len(axes)
 
@@ -480,7 +480,7 @@ class Section(object):
             key = (key,)
         naxis = self.hdu.header['NAXIS']
         if naxis < len(key):
-            raise IndexError, 'too many indices.'
+            raise IndexError('too many indices')
         elif naxis > len(key):
             key = key + (slice(None),) * (naxis-len(key))
 
@@ -500,7 +500,7 @@ class Section(object):
                 dims.append(indx.npts)
                 break
             elif isinstance(indx, _SteppedSlice):
-                raise IndexError, 'Stepped Slice not supported'
+                raise IndexError('Stepped Slice not supported')
 
         contiguousSubsection = True
 
@@ -701,7 +701,7 @@ def _iswholeline(indx, naxis):
             elif naxis == 1:
                 return _OnePointAxis(1, 0)
         else:
-            raise IndexError, 'Index %s out of range.' % indx
+            raise IndexError('Index %s out of range.' % indx)
     elif isinstance(indx, slice):
         indx = _normalize_slice(indx, naxis)
         if (indx.start == 0) and (indx.stop == naxis) and (indx.step == 1):
@@ -713,7 +713,7 @@ def _iswholeline(indx, naxis):
                 return _SteppedSlice((indx.stop-indx.start) // indx.step,
                                      indx.start)
     else:
-        raise IndexError, 'Illegal index %s' % indx
+        raise IndexError('Illegal index %s' % indx)
 
 
 class _KeyType:

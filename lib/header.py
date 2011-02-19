@@ -554,7 +554,7 @@ class Header(DictMixin):
 
         try:
             if cards[0].key == 'SIMPLE':
-                if 'GROUPS' in cards._keylist and cards['GROUPS'].value == True:
+                if 'GROUPS' in cards._keys and cards['GROUPS'].value == True:
                     self._hdutype = GroupsHDU
                 elif cards[0].value == True:
                     self._hdutype = PrimaryHDU
