@@ -5187,12 +5187,9 @@ class ColDefs(object):
             array = col.array
             if not isinstance(array, chararray.chararray):
                 continue
-            l = []
             for i in range(len(array)):
                 al = len(array[i])
-                l.append(array[i] + pad * (array.itemsize - al))
-            print l
-            col.array = chararray.array(l)
+                array[i] = array[i] + pad * (array.itemsize - al)
 
     def __getattr__(self, name):
         """
