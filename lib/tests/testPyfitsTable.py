@@ -1614,6 +1614,20 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdul.close()
         os.remove('newtable.fits')
 
+    def testStringColumnPadding(self):
+        a = ['img1', 'img2', 'img3a', 'p']
+        s = 'img1\x00\x00\x00\x00\x00\x00' \
+            'img2\x00\x00\x00\x00\x00\x00' \
+            'img3a\x00\x00\x00\x00\x00' \
+            'p\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+        acol = pyfits.Column(name='MEMNAME', format='A10',
+                             array=num.char.array(a))
+        ahdu = pyfits.new_table([acol])
+        self.assertEqual(ahdu.data.tostring(), s)
+
+        ahdu = pyfits.new_table([acol], tbtype='TableHDU')
+        self.assertEqual(ahdu.data.tostring(), s.replace('\x00', ' '))
 
 
 if __name__ == '__main__':

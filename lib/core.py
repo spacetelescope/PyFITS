@@ -5062,32 +5062,21 @@ class Column:
         array = self.__checkValidDataType(array,self.format)
         self.array = array
 
-    def __checkValidDataType(self,array,format):
+    def __checkValidDataType(self, array, format):
         # Convert the format to a type we understand
         if isinstance(array,Delayed):
             return array
         elif (array is None):
             return array
         else:
-            if (format.find('A') != -1 and format.find('P') == -1):
-                if str(array.dtype).find('S') != -1:
-                    # For ASCII arrays, reconstruct the array and ensure
-                    # that all elements have enough characters to comply
-                    # with the format.  The new array will have the data
-                    # left justified in the field with trailing blanks
-                    # added to complete the format requirements.
-                    fsize=eval(_convert_format(format)[1:])
-                    l = []
-
-                    for i in range(len(array)):
-                        al = len(array[i])
-                        l.append(array[i][:min(fsize,array.itemsize)]+
-                                 ' '*(fsize-al))
-                    return chararray.array(l)
+            if ('A' in format and 'P' not in format):
+                if 'S' in str(array.dtype):
+                    fsize = int(_convert_format(format)[1:])
+                    return chararray.array(array, itemsize=fsize)
                 else:
                     numpyFormat = _convert_format(format)
                     return array.astype(numpyFormat)
-            elif (format.find('X') == -1 and format.find('P') == -1):
+            elif ('X' not in format and format.find('P') == -1):
                 (repeat, fmt, option) = _parse_tformat(format)
                 numpyFormat = _convert_format(fmt)
                 return array.astype(numpyFormat)
@@ -5156,7 +5145,6 @@ class ColDefs(object):
                     if width is None:
                         self.data[i].format = ascii_fmt[self.data[i].format[0]]
 
-
         elif isinstance(input, _TableBaseHDU):
             hdr = input._header
             _nfields = hdr['TFIELDS']
@@ -5187,6 +5175,24 @@ class ColDefs(object):
             self._listener = input
         else:
             raise TypeError, "input to ColDefs must be a table HDU or a list of Columns"
+
+        # For ASCII tables, reconstruct string columns and ensure that spaces
+        # are used for padding instead of \x00, and do the reverse for binary
+        # table columns.
+        if tbtype == 'BinTableHDU':
+            pad = '\x00'
+        else:
+            pad = ' '
+        for col in self.data:
+            array = col.array
+            if not isinstance(array, chararray.chararray):
+                continue
+            l = []
+            for i in range(len(array)):
+                al = len(array[i])
+                l.append(array[i] + pad * (array.itemsize - al))
+            print l
+            col.array = chararray.array(l)
 
     def __getattr__(self, name):
         """
