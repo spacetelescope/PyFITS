@@ -5189,7 +5189,7 @@ class ColDefs(object):
                 continue
             for i in range(len(array)):
                 al = len(array[i])
-                col.array[i] = array[i] + pad * (array.itemsize - al)
+                array[i] = array[i] + pad * (array.itemsize - al)
 
     def __getattr__(self, name):
         """
