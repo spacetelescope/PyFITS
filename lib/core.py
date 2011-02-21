@@ -4491,7 +4491,7 @@ class GroupsHDU(PrimaryHDU):
             if size:
                 self._file.seek(self._datLoc)
                 data = GroupData(_get_tbdata(self))
-                data._coldefs = self.columns
+                data.columns = data._coldefs = self.columns
                 data.formats = self.columns.formats
                 data.parnames = self.columns._pnames
             else:
@@ -5189,7 +5189,7 @@ class ColDefs(object):
                 continue
             for i in range(len(array)):
                 al = len(array[i])
-                array[i] = array[i] + pad * (array.itemsize - al)
+                col.array[i] = array[i] + pad * (array.itemsize - al)
 
     def __getattr__(self, name):
         """
@@ -5264,7 +5264,12 @@ class ColDefs(object):
         return len(self.data)
 
     def __repr__(self):
-        return 'ColDefs'+ `tuple(self.data)`
+        rep = 'ColDefs('
+        if self.data:
+            rep += self.data[0] + '\n'
+            rep += '\n'.join(repr(self.data[1:]))
+        rep += ')'
+        return rep
 
     def __add__(self, other, option='left'):
         if isinstance(other, Column):
@@ -5829,12 +5834,12 @@ class FITS_rec(rec.recarray):
 
         self._nfields = len(self.dtype.names)
         self._convert = [None]*len(self.dtype.names)
-        self._coldefs = None
+        self.columns = self._coldefs = None
         self._gap = 0
         self.names = list(self.dtype.names)
-        # This attribute added for backward compatibility with numarray version
+        # This attribute added for backward compatibility with numarray version 
         # of FITS_rec
-        self._names = self.names
+        self._names = self.names 
         self.formats = None
         return self
 
@@ -5844,7 +5849,7 @@ class FITS_rec(rec.recarray):
 
         if type(obj) == FITS_rec:
             self._convert = obj._convert
-            self._coldefs = obj._coldefs
+            self.columns = self._coldefs = obj._coldefs
             self._nfields = obj._nfields
             self.names = obj.names
             self._names = obj._names
@@ -5859,7 +5864,7 @@ class FITS_rec(rec.recarray):
             self._heapoffset = getattr(obj,'_heapoffset',0)
             self._file = getattr(obj,'_file', None)
 
-            self._coldefs = None
+            self.columns = self._coldefs = None
             self._gap = 0
             self.names = list(obj.dtype.names)
             self._names = self.names
@@ -5897,7 +5902,7 @@ class FITS_rec(rec.recarray):
                     pass
 
                 self.formats = formats
-                self._coldefs = ColDefs(columns, tbtype=tbtype)
+                self.columns = self._coldefs = ColDefs(columns, tbtype=tbtype)
 
 
     def _clone(self, shape):
@@ -5920,7 +5925,7 @@ class FITS_rec(rec.recarray):
             return self.field(key)
         elif isinstance(key, slice) or isinstance(key,np.ndarray):
             out = rec.recarray.__getitem__(self, key)
-            out._coldefs = ColDefs(self._coldefs)
+            out.columns = out._coldefs = ColDefs(self._coldefs)
             arrays = []
             out._convert = [None]*len(self.dtype.names)
             for i in range(len(self.dtype.names)):
@@ -6545,7 +6550,7 @@ class _TableBaseHDU(_ExtensionHDU):
             if size:
                 self._file.seek(self._datLoc)
                 data = _get_tbdata(self)
-                data._coldefs = self.columns
+                data.columns = data._coldefs = self.columns
                 data.formats = self.columns.formats
 #                print "Got data?"
             else:
