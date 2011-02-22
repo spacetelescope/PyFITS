@@ -15,7 +15,8 @@ class FITS_record(object):
     FITS record class.
 
     `FITS_record` is used to access records of the `FITS_rec` object.
-    This will allow us to deal with scaled columns.  The `FITS_record`
+    This will allow us to deal with scaled columns.  It also handles
+    conversion/scaling of columns in ASCII tables.  The `FITS_record`
     class expects a `FITS_rec` object as input.
     """
 
@@ -150,6 +151,7 @@ class FITS_rec(rec.recarray):
         self.names = self.dtype.names
         # This attribute added for backward compatibility with numarray
         # version of FITS_rec
+        # TODO: Do we still really need this?
         self._names = self.dtype.names
         self.formats = None
         return self
@@ -158,7 +160,7 @@ class FITS_rec(rec.recarray):
         if obj is None:
             return
 
-        if type(obj) == FITS_rec:
+        if isinstance(obj, FITS_rec):
             self._convert = obj._convert
             self._coldefs = obj._coldefs
             self._nfields = obj._nfields
@@ -189,33 +191,6 @@ class FITS_rec(rec.recarray):
                     if value is None:
                         warnings.warn('Setting attribute %s as None' % attr)
                     setattr(self, attr, value)
-
-            if self._coldefs is None:
-                # The data does not have a _coldefs attribute so
-                # create one from the underlying recarray.
-                columns = []
-                formats = []
-
-                for idx in range(len(obj.dtype.names)):
-                    cname = obj.dtype.names[idx]
-
-                    format = _convert_format(obj.dtype[idx], reverse=True)
-
-                    formats.append(format)
-
-                    c = Column(name=cname, format=format)
-                    columns.append(c)
-
-                tbtype = 'BinTableHDU'
-                try:
-                    if self._extension == 'TABLE':
-                        tbtype = 'TableHDU'
-                except AttributeError:
-                    pass
-
-                self.formats = formats
-                self._coldefs = ColDefs(columns, tbtype=tbtype)
-
 
     def _clone(self, shape):
         """
@@ -268,7 +243,7 @@ class FITS_rec(rec.recarray):
             if isinstance(key, int) and key >= len(self):
                 raise IndexError("Index out of bounds")
 
-            newrecord = FITS_record(self,key)
+            newrecord = FITS_record(self, key)
             return newrecord
 
     def __setitem__(self, row, value):
@@ -307,7 +282,7 @@ class FITS_rec(rec.recarray):
             _bool = self._coldefs._recformats[indx][-2:] == FITS2NUMPY['L']
         else:
             _str = self._coldefs.formats[indx][0] == 'A'
-            _bool = 0             # there is no boolean in ASCII table
+            _bool = False             # there is no boolean in ASCII table
         _number = not(_bool or _str)
         bscale = self._coldefs.bscales[indx]
         bzero = self._coldefs.bzeros[indx]
@@ -327,13 +302,15 @@ class FITS_rec(rec.recarray):
         """
 
         indx = _get_index(self._coldefs.names, key)
+        recformat = self._coldefs._recformats[indx]
+        field = super(FITS_rec, self).field(indx)
 
         if (self._convert[indx] is None):
             # for X format
-            if isinstance(self._coldefs._recformats[indx], _FormatX):
-                _nx = self._coldefs._recformats[indx]._nx
-                dummy = np.zeros(self.shape+(_nx,), dtype=np.bool_)
-                _unwrapx(rec.recarray.field(self,indx), dummy, _nx)
+            if isinstance(recformat, _FormatX):
+                _nx = recformat._nx
+                dummy = np.zeros(self.shape + (_nx,), dtype=np.bool_)
+                _unwrapx(field, dummy, _nx)
                 self._convert[indx] = dummy
                 return self._convert[indx]
 
@@ -341,26 +318,23 @@ class FITS_rec(rec.recarray):
                 self._get_scale_factors(indx)
 
             # for P format
-            if isinstance(self._coldefs._recformats[indx], _FormatP):
+            if isinstance(recformat, _FormatP):
                 dummy = _VLF([None] * len(self))
-                dummy._dtype = self._coldefs._recformats[indx]._dtype
+                dummy._dtype = recformat._dtype
                 for i in range(len(self)):
-                    _offset = \
-                        rec.recarray.field(self,indx)[i,1] + self._heapoffset
+                    _offset = field[i,1] + self._heapoffset
                     self._file.seek(_offset)
-                    if self._coldefs._recformats[indx]._dtype is 'a':
-                        count = rec.recarray.field(self,indx)[i,0]
-                        dt = self._coldefs._recformats[indx]._dtype + str(1)
+                    if recformat._dtype is 'a':
+                        count = field[i,0]
+                        dt = recformat._dtype + str(1)
                         da = _fromfile(self._file, dtype=dt, count=count,
-                                       sep="")
+                                       sep='')
                         dummy[i] = chararray.array(da, itemsize=count)
                     else:
-#                       print type(self._file)
-#                       print "type =",self._coldefs._recformats[indx]._dtype
-                        count = rec.recarray.field(self,indx)[i,0]
-                        dt = self._coldefs._recformats[indx]._dtype
+                        count = field[i,0]
+                        dt = recformat._dtype
                         dummy[i] = _fromfile(self._file, dtype=dt, count=count,
-                                             sep="")
+                                             sep='')
                         dummy[i].dtype = dummy[i].dtype.newbyteorder('>')
 
                 # scale by TSCAL and TZERO
@@ -369,7 +343,7 @@ class FITS_rec(rec.recarray):
                         dummy[i][:] = dummy[i]*bscale+bzero
 
                 # Boolean (logical) column
-                if self._coldefs._recformats[indx]._dtype is FITS2NUMPY['L']:
+                if recformat._dtype is FITS2NUMPY['L']:
                     for i in range(len(self)):
                         dummy[i] = np.equal(dummy[i], ord('T'))
 
@@ -377,24 +351,24 @@ class FITS_rec(rec.recarray):
                 return self._convert[indx]
 
             if _str:
-                return rec.recarray.field(self, indx)
+                return field
 
             # ASCII table, convert strings to numbers
             if self._coldefs._tbtype == 'TableHDU':
                 _fmap = {'I': np.int32, 'F': np.float32, 'E': np.float32,
                          'D': np.float64}
-                _type = _fmap[self._coldefs._Formats[indx][0]]
+                _type = _fmap[self._coldefs.formats[indx][0]]
 
                 # if the string = TNULL, return ASCIITNULL
                 nullval = self._coldefs.nulls[indx].strip()
-                dummy = rec.recarray.field(self,indx).replace('D', 'E')
+                dummy = field.replace('D', 'E')
                 dummy = np.where(dummy.strip() == nullval, str(ASCIITNULL),
                                  dummy)
                 dummy = np.array(dummy, dtype=_type)
 
                 self._convert[indx] = dummy
             else:
-                dummy = rec.recarray.field(self, indx)
+                dummy = field
 
             # further conversion for both ASCII and binary tables
             if _number and (_scale or _zero):
@@ -421,19 +395,23 @@ class FITS_rec(rec.recarray):
         _fmap = {'A': 's', 'I': 'd', 'F': 'f', 'E': 'E', 'D': 'E'}
         # calculate the starting point and width of each field for ASCII table
         if self._coldefs._tbtype == 'TableHDU':
-            _loc = self._coldefs.starts
-            _width = []
-            for i in range(len(self.dtype.names)):
-                f = _convert_ascii_format(self._coldefs._Formats[i])
-                _width.append(f[1])
-            _loc.append(_loc[-1]+rec.recarray.field(self,i).itemsize)
+            loc = self._coldefs.starts
+            widths = []
+
+            idx = 0
+            for idx in range(len(self.dtype.names)):
+                f = _convert_ascii_format(self._coldefs.formats[idx])
+                widths.append(f[1])
+            loc.append(loc[-1] + super(FITS_rec, self).field(idx).itemsize)
 
         self._heapsize = 0
         for indx in range(len(self.dtype.names)):
+            recformat = self._coldefs._recformats[indx]
+            field = super(FITS_rec, self).field(indx)
+
             if (self._convert[indx] is not None):
-                if isinstance(self._coldefs._recformats[indx], _FormatX):
-                    _wrapx(self._convert[indx], rec.recarray.field(self,indx),
-                           self._coldefs._recformats[indx]._nx)
+                if isinstance(recformat, _FormatX):
+                    _wrapx(self._convert[indx], field, recformat._nx)
                     continue
 
                 (_str, _bool, _number, _scale, _zero, bscale, bzero) = \
@@ -441,17 +419,16 @@ class FITS_rec(rec.recarray):
 
                 # add the location offset of the heap area for each
                 # variable length column
-                if isinstance(self._coldefs._recformats[indx], _FormatP):
-                    desc = rec.recarray.field(self,indx)
-                    desc[:] = 0 # reset
-                    _npts = map(len, self._convert[indx])
-                    desc[:len(_npts),0] = _npts
-                    dt = self._coldefs._recformats[indx]._dtype
-                    _dtype = np.array([], dtype=dt)
-                    desc[1:,1] = np.add.accumulate(desc[:-1,0])*_dtype.itemsize
+                if isinstance(recformat, _FormatP):
+                    field[:] = 0 # reset
+                    npts = map(len, self._convert[indx])
+                    field[:len(npts),0] = npts
+                    dtype = np.array([], dtype=recformat._dtype)
+                    field[1:,1] = np.add.accumulate(field[:-1,0]) * \
+                                  dtype.itemsize
 
-                    desc[:,1][:] += self._heapsize
-                    self._heapsize += desc[:,0].sum()*_dtype.itemsize
+                    field[:,1][:] += self._heapsize
+                    self._heapsize += field[:,0].sum() * dtype.itemsize
 
                 # conversion for both ASCII and binary tables
                 if _number or _str:
@@ -468,53 +445,54 @@ class FITS_rec(rec.recarray):
 
                     # ASCII table, convert numbers to strings
                     if self._coldefs._tbtype == 'TableHDU':
-                        _format = self._coldefs._Formats[indx].strip()
-                        _lead = self._coldefs.starts[indx] - _loc[indx]
-                        if _lead < 0:
+                        format = self._coldefs.formats[indx].strip()
+                        lead = self._coldefs.starts[indx] - loc[indx]
+                        if lead < 0:
                             raise ValueError(
                                 'Column `%s` starting point overlaps to the '
                                 'previous column.' % indx + 1)
-                        _trail = _loc[indx+1] - _width[indx] - \
+                        trail = loc[indx+1] - widths[indx] - \
                                  self._coldefs.starts[indx]
-                        if _trail < 0:
+                        if trail < 0:
                             raise ValueError(
                                 'Column `%s` ending point overlaps to the '
                                 'next column.' % indx + 1)
-                        if 'A' in _format:
+                        if 'A' in format:
                             _pc = '%-'
                         else:
                             _pc = '%'
-                        _fmt = ' '*_lead + _pc + _format[1:] + \
-                               _fmap[_format[0]] + ' '*_trail
+
+                        fmt = (' ' * lead) + _pc + format[1:] + \
+                              _fmap[format[0]] + (' ' * trail)
 
                         # not using numarray.strings's num2char because the
                         # result is not allowed to expand (as C/Python does).
-                        for i in range(len(dummy)):
-                            x = _fmt % dummy[i]
-                            if len(x) > (_loc[indx+1]-_loc[indx]):
+                        for jdx in range(len(dummy)):
+                            x = fmt % dummy[jdx]
+                            if len(x) > (loc[indx+1] - loc[indx]):
                                 raise ValueError(
                                     "Number `%s` does not fit into the "
                                     "output's itemsize of %s."
-                                    % (x, _width[indx]))
+                                    % (x, widths[indx]))
                             else:
-                                rec.recarray.field(self, indx)[i] = x
-                        if 'D' in _format:
-                            rec.recarray.field(self,indx).replace('E', 'D')
+                                field[jdx] = x
+                        # Replace exponent separator in floating point numbers
+                        if 'D' in format:
+                            field.replace('E', 'D')
 
 
                     # binary table
                     else:
-                        if isinstance(rec.recarray.field(self,indx)[0],
-                                      np.integer):
+                        if isinstance(field[0], np.integer):
                             dummy = np.around(dummy)
-                        f = rec.recarray.field(self, indx)
+                        f = super(FITS_rec, self).field(indx)
                         f[:] = dummy.astype(f.dtype)
 
                     del dummy
 
                 # ASCII table does not have Boolean type
                 elif _bool:
-                    rec.recarray.field(self,indx)[:] = \
+                    field[:] = \
                         np.choose(self._convert[indx],
                                   (np.array([ord('F')], dtype=np.int8)[0],
                                   np.array([ord('T')],dtype=np.int8)[0]))

@@ -13,8 +13,8 @@ from pyfits.card import Card, CardList
 # utilities in pyfits.column
 from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
                           TDEF_RE, DELAYED, Delayed, Column, ColDefs, \
-                          _FormatX, _FormatP, _wrapx, _makep, _VLF, \
-                          _parse_tformat, _convert_format
+                          _ASCIIColDefs, _FormatX, _FormatP, _wrapx, _makep, \
+                          _VLF, _parse_tformat, _convert_format
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import _AllHDU
 from pyfits.hdu.extension import _ExtensionHDU
@@ -58,7 +58,7 @@ class _TableBaseHDU(_ExtensionHDU):
                 self._header = header
         else:
             # construct a list of cards of minimal header
-            _list = CardList([
+            cards = CardList([
                 Card('XTENSION',      '', ''),
                 Card('BITPIX',         8, 'array data type'),
                 Card('NAXIS',          2, 'number of array dimensions'),
@@ -70,16 +70,15 @@ class _TableBaseHDU(_ExtensionHDU):
                 ])
 
             if header is not None:
-
                 # Make a "copy" (not just a view) of the input header, since it
                 # may get modified.  the data is still a "view" (for now)
                 hcopy = header.copy()
                 hcopy._strip()
-                _list.extend(hcopy.ascardlist())
+                cards.extend(hcopy.ascardlist())
 
-            self._header = Header(_list)
+            self._header = Header(cards)
 
-            if isinstance(data, np.ndarray) and not data.dtype.fields == None:
+            if isinstance(data, np.ndarray) and data.dtype.fields is not None:
                 if isinstance(data, FITS_rec):
                     self.data = data
                 elif isinstance(data, rec.recarray):
@@ -96,32 +95,7 @@ class _TableBaseHDU(_ExtensionHDU):
                 # somewhere (the purpose of the code is to create a ColDefs
                 # from a recarray-like object
                 if self.data._coldefs is None:
-                    #
-                    # The data does not have a _coldefs attribute so
-                    # create one from the underlying recarray.
-                    #
-                    columns = []
-
-                    for idx in range(len(data.dtype.names)):
-                       cname = data.dtype.names[idx]
-                       ftype = data.dtype.fields[cname][0]
-
-                       if ftype.type == np.string_:
-                           format = 'A' + str(ftype.itemsize)
-                       else:
-                           format = _convert_format(ftype.str[1:], True)
-
-                       c = Column(name=cname, format=format, array=data[cname])
-                       columns.append(c)
-
-                    tbtype = 'BinTableHDU'
-                    try:
-                        if self._extension == 'TABLE':
-                            tbtype = 'TableHDU'
-                    except AttributeError:
-                        pass
-
-                    self.data._coldefs = ColDefs(columns, tbtype=tbtype)
+                    self.data._coldefs = ColDefs(data)
 
                 self.columns = self.data._coldefs
                 self.update()
@@ -170,9 +144,7 @@ class _TableBaseHDU(_ExtensionHDU):
 
     @lazyproperty
     def columns(self):
-        class_name = str(self.__class__)
-        class_name = class_name[class_name.rfind('.')+1:-2]
-        return ColDefs(self, tbtype=class_name)
+        return ColDefs(self)
 
     @lazyproperty
     def _theap(self):
@@ -312,6 +284,12 @@ class TableHDU(_TableBaseHDU):
     __format_RE = re.compile(
         r'(?P<code>[ADEFI])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
 
+    def __init__(self, data=None, header=None, name=None):
+        super(TableHDU, self).__init__(data, header, name)
+        if self._data_loaded and self.data is not None and \
+           not isinstance(self.data._coldefs, _ASCIIColDefs):
+            self.data._coldefs = _ASCIIColDefs(self.data._coldefs)
+
     def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
@@ -360,24 +338,6 @@ class BinTableHDU(_TableBaseHDU):
 
     _extension = 'BINTABLE'
     _ext_comment = 'binary table extension'
-
-    def __init__(self, data=None, header=None, name=None):
-        """
-        Parameters
-        ----------
-        data : array
-            data of the table
-
-        header : Header instance
-            header to be used for the HDU
-
-        name : str
-            the ``EXTNAME`` value
-        """
-
-        super(BinTableHDU, self).__init__(data=data, header=header, name=name)
-        # TODO: This shouldn't be necessary
-        self._header._hdutype = BinTableHDU
 
     def _calculate_datasum_from_data(self, data, blocking):
         """
@@ -913,6 +873,9 @@ class BinTableHDU(_TableBaseHDU):
     tcreate.__doc__ += tdumpFileFormat.replace("\n", "\n        ")
 
 
+# TODO: Allow tbtype to be either a string or a class; perhaps eventually
+# replace this with separate functions for creating tables (possibly in the
+# form of a classmethod)
 def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     """
     Create a new table from the input column definitions.
@@ -942,19 +905,15 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     hdu = eval(tbtype)(header=header)
 
     if isinstance(input, ColDefs):
-        if input._tbtype == tbtype:
-            # Create a new ColDefs object from the input object and assign
-            # it to the ColDefs attribute of the new hdu.
-            tmp = hdu.columns = ColDefs(input, tbtype)
-        else:
-            raise ValueError('Column definitions have a different table type.')
+        # NOTE: This previously raised an error if the tbtype didn't match the
+        # tbtype of the input ColDefs. This should no longer be necessary, but
+        # just beware.
+        tmp = hdu.columns = ColDefs(input)
     elif isinstance(input, FITS_rec): # input is a FITS_rec
         # Create a new ColDefs object from the input FITS_rec's ColDefs
         # object and assign it to the ColDefs attribute of the new hdu.
         tmp = hdu.columns = ColDefs(input._coldefs, tbtype)
-    elif isinstance(input, np.ndarray):
-        tmp = hdu.columns = eval(tbtype)(input).data._coldefs
-    else:                 # input is a list of Columns
+    else: # input is a list of Columns or possibly a recarray
         # Create a new ColDefs object from the input list of Columns and
         # assign it to the ColDefs attribute of the new hdu.
         tmp = hdu.columns = ColDefs(input, tbtype)

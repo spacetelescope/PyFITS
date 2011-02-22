@@ -1,4 +1,3 @@
-import operator
 import re
 import warnings
 import weakref
@@ -7,7 +6,7 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits.card import Card
-from pyfits.util import lazyproperty
+from pyfits.util import lazyproperty, _is_int
 
 
 __all__ = ['Column', 'ColDefs']
@@ -213,8 +212,8 @@ class Column(object):
         elif (array is None):
             return array
         else:
-            if (format.find('A') != -1 and format.find('P') == -1):
-                if str(array.dtype).find('S') != -1:
+            if ('A' in format and 'P' not in format):
+                if 'S' in str(array.dtype):
                     # For ASCII arrays, reconstruct the array and ensure
                     # that all elements have enough characters to comply
                     # with the format.  The new array will have the data
@@ -231,11 +230,11 @@ class Column(object):
                 else:
                     numpyFormat = _convert_format(format)
                     return array.astype(numpyFormat)
-            elif (format.find('X') == -1 and format.find('P') == -1):
+            elif ('X' not in format and 'P' not in format):
                 (repeat, fmt, option) = _parse_tformat(format)
                 numpyFormat = _convert_format(fmt)
                 return array.astype(numpyFormat)
-            elif (format.find('X') !=-1):
+            elif ('X' in format):
                 return array.astype(np.uint8)
             else:
                 return array
@@ -267,7 +266,21 @@ class ColDefs(object):
     corresponding attribute values from all `Column` objects.
     """
 
-    # TODO: Do something about this tbtype option
+    def __new__(cls, input, tbtype='BinTableHDU'):
+        from pyfits.hdu.table import TableHDU
+
+        if tbtype == 'BinTableHDU':
+            pass
+        elif tbtype == 'TableHDU':
+            cls = _ASCIIColDefs
+        else:
+            raise ValueError('Invalid table type: %s.' % tbtype)
+
+        if isinstance(input, TableHDU):
+            cls = _ASCIIColDefs
+
+        return object.__new__(cls, input, tbtype)
+
     def __init__(self, input, tbtype='BinTableHDU'):
         """
         Parameters
@@ -276,15 +289,15 @@ class ColDefs(object):
         input : sequence of `Column` objects
             an (table) HDU
 
-        tbtype : str, optional
+        **(Deprecated)** tbtype : str, optional
             which table HDU, ``"BinTableHDU"`` (default) or
             ``"TableHDU"`` (text table).
+            now ColDefs for a normal (binary) table by default, but converted
+            automatically to ASCII table ColDefs in the appropriate contexts
         """
 
         from pyfits.hdu.table import _TableBaseHDU
 
-        ascii_fmt = {'A': 'A1', 'I': 'I10', 'E': 'E14.6', 'F': 'F16.7',
-                     'D': 'D24.16'}
         self._tbtype = tbtype
 
         if isinstance(input, ColDefs):
@@ -299,43 +312,49 @@ class ColDefs(object):
                            % input.index(col))
             self.data = [col.copy() for col in input]
 
-            # if the format of an ASCII column has no width, add one
-            if tbtype == 'TableHDU':
-                for i in range(len(self)):
-                    (type, width) = _convert_ascii_format(self.data[i].format)
-                    if width is None:
-                        self.data[i].format = ascii_fmt[self.data[i].format[0]]
+        # Construct columns from the fields of a record array
+        elif isinstance(input, np.ndarray) and input.dtype.fields is not None:
+            self.data = []
+            for idx in range(len(input.dtype)):
+                cname = input.dtype.names[idx]
+                ftype = input.dtype.fields[cname][0]
+                # String formats should have 'A' first
+                if ftype.type == np.string_:
+                    format = 'A' + str(ftype.itemsize)
+                else:
+                    format = _convert_format(ftype, reverse=True)
+                c = Column(name=cname, format=format, array=input[cname])
+                self.data.append(c)
 
-
+        # Construct columns from fields in an HDU header
         elif isinstance(input, _TableBaseHDU):
             hdr = input._header
-            _nfields = hdr['TFIELDS']
+            nfields = hdr['TFIELDS']
             self._width = hdr['NAXIS1']
             self._shape = hdr['NAXIS2']
 
             # go through header keywords to pick out column definition keywords
             # definition dictionaries for each field
-            fdicts = [{} for i in range(_nfields)]
-            for _card in hdr.ascardlist():
-                _key = TDEF_RE.match(_card.key)
+            col_attributes = [{} for i in range(nfields)]
+            for card in hdr.ascardlist():
+                key = TDEF_RE.match(card.key)
                 try:
-                    keyword = _key.group('label')
+                    keyword = key.group('label')
                 except:
                     continue               # skip if there is no match
                 if (keyword in KEYWORD_NAMES):
-                    col = int(_key.group('num'))
-                    if col <= _nfields and col > 0:
+                    col = int(key.group('num'))
+                    if col <= nfields and col > 0:
                         idx = KEYWORD_NAMES.index(keyword)
-                        cname = KEYWORD_ATTRIBUTES[idx]
-                        fdicts[col-1][cname] = _card.value
+                        attr = KEYWORD_ATTRIBUTES[idx]
+                        col_attributes[col - 1][attr] = card.value
 
             # data reading will be delayed
-            for col in range(_nfields):
-                fdicts[col]['array'] = Delayed(input, col)
+            for col in range(nfields):
+                col_attributes[col]['array'] = Delayed(input, col)
 
             # now build the columns
-            tmp = [Column(**attrs) for attrs in fdicts]
-            self.data = tmp
+            self.data = [Column(**attrs) for attrs in col_attributes]
             self._listener = input
         else:
             raise TypeError('Input to ColDefs must be a table HDU or a list '
@@ -354,7 +373,7 @@ class ColDefs(object):
             attr = [''] * len(self)
             for idx in range(len(self)):
                 val = getattr(self[idx], cname)
-                if val != None:
+                if val is not None:
                     attr[idx] = val
             self.__dict__[name] = attr
             return self.__dict__[name]
@@ -366,50 +385,7 @@ class ColDefs(object):
 
     @lazyproperty
     def _recformats(self):
-        if self._tbtype in ('BinTableHDU', 'CompImageHDU'):
-            return [_convert_format(fmt) for fmt in self.formats]
-        elif self._tbtype == 'TableHDU':
-            self._Formats = self.formats
-            if len(self) == 1:
-                dummy = []
-            else:
-                dummy = map(lambda x, y: x - y, self.starts[1:],
-                            [self.starts[0]] + self.starts[1:-1])
-            dummy.append(self._width - self.starts[-1] + 1)
-            return map(lambda y: 'a' + repr(y), dummy)
-
-    @lazyproperty
-    def spans(self):
-        # make sure to consider the case that the starting column of
-        # a field may not be the column right after the last field
-        if self._tbtype == 'TableHDU':
-            last_end = 0
-            spans = [0] * len(self)
-            for i in range(len(self)):
-                (_format, _width) = _convert_ascii_format(self.formats[i])
-                if self.starts[i] is '':
-                    self.starts[i] = last_end + 1
-                _end = self.starts[i] + _width - 1
-                spans[i] = _width
-                last_end = _end
-            self._width = _end
-            return spans
-        else:
-            raise AttributeError('Attribute spans not defined.')
-
-# TODO: Not sure why this is commented out; should it just go away?
-#                # make sure to consider the case that the starting column of
-#                # a field may not be the column right after the last field
-#                elif tbtype == 'TableHDU':
-#                    (_format, _width) = _convert_ascii_format(self.formats[i])
-#                    if self.starts[i] is '':
-#                        self.starts[i] = last_end + 1
-#                    _end = self.starts[i] + _width - 1
-#                    self.spans[i] = _end - last_end
-#                    last_end = _end
-#                    self._Formats = self.formats
-#
-#                self._arrays[i] = input[i].array
+        return [_convert_format(fmt) for fmt in self.formats]
 
     def __getitem__(self, key):
         x = self.data[key]
@@ -480,8 +456,6 @@ class ColDefs(object):
             delattr(self, 'spans')
 
         self.data.append(column)
-        # Force regeneration of self._Formats member
-        ignored = self._recformats
 
         # If this ColDefs is being tracked by a Table, inform the
         # table that its data is now invalid.
@@ -510,8 +484,6 @@ class ColDefs(object):
             delattr(self, 'spans')
 
         del self.data[indx]
-        # Force regeneration of self._Formats member
-        ignored = self._recformats
 
         # If this ColDefs is being tracked by a Table, inform the
         # table that its data is now invalid.
@@ -612,9 +584,52 @@ class ColDefs(object):
             print "%s:" % attr
             print '    ', getattr(self, attr + 's')
 
-    #def change_format(self, col_name, new_format):
-        #new_format = _convert_format(new_format)
-        #self.change_attrib(col_name, 'format', new_format)
+
+class _ASCIIColDefs(ColDefs):
+    """ColDefs implementation for ASCII tables."""
+
+    _ascii_fmt = {'A': 'A1', 'I': 'I10', 'E': 'E14.6', 'F': 'F16.7',
+                  'D': 'D24.16'}
+
+    def __init__(self, input, tbtype='TableHDU'):
+        super(_ASCIIColDefs, self).__init__(input, tbtype)
+
+        # if the format of an ASCII column has no width, add one
+        if not isinstance(input, _ASCIIColDefs):
+            for col in self.data:
+                (type, width) = _convert_ascii_format(col.format)
+                if width is None:
+                    col.format = self._ascii_fmt[col.format]
+
+    @lazyproperty
+    def spans(self):
+        # make sure to consider the case that the starting column of
+        # a field may not be the column right after the last field
+        last_end = end = 0
+        spans = [0] * len(self)
+        for idx in range(len(self)):
+            format, width = _convert_ascii_format(self.formats[idx])
+            if self.starts[idx] is '':
+                self.starts[idx] = last_end + 1
+            end = self.starts[idx] + width - 1
+            spans[idx] = width
+            last_end = end
+        self._width = end
+        return spans
+
+    @lazyproperty
+    def _recformats(self):
+        if len(self) == 1:
+            dummy = []
+        else:
+            dummy = map(lambda x, y: x - y, self.starts[1:],
+                        [self.starts[0]] + self.starts[1:-1])
+        # NOTE: The self._width attribute only exists if this ColDefs was
+        # instantiated with a _TableHDU object; make sure that's the only
+        # context in which this is used, for now...
+        # TODO: Determine if we can make this less fragile.
+        dummy.append(self._width - self.starts[-1] + 1)
+        return map(lambda y: 'a' + repr(y), dummy)
 
 
 class _VLF(np.ndarray):
@@ -657,9 +672,9 @@ class _VLF(np.ndarray):
         self._max = max(self._max, len(value))
 
 
-def _get_index(nameList, key):
+def _get_index(names, key):
     """
-    Get the index of the `key` in the `nameList`.
+    Get the index of the `key` in the `names` list.
 
     The `key` can be an integer or string.  If integer, it is the index
     in the list.  If string,
@@ -680,21 +695,20 @@ def _get_index(nameList, key):
         field('Xyz'), etc. will get this field.
     """
 
-    if isinstance(key, (int, long, np.integer)):
+    if _is_int(key):
         indx = int(key)
-    elif isinstance(key, str):
+    elif isinstance(key, basestring):
         # try to find exact match first
         try:
-            indx = nameList.index(key.rstrip())
+            indx = names.index(key.rstrip())
         except ValueError:
-
             # try to match case-insentively,
             _key = key.lower().rstrip()
-            _list = map(lambda x: x.lower().rstrip(), nameList)
-            _count = operator.countOf(_list, _key) # occurrence of _key in _list
-            if _count == 1:
-                indx = _list.index(_key)
-            elif _count == 0:
+            names = [n.lower().rstrip() for n in names]
+            count = names.count(_key) # occurrence of _key in names
+            if count == 1:
+                indx = names.index(_key)
+            elif count == 0:
                 raise KeyError("Key '%s' does not exist." % key)
             else:              # multiple match
                 raise KeyError("Ambiguous key name '%s'." % key)
@@ -812,8 +826,10 @@ def _parse_tformat(tform):
         warnings.warn('Format "%s" is not recognized.' % tform)
 
 
-    if repeat == '': repeat = 1
-    else: repeat = eval(repeat)
+    if repeat == '':
+        repeat = 1
+    else:
+        repeat = int(repeat)
 
     return (repeat, dtype, option)
 
@@ -821,7 +837,7 @@ def _parse_tformat(tform):
 def _convert_format(input_format, reverse=False):
     """
     Convert FITS format spec to record format spec.  Do the opposite if
-    reverse = 1.
+    reverse=True.
     """
 
     if reverse and isinstance(input_format, np.dtype):
@@ -843,7 +859,7 @@ def _convert_format(input_format, reverse=False):
         (repeat, dtype, option) = _parse_tformat(fmt)
 
     if not reverse:
-        if dtype in FITS2NUMPY.keys():                            # FITS format
+        if dtype in FITS2NUMPY:                            # FITS format
             if dtype == 'A':
                 output_format = FITS2NUMPY[dtype] + str(repeat)
                 # to accomodate both the ASCII table and binary table column
@@ -854,9 +870,9 @@ def _convert_format(input_format, reverse=False):
                     output_format = FITS2NUMPY[dtype] + str(int(option))
             else:
                 _repeat = ''
-                if repeat != 1:
-                    _repeat = repr(repeat)
-                output_format = _repeat+FITS2NUMPY[dtype]
+                if _repeat != 1:
+                    _repeat = str(repeat)
+                output_format = _repeat + FITS2NUMPY[dtype]
 
         elif dtype == 'X':
             nbytes = ((repeat-1) // 8) + 1
@@ -878,9 +894,9 @@ def _convert_format(input_format, reverse=False):
             # use a TDIM keyword to fix this, declaring as (slength,
             # dim1, dim2, ...)  as mwrfits does
 
-            ntot = int(repeat)*int(option)
+            ntot = int(repeat) * int(option)
 
-            output_format = str(ntot)+NUMPY2FITS[dtype]
+            output_format = str(ntot) + NUMPY2FITS[dtype]
         elif isinstance(dtype, _FormatX):
             warnings.warn('X format')
         elif dtype+option in NUMPY2FITS.keys():                    # record format
