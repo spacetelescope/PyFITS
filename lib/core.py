@@ -4736,8 +4736,8 @@ def _convert_ASCII_format(input_format):
     Convert ASCII table format spec to record format spec.
     """
 
-    ascii2rec = {'A':'a', 'I':'i4', 'F':'f4', 'E':'f4', 'D':'f8'}
-    _re = re.compile(r'(?P<dtype>[AIFED])(?P<width>[0-9]*)')
+    ascii2rec = {'A':'a', 'I':'i4', 'J':'i8', 'F':'f4', 'E':'f4', 'D':'f8'}
+    _re = re.compile(r'(?P<dtype>[AIJFED])(?P<width>[0-9]*)')
 
     # Parse the TFORM value into data type and width.
     try:
@@ -5123,7 +5123,7 @@ class ColDefs(object):
             which table HDU, ``"BinTableHDU"`` (default) or
             ``"TableHDU"`` (text table).
         """
-        ascii_fmt = {'A':'A1', 'I':'I10', 'E':'E14.6', 'F':'F16.7', 'D':'D24.16'}
+        ascii_fmt = {'A':'A1', 'I':'I12', 'J':'I16', 'E':'E15.7', 'F':'F16.7', 'D':'D25.17'}
         self._tbtype = tbtype
 
         if isinstance(input, ColDefs):
@@ -6092,7 +6092,7 @@ class FITS_rec(rec.recarray):
         """
         Update the parent array, using the (latest) scaled array.
         """
-        _dict = {'A':'s', 'I':'d', 'F':'f', 'E':'E', 'D':'E'}
+        _dict = {'A':'s', 'I':'d', 'J':'d', 'F':'f', 'E':'E', 'D':'E'}
         # calculate the starting point and width of each field for ASCII table
         if self._coldefs._tbtype == 'TableHDU':
             _loc = self._coldefs.starts
@@ -6689,7 +6689,7 @@ class TableHDU(_TableBaseHDU):
     FITS ASCII table extension HDU class.
     """
     __format_RE = re.compile(
-        r'(?P<code>[ADEFI])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
+        r'(?P<code>[ADEFIJ])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
 
     def __init__(self, data=None, header=None, name=None):
         """
