@@ -1,12 +1,13 @@
 from __future__ import division
 
-import unittest
-import numpy as np
-import pyfits
 import os
-import exceptions
-import sys
 import platform
+import sys
+import unittest
+
+import numpy as np
+
+import pyfits
 
 class TestPyfitsUintFunctions(unittest.TestCase):
 
@@ -31,13 +32,13 @@ class TestPyfitsUintFunctions(unittest.TestCase):
         hdu = pyfits.PrimaryHDU(np.array([-3,-2,-1,0,1,2,3]))
         hdu.scale('int16', '', bzero=2**15)
         hdu.writeto('tempfile.fits')
-        hdul = pyfits.open('tempfile.fits',uint=True)
+        hdul = pyfits.open('tempfile.fits', uint=True)
         self.assertEqual(hdul[0].data.dtype, np.uint16)
         self.assertEqual(np.all(hdul[0].data == 
-                         np.array([(2**16)-3,(2**16)-2,(2**16)-1,0,1,2,3],
+                         np.array([(2**16)-3, (2**16)-2, (2**16)-1, 0, 1, 2, 3],
                                   dtype=np.uint16)), True)
         hdul.writeto('tempfile1.fits')
-        hdul1 = pyfits.open('tempfile1.fits',uint16=True)
+        hdul1 = pyfits.open('tempfile1.fits', uint16=True)
         self.assertEqual(np.all(hdul[0].data == hdul1[0].data), True)
         hdul.close()
         hdul1.close()
@@ -45,13 +46,13 @@ class TestPyfitsUintFunctions(unittest.TestCase):
         os.remove('tempfile.fits')
 
     def testUint32(self):
-        hdu = pyfits.PrimaryHDU(np.array([-3,-2,-1,0,1,2,3]))
+        hdu = pyfits.PrimaryHDU(np.array([-3, -2, -1, 0, 1, 2, 3]))
         hdu.scale('int32', '', bzero=2**31)
         hdu.writeto('tempfile.fits')
         hdul = pyfits.open('tempfile.fits',uint=True)
         self.assertEqual(hdul[0].data.dtype, np.uint32)
         self.assertEqual(np.all(hdul[0].data == 
-                         np.array([(2**32)-3,(2**32)-2,(2**32)-1,0,1,2,3],
+                         np.array([(2**32)-3, (2**32)-2, (2**32)-1, 0, 1, 2, 3],
                          dtype=np.uint32)), True)
         hdul.writeto('tempfile1.fits')
         hdul1 = pyfits.open('tempfile1.fits',uint=True)
