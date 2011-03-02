@@ -3116,7 +3116,6 @@ class _ValidHDU(_AllHDU, _Verify):
                     "either":2880,  # do standard first
                     True: 2880,
                     }[blocking]
-        sum32 = np.array(sum32, dtype='uint32')
         for i in range(0, len(bytes), blocklen):
             length = min(blocklen, len(bytes)-i)   # ????
             sum32 = self._compute_hdu_checksum(bytes[i:i+length], sum32)
@@ -3131,31 +3130,22 @@ class _ValidHDU(_AllHDU, _Verify):
         # Historically,  this code *was* called with larger blocks and for that
         # reason still needs to be for backward compatibility.
 
-        u8 = np.array(8, dtype='uint32')
-        u16 = np.array(16, dtype='uint32')
-        uFFFF = np.array(0xFFFF, dtype='uint32')
+        bytes = bytes.view(dtype='>u2')
+        hi = sum32 >> 16
+        lo = sum32 & 0xFFFF
+        hi += (np.add.reduce(bytes[0::2]) & 0xFFFFFFFF)
+        lo += (np.add.reduce(bytes[1::2]) & 0xFFFFFFFF)
 
-        b0 = bytes[0::4].astype('uint32') << u8
-        b1 = bytes[1::4].astype('uint32')
-        b2 = bytes[2::4].astype('uint32') << u8
-        b3 = bytes[3::4].astype('uint32')
+        hicarry = hi >> 16
+        locarry = lo >> 16
 
-        hi = np.array(sum32, dtype='uint32') >> u16
-        lo = np.array(sum32, dtype='uint32') & uFFFF
+        while hicarry or locarry:
+            hi = (hi & 0xFFFF) + locarry
+            lo = (lo & 0xFFFF) + hicarry
+            hicarry = hi >> 16
+            locarry = lo >> 16
 
-        hi += np.add.reduce((b0 + b1)).astype('uint32')
-        lo += np.add.reduce((b2 + b3)).astype('uint32')
-
-        hicarry = hi >> u16
-        locarry = lo >> u16
-
-        while int(hicarry) or int(locarry):
-            hi = (hi & uFFFF) + locarry
-            lo = (lo & uFFFF) + hicarry
-            hicarry = hi >> u16
-            locarry = lo >> u16
-
-        return (hi << u16) + lo
+        return (hi << 16) + lo
 
 
     # _MASK and _EXCLUDE used for encoding the checksum value into a character
