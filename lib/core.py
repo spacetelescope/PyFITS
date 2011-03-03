@@ -3133,8 +3133,8 @@ class _ValidHDU(_AllHDU, _Verify):
         bytes = bytes.view(dtype='>u2')
         hi = sum32 >> 16
         lo = sum32 & 0xFFFF
-        hi += (np.add.reduce(bytes[0::2]) & 0xFFFFFFFF)
-        lo += (np.add.reduce(bytes[1::2]) & 0xFFFFFFFF)
+        hi += int(np.add.reduce(bytes[0::2])) & 0xFFFFFFFF
+        lo += int(np.add.reduce(bytes[1::2])) & 0xFFFFFFFF
 
         hicarry = hi >> 16
         locarry = lo >> 16

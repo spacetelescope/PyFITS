@@ -287,9 +287,10 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdu = pyfits.new_table([c2,c1,c3],tbtype='TableHDU')
 
 
-        self.assertEqual(hdu.data.dtype.fields,{'abc':(numpy.dtype('|S3'),18),
-                                                'def':(numpy.dtype('|S14'),2),
-                                                't1':(numpy.dtype('|S10'),21)})
+        self.assertEqual(dict(hdu.data.dtype.fields),
+                         {'abc':(numpy.dtype('|S3'),18),
+                          'def':(numpy.dtype('|S15'),2),
+                          't1':(numpy.dtype('|S10'),21)})
         hdu.writeto('toto.fits',clobber=True)
         hdul = pyfits.open('toto.fits')
         self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
