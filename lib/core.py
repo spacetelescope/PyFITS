@@ -5256,7 +5256,7 @@ class ColDefs(object):
     def __repr__(self):
         rep = 'ColDefs('
         if self.data:
-            rep += self.data[0] + '\n'
+            rep += repr(self.data[0]) + '\n'
             rep += '\n'.join(repr(self.data[1:]))
         rep += ')'
         return rep
