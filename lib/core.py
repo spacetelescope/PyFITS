@@ -5113,7 +5113,7 @@ class ColDefs(object):
             which table HDU, ``"BinTableHDU"`` (default) or
             ``"TableHDU"`` (text table).
         """
-        ascii_fmt = {'A':'A1', 'I':'I12', 'J':'I16', 'E':'E15.7', 'F':'F16.7', 'D':'D25.17'}
+        ascii_fmt = {'A':'A1', 'I':'I10', 'J':'I15', 'E':'E15.7', 'F':'F16.7', 'D':'D25.17'}
         self._tbtype = tbtype
 
         if isinstance(input, ColDefs):
