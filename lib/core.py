@@ -5080,8 +5080,8 @@ class Column:
         for cname in _commonNames:
             value = getattr(self, cname)
             if value != None:
-                text += cname + ' = ' + `value` + '\n'
-        return text[:-1]
+                text += cname + ' = ' + repr(value) + '; '
+        return text[:-2]
 
     def copy(self):
         """
@@ -5256,8 +5256,9 @@ class ColDefs(object):
     def __repr__(self):
         rep = 'ColDefs('
         if self.data:
-            rep += repr(self.data[0]) + '\n'
-            rep += '\n'.join(repr(self.data[1:]))
+            rep += '\n    '
+            rep += '\n    '.join([repr(c) for c in self.data])
+            rep += '\n'
         rep += ')'
         return rep
 
