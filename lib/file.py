@@ -35,40 +35,40 @@ class _File(object):
 
     __metaclass__ = Extendable
 
-    def __init__(self, name=None, mode='copyonwrite', memmap=False, **kwargs):
-        if name is None:
+    def __init__(self, fileobj=None, mode='copyonwrite', memmap=False, **kwargs):
+        if fileobj is None:
             self._simulateonly = True
             return
         else:
             self._simulateonly = False
 
-        if mode not in PYTHON_MODES.keys():
+        if mode not in PYTHON_MODES:
             raise ValueError("Mode '%s' not recognized" % mode)
 
 
         # Determine what the _File object's name should be
-        if isinstance(name, file):
-            self.name = name.name
-        elif isinstance(name, basestring):
-            if mode != 'append' and not os.path.exists(name) and \
-               not os.path.splitdrive(name)[0]:
+        if isinstance(fileobj, file):
+            self.name = fileobj.name
+        elif isinstance(fileobj, basestring):
+            if mode != 'append' and not os.path.exists(fileobj) and \
+               not os.path.splitdrive(fileobj)[0]:
                 #
                 # Not writing file and file does not exist on local machine and
                 # name does not begin with a drive letter (Windows), try to
                 # get it over the web.
                 #
-                self.name, fileheader = urllib.urlretrieve(name)
+                self.name, fileheader = urllib.urlretrieve(fileobj)
             else:
-                self.name = name
+                self.name = fileobj
         else:
-            if hasattr(name, 'name'):
-                self.name = name.name
-            elif hasattr(name, 'filename'):
-                self.name = name.filename
-            elif hasattr(name, '__class__'):
-                self.name = str(name.__class__)
+            if hasattr(fileobj, 'name'):
+                self.name = fileobj.name
+            elif hasattr(fileobj, 'filename'):
+                self.name = fileobj.filename
+            elif hasattr(fileobj, '__class__'):
+                self.name = str(fileobj.__class__)
             else:
-                self.name = str(type(name))
+                self.name = str(type(fileobj))
 
         self.mode = mode
         self.memmap = memmap
@@ -88,14 +88,14 @@ class _File(object):
                    "Memory mapping is not implemented for mode `%s`." % mode)
         else:
             # Initialize the internal self.__file object
-            if isinstance(name, file) or isinstance(name, gzip.GzipFile):
-                if hasattr(name, 'closed'):
-                    closed = name.closed
-                    foMode = name.mode
+            if isinstance(fileobj, file) or isinstance(fileobj, gzip.GzipFile):
+                if hasattr(fileobj, 'closed'):
+                    closed = fileobj.closed
+                    foMode = fileobj.mode
                 else:
-                    if name.fileobj is not None:
-                        closed = name.fileobj.closed
-                        foMode = name.fileobj.mode
+                    if fileobj.fileobj is not None:
+                        closed = fileobj.fileobj.closed
+                        foMode = fileobj.fileobj.mode
                     else:
                         closed = True
                         foMode = PYTHON_MODES[mode]
@@ -105,13 +105,13 @@ class _File(object):
                         raise ValueError(
                             "Input mode '%s' (%s) does not match mode of the "
                             "input file (%s)." % (mode, PYTHON_MODES[mode],
-                                                  name.mode))
-                    self.__file = name
-                elif isinstance(name, file):
+                                                  fileobj.mode))
+                    self.__file = fileobj
+                elif isinstance(fileobj, file):
                     self.__file = open(self.name, PYTHON_MODES[mode])
                 else:
                     self.__file = gzip.open(self.name, PYTHON_MODES[mode])
-            elif isinstance(name, basestring):
+            elif isinstance(fileobj, basestring):
                 if os.path.splitext(self.name)[1] == '.gz':
                     # Handle gzip files
                     if mode in ['update', 'append']:
@@ -139,11 +139,11 @@ class _File(object):
                     self.__file.write(zfile.read(namelist[0]))
                     zfile.close()
                 else:
-                    self.__file=open(self.name, PYTHON_MODES[mode])
+                    self.__file = open(self.name, PYTHON_MODES[mode])
             else:
                 # We are dealing with a file like object.
                 # Assume it is open.
-                self.__file = name
+                self.__file = fileobj
 
                 # If there is not seek or tell methods then set the mode to
                 # output streaming.
@@ -204,7 +204,7 @@ class _File(object):
             raise IOError('Block does not begin with SIMPLE or XTENSION.')
 
         for i in range(0, len(BLOCK_SIZE), Card.length):
-            card = Card('').fromstring(block[i:i + Card.length])
+            card = Card.fromstring(block[i:i + Card.length])
             key = card.key
 
             cardlist.append(card)

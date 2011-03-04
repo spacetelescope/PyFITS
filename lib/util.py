@@ -1,4 +1,5 @@
 import functools
+import itertools
 import os
 import tempfile
 import warnings
@@ -186,6 +187,20 @@ class lazyproperty(object):
         key = self._fget.func_name
         if key in obj.__dict__:
             del obj.__dict__[key]
+
+
+def pairwise(iterable):
+    """Return the items of an iterable paired with its next item.
+
+    Ex: s -> (s0,s1), (s1,s2), (s2,s3), ....
+    """
+
+    a, b = itertools.tee(iterable)
+    for _ in b:
+        # Just a little trick to advance b without having to catch
+        # StopIter if b happens to be empty
+        break
+    return itertools.izip(a, b)
 
 
 def _fromfile(infile, dtype, count, sep):

@@ -108,7 +108,7 @@ class ErrorURLopener(urllib.FancyURLopener):
     """
 
     def http_error_default(self, url, fp, errcode, errmsg, headers):
-        raise IOError, (errcode, errmsg, url)
+        raise IOError((errcode, errmsg, url))
 
 urllib._urlopener = ErrorURLopener() # Assign the locally subclassed opener
                                      # class to the urllibrary

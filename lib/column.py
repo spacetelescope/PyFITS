@@ -6,7 +6,7 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits.card import Card
-from pyfits.util import lazyproperty, _is_int
+from pyfits.util import lazyproperty, pairwise, _is_int
 
 
 __all__ = ['Column', 'ColDefs']
@@ -450,10 +450,7 @@ class ColDefs(object):
 
         self._arrays.append(column.array)
         # Obliterate caches of certain things
-        if hasattr(self, '_recformats'):
-            delattr(self, '_recformats')
-        if hasattr(self, 'spans'):
-            delattr(self, 'spans')
+        del self._recformats
 
         self.data.append(column)
 
@@ -478,10 +475,7 @@ class ColDefs(object):
 
         del self._arrays[indx]
         # Obliterate caches of certain things
-        if hasattr(self, '_recformats'):
-            delattr(self, '_recformats')
-        if hasattr(self, 'spans'):
-            delattr(self, 'spans')
+        del self._recformats
 
         del self.data[indx]
 
@@ -605,31 +599,39 @@ class _ASCIIColDefs(ColDefs):
     def spans(self):
         # make sure to consider the case that the starting column of
         # a field may not be the column right after the last field
-        last_end = end = 0
+        end = 0
         spans = [0] * len(self)
         for idx in range(len(self)):
             format, width = _convert_ascii_format(self.formats[idx])
-            if self.starts[idx] is '':
-                self.starts[idx] = last_end + 1
+            if not self.starts[idx]:
+                self.starts[idx] = end + 1
             end = self.starts[idx] + width - 1
             spans[idx] = width
-            last_end = end
         self._width = end
         return spans
 
     @lazyproperty
     def _recformats(self):
         if len(self) == 1:
-            dummy = []
+            widths = []
         else:
-            dummy = map(lambda x, y: x - y, self.starts[1:],
-                        [self.starts[0]] + self.starts[1:-1])
+            widths = [y - x for x, y in pairwise(self.starts)]
         # NOTE: The self._width attribute only exists if this ColDefs was
         # instantiated with a _TableHDU object; make sure that's the only
         # context in which this is used, for now...
         # TODO: Determine if we can make this less fragile.
-        dummy.append(self._width - self.starts[-1] + 1)
-        return map(lambda y: 'a' + repr(y), dummy)
+        widths.append(self._width - self.starts[-1] + 1)
+        return ['a' + str(w) for w in widths]
+
+    def add_col(self, column):
+        # Clear existing spans value
+        del self.spans
+        super(_ASCIIColDefs, self).add_col(column)
+
+    def del_col(self, col_name):
+        # Clear existing spans value
+        del self.spans
+        super(_ASCIIColDefs, self).del_col(col_name)
 
 
 class _VLF(np.ndarray):
@@ -834,16 +836,54 @@ def _parse_tformat(tform):
     return (repeat, dtype, option)
 
 
-def _convert_format(input_format, reverse=False):
+def _convert_fits2record(format):
     """
-    Convert FITS format spec to record format spec.  Do the opposite if
-    reverse=True.
+    Convert FITS format spec to record format spec.
     """
 
-    if reverse and isinstance(input_format, np.dtype):
-        shape = input_format.shape
-        kind = input_format.base.kind
-        option = str(input_format.base.itemsize)
+    repeat, dtype, option = _parse_tformat(format)
+
+    if dtype in FITS2NUMPY:                            # FITS format
+        if dtype == 'A':
+            output_format = FITS2NUMPY[dtype] + str(repeat)
+            # to accomodate both the ASCII table and binary table column
+            # format spec, i.e. A7 in ASCII table is the same as 7A in
+            # binary table, so both will produce 'a7'.
+            if format.lstrip()[0] == 'A' and option != '':
+                 # make sure option is integer
+                output_format = FITS2NUMPY[dtype] + str(int(option))
+        else:
+            _repeat = ''
+            if _repeat != 1:
+                _repeat = str(repeat)
+            output_format = _repeat + FITS2NUMPY[dtype]
+
+    elif dtype == 'X':
+        nbytes = ((repeat-1) // 8) + 1
+        # use an array, even if it is only ONE u1 (i.e. use tuple always)
+        output_format = _FormatX(repr((nbytes,)) + 'u1')
+        output_format._nx = repeat
+
+    elif dtype == 'P':
+        output_format = _FormatP('2i4')
+        output_format._dtype = FITS2NUMPY[option[0]]
+    elif dtype == 'F':
+        output_format = 'f8'
+    else:
+        raise ValueError('Illegal format %s.' % format)
+
+    return output_format
+
+
+def _convert_record2fits(format):
+    """
+    Convert record format spec to FITS format spec.
+    """
+
+    if isinstance(format, np.dtype):
+        shape = format.shape
+        kind = format.base.kind
+        option = str(format.base.itemsize)
         if kind == 'S':
             kind = 'a'
         dtype = kind
@@ -855,59 +895,40 @@ def _convert_format(input_format, reverse=False):
             if nel > 1:
                 repeat = nel
     else:
-        fmt = input_format
-        (repeat, dtype, option) = _parse_tformat(fmt)
+        repeat, dtype, option = _parse_tformat(format)
 
-    if not reverse:
-        if dtype in FITS2NUMPY:                            # FITS format
-            if dtype == 'A':
-                output_format = FITS2NUMPY[dtype] + str(repeat)
-                # to accomodate both the ASCII table and binary table column
-                # format spec, i.e. A7 in ASCII table is the same as 7A in
-                # binary table, so both will produce 'a7'.
-                if fmt.lstrip()[0] == 'A' and option != '':
-                     # make sure option is integer
-                    output_format = FITS2NUMPY[dtype] + str(int(option))
-            else:
-                _repeat = ''
-                if _repeat != 1:
-                    _repeat = str(repeat)
-                output_format = _repeat + FITS2NUMPY[dtype]
+    if dtype == 'a':
+        # This is a kludge that will place string arrays into a
+        # single field, so at least we won't lose data.  Need to
+        # use a TDIM keyword to fix this, declaring as (slength,
+        # dim1, dim2, ...)  as mwrfits does
 
-        elif dtype == 'X':
-            nbytes = ((repeat-1) // 8) + 1
-            # use an array, even if it is only ONE u1 (i.e. use tuple always)
-            output_format = _FormatX(repr((nbytes,)) + 'u1')
-            output_format._nx = repeat
+        ntot = int(repeat) * int(option)
 
-        elif dtype == 'P':
-            output_format = _FormatP('2i4')
-            output_format._dtype = FITS2NUMPY[option[0]]
-        elif dtype == 'F':
-            output_format = 'f8'
+        output_format = str(ntot) + NUMPY2FITS[dtype]
+    elif isinstance(dtype, _FormatX):
+        warnings.warn('X format')
+    elif dtype+option in NUMPY2FITS: # record format
+        if repeat != 1:
+            repeat = repr(repeat)
         else:
-            raise ValueError('Illegal format %s.' % fmt)
+            repeat = ''
+        output_format = repeat + NUMPY2FITS[dtype + option]
     else:
-        if dtype == 'a':
-            # This is a kludge that will place string arrays into a
-            # single field, so at least we won't lose data.  Need to
-            # use a TDIM keyword to fix this, declaring as (slength,
-            # dim1, dim2, ...)  as mwrfits does
-
-            ntot = int(repeat) * int(option)
-
-            output_format = str(ntot) + NUMPY2FITS[dtype]
-        elif isinstance(dtype, _FormatX):
-            warnings.warn('X format')
-        elif dtype+option in NUMPY2FITS.keys():                    # record format
-            _repeat = ''
-            if repeat != 1:
-                _repeat = repr(repeat)
-            output_format = _repeat+NUMPY2FITS[dtype+option]
-        else:
-            raise ValueError('Illegal format %s.' % fmt)
+        raise ValueError('Illegal format %s.' % format)
 
     return output_format
+
+def _convert_format(format, reverse=False):
+    """
+    Convert FITS format spec to record format spec.  Do the opposite if
+    reverse=True.
+    """
+
+    if reverse:
+        return _convert_record2fits(format)
+    else:
+        return _convert_fits2record(format)
 
 
 def _convert_ascii_format(input_format):

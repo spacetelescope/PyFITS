@@ -36,7 +36,7 @@ class TestPyfitsImageFunctions(unittest.TestCase):
 
     def testFromstringSetAttributeAscardimage(self):
         """
-        Test fromstring() which will overwrite the values in the constructor.
+        Test fromstring() which will return a new card.
         """
 
         c = pyfits.Card('abc', 99).fromstring('xyz     = 100')
@@ -64,7 +64,7 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         self.assertEqual(str(c),
                          "ABC     =                    T                                                  ")
 
-        c = pyfits.Card().fromstring('abc     = F')
+        c = pyfits.Card.fromstring('abc     = F')
         self.assertEqual(c.value, False)
 
     def testLongIntegerNumber(self):
@@ -124,7 +124,7 @@ class TestPyfitsImageFunctions(unittest.TestCase):
 
     def testAscardiageVerifiesTheCommentStringToBeAsciiText(self):
         # the ascardimage() verifies the comment string to be ASCII text
-        c = pyfits.Card().fromstring('abc     = +  2.1   e + 12 / abcde\0')
+        c = pyfits.Card.fromstring('abc     = +  2.1   e + 12 / abcde\0')
         self.assertRaises(Exception, c.ascardimage)
 
     def testCommentaryCards(self):
@@ -140,20 +140,20 @@ class TestPyfitsImageFunctions(unittest.TestCase):
 
     def testCommentaryCardCreatedByFromstring(self):
         # commentary card created by fromstring()
-        c = pyfits.Card().fromstring("COMMENT card has no comments. / text after slash is still part of the value.")
+        c = pyfits.Card.fromstring("COMMENT card has no comments. / text after slash is still part of the value.")
         self.assertEqual(c.value,
                          'card has no comments. / text after slash is still part of the value.')
         self.assertEqual(c.comment, '')
 
     def testCommentaryCardWillNotParseNumericalValue(self):
         # commentary card will not parse the numerical value
-        c = pyfits.Card().fromstring("history  (1, 2)")
+        c = pyfits.Card.fromstring("history  (1, 2)")
         self.assertEqual(str(c.ascardimage()),
                          "HISTORY  (1, 2)                                                                 ")
 
     def testEqualSignAfterColumn8(self):
         # equal sign after column 8 of a commentary card will be part ofthe string value
-        c = pyfits.Card().fromstring("history =   (1, 2)")
+        c = pyfits.Card.fromstring("history =   (1, 2)")
         self.assertEqual(str(c.ascardimage()),
                          "HISTORY =   (1, 2)                                                              ")
 
@@ -165,13 +165,13 @@ class TestPyfitsImageFunctions(unittest.TestCase):
 
     def testComplexNumberUsingStringInput(self):
         # complex number using string input
-        c = pyfits.Card().fromstring('abc     = (8, 9)')
+        c = pyfits.Card.fromstring('abc     = (8, 9)')
         self.assertEqual(str(c.ascardimage()),
                          "ABC     =               (8, 9)                                                  ")
 
     def testFixableNonStandardFITScard(self):
         # fixable non-standard FITS card will keep the original format
-        c = pyfits.Card().fromstring('abc     = +  2.1   e + 12')
+        c = pyfits.Card.fromstring('abc     = +  2.1   e + 12')
         self.assertEqual(c.value,2100000000000.0)
         self.assertEqual(str(c.ascardimage()),
                          "ABC     =             +2.1E+12                                                  ")
@@ -179,19 +179,19 @@ class TestPyfitsImageFunctions(unittest.TestCase):
     def testFixableNonFSC(self):
         # fixable non-FSC: if the card is not parsable, it's value will be assumed
         # to be a string and everything after the first slash will be comment
-        c = pyfits.Card().fromstring("no_quote=  this card's value has no quotes / let's also try the comment")
+        c = pyfits.Card.fromstring("no_quote=  this card's value has no quotes / let's also try the comment")
         self.assertEqual(str(c.ascardimage()),
                          "NO_QUOTE= 'this card''s value has no quotes' / let's also try the comment       ")
 
     def testUndefinedValueUsingStringInput(self):
         # undefined value using string input
-        c = pyfits.Card().fromstring('abc     =    ')
+        c = pyfits.Card.fromstring('abc     =    ')
         self.assertEqual(str(c.ascardimage()),
                          "ABC     =                                                                       ")
 
     def testMisalocatedEqualSign(self):
         # test mislocated "=" sign
-        c = pyfits.Card().fromstring('xyz= 100')
+        c = pyfits.Card.fromstring('xyz= 100')
         self.assertEqual(c.key, 'XYZ')
         self.assertEqual(c.value, 100)
         self.assertEqual(str(c.ascardimage()),
@@ -199,16 +199,16 @@ class TestPyfitsImageFunctions(unittest.TestCase):
 
     def testEqualOnlyUpToColumn10(self):
         # the test of "=" location is only up to column 10
-        c = pyfits.Card().fromstring("histo       =   (1, 2)")
+        c = pyfits.Card.fromstring("histo       =   (1, 2)")
         self.assertEqual(str(c.ascardimage()),
                          "HISTO   = '=   (1, 2)'                                                          ")
-        c = pyfits.Card().fromstring("   history          (1, 2)")
+        c = pyfits.Card.fromstring("   history          (1, 2)")
         self.assertEqual(str(c.ascardimage()),
                          "HISTO   = 'ry          (1, 2)'                                                  ")
 
     def testVerification(self):
         # verification
-        c = pyfits.Card().fromstring('abc= a6')
+        c = pyfits.Card.fromstring('abc= a6')
         with CaptureStdout() as f:
             c.verify()
             self.assertEqual(f.getvalue(),
@@ -218,7 +218,7 @@ class TestPyfitsImageFunctions(unittest.TestCase):
                          "abc= a6                                                                         ")
 
     def testFix(self):
-        c = pyfits.Card().fromstring('abc= a6')
+        c = pyfits.Card.fromstring('abc= a6')
         with CaptureStdout() as f:
             c.verify('fix')
             self.assertEqual(f.getvalue(),
@@ -231,26 +231,45 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         # test long string value
         c = pyfits.Card('abc', 'long string value '*10, 'long comment '*10)
         self.assertEqual(str(c),
-            "ABC     = 'long string value long string value long string value long string &' "
-            "CONTINUE  'value long string value long string value long string value long &'  "
-            "CONTINUE  'string value long string value long string value &'                  "
-            "CONTINUE  '&' / long comment long comment long comment long comment long        "
-            "CONTINUE  '&' / comment long comment long comment long comment long comment     "
+            "ABC     = 'long string value long string value long string value long string &' \n"
+            "CONTINUE  'value long string value long string value long string value long &'  \n"
+            "CONTINUE  'string value long string value long string value &'                  \n"
+            "CONTINUE  '&' / long comment long comment long comment long comment long        \n"
+            "CONTINUE  '&' / comment long comment long comment long comment long comment     \n"
             "CONTINUE  '&' / long comment                                                    ")
+
+    def testLongStringFromFile(self):
+        c = pyfits.Card('abc', 'long string value '*10, 'long comment '*10)
+        hdu = pyfits.PrimaryHDU()
+        hdu.header.ascard.append(c)
+        hdu.writeto('test_new.fits')
+
+        hdul = pyfits.open('test_new.fits')
+        c = hdul[0].header.ascard['abc']
+        hdul.close()
+        os.remove('test_new.fits')
+        self.assertEqual(str(c),
+            "ABC     = 'long string value long string value long string value long string &' \n"
+            "CONTINUE  'value long string value long string value long string value long &'  \n"
+            "CONTINUE  'string value long string value long string value &'                  \n"
+            "CONTINUE  '&' / long comment long comment long comment long comment long        \n"
+            "CONTINUE  '&' / comment long comment long comment long comment long comment     \n"
+            "CONTINUE  '&' / long comment                                                    ")
+       
 
     def testWordInLongStringTooLong(self):
         # if a word in a long string is too long, it will be cut in the middle
         c = pyfits.Card('abc', 'longstringvalue'*10, 'longcomment'*10)
         self.assertEqual(str(c),
-            "ABC     = 'longstringvaluelongstringvaluelongstringvaluelongstringvaluelongstr&'"
-            "CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'"
-            "CONTINUE  'elongstringvalue&'                                                   "
-            "CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme"
+            "ABC     = 'longstringvaluelongstringvaluelongstringvaluelongstringvaluelongstr&'\n"
+            "CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'\n"
+            "CONTINUE  'elongstringvalue&'                                                   \n"
+            "CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme\n"
             "CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment                  ")
 
     def testLongStringValueViaFromstring(self):
         # long string value via fromstring() method
-        c = pyfits.Card().fromstring(
+        c = pyfits.Card.fromstring(
             pyfits.card._pad("abc     = 'longstring''s testing  &  ' / comments in line 1") +
             pyfits.card._pad("continue  'continue with long string but without the ampersand at the end' /") +
             pyfits.card._pad("continue  'continue must have string value (with quotes)' / comments with ''. "))

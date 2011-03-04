@@ -492,16 +492,16 @@ if COMPRESSION_SUPPORTED:
 
             if compressionType == 'HCOMPRESS_1':
                 if self._imageHeader['NAXIS'] < 2:
-                    raise ValueError, 'Hcompress cannot be used with ' + \
-                                      '1-dimensional images.'
+                    raise ValueError('Hcompress cannot be used with '
+                                     '1-dimensional images.')
                 elif self._imageHeader['NAXIS1'] < 4 or \
                 self._imageHeader['NAXIS2'] < 4:
-                    raise ValueError, 'Hcompress minimum image dimension is' + \
-                                      ' 4 pixels'
+                    raise ValueError('Hcompress minimum image dimension is '
+                                     '4 pixels')
                 elif tileSize and (tileSize[0] < 4 or tileSize[1] < 4):
                     # user specified tile size is too small
-                    raise ValueError, 'Hcompress minimum tile dimension is' + \
-                                      ' 4 pixels'
+                    raise ValueError('Hcompress minimum tile dimension is '
+                                     '4 pixels')
 
                 if tileSize and (tileSize[0] == 0 and tileSize[1] == 0):
                     #compress the whole image as a single tile
@@ -572,8 +572,8 @@ if COMPRESSION_SUPPORTED:
                     remain = self._imageHeader['NAXIS1'] % tileSize[0]
 
                     if remain > 0 and remain < 4:
-                        raise ValueError, 'Last tile along 1st dimension ' + \
-                                          'has less than 4 pixels'
+                        raise ValueError('Last tile along 1st dimension has '
+                                         'less than 4 pixels')
 
                 remain = self._imageHeader['NAXIS2'] % tileSize[1] # 2nd dimen
 
@@ -583,8 +583,8 @@ if COMPRESSION_SUPPORTED:
                     remain = self._imageHeader['NAXIS2'] % tileSize[1]
 
                     if remain > 0 and remain < 4:
-                        raise ValueError, 'Last tile along 2nd dimension ' + \
-                                          'has less than 4 pixels'
+                        raise ValueError('Last tile along 2nd dimension has '
+                                         'less than 4 pixels')
 
             # Set up locations for writing the next cards in the header.
             after = 'ZNAXIS'
@@ -1386,8 +1386,8 @@ if COMPRESSION_SUPPORTED:
             zvalList = []
 
             # Check to see that the imageHeader matches the image data
-            if self.header.get('NAXIS',0) != len(self.data.shape) or \
-               self.header.get('BITPIX',0) != \
+            if self.header.get('NAXIS', 0) != len(self.data.shape) or \
+               self.header.get('BITPIX', 0) != \
                _ImageBaseHDU.ImgCode[self.data.dtype.name]:
                 self.updateHeaderData(self.header)
 
@@ -1548,7 +1548,7 @@ if COMPRESSION_SUPPORTED:
                     self.data.dtype = self.data.dtype.newbyteorder('>')
 
             if status != 0:
-                raise RuntimeError, 'Unable to write compressed image'
+                raise RuntimeError('Unable to write compressed image')
 
             # Convert the compressed data from a list of byte strings to
             # an array and set it in the COMPRESSED_DATA field of the table.
@@ -1565,8 +1565,8 @@ if COMPRESSION_SUPPORTED:
             # Convert the linear scale factor values from a list to an
             # array and set it in the ZSCALE field of the table.
             if cn_zscale > 0:
-                for i in range (0,len(scaleList)):
-                    self.compData[i].setfield('ZSCALE',scaleList[i])
+                for i in range(0, len(scaleList)):
+                    self.compData[i].setfield('ZSCALE', scaleList[i])
 
             # Convert the zero point offset values from a list to an
             # array and set it in the ZZERO field of the table.
@@ -1721,7 +1721,7 @@ if COMPRESSION_SUPPORTED:
             #
             # Update the BITPIX Card to match the data
             #
-            self.header['BITPIX']=_ImageBaseHDU.ImgCode[self.data.dtype.name]
+            self.header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
 
             #
             # Update the table header to match the scaled data
@@ -1745,7 +1745,8 @@ if COMPRESSION_SUPPORTED:
             """
             Calculate the value for the ``DATASUM`` card in the HDU.
             """
-            if self.__dict__.has_key('data') and self.data != None:
+
+            if self._data_loaded and self.data is not None:
                 # We have the data to be used.
                 return self._calculate_datasum_from_data(self.compData,
                                                          blocking)

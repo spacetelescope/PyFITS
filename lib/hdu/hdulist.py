@@ -410,10 +410,10 @@ class HDUList(list, _Verify):
                     # We are inserting a new Primary HDU so we need to
                     # make the current Primary HDU into an extension HDU.
                     if isinstance(self[0], GroupsHDU):
-                       raise ValueError, \
-                             "The current Primary HDU is a GroupsHDU.  " + \
-                             "It can't be made into an extension HDU," + \
-                             " so you can't insert another HDU in front of it."
+                       raise ValueError(
+                             "The current Primary HDU is a GroupsHDU.  "
+                             "It can't be made into an extension HDU, "
+                             "so you can't insert another HDU in front of it.")
 
                     hdu1= ImageHDU(self[0].data, self[0].header)
 
@@ -474,8 +474,8 @@ class HDUList(list, _Verify):
             if not isinstance(hdu, _TempHDU):
                 if len(self) > 0:
                     if isinstance(hdu, GroupsHDU):
-                       raise ValueError, \
-                             "Can't append a GroupsHDU to a non-empty HDUList"
+                       raise ValueError(
+                             "Can't append a GroupsHDU to a non-empty HDUList")
 
                     if isinstance(hdu, PrimaryHDU):
                         # You passed a Primary HDU but we need an Extension HDU
@@ -525,38 +525,27 @@ class HDUList(list, _Verify):
            The index of the HDU in the `HDUList`.
         """
 
-        if isinstance(key, (int, np.integer,slice)):
+        if _is_int(key):
             return key
         elif isinstance(key, tuple):
-            _key = key[0]
-            _ver = key[1]
+            _key, _ver = key
         else:
             _key = key
             _ver = None
 
         if not isinstance(_key, str):
-            raise KeyError, key
+            raise KeyError(key)
         _key = (_key.strip()).upper()
 
         nfound = 0
-        for j in range(len(self)):
-            _name = self[j].name
-            if isinstance(_name, str):
-                _name = _name.strip().upper()
-            if _name == _key:
-
-                # if only specify extname, can only have one extension with
-                # that name
-                if _ver == None:
-                    found = j
-                    nfound += 1
-                else:
-
-                    # if the keyword EXTVER does not exist, default it to 1
-                    _extver = self[j]._extver
-                    if _ver == _extver:
-                        found = j
-                        nfound += 1
+        found = None
+        for idx, hdu in enumerate(self):
+            name = hdu.name
+            if isinstance(name, str):
+                name = name.strip().upper()
+            if name == _key and (_ver is None or _ver == hdu._extver):
+                found = idx
+                nfound += 1
 
         if (nfound == 0):
             raise KeyError('Extension %s not found.' % repr(key))
@@ -895,7 +884,7 @@ class HDUList(list, _Verify):
                 fileMode = name.mode
 
         elif isinstance(name, gzip.GzipFile):
-            if name.fileobj != None:
+            if name.fileobj is not None:
                 closed = name.fileobj.closed
             filename = name.filename
 
@@ -943,8 +932,8 @@ class HDUList(list, _Verify):
         if len(self) > 1:
             self.update_extend()
 
-        for key in PYTHON_MODES.keys():
-            if PYTHON_MODES[key] == fileMode:
+        for key, val in PYTHON_MODES.iteritems():
+            if val == fileMode:
                 mode = key
                 break
 
@@ -952,7 +941,7 @@ class HDUList(list, _Verify):
 
         for hdu in self:
             hdulist.__file.writeHDU(hdu, checksum)
-        hdulist.close(output_verify=output_verify,closed=closed)
+        hdulist.close(output_verify=output_verify, closed=closed)
 
 
     def close(self, output_verify='exception', verbose=False, closed=True):

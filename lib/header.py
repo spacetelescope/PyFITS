@@ -261,6 +261,7 @@ class Header(DictMixin):
 
         if newkey == 'CONTINUE':
             raise ValueError('Can not rename to CONTINUE')
+
         if newkey in Card._commentary_keys or oldkey in Card._commentary_keys:
             if not (newkey in Card._commentary_keys and 
                     oldkey in Card._commentary_keys):
@@ -269,15 +270,11 @@ class Header(DictMixin):
         elif (force == 0) and self.has_key(newkey):
             raise ValueError('Intended keyword %s already exists in header.'
                              % newkey)
-        _index = self.ascard.index_of(oldkey)
-        _comment = self.ascard[_index].comment
-        _value = self.ascard[_index].value
-        self.ascard[_index] = create_card(newkey, _value, _comment)
 
-
-#        self.ascard[_index].__dict__['key']=newkey
-#        self.ascard[_index].ascardimage()
-#        self.ascard._keylist[_index] = newkey
+        idx = self.ascard.index_of(oldkey)
+        comment = self.ascard[idx].comment
+        value = self.ascard[idx].value
+        self.ascard[idx] = create_card(newkey, value, comment)
 
     def add_history(self, value, before=None, after=None):
         """
@@ -364,13 +361,13 @@ class Header(DictMixin):
 
         return [c for c in self.ascardlist() if c.key == 'COMMENT']
 
-    def toTxtFile(self, outFile, clobber=False):
+    def toTxtFile(self, fileobj, clobber=False):
         """
         Output the header parameters to a file in ASCII format.
 
         Parameters
         ----------
-        outFile : file path, file object or file-like object
+        fileobj : file path, file object or file-like object
             Output header parameters file.
 
         clobber : bool
@@ -446,7 +443,7 @@ class Header(DictMixin):
             prevKey = 0
 
         for line in lines:
-            card = Card().fromstring(line[:min(80, len(line)-1)])
+            card = Card.fromstring(line[:min(80, len(line)-1)])
             card.verify('silentfix')
 
             if card.key == 'SIMPLE':

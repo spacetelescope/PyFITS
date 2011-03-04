@@ -134,7 +134,7 @@ class _TableBaseHDU(_ExtensionHDU):
         size = self.size()
         if size:
             self._file.seek(self._datLoc)
-            data = _get_tbdata(self)
+            data = self._get_tbdata()
             data._coldefs = self.columns
             data.formats = self.columns.formats
         else:
@@ -167,48 +167,13 @@ class _TableBaseHDU(_ExtensionHDU):
         Update header keywords to reflect recent changes of columns.
         """
 
-        _update = self._header.update
-        _append = self._header.ascard.append
-        _cols = self.columns
-        _update('naxis1', self.data.itemsize, after='naxis')
-        _update('naxis2', self.data.shape[0], after='naxis1')
-        _update('tfields', len(_cols), after='gcount')
+        update = self._header.update
+        update('naxis1', self.data.itemsize, after='naxis')
+        update('naxis2', self.data.shape[0], after='naxis1')
+        update('tfields', len(self.columns), after='gcount')
 
-        # Wipe out the old table definition keywords.  Mark them first,
-        # then delete from the end so as not to confuse the indexing.
-        _list = []
-        for i in range(len(self._header.ascard)-1,-1,-1):
-            _card = self._header.ascard[i]
-            _key = TDEF_RE.match(_card.key)
-            try: keyword = _key.group('label')
-            except: continue                # skip if there is no match
-            if (keyword in KEYWORD_NAMES):
-                _list.append(i)
-        for i in _list:
-            del self._header.ascard[i]
-        del _list
-
-        # populate the new table definition keywords
-        for idx in range(len(_cols)):
-            for jdx, attr in enumerate(KEYWORD_ATTRIBUTES):
-                val = getattr(_cols, attr + 's')[idx]
-                if val:
-                    keyword = KEYWORD_NAMES[jdx] + str(idx + 1)
-                    if attr == 'format' and isinstance(self, BinTableHDU):
-                        val = _cols._recformats[idx]
-                        if isinstance(val, _FormatX):
-                            val = repr(val._nx) + 'X'
-                        elif isinstance(val, _FormatP):
-                            VLdata = self.data.field(idx)
-                            VLdata._max = max(map(len, VLdata))
-                            if val._dtype == 'a':
-                                fmt = 'A'
-                            else:
-                                fmt = _convert_format(val._dtype, reverse=True)
-                            val = 'P%s(%d)' % (fmt, VLdata._max)
-                        else:
-                            val = _convert_format(val, reverse=True)
-                    _append(Card(keyword, val))
+        self._clear_table_keywords()
+        self._populate_table_keywords()
 
     def copy(self):
         """
@@ -220,6 +185,49 @@ class _TableBaseHDU(_ExtensionHDU):
         self.data
         return new_table(self.columns, header=self._header,
                          tbtype=self.columns._tbtype)
+
+    def _get_tbdata(self):
+        """Get the table data from an input HDU object."""
+
+        columns = self.columns
+        if self._ffile.memmap:
+            self._ffile.code = rec.format_parser(','.join(columns._recformats),
+                                                 columns.names, None)._descr
+
+            self._ffile.dims = columns._shape
+            self._ffile.offset = hdu._datLoc
+            data = rec.recarray(shape=self._ffile.dims, buf=hdu._ffile._mm,
+                                dtype=self._ffile.code, names=columns.names)
+        else:
+            data = rec.array(self._file, formats=','.join(columns._recformats),
+                             names=columns.names, shape=columns._shape)
+
+        self._init_tbdata(data)
+        return data.view(FITS_rec)
+
+    def _init_tbdata(self, data):
+        from pyfits.file import _File
+
+        columns = self.columns
+        if isinstance(self._ffile, _File):
+            data.dtype = data.dtype.newbyteorder('>')
+
+        # pass datLoc, for P format
+        data._heapoffset = self._theap + self._datLoc
+        data._file = self._file
+        tbsize = self._header['NAXIS1'] * self._header['NAXIS2']
+        data._gap = self._theap - tbsize
+
+        # pass the attributes
+        for attr in ['formats', 'names']:
+            setattr(data, attr, getattr(columns, attr))
+        for idx in range(len(columns)):
+           # get the data for each column object from the rec.recarray
+            columns.data[idx].array = data.field(idx)
+
+        # delete the _arrays attribute so that it is recreated to point to the
+        # new data placed in the column object above
+        del columns._arrays
 
     def _verify(self, option='warn'):
         """
@@ -270,6 +278,33 @@ class _TableBaseHDU(_ExtensionHDU):
         return "%-10s  %-11s  %5d  %-12s  %s" \
                % (self.name, class_name, ncards, dims, format)
 
+    def _clear_table_keywords(self):
+        """Wipe out any existing table definition keywords from the header."""
+
+        # Go in reverse so as to not confusing indexing while deleting.
+        for idx, card in enumerate(reversed(self._header.ascard)):
+            key = TDEF_RE.match(card.key)
+            try:
+                keyword = key.group('label')
+            except:
+                continue                # skip if there is no match
+            if (keyword in KEYWORD_NAMES):
+                del self._header.ascard[idx]
+
+    def _populate_table_keywords(self):
+        """Populate the new table definition keywords from the header."""
+
+        cols = self.columns
+        append = self._header.ascard.append
+
+        for idx, col in enumerate(cols):
+            for attr, keyword in zip(KEYWORD_ATTRIBUTES, KEYWORD_NAMES):
+                val = getattr(cols, attr + 's')[idx]
+                if val:
+                    keyword = keyword + str(idx + 1)
+                    append(Card(keyword, val))
+
+
 
 class TableHDU(_TableBaseHDU):
     """
@@ -289,6 +324,42 @@ class TableHDU(_TableBaseHDU):
         if self._data_loaded and self.data is not None and \
            not isinstance(self.data._coldefs, _ASCIIColDefs):
             self.data._coldefs = _ASCIIColDefs(self.data._coldefs)
+
+    def _get_tbdata(self):
+        columns = self.columns
+
+        # determine if there are duplicate field names and if there
+        # are throw an exception
+        dup = rec.find_duplicate(columns.names)
+
+        if dup:
+            raise ValueError("Duplicate field names: %s" % dup)
+
+        itemsize = columns.spans[-1] + columns.starts[-1]-1
+        dtype = {}
+
+        for idx in range(len(columns)):
+            data_type = 'S' + str(columns.spans[idx])
+
+            if idx == len(columns) - 1:
+                # The last column is padded out to the value of NAXIS1
+                if self._header['NAXIS1'] > itemsize:
+                    data_type = 'S' + str(columns.spans[idx] + \
+                                self._header['NAXIS1'] - itemsize)
+            dtype[columns.names[idx]] = (data_type, columns.starts[idx] - 1)
+
+        if self._ffile.memmap:
+            self._ffile.code = dtype
+            self._ffile.dims = columns._shape
+            self._ffile.offset = hdu._datLoc
+            data = rec.recarray(shape=self._ffile.dims, buf=hdu._ffile._mm,
+                                dtype=self._ffile.code, names=columns.names)
+        else:
+            data = rec.array(self._file, dtype=dtype, names=columns.names,
+                             shape=columns._shape)
+
+        self._init_tbdata(data)
+        return data.view(FITS_rec)
 
     def _calculate_datasum(self, blocking):
         """
@@ -393,6 +464,79 @@ class BinTableHDU(_TableBaseHDU):
             # base class.  The other possibility is that there is no data at
             # all.  This can also be handled in a gereric manner.
             return super(BinTableHDU,self)._calculate_datasum(blocking)
+
+    def _populate_table_keywords(self):
+        """Populate the new table definition keywords from the header."""
+
+        cols = self.columns
+        append = self._header.ascard.append
+
+        for idx, col in enumerate(cols):
+            for attr, keyword in zip(KEYWORD_ATTRIBUTES, KEYWORD_NAMES):
+                val = getattr(cols, attr + 's')[idx]
+                if val:
+                    keyword = keyword + str(idx + 1)
+                    if attr == 'format':
+                        val = cols._recformats[idx]
+                        if isinstance(val, _FormatX):
+                            val = repr(val._nx) + 'X'
+                        elif isinstance(val, _FormatP):
+                            VLdata = self.data.field(idx)
+                            VLdata._max = max(map(len, VLdata))
+                            if val._dtype == 'a':
+                                fmt = 'A'
+                            else:
+                                fmt = _convert_format(val._dtype, reverse=True)
+                            val = 'P%s(%d)' % (fmt, VLdata._max)
+                        else:
+                            val = _convert_format(val, reverse=True)
+                    append(Card(keyword, val))
+
+    tdump_file_format = """
+
+- **datafile:** Each line of the data file represents one row of table
+  data.  The data is output one column at a time in column order.  If
+  a column contains an array, each element of the column array in the
+  current row is output before moving on to the next column.  Each row
+  ends with a new line.
+
+  Integer data is output right-justified in a 21-character field
+  followed by a blank.  Floating point data is output right justified
+  using 'g' format in a 21-character field with 15 digits of
+  precision, followed by a blank.  String data that does not contain
+  whitespace is output left-justified in a field whose width matches
+  the width specified in the ``TFORM`` header parameter for the
+  column, followed by a blank.  When the string data contains
+  whitespace characters, the string is enclosed in quotation marks
+  (``""``).  For the last data element in a row, the trailing blank in
+  the field is replaced by a new line character.
+
+  For column data containing variable length arrays ('P' format), the
+  array data is preceded by the string ``'VLA_Length= '`` and the
+  integer length of the array for that row, left-justified in a
+  21-character field, followed by a blank.
+
+  For column data representing a bit field ('X' format), each bit
+  value in the field is output right-justified in a 21-character field
+  as 1 (for true) or 0 (for false).
+
+- **cdfile:** Each line of the column definitions file provides the
+  definitions for one column in the table.  The line is broken up into
+  8, sixteen-character fields.  The first field provides the column
+  name (``TTYPEn``).  The second field provides the column format
+  (``TFORMn``).  The third field provides the display format
+  (``TDISPn``).  The fourth field provides the physical units
+  (``TUNITn``).  The fifth field provides the dimensions for a
+  multidimensional array (``TDIMn``).  The sixth field provides the
+  value that signifies an undefined value (``TNULLn``).  The seventh
+  field provides the scale factor (``TSCALn``).  The eighth field
+  provides the offset value (``TZEROn``).  A field value of ``""`` is
+  used to represent the case where no value is provided.
+
+- **hfile:** Each line of the header parameters file provides the
+  definition of a single HDU header card as represented by the card
+  image.
+"""
 
     def tdump(self, datafile=None, cdfile=None, hfile=None, clobber=False):
         """
@@ -614,54 +758,7 @@ class BinTableHDU(_TableBaseHDU):
 
         if hfile:
             self.header.toTxtFile(hfile)
-
-    tdumpFileFormat = """
-
-- **datafile:** Each line of the data file represents one row of table
-  data.  The data is output one column at a time in column order.  If
-  a column contains an array, each element of the column array in the
-  current row is output before moving on to the next column.  Each row
-  ends with a new line.
-
-  Integer data is output right-justified in a 21-character field
-  followed by a blank.  Floating point data is output right justified
-  using 'g' format in a 21-character field with 15 digits of
-  precision, followed by a blank.  String data that does not contain
-  whitespace is output left-justified in a field whose width matches
-  the width specified in the ``TFORM`` header parameter for the
-  column, followed by a blank.  When the string data contains
-  whitespace characters, the string is enclosed in quotation marks
-  (``""``).  For the last data element in a row, the trailing blank in
-  the field is replaced by a new line character.
-
-  For column data containing variable length arrays ('P' format), the
-  array data is preceded by the string ``'VLA_Length= '`` and the
-  integer length of the array for that row, left-justified in a
-  21-character field, followed by a blank.
-
-  For column data representing a bit field ('X' format), each bit
-  value in the field is output right-justified in a 21-character field
-  as 1 (for true) or 0 (for false).
-
-- **cdfile:** Each line of the column definitions file provides the
-  definitions for one column in the table.  The line is broken up into
-  8, sixteen-character fields.  The first field provides the column
-  name (``TTYPEn``).  The second field provides the column format
-  (``TFORMn``).  The third field provides the display format
-  (``TDISPn``).  The fourth field provides the physical units
-  (``TUNITn``).  The fifth field provides the dimensions for a
-  multidimensional array (``TDIMn``).  The sixth field provides the
-  value that signifies an undefined value (``TNULLn``).  The seventh
-  field provides the scale factor (``TSCALn``).  The eighth field
-  provides the offset value (``TZEROn``).  A field value of ``""`` is
-  used to represent the case where no value is provided.
-
-- **hfile:** Each line of the header parameters file provides the
-  definition of a single HDU header card as represented by the card
-  image.
-"""
-
-    tdump.__doc__ += tdumpFileFormat.replace('\n', '\n        ')
+    tdump.__doc__ += tdump_file_format.replace('\n', '\n        ')
 
     def tcreate(self, datafile, cdfile=None, hfile=None, replace=False):
         """
@@ -869,8 +966,7 @@ class BinTableHDU(_TableBaseHDU):
 
         tmp = new_table(columns, self.header)
         self.__dict__ = tmp.__dict__
-
-    tcreate.__doc__ += tdumpFileFormat.replace("\n", "\n        ")
+    tcreate.__doc__ += tdump_file_format.replace("\n", "\n        ")
 
 
 # TODO: Allow tbtype to be either a string or a class; perhaps eventually
@@ -939,7 +1035,8 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                 nrows = dim
 
     if tbtype == 'TableHDU':
-        _itemsize = tmp.spans[-1]+tmp.starts[-1]-1
+        tmp = hdu.columns = _ASCIIColDefs(hdu.columns)
+        _itemsize = tmp.spans[-1] + tmp.starts[-1]-1
         dtype = {}
 
         for j in range(len(tmp)):
@@ -1043,86 +1140,6 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
 
     # Delete the _arrays attribute so that it is recreated to point to the
     # new data placed in the column objects above
-    if hdu.columns.__dict__.has_key('_arrays'):
-        del hdu.columns.__dict__['_arrays']
+    del hdu.columns._arrays
 
     return hdu
-
-
-def _get_tbdata(hdu):
-    """Get the table data from an input HDU object."""
-
-    from pyfits.file import _File
-    from pyfits.hdu.groups import GroupsHDU
-
-    tmp = hdu.columns
-    # get the right shape for the data part of the random group,
-    # since binary table does not support ND yet
-    if isinstance(hdu, GroupsHDU):
-        tmp._recformats[-1] = repr(hdu._dimShape()[:-1]) + tmp._dat_format
-    elif isinstance(hdu, TableHDU):
-        # determine if there are duplicate field names and if there
-        # are throw an exception
-        _dup = rec.find_duplicate(tmp.names)
-
-        if _dup:
-            raise ValueError, "Duplicate field names: %s" % _dup
-
-        itemsize = tmp.spans[-1]+tmp.starts[-1]-1
-        dtype = {}
-
-        for j in range(len(tmp)):
-            data_type = 'S'+str(tmp.spans[j])
-
-            if j == len(tmp)-1:
-                if hdu._header['NAXIS1'] > itemsize:
-                    data_type = 'S'+str(tmp.spans[j]+ \
-                                hdu._header['NAXIS1']-itemsize)
-            dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
-
-    if hdu._ffile.memmap:
-        if isinstance(hdu, TableHDU):
-            hdu._ffile.code = dtype
-        else:
-            hdu._ffile.code = rec.format_parser(",".join(tmp._recformats),
-                                                 tmp.names,None)._descr
-
-        hdu._ffile.dims = tmp._shape
-        hdu._ffile.offset = hdu._datLoc
-        _data = rec.recarray(shape=hdu._ffile.dims, buf=hdu._ffile._mm,
-                             dtype=hdu._ffile.code, names=tmp.names)
-    else:
-        if isinstance(hdu, TableHDU):
-            _data = rec.array(hdu._file, dtype=dtype, names=tmp.names,
-                              shape=tmp._shape)
-        else:
-            _data = rec.array(hdu._file, formats=",".join(tmp._recformats),
-                              names=tmp.names, shape=tmp._shape)
-
-    if isinstance(hdu._ffile, _File):
-#        _data._byteorder = 'big'
-        _data.dtype = _data.dtype.newbyteorder(">")
-
-    # pass datLoc, for P format
-    _data._heapoffset = hdu._theap + hdu._datLoc
-    _data._file = hdu._file
-    _tbsize = hdu._header['NAXIS1']*hdu._header['NAXIS2']
-    _data._gap = hdu._theap - _tbsize
-    # comment out to avoid circular reference of _pcount
-
-    # pass the attributes
-    for attr in ['formats', 'names']:
-        setattr(_data, attr, getattr(tmp, attr))
-    for i in range(len(tmp)):
-       # get the data for each column object from the rec.recarray
-        tmp.data[i].array = _data.field(i)
-
-    # delete the _arrays attribute so that it is recreated to point to the
-    # new data placed in the column object above
-    if tmp.__dict__.has_key('_arrays'):
-        del tmp.__dict__['_arrays']
-
-    # TODO: Probably a benign change, but I'd still like to get to
-    # the bottom of the root cause...
-    #return FITS_rec(_data)
-    return _data.view(FITS_rec)

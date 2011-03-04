@@ -596,7 +596,7 @@ def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
 
     if closed:
         f.close()
-tdump.__doc__ += BinTableHDU.tdumpFileFormat.replace("\n", "\n    ")
+tdump.__doc__ += BinTableHDU.tdump_file_format.replace("\n", "\n    ")
 
 
 def tcreate(datafile, cdfile, hfile=None):
@@ -637,7 +637,7 @@ def tcreate(datafile, cdfile, hfile=None):
     # Populate and return that HDU
     hdu.tcreate(datafile, cdfile, hfile, replace=True)
     return hdu
-tcreate.__doc__ += BinTableHDU.tdumpFileFormat.replace("\n", "\n    ")
+tcreate.__doc__ += BinTableHDU.tdump_file_format.replace("\n", "\n    ")
 
 
 # TODO: Do we really need quite so many ways to do the same thing? A couple,

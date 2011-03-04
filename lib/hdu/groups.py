@@ -5,7 +5,6 @@ from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.base import _AllHDU
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
-from pyfits.hdu.table import _get_tbdata
 from pyfits.util import lazyproperty, _is_int
 
 
@@ -43,7 +42,7 @@ class GroupsHDU(PrimaryHDU):
         size = self.size()
         if size:
             self._file.seek(self._datLoc)
-            data = GroupData(_get_tbdata(self))
+            data = GroupData(self._get_tbdata())
             data._coldefs = self.columns
             data.formats = self.columns.formats
             data.parnames = self.columns._pnames
@@ -102,6 +101,13 @@ class GroupsHDU(PrimaryHDU):
             pcount = self._header.get('PCOUNT', 0)
             size = abs(bitpix) * gcount * (pcount + size) // 8
         return size
+
+    def _get_tbdata(self):
+        # get the right shape for the data part of the random group,
+        # since binary table does not support ND yet
+        self.columns._recformats[-1] = repr(self._dimShape()[:-1]) + \
+                                       self.columns._dat_format
+        return super(GroupsHDU, self)._get_tbdata()
 
     def _verify(self, option='warn'):
         errs = super(GroupsHDU, self)._verify(option=option)

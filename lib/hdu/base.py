@@ -551,6 +551,7 @@ class _ValidHDU(_AllHDU, _Verify):
         """
         Encode a single byte.
         """
+
         quotient = byte // 4 + ord('0')
         remainder = byte % 4
 
@@ -603,6 +604,7 @@ class _ValidHDU(_AllHDU, _Verify):
         """
         Time of now formatted like: 2007-05-30T19:05:11
         """
+
         now = str(datetime.datetime.now()).split()
         return now[0] + "T" + now[1].split(".")[0]
 
@@ -611,7 +613,7 @@ class _ValidHDU(_AllHDU, _Verify):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        if (not self.__dict__.has_key('data')):
+        if not self._data_loaded:
             # This is the case where the data has not been read from the file
             # yet.  We find the data in the file, read it, and calculate the
             # datasum.
@@ -622,7 +624,7 @@ class _ValidHDU(_AllHDU, _Verify):
                 return self._compute_checksum(raw_data, blocking=blocking)
             else:
                 return 0
-        elif (self.data != None):
+        elif self.data is not None:
             return self._compute_checksum(
                 np.fromstring(self.data, dtype='ubyte'), blocking=blocking)
         else:
@@ -725,17 +727,17 @@ class _ValidHDU(_AllHDU, _Verify):
             when = "HDU checksum updated " + self._datetime_str()
 
         # Add the CHECKSUM card to the header with a value of all zeros.
-        if self.header.has_key("DATASUM"):
-            self.header.update("CHECKSUM", "0"*16, when, before='DATASUM');
+        if 'DATASUM' in self.header:
+            self.header.update('CHECKSUM', '0'*16, when, before='DATASUM')
         else:
-            self.header.update("CHECKSUM", "0"*16, when);
+            self.header.update('CHECKSUM', '0'*16, when)
 
         s = self._calculate_checksum(data_cs, blocking)
 
         # Update the header card.
-        self.header.update("CHECKSUM", s, when);
+        self.header.update('CHECKSUM', s, when);
 
-    def verify_datasum(self, blocking="standard"):
+    def verify_datasum(self, blocking='standard'):
         """
         Verify that the value in the ``DATASUM`` keyword matches the value
         calculated for the ``DATASUM`` of the current HDU data.
@@ -750,17 +752,19 @@ class _ValidHDU(_AllHDU, _Verify):
            - 1 - success
            - 2 - no ``DATASUM`` keyword present
         """
-        if self.header.has_key('DATASUM'):
-            if self._calculate_datasum(blocking) == int(self.header['DATASUM']):
+
+        if 'DATASUM' in self.header:
+            datasum = self._calculate_datasum(blocking)
+            if datasum == int(self.header['DATASUM']):
                 return 1
-            elif blocking == "either": # i.e. standard failed,  try nonstandard
-                return self.verify_datasum(blocking="nonstandard")
+            elif blocking == 'either': # i.e. standard failed,  try nonstandard
+                return self.verify_datasum(blocking='nonstandard')
             else: # Failed with all permitted blocking kinds
                 return 0
         else:
             return 2
 
-    def verify_checksum(self, blocking="standard"):
+    def verify_checksum(self, blocking='standard'):
         """
         Verify that the value in the ``CHECKSUM`` keyword matches the
         value calculated for the current HDU CHECKSUM.
@@ -775,15 +779,17 @@ class _ValidHDU(_AllHDU, _Verify):
            - 1 - success
            - 2 - no ``CHECKSUM`` keyword present
         """
-        if self._header.has_key('CHECKSUM'):
+
+        if 'CHECKSUM' in self._header:
             if self._header.has_key('DATASUM'):
                 datasum = self._calculate_datasum(blocking)
             else:
                 datasum = 0
-            if self._calculate_checksum(datasum, blocking) == self.header['CHECKSUM']:
+            checksum = self._calculate_checksum(datasum, blocking)
+            if checksum == self.header['CHECKSUM']:
                 return 1
-            elif blocking == "either": # i.e. standard failed,  try nonstandard
-                return self.verify_checksum(blocking="nonstandard")
+            elif blocking == 'either': # i.e. standard failed,  try nonstandard
+                return self.verify_checksum(blocking='nonstandard')
             else: # Failed with all permitted blocking kinds
                 return 0
         else:
@@ -801,6 +807,7 @@ class _TempHDU(_ValidHDU):
         """
         Get the ``EXTNAME`` and ``EXTVER`` from the header.
         """
+
         re_extname = re.compile(r"EXTNAME\s*=\s*'([ -&(-~]*)'")
         re_extver = re.compile(r"EXTVER\s*=\s*(\d+)")
 
@@ -822,6 +829,7 @@ class _TempHDU(_ValidHDU):
         """
         Get the size from the first block of the HDU.
         """
+
         re_simple = re.compile(r'SIMPLE  =\s*')
         re_bitpix = re.compile(r'BITPIX  =\s*(-?\d+)')
         re_naxis = re.compile(r'NAXIS   =\s*(\d+)')
@@ -883,15 +891,15 @@ class _TempHDU(_ValidHDU):
     @_with_extensions
     def setupHDU(self, classExtensions={}):
         """
-        Read one FITS HDU, data portions are not actually read here,
+        Read one FITS HDU; data portions are not actually read here,
         but the beginning locations are computed.
         """
 
         from pyfits.header import Header
         from pyfits.hdu.image import PrimaryHDU, ImageHDU
 
-        _cardList = []
-        _keyList = []
+        cards = []
+        keys = []
 
         blocks = self._raw
         if (len(blocks) % BLOCK_SIZE) != 0:
@@ -900,48 +908,36 @@ class _TempHDU(_ValidHDU):
         elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
             raise IOError('Block does not begin with SIMPLE or XTENSION')
 
-        for i in range(0, len(blocks), Card.length):
-            _card = create_card_from_string(blocks[i:i+Card.length])
-            _key = _card.key
+        for idx in range(0, len(blocks), Card.length):
+            card = create_card_from_string(blocks[idx:idx + Card.length])
+            key = card.key
 
-            if _key == 'END':
+            if key == 'END':
                 break
             else:
-                _cardList.append(_card)
-                _keyList.append(_key)
+                cards.append(card)
+                keys.append(key)
 
         # Deal with CONTINUE cards
         # if a long string has CONTINUE cards, the "Card" is considered
         # to be more than one 80-char "physical" cards.
-        _max = _keyList.count('CONTINUE')
-        _start = 0
-        for i in range(_max):
-            _where = _keyList[_start:].index('CONTINUE') + _start
-            for nc in range(1, _max+1):
-                if _where+nc >= len(_keyList):
-                    break
-                if _cardList[_where+nc]._cardimage[:10].upper() != 'CONTINUE  ':
-                    break
 
-            # combine contiguous CONTINUE cards with its parent card
-            if nc > 0:
-                _longstring = _cardList[_where-1]._cardimage
-                for c in _cardList[_where:_where+nc]:
-                    _longstring += c._cardimage
-                _cardList[_where-1] = _ContinueCard().fromstring(_longstring)
-                del _cardList[_where:_where+nc]
-                del _keyList[_where:_where+nc]
-                _start = _where
-
-            # if not the real CONTINUE card, skip to the next card to search
-            # to avoid starting at the same CONTINUE card
-            else:
-                _start = _where + 1
-            if _keyList[_start:].count('CONTINUE') == 0:
-                break
+        idx = len(cards)
+        continueimg = []
+        for card in reversed(cards):
+            idx -= 1
+            if idx != 0 and card.key == 'CONTINUE':
+                continueimg.append(card._cardimage)
+                del cards[idx]
+            elif continueimg:
+                continueimg.append(card._cardimage)
+                continueimg = ''.join(reversed(continueimg))
+                print continueimg
+                cards[idx] = _ContinueCard.fromstring(continueimg)
+                continueimg = []
 
         # construct the Header object, using the cards.
-        header = Header(CardList(_cardList, keylist=_keyList))
+        header = Header(CardList(cards, keylist=keys))
 
         if ((header._hdutype == PrimaryHDU or header._hdutype == ImageHDU)
             and (hasattr(self, '_do_not_scale_image_data'))):
@@ -968,10 +964,13 @@ class _TempHDU(_ValidHDU):
 
         return hdu
 
-    def isPrimary(self):
+    def is_primary(self):
+        # TODO: This doesn't seem to be used anyhwere, but I'm hesitant to
+        # remove it until I'm sure no one uses it.
         blocks = self._raw
 
         if (blocks[:8] == 'SIMPLE  '):
            return True
         else:
            return False
+    isPrimary = is_primary

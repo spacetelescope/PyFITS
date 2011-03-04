@@ -53,35 +53,6 @@ class FITS_record(object):
         else:
             self.end = endColumn
 
-    def field(self, fieldName):
-        """
-        Get the field data of the record.
-        """
-
-        return self.__getitem__(fieldName)
-
-
-    def setfield(self, fieldName, value):
-        """
-        Set the field data of the record.
-        """
-
-        self.__setitem__(fieldName, value)
-
-    def __str__(self):
-        """
-        Print one row.
-        """
-
-        outlist = []
-        for idx in range(self.array._nfields):
-            if idx >= self.start and idx < self.end:
-                outlist.append(repr(self.array.field(idx)[self.row]))
-        return '(%s)' % ', '.join(outlist)
-
-    def __repr__(self):
-        return self.__str__()
-
     def __getitem__(self,key):
         if isinstance(key, (str, unicode)):
             indx = _get_index(self.array._coldefs.names, key)
@@ -110,11 +81,38 @@ class FITS_record(object):
 
         self.array.field(indx)[self.row] = value
 
+    def __getslice__(self, i, j):
+        return FITS_record(self.array, self.row, i, j)
+
     def __len__(self):
         return min(self.end - self.start, self.array._nfields)
 
-    def __getslice__(self, i, j):
-        return FITS_record(self.array, self.row, i, j)
+    def __repr__(self):
+        """
+        Display a single row.
+        """
+
+        outlist = []
+        for idx in range(self.array._nfields):
+            if idx >= self.start and idx < self.end:
+                outlist.append(repr(self.array.field(idx)[self.row]))
+        return '(%s)' % ', '.join(outlist)
+
+
+    def field(self, fieldName):
+        """
+        Get the field data of the record.
+        """
+
+        return self.__getitem__(fieldName)
+
+
+    def setfield(self, fieldName, value):
+        """
+        Set the field data of the record.
+        """
+
+        self.__setitem__(fieldName, value)
 
 
 class FITS_rec(rec.recarray):

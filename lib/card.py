@@ -112,6 +112,19 @@ class Card(_Verify):
     # keys of commentary cards
     _commentary_keys = ['', 'COMMENT', 'HISTORY']
 
+    def __new__(cls, key='', value='', comment=''):
+        """
+        Return the appropriate Card subclass depending on they key and/or
+        value.
+        """
+
+        val_str = _value_to_string(value)
+        if len(val_str) > (Card.length - 10):
+            cls = _ContinueCard
+        elif isinstance(key, basestring) and key.upper().strip() == 'HIERARCH':
+            cls = _HierarchCard
+        return super(Card, cls).__new__(cls, key, value, comment) 
+
     def __init__(self, key='', value='', comment=''):
         """
         Construct a card from `key`, `value`, and (optionally) `comment`.
@@ -151,10 +164,7 @@ class Card(_Verify):
 
         if not hasattr(self, '_key'):
             head = self._get_key_string()
-            if isinstance(self, _HierarchCard):
-                self._key = head.strip()
-            else:
-                self._key = head.strip().upper()
+            self._key = head.strip().upper()
         return self._key
 
     def _setkey(self, val):
@@ -244,73 +254,28 @@ class Card(_Verify):
         return self._cardimage
 
     def _update_cardimage(self):
+        """This used to do what _generate_cardimage() does, plus setting te
+        value of self._cardimage.  Now it's kept mostly for symmetry.
+        """
+
+        self._cardimage = self._generate_cardimage()
+
+    def _generate_cardimage(self):
         """Generate a (new) card image from the attributes: `key`, `value`,
         and `comment`.  Core code for `ascardimage`.
         """
 
-        # keyword string (check both _key and _cardimage attributes to avoid an
-        # infinite loop
-        if hasattr(self, '_key') or hasattr(self, '_cardimage'):
-            if isinstance(self, _HierarchCard):
-                key_str = 'HIERARCH %s ' % self.key
-            else:
-                key_str = '%-8s' % self.key
-        else:
-            key_str = ' ' * 8
-
-        # value string
-        if not (hasattr(self, '_value') or hasattr(self, '_cardimage')):
-            val_str = ''
-
-        # string value should occupies at least 8 columns, unless it is
-        # a null string
-        elif isinstance(self.value, str):
-            if self.value == '':
-                val_str = "''"
-            else:
-                exp_val_str = self.value.replace("'", "''")
-                val_str = "'%-8s'" % exp_val_str
-                val_str = '%-20s' % val_str
-        # must be before int checking since bool is also int
-        elif isinstance(self.value, (bool, np.bool_)):
-            val_str = '%20s' % repr(self.value)[0] # T or F
-        elif isinstance(self.value, (int, long, np.integer)):
-            val_str = '%20d' % self.value
-
-        # XXX need to consider platform dependence of the format (e.g. E-009 vs. E-09)
-        elif isinstance(self.value, (float, np.floating)):
-            if self._value_modified:
-                val_str = '%20s' % _float_format(self.value)
-            else:
-                val_str = '%20s' % self._valuestring
-        elif isinstance(self.value, (complex, np.complexfloating)):
-            if self._value_modified:
-                tmp = '(%s, %s)' % (_float_format(self.value.real),
-                                    _float_format(self.value.imag))
-                val_str = '%20s' % tmp
-            else:
-                val_str = '%20s' % self._valuestring
-        elif isinstance(self.value, Undefined):
-            val_str = ''
-
-        # conserve space for HIERARCH cards
-        if isinstance(self, _HierarchCard):
-            val_str = val_str.strip()
-
-        # comment string
-        if key_str.strip() in Card._commentary_keys:  # do NOT use self.key
+        key_str = self._format_key()
+        val_str = self._format_value()
+        is_commentary = key_str.strip() in Card._commentary_keys
+        if is_commentary:
             comment_str = ''
-        elif hasattr(self, '_comment') or hasattr(self, '_cardimage'):
-            if not self.comment:
-                comment_str = ''
-            else:
-                comment_str = ' / ' + self._comment
         else:
-            comment_str = ''
+            comment_str = self._format_comment()
 
         # equal sign string
         eq_str = '= '
-        if key_str.strip() in Card._commentary_keys:  # not using self.key
+        if is_commentary:  # not using self.key
             eq_str = ''
             if hasattr(self, '_value'):
                 # Value must be a string in commentary cards
@@ -350,7 +315,38 @@ class Card(_Verify):
                 warnings.warn('Card is too long, comment is truncated.')
                 output = output[:Card.length]
 
-        self._cardimage = output
+        return output
+
+    def _format_key(self):
+        # keyword string (check both _key and _cardimage attributes to avoid an
+        # infinite loop
+        if hasattr(self, '_key') or hasattr(self, '_cardimage'):
+            return '%-8s' % self.key
+        else:
+            return ' ' * 8
+
+    def _format_value(self):
+        # value string
+        if not (hasattr(self, '_value') or hasattr(self, '_cardimage')):
+            return ''
+        elif (not hasattr(self, '_value_modified') or 
+              not self._value_modified) and \
+             isinstance(self.value, (float, np.floating, complex,
+                                     np.complexfloating)):
+            # Keep the existing formatting for float/complex numbers
+            return '%20s' % self._valuestring
+        else:
+            return _value_to_string(self.value)
+
+    def _format_comment(self):
+        # comment string
+        if hasattr(self, '_comment') or hasattr(self, '_cardimage'):
+            if not self.comment:
+                return ''
+            else:
+                return ' / ' + self._comment
+        else:
+            return ''
 
     # TODO: Wouldn't 'verification' be a better name for the 'option' keyword
     # argument?  'option' is pretty vague.
@@ -374,6 +370,28 @@ class Card(_Verify):
         self._update_cardimage()
         return self._cardimage
 
+    @classmethod
+    def fromstring(cls, cardimage):
+        """
+        Construct a `Card` object from a (raw) string. It will pad the
+        string if it is not the length of a card image (80 columns).
+        If the card image is longer than 80 columns, assume it
+        contains ``CONTINUE`` card(s).
+        """
+
+        cardimage = _pad(cardimage)
+
+        if cardimage[:8].upper() == 'HIERARCH':
+            card = _HierarchCard()
+        # for card image longer than 80, assume it contains CONTINUE card(s).
+        elif len(cardimage) > Card.length:
+            card = _ContinueCard()
+        else:
+            card = cls()
+
+        card._cardimage = cardimage
+        return card
+
     def _check_text(self, val):
         """Verify `val` to be printable ASCII text."""
 
@@ -382,12 +400,12 @@ class Card(_Verify):
             self._fixable = False
             raise ValueError(self._err_text)
 
-    def _check_key(self, val):
-        """Verify the keyword `val` to be FITS standard."""
+    def _check_key(self, key):
+        """Verify the keyword `key` to be FITS standard."""
 
         # use repr (not str) in case of control character
-        if not Card._keywd_FSC_RE.match(val):
-            self._err_text = 'Illegal keyword name %s' % repr(val)
+        if not Card._keywd_FSC_RE.match(key):
+            self._err_text = 'Illegal keyword name %s' % repr(key)
             self._fixable = False
             raise ValueError(self._err_text)
 
@@ -581,7 +599,8 @@ class Card(_Verify):
             self._check_key(self.key)
 
             # verify the value, it may be fixable
-            result = Card._value_FSC_RE.match(self._get_value_comment_string())
+            value = self._get_value_comment_string()
+            result = Card._value_FSC_RE.match(value)
             if result is not None or self.key in Card._commentary_keys:
                 return result
             else:
@@ -594,7 +613,7 @@ class Card(_Verify):
                 else:
                     self._err_text = \
                         'Card image is not FITS standard (unparsable value ' \
-                        'string).'
+                        'string: %s).' % value
                     raise ValueError(self._err_text + '\n%s' % self.cardimage)
 
             # verify the comment (string), it is never fixable
@@ -602,30 +621,6 @@ class Card(_Verify):
                 comm = result.group('comm')
                 if comm is not None:
                     self._check_text(comm)
-
-    # TODO: It would probably make more sense for this to be a class method
-    # that returns a new instance; but we'll leave it for now.
-    def fromstring(self, input):
-        """
-        Construct a `Card` object from a (raw) string. It will pad the
-        string if it is not the length of a card image (80 columns).
-        If the card image is longer than 80 columns, assume it
-        contains ``CONTINUE`` card(s).
-        """
-
-        self._cardimage = _pad(input)
-
-        if self._cardimage[:8].upper() == 'HIERARCH':
-            self.__class__ = _HierarchCard
-        # for card image longer than 80, assume it contains CONTINUE card(s).
-        elif len(self._cardimage) > Card.length:
-            self.__class__ = _ContinueCard
-
-        # remove the key/value/comment attributes, some of them may not exist
-        for name in ['_key', '_value', '_comment', '_value_modified']:
-            if hasattr(self, name):
-                delattr(self, name)
-        return self
 
     def _ncards(self):
         return len(self.cardimage) // Card.length
@@ -952,12 +947,11 @@ class RecordValuedKeywordCard(Card):
             Either a `RecordValuedKeywordCard` or a `Card` object.
         """
 
-        if cls.valid_key_value(key, value):
-            objClass = cls
-        else:
-            objClass = Card
+        if not cls.valid_key_value(key, value):
+            # This should be just a normal card
+            cls = Card
 
-        return objClass(key, value, comment)
+        return cls(key, value, comment)
     createCard = create_card # For API backward-compatibility
 
     @classmethod
@@ -984,11 +978,11 @@ class RecordValuedKeywordCard(Card):
 
         if idx2 > idx1 and idx1 >= 0 and \
            cls.valid_key_value('', value=input[idx1:idx2]):
-            objClass = cls
+            pass
         else:
-            objClass = Card
+            cls = Card
 
-        return objClass().fromstring(input)
+        return cls.fromstring(input)
     createCardFromString = create_card_from_string # For API backwards-compat
 
     def _update_cardimage(self):
@@ -1034,7 +1028,7 @@ class RecordValuedKeywordCard(Card):
         if not hasattr(self, '_valuestring'):
             self._valuestring = valu.group('val')
         if not hasattr(self, '_value_modified'):
-            self.__value_modified = False
+            self._value_modified = False
 
         return _str_to_num(valu.group('val').translate(FIX_FP_TABLE2, ' '))
 
@@ -1192,7 +1186,7 @@ class CardList(list):
             cardlist = self.filter_list(key)
 
             if len(cardlist) == 0:
-                raise KeyError("Keyword '%s' not found/" % key)
+                raise KeyError("Keyword '%s' not found." % key)
 
             for card in cardlist:
                 if isinstance(card, RecordValuedKeywordCard):
@@ -1494,6 +1488,26 @@ class _HierarchCard(Card):
     characters.
     """
 
+    def _getkey(self):
+        """Returns the keyword name parsed from the card image."""
+
+        if not hasattr(self, '_key'):
+            head = self._get_key_string()
+            self._key = head.strip()
+        return self._key
+
+    def _format_key(self):
+        if hasattr(self, '_key') or hasattr(self, '_cardimage'):
+            return 'HIERARCH %s ' % self.key
+        else:
+            return ' ' * 8
+
+    def _format_value(self):
+        val_str = super(_HierarchCard, self)._format_value()
+        # conserve space for HIERARCH cards
+        return val_str.strip()
+
+
     def _verify(self, option='warn'):
         """No verification (for now)."""
 
@@ -1510,17 +1524,16 @@ class _ContinueCard(Card):
     def __str__(self):
         """Format a list of cards into a printable string."""
 
-        kard = self.cardimage
-        output = ''
-        for i in range(len(kard)//80):
-            output += kard[i*80:(i+1)*80] + '\n'
-        return output[:-1]
+        output = []
+        for idx in range(len(self.cardimage) // 80):
+            output.append(self.cardimage[idx*80:(idx+1)*80])
+        return '\n'.join(output)
 
     def _iter_cards(self):
         ncards = self._ncards()
         for idx in range(ncards):
             # take each 80-char card as a regular card and use its methods.
-            card = Card().fromstring(self.cardimage[idx*80:(idx+1)*80])
+            card = Card.fromstring(self.cardimage[idx*80:(idx+1)*80])
             if idx > 0 and card.key != 'CONTINUE':
                 raise ValueError('Long card image must have CONTINUE cards '
                                  'after the first card.')
@@ -1630,12 +1643,49 @@ class _ContinueCard(Card):
         return lst
 
 
+def _value_to_string(value):
+    """Converts a card value to its appropriate string representation as
+    defined by the FITS format.
+    """
+
+    # string value should occupies at least 8 columns, unless it is
+    # a null string
+    if isinstance(value, str):
+        if value == '':
+            return "''"
+        else:
+            exp_val_str = value.replace("'", "''")
+            val_str = "'%-8s'" % exp_val_str
+            return '%-20s' % val_str
+
+    # must be before int checking since bool is also int
+    elif isinstance(value, (bool, np.bool_)):
+        return '%20s' % repr(value)[0] # T or F
+
+    elif _is_int(value):
+        return '%20d' % value
+
+    # XXX need to consider platform dependence of the format (e.g. E-009 vs. E-09)
+    elif isinstance(value, (float, np.floating)):
+        return '%20s' % _float_format(value)
+
+    elif isinstance(value, (complex, np.complexfloating)):
+        val_str = '(%s, %s)' % (_float_format(value.real),
+                                _float_format(value.imag))
+        return '%20s' % val_str
+
+    elif isinstance(value, Undefined):
+        return ''
+    else:
+        return ''
+
+
 def _float_format(value):
     """Format a floating number to make sure it gets the decimal point."""
 
     value_str = '%.16G' % value
-    if "." not in value_str and "E" not in value_str:
-        value_str += ".0"
+    if '.' not in value_str and 'E' not in value_str:
+        value_str += '.0'
 
     # Limit the value string to at most 20 characters.
     str_len = len(value_str)
@@ -1644,7 +1694,7 @@ def _float_format(value):
         idx = value_str.find('E')
 
         if idx < 0:
-            valueStr = value_str[:20]
+            value_str = value_str[:20]
         else:
             value_str = value_str[:20-(str_len-idx)] + value_str[idx:]
 
