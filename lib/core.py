@@ -3116,6 +3116,7 @@ class _ValidHDU(_AllHDU, _Verify):
                     "either":2880,  # do standard first
                     True: 2880,
                     }[blocking]
+        sum32 = np.uint32(sum32)
         for i in range(0, len(bytes), blocklen):
             length = min(blocklen, len(bytes)-i)   # ????
             sum32 = self._compute_hdu_checksum(bytes[i:i+length], sum32)
@@ -3130,22 +3131,24 @@ class _ValidHDU(_AllHDU, _Verify):
         # Historically,  this code *was* called with larger blocks and for that
         # reason still needs to be for backward compatibility.
 
+        u16 = np.uint32(16)
+        uFFFF = np.uint32(0xFFFF)
         bytes = bytes.view(dtype='>u2')
-        hi = sum32 >> 16
-        lo = sum32 & 0xFFFF
-        hi += int(np.add.reduce(bytes[0::2])) & 0xFFFFFFFF
-        lo += int(np.add.reduce(bytes[1::2])) & 0xFFFFFFFF
+        hi = sum32 >> u16
+        lo = sum32 & uFFFF
+        hi += int(np.add.reduce(bytes[0::2])) & np.uint32(0xFFFFFFFF)
+        lo += int(np.add.reduce(bytes[1::2])) & np.uint32(0xFFFFFFFF)
 
-        hicarry = hi >> 16
-        locarry = lo >> 16
+        hicarry = hi >> u16
+        locarry = lo >> u16
 
         while hicarry or locarry:
-            hi = (hi & 0xFFFF) + locarry
-            lo = (lo & 0xFFFF) + hicarry
-            hicarry = hi >> 16
-            locarry = lo >> 16
+            hi = (hi & uFFFF) + locarry
+            lo = (lo & uFFFF) + hicarry
+            hicarry = hi >> u16
+            locarry = lo >> u16
 
-        return (hi << 16) + lo
+        return (hi << u16) + lo
 
 
     # _MASK and _EXCLUDE used for encoding the checksum value into a character
@@ -3162,6 +3165,7 @@ class _ValidHDU(_AllHDU, _Verify):
         """
         Encode a single byte.
         """
+
         quotient = byte // 4 + ord('0')
         remainder = byte % 4
 
@@ -3194,7 +3198,8 @@ class _ValidHDU(_AllHDU, _Verify):
         -------
         ascii encoded checksum
         """
-        value = np.array(value, dtype='uint32')
+
+        value = np.uint32(value)
 
         asc = np.zeros((16,), dtype='byte')
         ascii = np.zeros((16,), dtype='byte')
