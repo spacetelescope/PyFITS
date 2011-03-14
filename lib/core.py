@@ -2992,7 +2992,7 @@ class _ValidHDU(_AllHDU, _Verify):
         # so the checking is in order, in case of required cards in wrong order.
         if isinstance(self, _ExtensionHDU):
             firstkey = 'XTENSION'
-            firstval = self._xtn
+            firstval = self._extension
         else:
             firstkey = 'SIMPLE'
             firstval = True
@@ -3592,10 +3592,26 @@ class _ExtensionHDU(_ValidHDU):
     `BinTableHDU` classes.
     """
 
-    def __init__(self, data=None, header=None):
+    # _xtn is kept here for backwards compatibility, but will probably go away
+    # in a future release.
+    _xtn = _extension = ''
+
+    def __init__(self, data=None, header=None, **kwargs):
+        """
+        Can take an arbitrary number of keyword arguments to support subclasses
+        that add additional arguments tot he constructor.
+        """
+
         super(_ExtensionHDU, self).__init__(data, header)
+        if header:
+            if header.has_key('EXTNAME') and not hasattr(self, 'name'):
+                self.name = header['EXTNAME']
+            if not hasattr(self, '_extver'):
+                if header.has_key('EXTVER'):
+                    self._extver = header['EXTVER']
+                else:
+                    self._extver = 1
         self._file, self._offset, self._datLoc = None, None, None
-        self._xtn = ' '
 
     def __setattr__(self, attr, value):
         """
@@ -3944,6 +3960,7 @@ class _ImageBaseHDU(_ValidHDU):
                'float32':-32, 'float64':-64}
 
     def __init__(self, data=None, header=None, do_not_scale_image_data=False):
+        super(_ImageBaseHDU, self).__init__(data=data, header=header)
         self._file, self._datLoc = None, None
 
         if header is not None:
@@ -4384,7 +4401,7 @@ class PrimaryHDU(_ImageBaseHDU):
             when read.
         """
 
-        _ImageBaseHDU.__init__(self, data=data, header=header,
+        super(PrimaryHDU, self).__init__(data=data, header=header,
                                do_not_scale_image_data=do_not_scale_image_data)
         self.name = 'PRIMARY'
 
@@ -4400,6 +4417,8 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
     """
     FITS image extension HDU class.
     """
+
+    _xtn = _extension = 'IMAGE'
 
     def __init__(self, data=None, header=None, name=None,
                  do_not_scale_image_data=False):
@@ -4425,9 +4444,8 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
         """
 
         # no need to run _ExtensionHDU.__init__ since it is not doing anything.
-        _ImageBaseHDU.__init__(self, data=data, header=header,
+        super(ImageHDU, self).__init__(data=data, header=header,
                                do_not_scale_image_data=do_not_scale_image_data)
-        self._xtn = 'IMAGE'
 
         self._header._hdutype = ImageHDU
 
@@ -4466,7 +4484,8 @@ class GroupsHDU(PrimaryHDU):
         """
         TODO: Write me
         """
-        PrimaryHDU.__init__(self, data=data, header=header)
+
+        super(GroupsHDU, self).__init__(data=data, header=header)
         self._header._hdutype = GroupsHDU
         self.name = name
 
@@ -5874,7 +5893,7 @@ class FITS_rec(rec.recarray):
                         warnings.warn('Setting attribute %s as None' % attr)
                     setattr(self, attr, value)
 
-            if self._coldefs == None:
+            if self._coldefs is None:
                 # The data does not have a _coldefs attribute so
                 # create one from the underlying recarray.
                 columns = []
@@ -5890,15 +5909,8 @@ class FITS_rec(rec.recarray):
                     c = Column(name=cname,format=format)
                     columns.append(c)
 
-                tbtype = 'BinTableHDU'
-                try:
-                    if self._xtn == 'TABLE':
-                        tbtype = 'TableHDU'
-                except AttributeError:
-                    pass
-
                 self.formats = formats
-                self.columns = self._coldefs = ColDefs(columns, tbtype=tbtype)
+                self.columns = self._coldefs = ColDefs(columns)
 
 
     def _clone(self, shape):
@@ -6321,6 +6333,7 @@ class _Group(FITS_record):
     """
     One group of the random group data.
     """
+
     def __init__(self, input, row, parnames):
         super(_Group, self).__init__(input, row)
         self.parnames = parnames
@@ -6416,6 +6429,7 @@ class _TableBaseHDU(_ExtensionHDU):
     """
     FITS table extension base HDU class.
     """
+
     def __init__(self, data=None, header=None, name=None):
         """
         Parameters
@@ -6433,6 +6447,8 @@ class _TableBaseHDU(_ExtensionHDU):
         if header is not None:
             if not isinstance(header, Header):
                 raise ValueError, "header must be a Header object"
+
+        super(_TableBaseHDU, self).__init__(data=data, header=header)
 
         if data is DELAYED:
 
@@ -6501,14 +6517,7 @@ class _TableBaseHDU(_ExtensionHDU):
                        c = Column(name=cname,format=format,array=data[cname])
                        columns.append(c)
 
-                    try:
-                        tbtype = 'BinTableHDU'
-
-                        if self._xtn == 'TABLE':
-                            tbtype = 'TableHDU'
-                    except AttributeError:
-                        pass
-
+                    tbtype = self.__class__.__name__
                     self.data._coldefs = ColDefs(columns,tbtype=tbtype)
 
                 self.columns = self.data._coldefs
@@ -6531,11 +6540,6 @@ class _TableBaseHDU(_ExtensionHDU):
                 pass
             else:
                 raise TypeError, "table data has incorrect type"
-
-        #  set extension name
-        if not name and self._header.has_key('EXTNAME'):
-            name = self._header['EXTNAME']
-        self.name = name
 
     def __getattr__(self, attr):
         """
@@ -6684,8 +6688,11 @@ class TableHDU(_TableBaseHDU):
     """
     FITS ASCII table extension HDU class.
     """
+
     __format_RE = re.compile(
         r'(?P<code>[ADEFIJ])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
+
+    _xtn = _extension = 'TABLE'
 
     def __init__(self, data=None, header=None, name=None):
         """
@@ -6700,10 +6707,9 @@ class TableHDU(_TableBaseHDU):
         name : str
             the ``EXTNAME`` value
         """
-        self._xtn = 'TABLE'
-        _TableBaseHDU.__init__(self, data=data, header=header, name=name)
-        if self._header[0].rstrip() != self._xtn:
-            self._header[0] = self._xtn
+        super(TableHDU, self).__init__(data=data, header=header, name=name)
+        if self._header[0].rstrip() != self._extension:
+            self._header[0] = self._extension
             self._header.ascard[0].comment = 'ASCII table extension'
     '''
     def format(self):
@@ -6763,6 +6769,9 @@ class BinTableHDU(_TableBaseHDU):
     """
     Binary table HDU class.
     """
+
+    _xtn = _extension = 'BINTABLE'
+
     def __init__(self, data=None, header=None, name=None):
         """
         Parameters
@@ -6777,11 +6786,10 @@ class BinTableHDU(_TableBaseHDU):
             the ``EXTNAME`` value
         """
 
-        self._xtn = 'BINTABLE'
-        _TableBaseHDU.__init__(self, data=data, header=header, name=name)
+        super(BinTableHDU, self).__init__(data=data, header=header, name=name)
         hdr = self._header
-        if hdr[0] != self._xtn:
-            hdr[0] = self._xtn
+        if hdr[0] != self._extension:
+            hdr[0] = self._extension
             hdr.ascard[0].comment = 'binary table extension'
 
         self._header._hdutype = BinTableHDU
@@ -7521,11 +7529,11 @@ if compressionSupported:
 
             if data is DELAYED:
                 # Reading the HDU from a file
-                BinTableHDU.__init__(self, data=data, header=header)
+                super(CompImageHDU, self).__init__(data=data, header=header)
             else:
                 # Create at least a skeleton HDU that matches the input
                 # header and data (if any were input)
-                BinTableHDU.__init__(self, data=None, header=header)
+                super(CompImageHDU, self).__init__(data=None, header=header)
 
                 # Store the input image data
                 self.data = data
