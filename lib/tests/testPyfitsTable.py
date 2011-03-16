@@ -1630,6 +1630,66 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         ahdu = pyfits.new_table([acol], tbtype='TableHDU')
         self.assertEqual(ahdu.data.tostring(), s.replace('\x00', ' '))
 
+    def testMultiDimensionalColumns(self):
+        """
+        Tests the multidimensional column implementation with both numeric
+        arrays and string arrays.
+        """
+
+        data = pyfits.rec.array(
+            [([1, 2, 3, 4], 'row1' * 2),
+             ([5, 6, 7, 8], 'row2' * 2),
+             ([9, 1, 2, 3], 'row3' * 2)], formats='4i4,a8')
+
+        thdu = pyfits.new_table(data)
+        # Modify the TDIM fields to my own specification
+        thdu.header.update('TDIM1', '(2,2)')
+        thdu.header.update('TDIM2', '(4,2)')
+
+        thdu.writeto('newtable.fits')
+
+        hdul = pyfits.open('newtable.fits')
+        thdu = hdul[1]
+
+        c1 = thdu.data.field(0)
+        c2 = thdu.data.field(1)
+
+        hdul.close()
+        os.remove('newtable.fits')
+
+        self.assertEqual(c1.shape, (3, 2, 2))
+        self.assertEqual(c2.shape, (3, 2))
+        self.assertTrue((c1 == numpy.array([[[1, 2], [3, 4]],
+                                            [[5, 6], [7, 8]],
+                                            [[9, 1], [2, 3]]])).all())
+        self.assertTrue((c2 == numpy.array([['row1', 'row1'],
+                                            ['row2', 'row2'],
+                                            ['row3', 'row3']])).all())
+
+        # Test setting the TDIMn header based on the column data
+        data = numpy.zeros(3, dtype=[('x', 'f4'), ('s', 'S5', 4)])
+        data['x'] = 1, 2, 3
+        data['s'] = 'ok'
+        pyfits.writeto('newtable.fits', data)
+
+        t = pyfits.getdata('newtable.fits')
+        os.remove('newtable.fits')
+
+        self.assertEqual(t.field(1).dtype, numpy.dtype('|S5'))
+        self.assertEqual(t.field(1).shape, (3, 4))
+
+        # Like the previous test, but with an extra dimension (a bit more
+        # complicated)
+        data = numpy.zeros(3, dtype=[('x', 'f4'), ('s', 'S5', (4, 3))])
+        data['x'] = 1, 2, 3
+        data['s'] = 'ok'
+        pyfits.writeto('newtable.fits', data)
+
+        t = pyfits.getdata('newtable.fits')
+        os.remove('newtable.fits')
+
+        self.assertEqual(t.field(1).dtype, numpy.dtype('|S5'))
+        self.assertEqual(t.field(1).shape, (3, 4, 3))
 
 if __name__ == '__main__':
     unittest.main()

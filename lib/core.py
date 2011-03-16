@@ -4443,7 +4443,6 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
             when read.
         """
 
-        # no need to run _ExtensionHDU.__init__ since it is not doing anything.
         super(ImageHDU, self).__init__(data=data, header=header,
                                do_not_scale_image_data=do_not_scale_image_data)
 
@@ -4656,6 +4655,9 @@ _tformat_re = re.compile(r'(?P<repeat>^[0-9]*)(?P<dtype>[A-Za-z])(?P<option>[!-~
 
 # table definition keyword regular expression
 _tdef_re = re.compile(r'(?P<label>^T[A-Z]*)(?P<num>[1-9][0-9 ]*$)')
+
+# table dimension keyword regular expression (fairly flexible with whitespace)
+_tdim_re = re.compile(r'\(\s*(?P<dims>(?:\d+,\s*)+\s*\d+)\s*\)\s*')
 
 def _parse_tformat(tform):
     """
@@ -5159,6 +5161,41 @@ class ColDefs(object):
                     if width is None:
                         self.data[i].format = ascii_fmt[self.data[i].format[0]]
 
+        # Construct columns from the fields of a record array
+        elif isinstance(input, np.ndarray) and input.dtype.fields is not None:
+            self.data = []
+            for idx in range(len(input.dtype)):
+                cname = input.dtype.names[idx]
+                ftype = input.dtype.fields[cname][0]
+                # String formats should have 'A' first
+                if ftype.type == np.string_:
+                    format = 'A' + str(ftype.itemsize)
+                else:
+                    format = _convert_format(ftype, reverse=True)
+                # if the format of an ASCII column has no width, add one
+                # (just copy/pasted for now--this is handled better in the
+                # refactoring branch
+                if tbtype == 'TableHDU':
+                    (type, width) = _convert_ASCII_format(format)
+                    if width is None:
+                        format = ascii_fmt[format[0]]
+
+                # Determine the appropriate dimensions for items in the column
+                # (typically just 1D)
+                dim = input.dtype[idx].shape
+                if dim and (len(dim) > 1 or 'A' in format):
+                    if 'A' in format:
+                        # n x m string arrays must include the max string
+                        # length in their dimensions (e.g. l x n x m)
+                        dim = (input.dtype[idx].base.itemsize,) + dim
+                    dim = repr(dim).replace(' ', '')
+                else:
+                    dim = None
+
+                c = Column(name=cname, format=format, array=input[cname],
+                           dim=dim)
+                self.data.append(c)
+
         elif isinstance(input, _TableBaseHDU):
             hdr = input._header
             _nfields = hdr['TFIELDS']
@@ -5652,7 +5689,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
             n = 0
 
         # Get any scale factors from the FITS_rec
-        (_scale, _zero, bscale, bzero) = hdu.data._get_scale_factors(i)[3:]
+        (_scale, _zero, bscale, bzero, dim) = hdu.data._get_scale_factors(i)[3:]
 
         if n > 0:
             # Only copy data if there is input data to copy
@@ -5862,7 +5899,7 @@ class FITS_rec(rec.recarray):
         if obj is None:
             return
 
-        if type(obj) == FITS_rec:
+        if isinstance(obj, FITS_rec):
             self._convert = obj._convert
             self.columns = self._coldefs = obj._coldefs
             self._nfields = obj._nfields
@@ -5892,26 +5929,6 @@ class FITS_rec(rec.recarray):
                     if value is None:
                         warnings.warn('Setting attribute %s as None' % attr)
                     setattr(self, attr, value)
-
-            if self._coldefs is None:
-                # The data does not have a _coldefs attribute so
-                # create one from the underlying recarray.
-                columns = []
-                formats = []
-
-                for i in range(len(obj.dtype.names)):
-                    cname = obj.dtype.names[i]
-
-                    format = _convert_format(obj.dtype[i], reverse=True)
-
-                    formats.append(format)
-
-                    c = Column(name=cname,format=format)
-                    columns.append(c)
-
-                self.formats = formats
-                self.columns = self._coldefs = ColDefs(columns)
-
 
     def _clone(self, shape):
         """
@@ -5996,7 +6013,7 @@ class FITS_rec(rec.recarray):
         `indx` is the index of the field.
         """
         if self._coldefs._tbtype == 'BinTableHDU':
-            _str = 'a' in self._coldefs.formats[indx]
+            _str = 'a' in self._coldefs._recformats[indx]
             _bool = self._coldefs._recformats[indx][-2:] == _booltype
         else:
             _str = self._coldefs.formats[indx][0] == 'A'
@@ -6011,8 +6028,17 @@ class FITS_rec(rec.recarray):
             bscale = 1
         if not _zero:
             bzero = 0
+        dim = self._coldefs.dims[indx]
+        m = dim and _tdim_re.match(dim)
+        if m:
+            dim = m.group('dims')
+            dim = tuple(int(d.strip()) for d in dim.split(','))
+        else:
+            # Ignore any dim values that don't specify a multidimensional
+            # column
+            dim = ''
 
-        return (_str, _bool, _number, _scale, _zero, bscale, bzero)
+        return (_str, _bool, _number, _scale, _zero, bscale, bzero, dim)
 
     def field(self, key):
         """
@@ -6029,7 +6055,7 @@ class FITS_rec(rec.recarray):
                 self._convert[indx] = dummy
                 return self._convert[indx]
 
-            (_str, _bool, _number, _scale, _zero, bscale, bzero) = self._get_scale_factors(indx)
+            (_str, _bool, _number, _scale, _zero, bscale, bzero, dim) = self._get_scale_factors(indx)
 
             # for P format
             if isinstance(self._coldefs._recformats[indx], _FormatP):
@@ -6062,11 +6088,8 @@ class FITS_rec(rec.recarray):
                 self._convert[indx] = dummy
                 return self._convert[indx]
 
-            if _str:
-                return rec.recarray.field(self,indx)
-
             # ASCII table, convert strings to numbers
-            if self._coldefs._tbtype == 'TableHDU':
+            if not _str and self._coldefs._tbtype == 'TableHDU':
                 _dict = {'I':np.int32, 'F':np.float32, 'E':np.float32, 'D':np.float64}
                 _type = _dict[self._coldefs._Formats[indx][0]]
 
@@ -6078,7 +6101,36 @@ class FITS_rec(rec.recarray):
 
                 self._convert[indx] = dummy
             else:
-                dummy = rec.recarray.field(self,indx)
+                dummy = rec.recarray.field(self, indx)
+
+            # Test that the dimensions given in dim are sensible; otherwise
+            # display a warning and ignore them
+            if dim:
+                # See if the dimensions already match, if not, make sure the
+                # number items will fit in the specified dimensions
+                if dummy.ndim > 1:
+                    actual_shape = dummy[0].shape
+                    if _str:
+                        actual_shape = (dummy[0].itemsize,) + actual_shape
+                else:
+                    actual_shape = len(dummy[0])
+                if dim == actual_shape:
+                    # The array already has the correct dimensions, so we
+                    # ignore dim and don't convert
+                    dim = None
+                else:
+                    nitems = reduce(operator.mul, dim)
+                    if _str:
+                        actual_nitems = dummy.itemsize
+                    else:
+                        actual_nitems = dummy.shape[1]
+                    if nitems != actual_nitems:
+                        warnings.warn(
+                            'TDIM%d value %s does not fit with the size of '
+                            'the array items (%d).  TDIM%d will be ignored.'
+                            % (indx + 1, self._coldefs.dims[indx],
+                               actual_nitems, indx + 1))
+                        dim = None
 
             # further conversion for both ASCII and binary tables
             if _number and (_scale or _zero):
@@ -6086,13 +6138,23 @@ class FITS_rec(rec.recarray):
                 # only do the scaling the first time and store it in _convert
                 self._convert[indx] = np.array(dummy, dtype=np.float64)
                 if _scale:
-                    np.multiply(self._convert[indx], bscale, self._convert[indx])
+                    np.multiply(self._convert[indx], bscale,
+                                self._convert[indx])
                 if _zero:
                     self._convert[indx] += bzero
             elif _bool:
                 self._convert[indx] = np.equal(dummy, ord('T'))
+            elif dim:
+                self._convert[indx] = dummy
             else:
                 return dummy
+
+            if dim:
+                if _str:
+                    dtype = ('|S%d' % dim[0], dim[1:])
+                    self._convert[indx].dtype = dtype
+                else:
+                    self._convert[indx].shape = (dummy.shape[0],) + dim
 
         return self._convert[indx]
 
@@ -6116,7 +6178,7 @@ class FITS_rec(rec.recarray):
                     _wrapx(self._convert[indx], rec.recarray.field(self,indx), self._coldefs._recformats[indx]._nx)
                     continue
 
-                (_str, _bool, _number, _scale, _zero, bscale, bzero) = self._get_scale_factors(indx)
+                (_str, _bool, _number, _scale, _zero, bscale, bzero, dim) = self._get_scale_factors(indx)
 
                 # add the location offset of the heap area for each
                 # variable length column
@@ -6484,7 +6546,7 @@ class _TableBaseHDU(_ExtensionHDU):
             self._header = Header(_list)
 
         if (data is not DELAYED):
-            if isinstance(data,np.ndarray) and not data.dtype.fields == None:
+            if isinstance(data,np.ndarray) and data.dtype.fields is not None:
                 if isinstance(data, FITS_rec):
                     self.data = data
                 elif isinstance(data, rec.recarray):
@@ -6496,29 +6558,15 @@ class _TableBaseHDU(_ExtensionHDU):
                 self._header['NAXIS2'] = self.data.shape[0]
                 self._header['TFIELDS'] = self.data._nfields
 
-                if self.data._coldefs == None:
-                    #
-                    # The data does not have a _coldefs attribute so
-                    # create one from the underlying recarray.
-                    #
-                    columns = []
-
-                    for i in range(len(data.dtype.names)):
-                       cname = data.dtype.names[i]
-
-                       if data.dtype.fields[cname][0].type == np.string_:
-                           format = \
-                            'A'+str(data.dtype.fields[cname][0].itemsize)
-                       else:
-                           format = \
-                            _convert_format(data.dtype.fields[cname][0].str[1:],
-                            True)
-
-                       c = Column(name=cname,format=format,array=data[cname])
-                       columns.append(c)
-
-                    tbtype = self.__class__.__name__
-                    self.data._coldefs = ColDefs(columns,tbtype=tbtype)
+                if self.data._coldefs is None:
+                    # This tbtype stuff is still very broken, but it will
+                    # require adapting a lot more from the refactoring branch
+                    # to fix right now
+                    if self._extension == 'TABLE':
+                        tbtype = 'TableHDU'
+                    else:
+                        tbtype = 'BinTableHDU'
+                    self.data._coldefs = ColDefs(data, tbtype)
 
                 self.columns = self.data._coldefs
                 self.update()
