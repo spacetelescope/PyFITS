@@ -90,10 +90,6 @@ class _TableBaseHDU(_ExtensionHDU):
                 self._header['NAXIS2'] = self.data.shape[0]
                 self._header['TFIELDS'] = self.data._nfields
 
-                # TODO: This is almost exactly identical to code in 
-                # FITS_rec.__array_finalize__; we should centralize it
-                # somewhere (the purpose of the code is to create a ColDefs
-                # from a recarray-like object
                 if self.data._coldefs is None:
                     self.data._coldefs = ColDefs(data)
 
@@ -133,7 +129,6 @@ class _TableBaseHDU(_ExtensionHDU):
     def data(self):
         size = self.size()
         if size:
-            self._file.seek(self._datLoc)
             data = self._get_tbdata()
             data._coldefs = self.columns
             data.formats = self.columns.formats
@@ -190,27 +185,19 @@ class _TableBaseHDU(_ExtensionHDU):
         """Get the table data from an input HDU object."""
 
         columns = self.columns
-        if self._ffile.memmap:
-            self._ffile.code = rec.format_parser(','.join(columns._recformats),
-                                                 columns.names, None)._descr
-
-            self._ffile.dims = columns._shape
-            self._ffile.offset = hdu._datLoc
-            data = rec.recarray(shape=self._ffile.dims, buf=hdu._ffile._mm,
-                                dtype=self._ffile.code, names=columns.names)
-        else:
-            data = rec.array(self._file, formats=','.join(columns._recformats),
-                             names=columns.names, shape=columns._shape)
-
+        formats = ','.join(columns._recformats)
+        dtype = rec.format_parser(formats, columns.names, None)._descr
+        raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
+                                        shape=columns._shape)
+        data = rec.recarray(shape=raw_data.shape, buf=raw_data,
+                            dtype=raw_data.dtype, names=columns.names)
         self._init_tbdata(data)
         return data.view(FITS_rec)
 
     def _init_tbdata(self, data):
-        from pyfits.file import _File
-
         columns = self.columns
-        if isinstance(self._ffile, _File):
-            data.dtype = data.dtype.newbyteorder('>')
+        
+        data.dtype = data.dtype.newbyteorder('>')
 
         # pass datLoc, for P format
         data._heapoffset = self._theap + self._datLoc
@@ -348,15 +335,10 @@ class TableHDU(_TableBaseHDU):
                                 self._header['NAXIS1'] - itemsize)
             dtype[columns.names[idx]] = (data_type, columns.starts[idx] - 1)
 
-        if self._ffile.memmap:
-            self._ffile.code = dtype
-            self._ffile.dims = columns._shape
-            self._ffile.offset = hdu._datLoc
-            data = rec.recarray(shape=self._ffile.dims, buf=hdu._ffile._mm,
-                                dtype=self._ffile.code, names=columns.names)
-        else:
-            data = rec.array(self._file, dtype=dtype, names=columns.names,
-                             shape=columns._shape)
+        raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
+                                        shape=columns._shape)
+        data = rec.recarray(shape=raw_data.shape, buf=raw_data,
+                            dtype=raw_data.dtype, names=columns.names)
 
         self._init_tbdata(data)
         return data.view(FITS_rec)
@@ -384,7 +366,7 @@ class TableHDU(_TableBaseHDU):
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
             # all.  This can also be handled in a gereric manner.
-            return super(TableHDU,self)._calculate_datasum(blocking)
+            return super(TableHDU, self)._calculate_datasum(blocking)
 
     def _verify(self, option='warn'):
         """
@@ -593,7 +575,7 @@ class BinTableHDU(_TableBaseHDU):
         # Process the data
 
         if not datafile:
-            root,ext = os.path.splitext(self._file.name)
+            root, ext = os.path.splitext(self._file.name)
             datafile = root + '.txt'
 
         closeDfile = False
@@ -1018,7 +1000,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     for i in range(len(tmp)):
         _arr = tmp._arrays[i]
         if isinstance(_arr, Delayed):
-            if _arr.hdu().data == None:
+            if _arr.hdu().data is None:
                 tmp._arrays[i] = None
             else:
                 # TODO: Why not _arr.hdu().data.field()?
@@ -1049,6 +1031,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     else:
         hdu.data = FITS_rec(rec.array(None, formats=",".join(tmp._recformats),
                                       names=tmp.names, shape=nrows))
+    hdu._data_loaded = True
 
     hdu.data._coldefs = hdu.columns
     hdu.data.formats = hdu.columns.formats

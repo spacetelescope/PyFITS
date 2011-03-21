@@ -40,18 +40,22 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         os.remove('tmp.fits')
 
     def testNonstandardChecksum(self):
-        warnings.filterwarnings('error', message="Warning:  Checksum verification failed")
-        warnings.filterwarnings("error", message="Warning:  Datasum verification failed")
+        warnings.filterwarnings('error',
+                                message='"Warning:  Checksum verification failed')
+        warnings.filterwarnings('error',
+                                message='Warning:  Datasum verification failed')
         hdu = pyfits.PrimaryHDU(np.arange(10.**6))
-        hdu.writeto('tmp.fits', clobber=True, checksum="nonstandard")
+        hdu.writeto('tmp.fits', clobber=True, checksum='nonstandard')
         del hdu
-        hdul = pyfits.open("tmp.fits", checksum="nonstandard")   # should pass
-        self.assertRaises(UserWarning, pyfits.open, "tmp.fits", checksum=True)
-        self.assertRaises(UserWarning, pyfits.open, "tmp.fits", checksum="standard")
-        warnings.filterwarnings("default", message="Warning:  Checksum verification failed")
-        warnings.filterwarnings("default", message="Warning:  Datasum verification failed")
-        os.remove("tmp.fits")
-    
+        hdul = pyfits.open('tmp.fits', checksum='nonstandard')   # should pass
+        self.assertRaises(UserWarning, pyfits.open, 'tmp.fits', checksum=True)
+        self.assertRaises(UserWarning, pyfits.open, 'tmp.fits', checksum="standard")
+        warnings.filterwarnings('default',
+                                message='Warning:  Checksum verification failed')
+        warnings.filterwarnings('default',
+                                message='Warning:  Datasum verification failed')
+        os.remove('tmp.fits')
+
     def testScaledData(self):
         hdul = pyfits.open(os.path.join(data_dir, 'scale.fits'))
         hdul[0].scale('int16', 'old')

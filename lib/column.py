@@ -908,9 +908,9 @@ def _convert_record2fits(format):
         output_format = str(ntot) + NUMPY2FITS[dtype]
     elif isinstance(dtype, _FormatX):
         warnings.warn('X format')
-    elif dtype+option in NUMPY2FITS: # record format
+    elif dtype + option in NUMPY2FITS: # record format
         if repeat != 1:
-            repeat = repr(repeat)
+            repeat = str(repeat)
         else:
             repeat = ''
         output_format = repeat + NUMPY2FITS[dtype + option]
@@ -944,7 +944,7 @@ def _convert_ascii_format(input_format):
         if width == '':
             width = None
         else:
-            width = eval(width)
+            width = int(width)
     except KeyError:
         raise ValueError('Illegal format `%s` for ASCII table.'
                          % input_format)

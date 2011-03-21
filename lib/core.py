@@ -53,7 +53,7 @@ from pyfits.header import Header
 
 # Additional imports for compatibility with stpyfits.py (which should be
 # updated at some point)
-from pyfits.file import _File
+from pyfits.file import FITSFile
 from pyfits.hdu.base import _AllHDU
 from pyfits.hdu.image import _ImageBaseHDU
 
@@ -61,9 +61,11 @@ from pyfits.hdu.image import _ImageBaseHDU
 __all__ = pyfits.card.__all__ + pyfits.column.__all__ + \
           pyfits.convenience.__all__ + pyfits.hdu.__all__ + \
           ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',
-           'new_table', 'Header', '_File', '_AllHDU', '_ImageBaseHDU', 'TRUE',
-           'FALSE', 'setExtensionNameCaseSensitive']
+           'new_table', 'Header', 'FITSFile', '_File', '_AllHDU',
+           '_ImageBaseHDU', 'TRUE', 'FALSE', 'setExtensionNameCaseSensitive']
 
+# For compatibility
+_File = FITSFile
 
 # These are of course deprecated, but a handful of external code still uses
 # them

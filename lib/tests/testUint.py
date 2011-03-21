@@ -49,13 +49,13 @@ class TestPyfitsUintFunctions(unittest.TestCase):
         hdu = pyfits.PrimaryHDU(np.array([-3, -2, -1, 0, 1, 2, 3]))
         hdu.scale('int32', '', bzero=2**31)
         hdu.writeto('tempfile.fits')
-        hdul = pyfits.open('tempfile.fits',uint=True)
+        hdul = pyfits.open('tempfile.fits', uint=True)
         self.assertEqual(hdul[0].data.dtype, np.uint32)
         self.assertEqual(np.all(hdul[0].data == 
                          np.array([(2**32)-3, (2**32)-2, (2**32)-1, 0, 1, 2, 3],
                          dtype=np.uint32)), True)
         hdul.writeto('tempfile1.fits')
-        hdul1 = pyfits.open('tempfile1.fits',uint=True)
+        hdul1 = pyfits.open('tempfile1.fits', uint=True)
         self.assertEqual(np.all(hdul[0].data == hdul1[0].data), True)
         hdul.close()
         hdul1.close()
@@ -67,7 +67,7 @@ class TestPyfitsUintFunctions(unittest.TestCase):
             hdu = pyfits.PrimaryHDU(np.array([-3,-2,-1,0,1,2,3]))
             hdu.scale('int64', '', bzero=2**63)
             hdu.writeto('tempfile.fits')
-            hdul = pyfits.open('tempfile.fits',uint=True)
+            hdul = pyfits.open('tempfile.fits', uint=True)
             self.assertEqual(hdul[0].data.dtype, np.uint64)
             self.assertEqual(np.all(hdul[0].data == 
                              np.array([(2**64)-3,(2**64)-2,(2**64)-1,0,1,2,3],

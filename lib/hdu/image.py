@@ -5,8 +5,8 @@ from pyfits.column import DELAYED
 from pyfits.hdu.base import _ValidHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.base import _AllHDU, _ValidHDU
-from pyfits.util import Extendable, _fromfile, _is_pseudo_unsigned, \
-                        _unsigned_zero, _is_int, _normalize_slice, lazyproperty
+from pyfits.util import Extendable, _is_pseudo_unsigned, _unsigned_zero, \
+                        _is_int, _normalize_slice, lazyproperty
 
 class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class.
@@ -34,7 +34,8 @@ class _ImageBaseHDU(_ValidHDU):
                'uint32':32, 'int64':64, 'uint64':64,
                'float32':-32, 'float64':-64}
 
-    def __init__(self, data=None, header=None, do_not_scale_image_data=False):
+    def __init__(self, data=None, header=None, do_not_scale_image_data=False,
+                 uint=False):
         from pyfits.hdu.extension import _ExtensionHDU
         from pyfits.hdu.groups import GroupsHDU
         from pyfits.header import Header
@@ -83,6 +84,7 @@ class _ImageBaseHDU(_ValidHDU):
             self._header = Header(_list)
 
         self._do_not_scale_image_data = do_not_scale_image_data
+        self._uint = uint
 
         if do_not_scale_image_data:
             self._bzero = 0
@@ -116,29 +118,12 @@ class _ImageBaseHDU(_ValidHDU):
             return
 
         bitpix = self._header['BITPIX']
-        self._file.seek(self._datLoc)
         dims = self._dimShape()
 
         code = _ImageBaseHDU.NumCode[bitpix]
 
-        if self._ffile.memmap:
-            self._ffile.code = code
-            self._ffile.dims = dims
-            self._ffile.offset = self._datLoc
-            raw_data = self._ffile._mm
-        else:
-
-            nelements = 1
-            for x in range(len(dims)):
-                nelements = nelements * dims[x]
-
-            raw_data = _fromfile(self._file, dtype=code,
-                                 count=nelements,sep="")
-
-            raw_data.shape=dims
-
-#                print "raw_data.shape: ",raw_data.shape
-#                raw_data._byteorder = 'big'
+        raw_data = self._file.readarray(offset=self._datLoc, dtype=code,
+                                        shape=dims)
         raw_data.dtype = raw_data.dtype.newbyteorder('>')
 
         if (self._bzero == 0 and self._bscale == 1):
@@ -150,7 +135,7 @@ class _ImageBaseHDU(_ValidHDU):
         # handle BLANK to convert it to NAN, since we
         # can't do NaNs with integers, anyway, i.e. the
         # user is responsible for managing blanks.
-        if self._ffile.uint and self._bscale == 1:
+        if self._uint and self._bscale == 1:
             for bits, dtype in ((16, np.uint16),
                                 (32, np.uint32),
                                 (64, np.uint64)):
@@ -171,7 +156,7 @@ class _ImageBaseHDU(_ValidHDU):
             # bscale and bzero. We may have to handle
             # BLANK and convert to NaN in the resulting
             # floating-point arrays.
-            if self._header.has_key('BLANK'):
+            if 'BLANK' in self._header:
                 nullDvals = np.array(self._header['BLANK'],
                                      dtype='int64')
                 blanks = (raw_data == nullDvals)
@@ -181,7 +166,7 @@ class _ImageBaseHDU(_ValidHDU):
             elif bitpix > 0:  # scale integers to Float32
                 data = np.array(raw_data, dtype=np.float32)
             else:  # floating point cases
-                if self._ffile.memmap:
+                if self._file.memmap:
                     data = raw_data.copy()
                 # if not memmap, use the space already in memory
                 else:
@@ -505,7 +490,7 @@ class Section(object):
         contiguousSubsection = True
 
         for jdx in range(idx + 1, naxis):
-            _naxis = self.hdu.header['NAXIS'+ str(naxis - jdx)]
+            _naxis = self.hdu.header['NAXIS' + str(naxis - jdx)]
             indx = _iswholeline(key[jdx], _naxis)
             dims.append(indx.npts)
             if not isinstance(indx, _WholeLine):
@@ -516,23 +501,16 @@ class Section(object):
                 offset *= _naxis
 
         if contiguousSubsection:
-            if dims == []:
+            if not dims:
                 dims = [1]
-            npt = 1
-            for n in dims:
-                npt *= n
 
             # Now, get the data (does not include bscale/bzero for now XXX)
             _bitpix = self.hdu.header['BITPIX']
             code = _ImageBaseHDU.NumCode[_bitpix]
-            self.hdu._file.seek(self.hdu._datLoc+offset*abs(_bitpix)//8)
-            nelements = 1
-            for dim in dims:
-                nelements = nelements*dim
-            raw_data = _fromfile(self.hdu._file, dtype=code, count=nelements,
-                                 sep="")
-            raw_data.shape = dims
-            raw_data.dtype = raw_data.dtype.newbyteorder(">")
+            offset = self.hdu._datLoc + (offset * abs(_bitpix) // 8)
+            raw_data = self.hdu._file.readarray(offset=offset, dtype=code,
+                                                shape=dims)
+            raw_data.dtype = raw_data.dtype.newbyteorder('>')
             return raw_data
         else:
             out = self._getdata(key)
@@ -598,7 +576,8 @@ class PrimaryHDU(_ImageBaseHDU):
 
     __metaclass__ = Extendable
 
-    def __init__(self, data=None, header=None, do_not_scale_image_data=False):
+    def __init__(self, data=None, header=None, do_not_scale_image_data=False,
+                 uint=False):
         """
         Construct a primary HDU.
 
@@ -614,11 +593,17 @@ class PrimaryHDU(_ImageBaseHDU):
         do_not_scale_image_data : bool, optional
             If `True`, image data is not scaled using BSCALE/BZERO values
             when read.
+
+        uint : bool, optional
+            Interpret signed integer data where ``BZERO`` is the
+            central value and ``BSCALE == 1`` as unsigned integer
+            data.  For example, `int16` data with ``BZERO = 32768``
+            and ``BSCALE = 1`` would be treated as `uint16` data.
         """
 
         super(PrimaryHDU, self).__init__(
             data=data, header=header,
-            do_not_scale_image_data=do_not_scale_image_data)
+            do_not_scale_image_data=do_not_scale_image_data, uint=uint)
         self.name = 'PRIMARY'
 
         # insert the keywords EXTEND
@@ -639,7 +624,7 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
     _extension = 'IMAGE'
 
     def __init__(self, data=None, header=None, name=None,
-                 do_not_scale_image_data=False):
+                 do_not_scale_image_data=False, uint=False):
         """
         Construct an image HDU.
 
@@ -659,12 +644,18 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
         do_not_scale_image_data : bool, optional
             If `True`, image data is not scaled using BSCALE/BZERO values
             when read.
+
+        uint : bool, optional
+            Interpret signed integer data where ``BZERO`` is the
+            central value and ``BSCALE == 1`` as unsigned integer
+            data.  For example, `int16` data with ``BZERO = 32768``
+            and ``BSCALE = 1`` would be treated as `uint16` data.
         """
 
         # no need to run _ExtensionHDU.__init__ since it is not doing anything.
         super(ImageHDU, self).__init__(
             data=data, header=header,
-            do_not_scale_image_data=do_not_scale_image_data)
+            do_not_scale_image_data=do_not_scale_image_data, uint=uint)
 
         self._header._hdutype = ImageHDU
 
@@ -675,8 +666,10 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
 
 
         #  set extension name
-        if (name is None) and self._header.has_key('EXTNAME'):
+        if not name and 'EXTNAME' in self._header:
             name = self._header['EXTNAME']
+        else:
+            name = ''
         self.name = name
 
     def _verify(self, option='warn'):

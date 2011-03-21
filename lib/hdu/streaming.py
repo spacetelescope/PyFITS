@@ -3,7 +3,7 @@ import os
 
 from pyfits.hdu.hdulist import HDUList
 from pyfits.hdu.image import PrimaryHDU
-from pyfits.util import _tofile, _pad_length
+from pyfits.util import _pad_length
 
 class StreamingHDU(object):
     """
@@ -55,7 +55,7 @@ class StreamingHDU(object):
         end of the file.
         """
 
-        from pyfits.file import _File
+        from pyfits.file import FITSFile
 
         if isinstance(name, gzip.GzipFile):
             raise TypeError('StreamingHDU not supported for GzipFile objects.')
@@ -113,15 +113,15 @@ class StreamingHDU(object):
                     self._header.update('GCOUNT', 1, 'number of groups',
                                         after='PCOUNT')
 
-        self._ffo = _File(name, 'append')
-        self._ffo.getfile().seek(0,2)
+        self._ffo = FITSFile(name, 'append')
+        self._ffo.seek(0,2)
 
         # This class doesn't keep an internal data attribute, so this will
         # always be false
         self._data_loaded = False
 
         self._hdrLoc = self._ffo.writeHDUheader(self)[0]
-        self._datLoc = self._ffo.getfile().tell()
+        self._datLoc = self._ffo.tell()
         self._size = self.size()
 
         if self._size != 0:
@@ -166,7 +166,7 @@ class StreamingHDU(object):
         `TypeError` exception is raised.
         """
 
-        curDataSize = self._ffo.getfile().tell() - self._datLoc
+        curDataSize = self._ffo.tell() - self._datLoc
 
         if self.writeComplete or curDataSize + data.nbytes > self._size:
             raise IOError('Attempt to write more data to the stream than the '
@@ -184,16 +184,16 @@ class StreamingHDU(object):
         else:
             output = data
 
-        _tofile(output, self._ffo.getfile())
+        self._ffo.write(output)
 
-        if self._ffo.getfile().tell() - self._datLoc == self._size:
+        if self._ffo.tell() - self._datLoc == self._size:
 #
 #           the stream is full so pad the data to the next FITS block
 #
-            self._ffo.getfile().write(_pad_length(self._size)*'\0')
+            self._ffo.file.write(_pad_length(self._size) * '\0')
             self.writeComplete = 1
 
-        self._ffo.getfile().flush()
+        self._ffo.flush()
 
         return self.writeComplete
 

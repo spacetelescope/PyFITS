@@ -25,7 +25,6 @@ class GroupsHDU(PrimaryHDU):
         # something that happens in _AllHDU, or at least further up the
         # hierarchy
         self._header._hdutype = self.__class__
-        self.name = name
 
         if self._header['NAXIS'] <= 0:
             self._header['NAXIS'] = 1
@@ -41,7 +40,6 @@ class GroupsHDU(PrimaryHDU):
         # Nearly the same code as in _TableBaseHDU
         size = self.size()
         if size:
-            self._file.seek(self._datLoc)
             data = GroupData(self._get_tbdata())
             data._coldefs = self.columns
             data.formats = self.columns.formats

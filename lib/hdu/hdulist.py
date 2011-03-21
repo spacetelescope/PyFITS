@@ -1,5 +1,4 @@
 import gzip
-import operator
 import os
 import signal
 import threading
@@ -12,14 +11,14 @@ import pyfits
 from pyfits.card import Card
 from pyfits.column import _FormatP
 from pyfits.hdu import compressed
-from pyfits.hdu.base import _AllHDU, _ValidHDU, _TempHDU, _NonstandardHDU
+from pyfits.hdu.base import _AllHDU, _ValidHDU, _RawHDU, _NonstandardHDU
 from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
 from pyfits.util import Extendable, _is_int, _tmp_name, _with_extensions, \
-                        _pad_length
+                        _pad_length, BLOCK_SIZE
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -92,112 +91,11 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
 
     """
 
-    # instantiate a FITS file object (ffo)
-    # TODO: This needs to be imported inline for now, otherwise we get a
-    # circular import; maybe this can be moved eventually?
-    from pyfits.file import _File
-    ffo = _File(name, mode=mode, memmap=memmap, **kwargs)
-    hdulist = HDUList(file=ffo)
+    if 'uint16' in kwargs and 'uint' not in kwargs:
+        kwargs['uint'] = kwargs['uint16']
+        del kwargs['uint16']
 
-    saved_compression_supported = compressed.COMPRESSION_SUPPORTED
-
-    try:
-        if 'disable_image_compression' in kwargs and \
-           kwargs['disable_image_compression']:
-            compressed.COMPRESSION_SUPPORTED = False
-
-        if 'do_not_scale_image_data' in kwargs:
-            do_not_scale_image_data = kwargs['do_not_scale_image_data']
-        else:
-            do_not_scale_image_data = False
-
-        if mode == 'ostream':
-            # Output stream--not interested in reading/parsing the HDUs--just
-            # writing to the output file
-            return hdulist
-
-        # read all HDUs
-        while True:
-            try:
-                thdu = ffo._readHDU()
-                thdu._do_not_scale_image_data = do_not_scale_image_data
-                hdulist.append(thdu)
-            except EOFError:
-                break
-            # check in the case there is extra space after the last HDU or
-            # corrupted HDU
-            except ValueError, err:
-                warnings.warn(
-                    'Warning:  Required keywords missing when trying to read '
-                    'HDU #%d.\n          %s\n          There may be extra '
-                    'bytes after the last HDU or the file is corrupted.'
-                    % (len(hdulist), err))
-                break
-            except IOError, err:
-                if isinstance(ffo.getfile(), gzip.GzipFile) and \
-                   'on write-only GzipFile object' in str(err):
-                    break
-                else:
-                    raise err
-
-        # If we're trying to read only and no header units were found,
-        # raise and exception
-        if mode == 'readonly' and len(hdulist) == 0:
-            raise IOError('Empty FITS file')
-
-        # For each HDU, verify the checksum/datasum value if the cards
-        # exist in the header and we are opening with checksum=True.
-        # Always remove the checksum/datasum cards from the header.
-
-        # NOTE:  private data members _checksum and _datasum are
-        # used by the utility script "fitscheck" to detect missing
-        # checksums.
-        for idx in range(len(hdulist)):
-            hdu = hdulist.__getitem__(idx)
-
-            if 'CHECKSUM' in hdu._header:
-                 hdu._checksum = hdu._header['CHECKSUM']
-                 hdu._checksum_comment = \
-                            hdu._header.ascardlist()['CHECKSUM'].comment
-
-                 if 'checksum' in kwargs and kwargs['checksum'] and \
-                    not hdu.verify_checksum(kwargs['checksum']):
-                     warnings.warn('Warning:  Checksum verification failed '
-                                   'for HDU #%d.\n' % idx)
-
-                 del hdu.header['CHECKSUM'] # Delete from the user-visible hdr
-            else:
-                 hdu._checksum = None
-                 hdu._checksum_comment = None
-
-            if 'DATASUM' in hdu._header:
-                 hdu._datasum = hdu.header['DATASUM']
-                 hdu._datasum_comment = \
-                               hdu.header.ascardlist()['DATASUM'].comment
-
-                 if 'checksum' in kwargs and kwargs['checksum'] and \
-                    not hdu.verify_datasum(kwargs['checksum']):
-                     warnings.warn('Warning:  Datasum verification failed '
-                                   'for HDU #%d.\n' % idx)
-
-                 del hdu.header['DATASUM']
-            else:
-                 hdu._checksum = None
-                 hdu._checksum_comment = None
-                 hdu._datasum = None
-                 hdu._datasum_comment = None
-
-        # initialize/reset attributes to be used in "update/append" mode
-        # CardList needs its own _mod attribute since it has methods to change
-        # the content of header without being able to pass it to the header
-        # object
-        hdulist._resize = 0
-        hdulist._truncate = 0
-
-    finally:
-        compressed.COMPRESSION_SUPPORTED = saved_compression_supported
-
-    return hdulist
+    return HDUList.fromfile(name, mode, memmap, **kwargs)
 
 
 class HDUList(list, _Verify):
@@ -208,7 +106,7 @@ class HDUList(list, _Verify):
 
     __metaclass__ = Extendable
 
-    def __init__(self, hdus=[], file=None):
+    def __init__(self, hdus=[], file=None, ignore_missing_end=False):
         """
         Construct a `HDUList` object.
 
@@ -236,7 +134,11 @@ class HDUList(list, _Verify):
             if not isinstance(hdu, _AllHDU):
                 raise TypeError(
                       "Element %d in the HDUList input is not an HDU." % idx)
-        list.__init__(self, hdus)
+        super(HDUList, self).__init__(hdus)
+
+    def __iter__(self):
+        for idx in range(len(self)):
+            yield self[idx]
 
     @_with_extensions
     def __getitem__(self, key, classExtensions={}):
@@ -244,12 +146,13 @@ class HDUList(list, _Verify):
         Get an HDU from the `HDUList`, indexed by number or name.
         """
 
-        key = self.index_of(key)
-        item = super(HDUList, self).__getitem__(key)
-        if isinstance(item, _TempHDU):
-            super(HDUList, self).__setitem__(key, item.setupHDU())
+        idx = self.index_of(key)
+        hdu = super(HDUList, self).__getitem__(idx)
+        if isinstance(hdu, _RawHDU):
+            hdu = hdu.setupHDU()
+            super(HDUList, self).__setitem__(idx, hdu)
 
-        return super(HDUList, self).__getitem__(key)
+        return hdu
 
     def __getslice__(self, start, end):
         hdus = super(HDUList, self).__getslice__(start, end)
@@ -316,6 +219,84 @@ class HDUList(list, _Verify):
     def __exit__(self, type, value, traceback):
         self.close()
 
+    @classmethod
+    def fromfile(cls, fileobj, mode="copyonwrite", memmap=False, **kwargs):
+        """
+        Creates an HDUList instance from a file-like object.
+
+        The actual implementation of `fitsopen()`.
+        """
+
+        # instantiate a FITS file object (ffo)
+        # TODO: This needs to be imported inline for now, otherwise we get a
+        # circular import; maybe this can be moved eventually?
+        from pyfits.file import FITSFile
+        ffo = FITSFile(fileobj, mode=mode, memmap=memmap)
+        hdulist = cls(file=ffo)
+
+        saved_compression_supported = compressed.COMPRESSION_SUPPORTED
+
+        try:
+            if 'disable_image_compression' in kwargs and \
+               kwargs['disable_image_compression']:
+                compressed.COMPRESSION_SUPPORTED = False
+
+            if 'do_not_scale_image_data' in kwargs:
+                do_not_scale_image_data = kwargs['do_not_scale_image_data']
+            else:
+                do_not_scale_image_data = False
+
+            if 'ignore_missing_end' in kwargs:
+                ignore_missing_end = kwargs['ignore_missing_end']
+            else:
+                ignore_missing_end = False
+
+
+            if mode == 'ostream':
+                # Output stream--not interested in reading/parsing the HDUs--just
+                # writing to the output file
+                return hdulist
+
+            # read all HDUs
+            while True:
+                try:
+                    hdu = ffo.readHDU(**kwargs)
+                    hdulist.append(hdu)
+                except EOFError:
+                    break
+                # check in the case there is extra space after the last HDU or
+                # corrupted HDU
+                except ValueError, err:
+                    warnings.warn(
+                        'Warning:  Required keywords missing when trying to read '
+                        'HDU #%d.\n          %s\n          There may be extra '
+                        'bytes after the last HDU or the file is corrupted.'
+                        % (len(hdulist), err))
+                    break
+                except IOError, err:
+                    if isinstance(ffo.getfile(), gzip.GzipFile) and \
+                       'on write-only GzipFile object' in str(err):
+                        break
+                    else:
+                        raise err
+
+            # If we're trying to read only and no header units were found,
+            # raise and exception
+            if mode == 'readonly' and len(hdulist) == 0:
+                raise IOError('Empty FITS file')
+
+            # initialize/reset attributes to be used in "update/append" mode
+            # CardList needs its own _mod attribute since it has methods to change
+            # the content of header without being able to pass it to the header
+            # object
+            hdulist._resize = 0
+            hdulist._truncate = 0
+
+        finally:
+            compressed.COMPRESSION_SUPPORTED = saved_compression_supported
+
+        return hdulist
+
     def fileinfo(self, index):
         """
         Returns a dictionary detailing information about the locations
@@ -373,8 +354,8 @@ class HDUList(list, _Verify):
                       fm = info['filemode']
                       break
 
-                output = {'file':f, 'filemode':fm, 'hdrLoc':None,
-                          'datLoc':None, 'datSpan':None}
+                output = {'file': f, 'filemode': fm, 'hdrLoc': None,
+                          'datLoc': None, 'datSpan': None}
 
             output['filename'] = self.__file.name
             output['resized'] = self._wasresized()
@@ -471,7 +452,7 @@ class HDUList(list, _Verify):
             will be constructed in place of the pyfits class.
         """
         if isinstance(hdu, _AllHDU):
-            if not isinstance(hdu, _TempHDU):
+            if not isinstance(hdu, _RawHDU):
                 if len(self) > 0:
                     if isinstance(hdu, GroupsHDU):
                        raise ValueError(
@@ -498,9 +479,9 @@ class HDUList(list, _Verify):
                             super(HDUList, self).append(phdu)
 
             super(HDUList, self).append(hdu)
-            hdu._new = 1
-            self._resize = 1
-            self._truncate = 0
+            hdu._new = True
+            self._resize = True
+            self._truncate = False
         else:
             raise ValueError('HDUList can only append an HDU.')
 
@@ -559,8 +540,9 @@ class HDUList(list, _Verify):
         """
         Read data of all HDUs into memory.
         """
-        for i in range(len(self)):
-            if self[i].data is not None:
+
+        for hdu in self:
+            if hdu.data is not None:
                 continue
 
     def update_tbhdu(self):
@@ -622,23 +604,23 @@ class HDUList(list, _Verify):
             class.
         """
 
-        from pyfits.file import _File
+        from pyfits.file import FITSFile
 
         # Get the name of the current thread and determine if this is a single treaded application
         curr_thread = threading.currentThread()
-        singleThread = (threading.activeCount() == 1) and \
-                       (curr_thread.getName() == 'MainThread')
+        single_thread = (threading.activeCount() == 1) and \
+                        (curr_thread.getName() == 'MainThread')
 
         # Define new signal interput handler
-        if singleThread:
-            keyboardInterruptSent = False
-            def New_SIGINT(*args):
+        if single_thread:
+            keyboard_interrupt_sent = False
+            def new_sigint(*args):
                 warnings.warn('KeyboardInterrupt ignored until flush is '
                               'complete!')
-                keyboardInterruptSent = True
+                keyboard_interrupt_sent = True
 
             # Install new handler
-            old_handler = signal.signal(signal.SIGINT,New_SIGINT)
+            old_handler = signal.signal(signal.SIGINT, new_sigint)
 
         if self.__file.mode not in ('append', 'update', 'ostream'):
             warnings.warn("Flush for '%s' mode is not supported."
@@ -650,11 +632,11 @@ class HDUList(list, _Verify):
 
         if self.__file.mode in ('append', 'ostream'):
             for hdu in self:
-                if (verbose):
+                if verbose:
                     try:
-                        _extver = str(hdu.header['extver'])
-                    except:
-                        _extver = ''
+                        extver = str(hdu.header['extver'])
+                    except KeyError:
+                        extver = ''
 
                 # only append HDU's which are "new"
                 if not hasattr(hdu, '_new') or hdu._new:
@@ -665,19 +647,21 @@ class HDUList(list, _Verify):
                         checksum = False
 
                     self.__file.writeHDU(hdu, checksum=checksum)
-                    if (verbose):
-                        print "append HDU", hdu.name, _extver
+                    if verbose:
+                        print 'append HDU', hdu.name, extver
                     hdu._new = 0
 
         elif self.__file.mode == 'update':
             self._wasresized(verbose)
 
+            # TODO: Much of this section should probably be handled in FITSFile
+
             # if the HDUList is resized, need to write out the entire contents
             # of the hdulist to the file.
             if self._resize or isinstance(self.__file.getfile(), gzip.GzipFile):
-                oldName = self.__file.name
-                oldMemmap = self.__file.memmap
-                _name = _tmp_name(oldName)
+                old_name = self.__file.name
+                old_memmap = self.__file.memmap
+                name = _tmp_name(old_name)
 
                 if isinstance(self.__file.getfile(), file) or \
                    isinstance(self.__file.getfile(), gzip.GzipFile):
@@ -688,12 +672,14 @@ class HDUList(list, _Verify):
                     # file to the original file.
                     #
                     if isinstance(self.__file.getfile(), gzip.GzipFile):
-                        newFile = gzip.GzipFile(_name, mode='ab+')
+                        new_file = gzip.GzipFile(name, mode='ab+')
                     else:
-                        newFile = _name
+                        new_file = name
 
-                    _hduList = fitsopen(newFile, mode="append")
-                    if (verbose): print "open a temp file", _name
+                    hdulist = self.fromfile(new_file, mode='append')
+
+                    if verbose: 
+                        print 'open a temp file', name
 
                     for hdu in self:
                         # only output the checksum if flagged to do so
@@ -703,24 +689,27 @@ class HDUList(list, _Verify):
                             checksum = False
 
                         (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = \
-                               _hduList.__file.writeHDU(hdu, checksum=checksum)
-                    _hduList.__file.close()
+                               hdulist.__file.writeHDU(hdu, checksum=checksum)
+                    hdulist.__file.close()
                     self.__file.close()
                     os.remove(self.__file.name)
-                    if (verbose): print "delete the original file", oldName
+
+                    if verbose:
+                        print 'delete the original file', old_name
 
                     # reopen the renamed new file with "update" mode
-                    os.rename(_name, oldName)
+                    os.rename(name, old_name)
 
-                    if isinstance(newFile, gzip.GzipFile):
-                        oldFile = gzip.GzipFile(oldName, mode='rb+')
+                    if isinstance(new_file, gzip.GzipFile):
+                        old_file = gzip.GzipFile(old_name, mode='rb+')
                     else:
-                        oldFile = oldName
+                        old_file = old_name
 
-                    ffo = _File(oldFile, mode="update", memmap=oldMemmap)
+                    ffo = FITSFile(old_file, mode='update', memmap=old_memmap)
 
                     self.__file = ffo
-                    if (verbose): print "reopen the newly renamed file", oldName
+                    if verbose:
+                        print 'reopen the newly renamed file', old_name
                 else:
                     #
                     # The underlying file is not a file object, it is a file
@@ -731,8 +720,8 @@ class HDUList(list, _Verify):
                     # contents of the temporary file to the now empty file
                     # like object.
                     #
-                    self.writeto(_name)
-                    _hduList = fitsopen(_name)
+                    self.writeto(name)
+                    hdulist = self.fromfile(name)
                     ffo = self.__file
 
                     try:
@@ -740,7 +729,7 @@ class HDUList(list, _Verify):
                     except AttributeError:
                         pass
 
-                    for hdu in _hduList:
+                    for hdu in hdulist:
                         # only output the checksum if flagged to do so
                         if hasattr(hdu, '_output_checksum'):
                             checksum = hdu._output_checksum
@@ -751,9 +740,8 @@ class HDUList(list, _Verify):
                                             ffo.writeHDU(hdu, checksum=checksum)
 
                     # Close the temporary file and delete it.
-
-                    _hduList.close()
-                    os.remove(_hduList.__file.name)
+                    hdulist.close()
+                    os.remove(hdulist.__file.name)
 
                 # reset the resize attributes after updating
                 self._resize = 0
@@ -767,11 +755,11 @@ class HDUList(list, _Verify):
             # if not resized, update in place
             else:
                 for hdu in self:
-                    if (verbose):
+                    if verbose:
                         try: 
-                            _extver = str(hdu.header['extver'])
-                        except: 
-                            _extver = ''
+                            extver = str(hdu.header['extver'])
+                        except KeyError: 
+                            extver = ''
 
                     if hdu._data_loaded and isinstance(hdu, _ImageBaseHDU):
                         # If the data has changed update the image header to
@@ -788,27 +776,29 @@ class HDUList(list, _Verify):
                         hdu._file.seek(hdu._hdrLoc)
                         self.__file.writeHDUheader(hdu,checksum=checksum)
                         if (verbose):
-                            print "update header in place: Name =", hdu.name, _extver
+                            print 'update header in place: Name =', hdu.name, extver
                     if hdu._data_loaded:
                         if hdu.data is not None:
-                            if isinstance(hdu.data,Memmap):
+                            if isinstance(hdu.data, Memmap):
                                 hdu.data.sync()
                             else:
                                 hdu._file.seek(hdu._datLoc)
                                 self.__file.writeHDUdata(hdu)
-                            if (verbose):
-                                print "update data in place: Name =", hdu.name, _extver
+
+                            if verbose:
+                                print 'update data in place: Name =', hdu.name, extver
 
                 # reset the modification attributes after updating
                 for hdu in self:
                     hdu.header._mod = 0
                     hdu.header.ascard._mod = 0
-        if singleThread:
-            if keyboardInterruptSent:
+
+        if single_thread:
+            if keyboard_interrupt_sent:
                 raise KeyboardInterrupt
 
-            if old_handler != None:
-                signal.signal(signal.SIGINT,old_handler)
+            if old_handler is not None:
+                signal.signal(signal.SIGINT, old_handler)
             else:
                 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
@@ -818,7 +808,7 @@ class HDUList(list, _Verify):
         ``EXTEND`` that it has it and it is correct.
         """
         hdr = self[0].header
-        if hdr.has_key('extend'):
+        if 'extend' in hdr:
             if (hdr['extend'] == False):
                 hdr['extend'] = True
         else:
@@ -1059,8 +1049,7 @@ class HDUList(list, _Verify):
 
                 # Header:
                 # Add 1 to .ascard to include the END card
-                _nch80 = reduce(operator.add, map(Card._ncards,
-                                                  hdu.header.ascard))
+                _nch80 = sum([card._ncards() for card in hdu.header.ascard])
                 _bytes = (_nch80+1) * Card.length
                 _bytes = _bytes + _pad_length(_bytes)
                 if _bytes != (hdu._datLoc-hdu._hdrLoc):

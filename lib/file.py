@@ -15,12 +15,13 @@ from pyfits import rec
 from pyfits.card import Card, _pad
 from pyfits.column import _FormatP, _VLF
 from pyfits.hdu import TableHDU, BinTableHDU, CompImageHDU
-from pyfits.hdu.base import _NonstandardHDU, _TempHDU
+from pyfits.hdu.base import _NonstandardHDU, _RawHDU
 from pyfits.hdu.extension import _NonstandardExtHDU
 from pyfits.hdu.groups import GroupData
 from pyfits.hdu.image import _ImageBaseHDU
-from pyfits.util import Extendable, _tofile, _chunk_array, _unsigned_zero, \
-                        _is_pseudo_unsigned, _pad_length, BLOCK_SIZE
+from pyfits.util import Extendable, _fromfile, _tofile, _chunk_array, \
+                        _unsigned_zero, _is_pseudo_unsigned, _pad_length, \
+                        BLOCK_SIZE
 
 
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
@@ -28,14 +29,15 @@ PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
 MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+'}
 
 
-class _File(object):
+class FITSFile(object):
     """
-    A file I/O class.
+    Represents a FITS file on disk (or in some other file-like object).
     """
 
     __metaclass__ = Extendable
 
-    def __init__(self, fileobj=None, mode='copyonwrite', memmap=False, **kwargs):
+    def __init__(self, fileobj=None, mode='copyonwrite', memmap=False):
+
         if fileobj is None:
             self._simulateonly = True
             return
@@ -45,8 +47,7 @@ class _File(object):
         if mode not in PYTHON_MODES:
             raise ValueError("Mode '%s' not recognized" % mode)
 
-
-        # Determine what the _File object's name should be
+        # Determine what the FITSFile object's name should be
         if isinstance(fileobj, file):
             self.name = fileobj.name
         elif isinstance(fileobj, basestring):
@@ -75,13 +76,6 @@ class _File(object):
         self.code = None
         self.dims = None
         self.offset = 0
-
-        if 'ignore_missing_end' in kwargs:
-            self.ignore_missing_end = kwargs['ignore_missing_end']
-        else:
-            self.ignore_missing_end = False
-
-        self.uint = kwargs.get('uint16', False) or kwargs.get('uint', False)
 
         if memmap and mode not in ['readonly', 'copyonwrite', 'update']:
             raise NotImplementedError(
@@ -133,7 +127,8 @@ class _File(object):
                     if len(namelist) != 1:
                         raise NotImplementedError(
                           "Zip files with multiple members are not supported.")
-                    self.tfile = tempfile.NamedTemporaryFile('rb+',-1,'.fits')
+                    self.tfile = tempfile.NamedTemporaryFile('rb+', -1,
+                                                             '.fits')
                     self.name = self.tfile.name
                     self.__file = self.tfile.file
                     self.__file.write(zfile.read(namelist[0]))
@@ -168,74 +163,124 @@ class _File(object):
 
             if mode == 'ostream':
                 # For output stream start with a truncated file.
-                self._size = 0
+                self.size = 0
             elif isinstance(self.__file, gzip.GzipFile):
                 self.__file.fileobj.seek(0, 2)
-                self._size = self.__file.fileobj.tell()
+                self.size = self.__file.fileobj.tell()
                 self.__file.fileobj.seek(0)
                 self.__file.seek(0)
             elif hasattr(self.__file, 'seek'):
                 self.__file.seek(0, 2)
-                self._size = self.__file.tell()
+                self.size = self.__file.tell()
                 self.__file.seek(0)
             else:
-                self._size = 0
+                self.size = 0
 
-    @property
-    def _mm(self):
-        return Memmap(self.name, offset=self.offset,
-                      mode=MEMMAP_MODES[self.mode], dtype=self.code,
-                      shape=self.dims)
+    def __repr__(self):
+        return '<%s.%s %s>' % (self.__module__, self.__class__, self.__file)
+
+    # Support the 'with' statement
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
 
     def getfile(self):
+        """**Deprecated**"""
+
         return self.__file
 
-    def _readheader(self, cardlist, keylist, blocks):
+    def read(self, size=None):
+        return self.__file.read(size)
+
+    def readarray(self, size=None, offset=None, dtype=np.uint8, shape=None):
         """
-        Read blocks of header, and put each card into a list of cards.
-        Will deal with CONTINUE cards in a later stage as CONTINUE cards
-        may span across blocks.
-        """
+        Similar to file.read(), but returns the contents of the underlying
+        file as a numpy array (or mmap'd array if memmap=True) rather than a
+        string.
 
-        if len(block) != BLOCK_SIZE:
-            raise IOError('Block length is not %d: %d.'
-                          % (BLOCK_SIZE, len(block)))
-        elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
-            raise IOError('Block does not begin with SIMPLE or XTENSION.')
-
-        for i in range(0, len(BLOCK_SIZE), Card.length):
-            card = Card.fromstring(block[i:i + Card.length])
-            key = card.key
-
-            cardlist.append(card)
-            keylist.append(key)
-            if key == 'END':
-                break
-
-    def _readHDU(self):
-        """
-        Read the skeleton structure of the HDU.
+        Usually it's best not to use the `size` argument with this method, but
+        it's provided for compatibility.
         """
 
-        if not hasattr(self.__file, 'tell') or \
-           not hasattr(self.__file, 'read'):
+        if not hasattr(self.__file, 'read'):
             raise EOFError
 
-        end_RE = re.compile('END' + ' '*77)
-        _hdrLoc = self.__file.tell()
+        dtype = np.dtype(dtype)
+        if size and size % dtype.itemsize != 0:
+            raise ValueError('size %d not a multiple of %s' % (size, dtype))
+
+        if isinstance(shape, int):
+            shape = (shape,)
+
+        if size and shape:
+            actualsize = sum(dim * dtype.itemsize for dim in shape)
+            if actualsize < size:
+                raise ValueError('size %d is too few bytes for a %s array of '
+                                 '%s' % (size, shape, dtype))
+            if actualsize < size:
+                raise ValueError('size %d is too many bytes for a %s array of '
+                                 '%s' % (size, shape, dtype))
+
+        if size and not shape:
+            shape = (size / dtype.itemsize,)
+
+        if not (size or shape):
+            # TODO: Maybe issue a warning or raise an error instead?
+            shape = (1,)
+
+        if self.memmap:
+            return Memmap(self.__file, offset=offset,
+                          mode=MEMMAP_MODES[self.mode], dtype=dtype,
+                          shape=shape)
+        else:
+            count = reduce(lambda x, y: x * y, shape)
+            pos = self.__file.tell()
+            self.__file.seek(offset)
+            data = _fromfile(self.__file, dtype, count, '')
+            data.shape = shape
+            self.__file.seek(pos)
+            return data
+
+    def write(self, string):
+        self.__file.write(string)
+
+    def writearray(self, array):
+        """
+        Similar to file.write(), but writes a numpy array instead of a
+
+        Also like file.write(), a flush() or close() may be needed before
+        the file on disk reflects the data written.
+        """
+
+        _tofile(array, self)
+
+    def seek(self, offset, whence=0):
+        self.__file.seek(offset, whence)
+
+    def tell(self):
+        if not hasattr(self.__file, 'tell'):
+            raise EOFError
+        return self.__file.tell()
+
+    def readHDU(self, checksum=False, ignore_missing_end=False, **kwargs):
+        """
+        Read the skeleton structure of an HDU.
+        """
+
+        end_RE = re.compile('END {77}')
+        hdrLoc = self.__file.tell()
 
         # Read the first header block.
         block = self.__file.read(BLOCK_SIZE)
         if block == '':
             raise EOFError
 
-        hdu = _TempHDU()
-        hdu._raw = ''
         blocks = []
 
         # continue reading header blocks until END card is reached
         while True:
-
             # find the END card
             mo = end_RE.search(block)
             if mo is None:
@@ -247,38 +292,23 @@ class _File(object):
                 break
         blocks.append(block)
 
-        if not end_RE.search(block) and not self.ignore_missing_end:
+        if not end_RE.search(block) and not ignore_missing_end:
             raise IOError('Header missing END card.')
 
-        hdu._raw = ''.join(blocks)
+        hdu = _RawHDU(''.join(blocks), fileobj=self, offset=hdrLoc,
+                      checksum=checksum, **kwargs)
 
-        _size, hdu.name = hdu._getsize(hdu._raw)
-
-        # get extname and extver
-        if hdu.name == '':
-            hdu.name, hdu._extver = hdu._getname()
-        elif hdu.name == 'PRIMARY':
-            hdu._extver = 1
-
-        hdu._file = self.__file
-        hdu._hdrLoc = _hdrLoc                # beginning of the header area
-        hdu._datLoc = self.__file.tell()     # beginning of the data area
-
-        # data area size, including padding
-        hdu._datSpan = _size + _pad_length(_size)
-        hdu._new = 0
-        hdu._ffile = self
-        if isinstance(hdu._file, gzip.GzipFile):
+        if isinstance(self.__file, gzip.GzipFile):
             pos = self.__file.tell()
             self.__file.seek(pos + hdu._datSpan)
         else:
             self.__file.seek(hdu._datSpan, 1)
+            pos = self.__file.tell()
 
-            if self.__file.tell() > self._size:
+            if pos > self.size:
                 warnings.warn('Warning: File may have been truncated: actual '
                               'file length (%i) is smaller than the expected '
-                              'size (%i)'  % (self._size, self.__file.tell()))
-
+                              'size (%i)' % (self.size, pos))
         return hdu
 
     def writeHDU(self, hdu, checksum=False):
@@ -448,21 +478,13 @@ class _File(object):
 
                 if not self._simulateonly:
                     if should_swap:
-                        # If we need to do byteswapping, do it in chunks
-                        # so the original array is not touched
-                        # output_dtype = output.dtype.newbyteorder('>')
-                        # for chunk in _chunk_array(output):
-                        #     chunk = np.array(chunk, dtype=output_dtype,
-                        #                      copy=True)
-                        #     _tofile(output, self.__file)
-
                         output.byteswap(True)
                         try:
-                            _tofile(output, self.__file)
+                            self.write(output)
                         finally:
                             output.byteswap(True)
                     else:
-                        _tofile(output, self.__file)
+                        self.write(output)
 
             # Binary table byteswap
             elif isinstance(hdu, BinTableHDU):
@@ -479,7 +501,7 @@ class _File(object):
                 output = hdu.data
 
                 if not self._simulateonly:
-                    _tofile(output, self.__file)
+                    self.write(output)
 
             _size = _size + output.size * output.itemsize
 
@@ -495,7 +517,7 @@ class _File(object):
             self.__file.flush()
 
         # return both the location and the size of the data area
-        return loc, _size+_pad_length(_size)
+        return loc, _size + _pad_length(_size)
 
     def close(self):
         """
@@ -539,7 +561,7 @@ class _File(object):
                 for obj in swapped:
                     obj.byteswap(True)
 
-                _tofile(output, self.__file)
+                self.write(output)
 
                 # write out the heap of variable length array
                 # columns this has to be done after the
@@ -563,12 +585,4 @@ class _File(object):
                 obj.byteswap(True)
 
         return nbytes
-
-
-    # Support the 'with' statement
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.close()
 

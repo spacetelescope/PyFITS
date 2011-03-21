@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 from pyfits import rec
-from pyfits.file import PYTHON_MODES, _File
+from pyfits.file import PYTHON_MODES, FITSFile
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU, _TableBaseHDU
@@ -414,7 +414,7 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
             hdu._output_checksum = checksum
             f.close(closed=closed)
         else:
-            f = _File(filename, mode='append')
+            f = FITSFile(filename, mode='append')
             hdu._output_checksum = checksum
             f.writeHDU(hdu)
             f.close()

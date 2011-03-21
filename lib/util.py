@@ -209,7 +209,7 @@ def _fromfile(infile, dtype, count, sep):
     if isinstance(infile, file):
         return np.fromfile(infile, dtype=dtype, count=count, sep=sep)
     else: # treat as file-like object with "read" method
-        read_size=np.dtype(dtype).itemsize * count
+        read_size = np.dtype(dtype).itemsize * count
         s = infile.read(read_size)
         return np.fromstring(s, dtype=dtype, count=count, sep=sep)
 

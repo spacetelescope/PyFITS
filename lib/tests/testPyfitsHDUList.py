@@ -136,7 +136,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: (No file associated with this HDUList)\n'
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    PRIMARY     PrimaryHDU       4  ()            \n'
+                '0    PRIMARY     PrimaryHDU       4  ()            uint8\n'
                 '1                BinTableHDU     24  2R x 4C       [1J, 3A, 1E, 1L]\n')
 
         hdul.writeto('testAppend.fits')
@@ -162,7 +162,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: (No file associated with this HDUList)\n'
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    None        GroupsHDU        8  ()               1 Groups  0 Parameters\n')
+                '0    PRIMARY     GroupsHDU        8  ()            uint8   1 Groups  0 Parameters\n')
 
         hdul.writeto('testAppend.fits')
 
@@ -172,7 +172,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: testAppend.fits\n'
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0                GroupsHDU        8  ()            uint8   1 Groups  0 Parameters\n')
+                '0    PRIMARY     GroupsHDU        8  ()            uint8   1 Groups  0 Parameters\n')
 
     def testAppendPrimaryToNonEmptyList(self):
         """Tests appending a Simple PrimaryHDU to a non-empty HDUList."""
@@ -187,7 +187,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
                 'Filename: %s\n' % os.path.join(data_dir, 'arange.fits') +
                 'No.    Name         Type      Cards   Dimensions   Format\n'
                 '0    PRIMARY     PrimaryHDU       7  (11, 10, 7)   int32\n'
-                '1    None        ImageHDU         6  (100,)        int32\n')
+                '1                ImageHDU         6  (100,)        int32\n')
 
         hdul.writeto('testAppend.fits')
 
@@ -301,7 +301,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: (No file associated with this HDUList)\n'
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    PRIMARY     PrimaryHDU       4  ()            \n'
+                '0    PRIMARY     PrimaryHDU       4  ()            uint8\n'
                 '1                BinTableHDU     24  2R x 4C       [1J, 3A, 1E, 1L]\n')
 
         hdul.writeto('testInsert.fits')
@@ -327,7 +327,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: (No file associated with this HDUList)\n'
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    None        GroupsHDU        8  ()               1 Groups  0 Parameters\n')
+                '0    PRIMARY     GroupsHDU        8  ()            uint8   1 Groups  0 Parameters\n')
 
         hdul.writeto('testInsert.fits')
 
@@ -337,7 +337,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: testInsert.fits\n'
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0                GroupsHDU        8  ()            uint8   1 Groups  0 Parameters\n')
+                '0    PRIMARY     GroupsHDU        8  ()            uint8   1 Groups  0 Parameters\n')
 
     def testInsertPrimaryToNonEmptyList(self):
         """Tests inserting a Simple PrimaryHDU to a non-empty HDUList."""
@@ -353,7 +353,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
                 'Filename: %s\n' % os.path.join(data_dir, 'arange.fits') +
                 'No.    Name         Type      Cards   Dimensions   Format\n'
                 '0    PRIMARY     PrimaryHDU       7  (11, 10, 7)   int32\n'
-                '1    None        ImageHDU         6  (100,)        int32\n')
+                '1                ImageHDU         6  (100,)        int32\n')
 
         hdul.writeto('testInsert.fits')
 
@@ -415,8 +415,8 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: (No file associated with this HDUList)\n'
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    None        GroupsHDU        8  ()               1 Groups  0 Parameters\n'
-                '1    None        ImageHDU         6  (100,)        int32\n')
+                '0    PRIMARY     GroupsHDU        8  ()            uint8   1 Groups  0 Parameters\n'
+                '1                ImageHDU         6  (100,)        int32\n')
 
         hdul.writeto('testInsert.fits')
 
@@ -426,7 +426,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: testInsert.fits\n'
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0                GroupsHDU        8  ()            uint8   1 Groups  0 Parameters\n'
+                '0    PRIMARY     GroupsHDU        8  ()            uint8   1 Groups  0 Parameters\n'
                 '1                ImageHDU         6  (100,)        int32\n')
 
     def testInsertGroupsHDUToBeginOfHDUListWithGroupsHDUAlreadyThere(self):
@@ -456,9 +456,9 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: %s\n' % os.path.join(data_dir, 'tb.fits') +
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    PRIMARY     PrimaryHDU       4  ()            \n'
+                '0    PRIMARY     PrimaryHDU       4  ()            uint8\n'
                 '1                BinTableHDU     24  2R x 4C       [1J, 3A, 1E, 1L]\n'
-                '2    None        ImageHDU        12  ()            \n'
+                '2                ImageHDU        12  ()            uint8\n'
                 '3                BinTableHDU     24  2R x 4C       [1J, 3A, 1E, 1L]\n')
 
         hdul.writeto('testInsert.fits')
@@ -490,7 +490,7 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
                 'Filename: %s\n' % os.path.join(data_dir, 'tb.fits') +
                 'No.    Name         Type      Cards   Dimensions   Format\n'
                 '0    PRIMARY     PrimaryHDU       5  (100,)        int32\n'
-                '1    None        ImageHDU        12  ()            \n'
+                '1                ImageHDU        12  ()            uint8\n'
                 '2                BinTableHDU     24  2R x 4C       [1J, 3A, 1E, 1L]\n')
 
         hdul.writeto('testInsert.fits')

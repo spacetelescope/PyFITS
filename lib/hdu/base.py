@@ -1,6 +1,7 @@
 import datetime
+import inspect
 import operator
-import re
+import warnings
 
 import numpy as np
 
@@ -25,9 +26,7 @@ class _AllHDU(object):
         self._data_loaded = False
         self.name = None
 
-        if (data is DELAYED):
-            return
-        else:
+        if data is not None and data is not DELAYED:
             self._data_loaded = True
 
     def _getheader(self):
@@ -99,11 +98,10 @@ class _CorruptedHDU(_AllHDU):
         Returns the size (in bytes) of the HDU's data part.
         """
 
-        self._file.seek(0, 2)
-        return self._file.tell() - self._datLoc
+        return self._file.size - self._datLoc
 
     def _summary(self):
-        return "%-10s  %-11s" % (self.name, "CorruptedHDU")
+        return '%-10s  %-11s' % (self.name, 'CorruptedHDU')
 
     def verify(self):
         pass
@@ -129,11 +127,10 @@ class _NonstandardHDU(_AllHDU, _Verify):
         Returns the size (in bytes) of the HDU's data part.
         """
 
-        self._file.seek(0, 2)
-        return self._file.tell() - self._datLoc
+        return self._file.size - self._datLoc
 
     def _summary(self):
-        return "%-7s  %-11s  %5d" % (self.name, "NonstandardHDU",
+        return '%-7s  %-11s  %5d' % (self.name, 'NonstandardHDU',
                                      len(self._header.ascard))
 
     @lazyproperty
@@ -171,8 +168,8 @@ class _ValidHDU(_AllHDU, _Verify):
         naxis = self._header.get('NAXIS', 0)
         if naxis > 0:
             size = 1
-            for j in range(naxis):
-                size = size * self._header['NAXIS'+str(j+1)]
+            for idx in range(naxis):
+                size = size * self._header['NAXIS' + str(idx + 1)]
             bitpix = self._header['BITPIX']
             gcount = self._header.get('GCOUNT', 1)
             pcount = self._header.get('PCOUNT', 0)
@@ -193,9 +190,9 @@ class _ValidHDU(_AllHDU, _Verify):
         Number of bytes
         """
 
-        from pyfits.file import _File
+        from pyfits.file import FITSFile
 
-        f = _File()
+        f = FITSFile()
         return f.writeHDUheader(self)[1] + f.writeHDUdata(self)[1]
 
     def fileinfo(self):
@@ -232,7 +229,7 @@ class _ValidHDU(_AllHDU, _Verify):
         """
 
         if hasattr(self, '_file') and self._file:
-           return {'file': self._file, 'filemode': self._ffile.mode,
+           return {'file': self._file, 'filemode': self._file.mode,
                    'hdrLoc': self._hdrLoc, 'datLoc': self._datLoc,
                    'datSpan': self._datSpan}
         else:
@@ -466,6 +463,205 @@ class _ValidHDU(_AllHDU, _Verify):
 
         return errs
 
+    def add_datasum(self, when=None, blocking='standard'):
+        """
+        Add the ``DATASUM`` card to this HDU with the value set to the
+        checksum calculated for the data.
+
+        Parameters
+        ----------
+        when : str, optional
+            Comment string for the card that by default represents the
+            time when the checksum was calculated
+
+        blocking: str, optional
+            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
+
+        Returns
+        -------
+        checksum : int
+            The calculated datasum
+
+        Notes
+        -----
+        For testing purposes, provide a `when` argument to enable the
+        comment value in the card to remain consistent.  This will
+        enable the generation of a ``CHECKSUM`` card with a consistent
+        value.
+        """
+
+        cs = self._calculate_datasum(blocking)
+
+        if when is None:
+           when = 'data unit checksum updated %s' % self._get_timestamp()
+
+        self.header.update('DATASUM', str(cs), when);
+        return cs
+
+    def add_checksum(self, when=None, override_datasum=False,
+                     blocking='standard'):
+        """
+        Add the ``CHECKSUM`` and ``DATASUM`` cards to this HDU with
+        the values set to the checksum calculated for the HDU and the
+        data respectively.  The addition of the ``DATASUM`` card may
+        be overridden.
+
+        Parameters
+        ----------
+        when : str, optional
+           comment string for the cards; by default the comments
+           will represent the time when the checksum was calculated
+
+        override_datasum : bool, optional
+           add the ``CHECKSUM`` card only
+
+        blocking: str, optional
+            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
+
+        Notes
+        -----
+        For testing purposes, first call `add_datasum` with a `when`
+        argument, then call `add_checksum` with a `when` argument and
+        `override_datasum` set to `True`.  This will provide
+        consistent comments for both cards and enable the generation
+        of a ``CHECKSUM`` card with a consistent value.
+        """
+
+        if not override_datasum:
+           # Calculate and add the data checksum to the header.
+           data_cs = self.add_datasum(when, blocking)
+        else:
+           # Just calculate the data checksum
+           data_cs = self._calculate_datasum(blocking)
+
+        if when is None:
+            when = 'HDU checksum updated %s' % self._get_timestamp()
+
+        # Add the CHECKSUM card to the header with a value of all zeros.
+        if 'DATASUM' in self.header:
+            self.header.update('CHECKSUM', '0'*16, when, before='DATASUM')
+        else:
+            self.header.update('CHECKSUM', '0'*16, when)
+
+        s = self._calculate_checksum(data_cs, blocking)
+
+        # Update the header card.
+        self.header.update('CHECKSUM', s, when);
+
+    def verify_datasum(self, blocking='standard'):
+        """
+        Verify that the value in the ``DATASUM`` keyword matches the value
+        calculated for the ``DATASUM`` of the current HDU data.
+
+        blocking: str, optional
+            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
+
+        Returns
+        -------
+        valid : int
+           - 0 - failure
+           - 1 - success
+           - 2 - no ``DATASUM`` keyword present
+        """
+
+        if 'DATASUM' in self.header:
+            datasum = self._calculate_datasum(blocking)
+            if datasum == int(self.header['DATASUM']):
+                return 1
+            elif blocking == 'either': # i.e. standard failed,  try nonstandard
+                return self.verify_datasum(blocking='nonstandard')
+            else: # Failed with all permitted blocking kinds
+                return 0
+        else:
+            return 2
+
+    def verify_checksum(self, blocking='standard'):
+        """
+        Verify that the value in the ``CHECKSUM`` keyword matches the
+        value calculated for the current HDU CHECKSUM.
+
+        blocking: str, optional
+            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
+
+        Returns
+        -------
+        valid : int
+           - 0 - failure
+           - 1 - success
+           - 2 - no ``CHECKSUM`` keyword present
+        """
+
+        if 'CHECKSUM' in self._header:
+            if 'DATASUM' in self._header:
+                datasum = self._calculate_datasum(blocking)
+            else:
+                datasum = 0
+            checksum = self._calculate_checksum(datasum, blocking)
+            if checksum == self.header['CHECKSUM']:
+                return 1
+            elif blocking == 'either': # i.e. standard failed,  try nonstandard
+                return self.verify_checksum(blocking='nonstandard')
+            else: # Failed with all permitted blocking kinds
+                return 0
+        else:
+            return 2
+
+    def _get_timestamp(self):
+        """
+        Return the current timestamp in ISO 8601 format, with microseconds
+        stripped off.
+
+        Ex.: 2007-05-30T19:05:11
+        """
+
+        return datetime.datetime.now().isoformat()[:19]
+
+    def _calculate_datasum(self, blocking):
+        """
+        Calculate the value for the ``DATASUM`` card in the HDU.
+        """
+
+        if self._data_loaded:
+            # This is the case where the data has not been read from the file
+            # yet.  We find the data in the file, read it, and calculate the
+            # datasum.
+            if self.size() > 0:
+                raw_data = self._file.readarray(size=self._datSpan,
+                                                offset=self._datLoc,
+                                                dtype='ubyte')
+                return self._compute_checksum(raw_data, blocking=blocking)
+            else:
+                return 0
+        elif self.data is not None:
+            return self._compute_checksum(
+                np.fromstring(self.data, dtype='ubyte'), blocking=blocking)
+        else:
+            return 0
+
+    def _calculate_checksum(self, datasum, blocking):
+        """
+        Calculate the value of the ``CHECKSUM`` card in the HDU.
+        """
+
+        oldChecksum = self.header['CHECKSUM']
+        self.header.update('CHECKSUM', '0'*16);
+
+        # Convert the header to a string.
+        s = repr(self._header.ascard) + _pad('END')
+        s = s + _pad_length(len(s))*' '
+
+        # Calculate the checksum of the Header and data.
+        cs = self._compute_checksum(np.fromstring(s, dtype='ubyte'), datasum,
+                                    blocking=blocking)
+
+        # Encode the checksum into a string.
+        s = self._char_encode(~cs)
+
+        # Return the header card value.
+        self.header.update("CHECKSUM", oldChecksum);
+
+        return s
+
     def _compute_checksum(self, bytes, sum32=0, blocking="standard"):
         """
         Compute the ones-complement checksum of a sequence of bytes.
@@ -490,11 +686,12 @@ class _ValidHDU(_AllHDU, _Verify):
         -------
         ones complement checksum
         """
-        blocklen = {"standard" : 2880,
-                    "nonstandard" : len(bytes),
-                    "either":2880,  # do standard first
-                    True: 2880,
-                    }[blocking]
+
+        blocklen = {'standard': 2880,
+                    'nonstandard': len(bytes),
+                    'either':2880,  # do standard first
+                    True: 2880}[blocking]
+
         sum32 = np.array(sum32, dtype='uint32')
         for i in range(0, len(bytes), blocklen):
             length = min(blocklen, len(bytes)-i)   # ????
@@ -584,6 +781,7 @@ class _ValidHDU(_AllHDU, _Verify):
         -------
         ascii encoded checksum
         """
+
         value = np.array(value, dtype='uint32')
 
         asc = np.zeros((16,), dtype='byte')
@@ -600,293 +798,82 @@ class _ValidHDU(_AllHDU, _Verify):
 
         return ascii.tostring()
 
-    def _datetime_str(self):
-        """
-        Time of now formatted like: 2007-05-30T19:05:11
-        """
-
-        now = str(datetime.datetime.now()).split()
-        return now[0] + "T" + now[1].split(".")[0]
-
-    def _calculate_datasum(self, blocking):
-        """
-        Calculate the value for the ``DATASUM`` card in the HDU.
-        """
-
-        if not self._data_loaded:
-            # This is the case where the data has not been read from the file
-            # yet.  We find the data in the file, read it, and calculate the
-            # datasum.
-            if self.size() > 0:
-                self._file.seek(self._datLoc)
-                raw_data = _fromfile(self._file, dtype='ubyte',
-                                     count=self._datSpan, sep="")
-                return self._compute_checksum(raw_data, blocking=blocking)
-            else:
-                return 0
-        elif self.data is not None:
-            return self._compute_checksum(
-                np.fromstring(self.data, dtype='ubyte'), blocking=blocking)
-        else:
-            return 0
-
-    def _calculate_checksum(self, datasum, blocking):
-        """
-        Calculate the value of the ``CHECKSUM`` card in the HDU.
-        """
-
-        oldChecksum = self.header['CHECKSUM']
-        self.header.update('CHECKSUM', '0'*16);
-
-        # Convert the header to a string.
-        s = repr(self._header.ascard) + _pad('END')
-        s = s + _pad_length(len(s))*' '
-
-        # Calculate the checksum of the Header and data.
-        cs = self._compute_checksum(np.fromstring(s, dtype='ubyte'), datasum,
-                                    blocking=blocking)
-
-        # Encode the checksum into a string.
-        s = self._char_encode(~cs)
-
-        # Return the header card value.
-        self.header.update("CHECKSUM", oldChecksum);
-
-        return s
-
-    def add_datasum(self, when=None, blocking="standard"):
-        """
-        Add the ``DATASUM`` card to this HDU with the value set to the
-        checksum calculated for the data.
-
-        Parameters
-        ----------
-        when : str, optional
-            Comment string for the card that by default represents the
-            time when the checksum was calculated
-
-        blocking: str, optional
-            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
-
-        Returns
-        -------
-        checksum : int
-            The calculated datasum
-
-        Notes
-        -----
-        For testing purposes, provide a `when` argument to enable the
-        comment value in the card to remain consistent.  This will
-        enable the generation of a ``CHECKSUM`` card with a consistent
-        value.
-        """
-        cs = self._calculate_datasum(blocking)
-
-        if when is None:
-           when = "data unit checksum updated " + self._datetime_str()
-
-        self.header.update("DATASUM", str(cs), when);
-        return cs
-
-    def add_checksum(self, when=None, override_datasum=False, blocking="standard"):
-        """
-        Add the ``CHECKSUM`` and ``DATASUM`` cards to this HDU with
-        the values set to the checksum calculated for the HDU and the
-        data respectively.  The addition of the ``DATASUM`` card may
-        be overridden.
-
-        Parameters
-        ----------
-        when : str, optional
-           comment string for the cards; by default the comments
-           will represent the time when the checksum was calculated
-
-        override_datasum : bool, optional
-           add the ``CHECKSUM`` card only
-
-        blocking: str, optional
-            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
-
-        Notes
-        -----
-        For testing purposes, first call `add_datasum` with a `when`
-        argument, then call `add_checksum` with a `when` argument and
-        `override_datasum` set to `True`.  This will provide
-        consistent comments for both cards and enable the generation
-        of a ``CHECKSUM`` card with a consistent value.
-        """
-
-        if not override_datasum:
-           # Calculate and add the data checksum to the header.
-           data_cs = self.add_datasum(when, blocking)
-        else:
-           # Just calculate the data checksum
-           data_cs = self._calculate_datasum(blocking)
-
-        if when is None:
-            when = "HDU checksum updated " + self._datetime_str()
-
-        # Add the CHECKSUM card to the header with a value of all zeros.
-        if 'DATASUM' in self.header:
-            self.header.update('CHECKSUM', '0'*16, when, before='DATASUM')
-        else:
-            self.header.update('CHECKSUM', '0'*16, when)
-
-        s = self._calculate_checksum(data_cs, blocking)
-
-        # Update the header card.
-        self.header.update('CHECKSUM', s, when);
-
-    def verify_datasum(self, blocking='standard'):
-        """
-        Verify that the value in the ``DATASUM`` keyword matches the value
-        calculated for the ``DATASUM`` of the current HDU data.
-
-        blocking: str, optional
-            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
-
-        Returns
-        -------
-        valid : int
-           - 0 - failure
-           - 1 - success
-           - 2 - no ``DATASUM`` keyword present
-        """
-
-        if 'DATASUM' in self.header:
-            datasum = self._calculate_datasum(blocking)
-            if datasum == int(self.header['DATASUM']):
-                return 1
-            elif blocking == 'either': # i.e. standard failed,  try nonstandard
-                return self.verify_datasum(blocking='nonstandard')
-            else: # Failed with all permitted blocking kinds
-                return 0
-        else:
-            return 2
-
-    def verify_checksum(self, blocking='standard'):
-        """
-        Verify that the value in the ``CHECKSUM`` keyword matches the
-        value calculated for the current HDU CHECKSUM.
-
-        blocking: str, optional
-            "standard" or "nonstandard", compute sum 2880 bytes at a time, or not
-
-        Returns
-        -------
-        valid : int
-           - 0 - failure
-           - 1 - success
-           - 2 - no ``CHECKSUM`` keyword present
-        """
-
-        if 'CHECKSUM' in self._header:
-            if self._header.has_key('DATASUM'):
-                datasum = self._calculate_datasum(blocking)
-            else:
-                datasum = 0
-            checksum = self._calculate_checksum(datasum, blocking)
-            if checksum == self.header['CHECKSUM']:
-                return 1
-            elif blocking == 'either': # i.e. standard failed,  try nonstandard
-                return self.verify_checksum(blocking='nonstandard')
-            else: # Failed with all permitted blocking kinds
-                return 0
-        else:
-            return 2
 
 
-class _TempHDU(_ValidHDU):
+# TODO: Possibly move this into a separate module, and possibly even not make
+# it a _ValidHDU subclass (after all, and this point we don't necessarily know
+# if the HDU is valid)
+class _RawHDU(_ValidHDU):
     """
     Temporary HDU, used when the file is first opened. This is to
     speed up the open.  Any header will not be initialized till the
     HDU is accessed.
     """
 
-    def _getname(self):
+    def __init__(self, data='', fileobj=None, offset=0, checksum=False,
+                 **kwargs):
         """
-        Get the ``EXTNAME`` and ``EXTVER`` from the header.
-        """
-
-        re_extname = re.compile(r"EXTNAME\s*=\s*'([ -&(-~]*)'")
-        re_extver = re.compile(r"EXTVER\s*=\s*(\d+)")
-
-        mo = re_extname.search(self._raw)
-        if mo:
-            name = mo.group(1).rstrip()
-        else:
-            name = ''
-
-        mo = re_extver.search(self._raw)
-        if mo:
-            extver = int(mo.group(1))
-        else:
-            extver = 1
-
-        return name, extver
-
-    def _getsize(self, block):
-        """
-        Get the size from the first block of the HDU.
+        TODO: Document me better.
         """
 
-        re_simple = re.compile(r'SIMPLE  =\s*')
-        re_bitpix = re.compile(r'BITPIX  =\s*(-?\d+)')
-        re_naxis = re.compile(r'NAXIS   =\s*(\d+)')
-        re_naxisn = re.compile(r'NAXIS(\d)  =\s*(\d+)')
-        re_gcount = re.compile(r'GCOUNT  =\s*(-?\d+)')
-        re_pcount = re.compile(r'PCOUNT  =\s*(-?\d+)')
-        re_groups = re.compile(r'GROUPS  =\s*(T)')
+        from pyfits.header import Header
 
-        simple = re_simple.search(block[:80])
-        mo = re_bitpix.search(block)
-        if mo is not None:
-            bitpix = int(mo.group(1))
+        super(_RawHDU, self).__init__()
+        self._raw = data
+        self._check_checksum = checksum
+        self._kwargs = kwargs
+
+        if (len(data) % BLOCK_SIZE) != 0:
+            raise IOError('Header size is not multiple of %d: %d'
+                          % (BLOCK_SIZE, len(data)))
+        elif data[:8] not in ['SIMPLE  ', 'XTENSION']:
+            raise IOError('Block does not begin with SIMPLE or XTENSION')
+
+        cards = []
+        keys = []
+
+        for idx in range(0, len(data), Card.length):
+            card = create_card_from_string(data[idx:idx + Card.length])
+            key = card.key
+
+            if key == 'END':
+                break
+            else:
+                cards.append(card)
+                keys.append(key)
+
+        self._header = Header(CardList(cards, keylist=keys))
+
+        size = self.size()
+
+        if 'SIMPLE' in self._header and self._header['SIMPLE']:
+            self.name = 'PRIMARY'
+            self._extver = 1
         else:
-            raise ValueError("BITPIX not found where expected")
+            # If name was not PRIMARY get extname and extver
+            if 'EXTNAME' in self._header:
+                self.name = self._header['EXTNAME']
+            else:
+                self.name = ''
+            if 'EXTVER' in self._header:
+                self._extver = self._header['EXTVER']
+            else:
+                self._extver = 1
 
-        mo = re_gcount.search(block)
-        if mo is not None:
-            gcount = int(mo.group(1))
-        else:
-            gcount = 1
+        self._file = fileobj
+        self._hdrLoc = offset                 # beginning of the header area
+        self._datLoc = fileobj.tell()         # beginning of the data area
 
-        mo = re_pcount.search(block)
-        if mo is not None:
-            pcount = int(mo.group(1))
-        else:
-            pcount = 0
+        # data area size, including padding
+        self._datSpan = size + _pad_length(size)
+        self._new = False
 
-        mo = re_groups.search(block)
-        if mo and simple:
-            groups = 1
-        else:
-            groups = 0
-
-        mo = re_naxis.search(block)
-        if mo is not None:
-            naxis = int(mo.group(1))
-            pos = mo.end(0)
-        else:
-            raise ValueError("NAXIS not found where expected")
-
-        if naxis == 0:
-            datasize = 0
-        else:
-            dims = [0]*naxis
-            for i in range(naxis):
-                mo = re_naxisn.search(block, pos)
-                pos = mo.end(0)
-                dims[int(mo.group(1))-1] = int(mo.group(2))
-            datasize = reduce(operator.mul, dims[groups:])
-        size = abs(bitpix) * gcount * (pcount + datasize) // 8
-
-        if simple and not groups:
-            name = 'PRIMARY'
-        else:
-            name = ''
-
-        return size, name
+    def size(self):
+        if not 'BITPIX' in self._header:
+            raise ValueError('BITPIX not found where expected')
+        if not 'NAXIS' in self._header:
+            raise ValueError('NAXIS not found where expected')
+        return super(_RawHDU, self).size()
 
     @_with_extensions
     def setupHDU(self, classExtensions={}):
@@ -896,31 +883,11 @@ class _TempHDU(_ValidHDU):
         """
 
         from pyfits.header import Header
-        from pyfits.hdu.image import PrimaryHDU, ImageHDU
-
-        cards = []
-        keys = []
-
-        blocks = self._raw
-        if (len(blocks) % BLOCK_SIZE) != 0:
-            raise IOError('Header size is not multiple of %d: %d'
-                          % (BLOCK_SIZE, len(blocks)))
-        elif (blocks[:8] not in ['SIMPLE  ', 'XTENSION']):
-            raise IOError('Block does not begin with SIMPLE or XTENSION')
-
-        for idx in range(0, len(blocks), Card.length):
-            card = create_card_from_string(blocks[idx:idx + Card.length])
-            key = card.key
-
-            if key == 'END':
-                break
-            else:
-                cards.append(card)
-                keys.append(key)
 
         # Deal with CONTINUE cards
         # if a long string has CONTINUE cards, the "Card" is considered
         # to be more than one 80-char "physical" cards.
+        cards = self._header.ascard
 
         idx = len(cards)
         continueimg = []
@@ -932,35 +899,40 @@ class _TempHDU(_ValidHDU):
             elif continueimg:
                 continueimg.append(card._cardimage)
                 continueimg = ''.join(reversed(continueimg))
-                print continueimg
                 cards[idx] = _ContinueCard.fromstring(continueimg)
                 continueimg = []
 
-        # construct the Header object, using the cards.
-        header = Header(CardList(cards, keylist=keys))
+        # construct the new Header object with combined CONTINUE cards
+        header = Header(CardList(cards))
 
-        if ((header._hdutype == PrimaryHDU or header._hdutype == ImageHDU)
-            and (hasattr(self, '_do_not_scale_image_data'))):
-            hdu = header._hdutype(
-                data=DELAYED, header=header,
-                do_not_scale_image_data=self._do_not_scale_image_data)
-        else:
-            hdu = header._hdutype(data=DELAYED, header=header)
+        # Determine the appropriate arguments to pass to the constructor from
+        # self._kwargs.  self._kwargs contains any number of optional arguments
+        # that may or may not be valid depending on the HDU type
+        cls = header._hdutype
+        args, varargs, varkwargs, defaults = inspect.getargspec(cls.__init__)
+        if not varkwargs:
+            # If __init__ accepts arbitrary keyword arguments, then we can go
+            # ahead and pass all keyword argumnets; otherwise we need to delete
+            # any that are invalid
+            for key in self._kwargs.keys():
+                if key not in args:
+                    del self._kwargs[key]
 
-        try:
-            # pass these attributes
-            hdu._file = self._file
-            hdu._hdrLoc = self._hdrLoc
-            hdu._datLoc = self._datLoc
-            hdu._datSpan = self._datSpan
-            hdu._ffile = self._ffile
-            hdu.name = self.name
-            hdu._extver = self._extver
-            hdu._new = 0
-            hdu.header._mod = 0
-            hdu.header.ascard._mod = 0
-        except:
-            pass
+        hdu = cls(data=DELAYED, header=header, **self._kwargs)
+
+        # pass on these attributes
+        hdu._file = self._file
+        hdu._hdrLoc = self._hdrLoc
+        hdu._datLoc = self._datLoc
+        hdu._datSpan = self._datSpan
+        hdu.name = self.name
+        hdu._extver = self._extver
+        hdu._new = False
+        hdu.header._mod = False
+        hdu.header.ascard._mod = False
+
+        if self._check_checksum:
+            self._verify_checksum_datasum(hdu)
 
         return hdu
 
@@ -974,3 +946,37 @@ class _TempHDU(_ValidHDU):
         else:
            return False
     isPrimary = is_primary
+
+    def _verify_checksum_datasum(self, hdu):
+        """
+        Verify the checksum/datasum values if the cards exist in the header.
+        """
+
+        # NOTE:  private data members _checksum and _datasum are
+        # used by the utility script "fitscheck" to detect missing
+        # checksums.
+
+        if 'CHECKSUM' in hdu.header:
+            hdu._checksum = hdu._header['CHECKSUM']
+            hdu._checksum_comment = hdu._header.ascard['CHECKSUM'].comment
+            if not hdu.verify_checksum():
+                 warnings.warn('Warning:  Checksum verification failed for '
+                               'HDU %s.\n' % ((hdu.name, hdu._extver),))
+            del hdu._header['CHECKSUM']
+        else:
+            hdu._checksum = None
+            hdu._checksum_comment = None
+
+        if 'DATASUM' in hdu.header:
+             hdu._datasum = hdu._header['DATASUM']
+             hdu._datasum_comment = hdu._header.ascard['DATASUM'].comment
+
+             if not hdu.verify_datasum():
+                 warnings.warn('Warning:  Datasum verification failed for '
+                               'HDU %s.\n' % ((hdu.name, hdu._extver),))
+             del hdu.header['DATASUM']
+        else:
+             hdu._checksum = None
+             hdu._checksum_comment = None
+             hdu._datasum = None
+             hdu._datasum_comment = None
