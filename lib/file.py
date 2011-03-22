@@ -15,7 +15,7 @@ from pyfits import rec
 from pyfits.card import Card, _pad
 from pyfits.column import _FormatP, _VLF
 from pyfits.hdu import TableHDU, BinTableHDU, CompImageHDU
-from pyfits.hdu.base import _NonstandardHDU, _RawHDU
+from pyfits.hdu.base import _BaseHDU, _NonstandardHDU
 from pyfits.hdu.extension import _NonstandardExtHDU
 from pyfits.hdu.groups import GroupData
 from pyfits.hdu.image import _ImageBaseHDU
@@ -269,7 +269,7 @@ class FITSFile(object):
         Read the skeleton structure of an HDU.
         """
 
-        end_RE = re.compile('END {77}')
+        end_re = re.compile('END {77}')
         hdrLoc = self.__file.tell()
 
         # Read the first header block.
@@ -282,7 +282,7 @@ class FITSFile(object):
         # continue reading header blocks until END card is reached
         while True:
             # find the END card
-            mo = end_RE.search(block)
+            mo = end_re.search(block)
             if mo is None:
                 blocks.append(block)
                 block = self.__file.read(BLOCK_SIZE)
@@ -292,12 +292,15 @@ class FITSFile(object):
                 break
         blocks.append(block)
 
-        if not end_RE.search(block) and not ignore_missing_end:
+        if not end_re.search(block) and not ignore_missing_end:
             raise IOError('Header missing END card.')
 
-        hdu = _RawHDU(''.join(blocks), fileobj=self, offset=hdrLoc,
-                      checksum=checksum, **kwargs)
+        blocks = ''.join(blocks)
 
+        hdu = _BaseHDU.fromstring(blocks, fileobj=self, offset=hdrLoc,
+                                  checksum=checksum,
+                                  ignore_missing_end=ignore_missing_end,
+                                  **kwargs)
         if isinstance(self.__file, gzip.GzipFile):
             pos = self.__file.tell()
             self.__file.seek(pos + hdu._datSpan)

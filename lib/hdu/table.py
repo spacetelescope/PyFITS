@@ -16,13 +16,62 @@ from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
                           _ASCIIColDefs, _FormatX, _FormatP, _wrapx, _makep, \
                           _VLF, _parse_tformat, _convert_format
 from pyfits.fitsrec import FITS_rec
-from pyfits.hdu.base import _AllHDU
+from pyfits.hdu.base import _ValidHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.util import Extendable, lazyproperty, _is_int, _str_to_num, \
                         _pad_length
 
 
-class _TableBaseHDU(_ExtensionHDU):
+class _TableLikeHDU(_ValidHDU):
+    """
+    A class for HDUs that have table-like data.  This is used for both
+    Binary/ASCII tables as well as Random Access Group HDUs (which are
+    otherwise too dissimlary for tables to use _TableBaseHDU directly).
+    """
+
+    @lazyproperty
+    def columns(self):
+        # The base class doesn't make any assumptions about where the column
+        # definitions come from, so just return an empty ColDefs
+        return ColDefs([])
+
+    def _get_tbdata(self):
+        """Get the table data from an input HDU object."""
+
+        columns = self.columns
+        formats = ','.join(columns._recformats)
+        dtype = rec.format_parser(formats, columns.names, None)._descr
+        raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
+                                        shape=columns._shape)
+        data = rec.recarray(shape=raw_data.shape, buf=raw_data,
+                            dtype=raw_data.dtype, names=columns.names)
+        self._init_tbdata(data)
+        return data.view(FITS_rec)
+
+    def _init_tbdata(self, data):
+        columns = self.columns
+
+        data.dtype = data.dtype.newbyteorder('>')
+
+        # pass datLoc, for P format
+        data._heapoffset = self._theap + self._datLoc
+        data._file = self._file
+        tbsize = self._header['NAXIS1'] * self._header['NAXIS2']
+        data._gap = self._theap - tbsize
+
+        # pass the attributes
+        for attr in ['formats', 'names']:
+            setattr(data, attr, getattr(columns, attr))
+        for idx in range(len(columns)):
+           # get the data for each column object from the rec.recarray
+            columns.data[idx].array = data.field(idx)
+
+        # delete the _arrays attribute so that it is recreated to point to the
+        # new data placed in the column object above
+        del columns._arrays
+
+
+class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
     """
     FITS table extension base HDU class.
     """
@@ -115,15 +164,13 @@ class _TableBaseHDU(_ExtensionHDU):
             else:
                 raise TypeError('Table data has incorrect type.')
 
-        #  set extension name
-        if not name and 'EXTNAME' in self._header:
-            name = self._header['EXTNAME']
-        self.name = name
-
         if self._header[0].rstrip() != self._extension:
             self._header[0] = self._extension
             self._header.ascard[0].comment = self._ext_comment
 
+    @lazyproperty
+    def columns(self):
+        return ColDefs(self)
 
     @lazyproperty
     def data(self):
@@ -136,10 +183,6 @@ class _TableBaseHDU(_ExtensionHDU):
             data = None
         self._data_loaded = True
         return data
-
-    @lazyproperty
-    def columns(self):
-        return ColDefs(self)
 
     @lazyproperty
     def _theap(self):
@@ -180,41 +223,6 @@ class _TableBaseHDU(_ExtensionHDU):
         self.data
         return new_table(self.columns, header=self._header,
                          tbtype=self.columns._tbtype)
-
-    def _get_tbdata(self):
-        """Get the table data from an input HDU object."""
-
-        columns = self.columns
-        formats = ','.join(columns._recformats)
-        dtype = rec.format_parser(formats, columns.names, None)._descr
-        raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
-                                        shape=columns._shape)
-        data = rec.recarray(shape=raw_data.shape, buf=raw_data,
-                            dtype=raw_data.dtype, names=columns.names)
-        self._init_tbdata(data)
-        return data.view(FITS_rec)
-
-    def _init_tbdata(self, data):
-        columns = self.columns
-        
-        data.dtype = data.dtype.newbyteorder('>')
-
-        # pass datLoc, for P format
-        data._heapoffset = self._theap + self._datLoc
-        data._file = self._file
-        tbsize = self._header['NAXIS1'] * self._header['NAXIS2']
-        data._gap = self._theap - tbsize
-
-        # pass the attributes
-        for attr in ['formats', 'names']:
-            setattr(data, attr, getattr(columns, attr))
-        for idx in range(len(columns)):
-           # get the data for each column object from the rec.recarray
-            columns.data[idx].array = data.field(idx)
-
-        # delete the _arrays attribute so that it is recreated to point to the
-        # new data placed in the column object above
-        del columns._arrays
 
     def _verify(self, option='warn'):
         """

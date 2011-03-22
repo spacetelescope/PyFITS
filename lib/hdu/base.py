@@ -1,19 +1,19 @@
 import datetime
 import inspect
 import operator
+import re
 import warnings
 
 import numpy as np
 
-from pyfits.card import Card, CardList, _ContinueCard, \
-                        create_card_from_string, _pad
+from pyfits.card import _pad
 from pyfits.column import DELAYED
 from pyfits.util import lazyproperty, _fromfile, _is_int, _with_extensions, \
-                        _pad_length, BLOCK_SIZE
+                        _pad_length
 from pyfits.verify import _Verify, _ErrList
 
 
-class _AllHDU(object):
+class _BaseHDU(object):
     """
     Base class for all HDU (header data unit) classes.
     """
@@ -21,10 +21,11 @@ class _AllHDU(object):
     def __init__(self, data=None, header=None):
         self._header = header
         self._file = None
-        self._offset = None
+        self._hdrLoc = None
         self._datLoc = None
+        self._datSpan = None
         self._data_loaded = False
-        self.name = None
+        self.name = ''
 
         if data is not None and data is not DELAYED:
             self._data_loaded = True
@@ -35,6 +36,101 @@ class _AllHDU(object):
     def _setheader(self, value):
         self._header = value
     header = property(_getheader, _setheader)
+
+    @classmethod
+    def fromstring(cls, data, fileobj=None, offset=0, checksum=False,
+                   ignore_missing_end=False, **kwargs):
+        """
+        Creates a new HDU object of the appropriate type from a string
+        containing the HDU's entire header and, optionally, its data.
+
+        Parameters
+        ----------
+        data : str
+           A byte string contining the HDU's header and, optionally, its data.
+           If `fileobj` is not specified, and the length of `data` extends
+           beyond the header, then the trailing data is taken to be the HDU's
+           data.  If `fileobj` is specified then the trailing data is ignored.
+
+        fileobj : file, optional
+           The file-like object that this HDU was read from.
+
+        offset : int, optional
+           If `fileobj` is specified, the offset into the file-like object at
+           which this HDU begins.
+
+        checksum : bool optional
+           Check the HDU's checksum and/or datasum.
+
+        ignore_missing_end : bool, optional
+           Ignore a missing end card in the header data.  Note that without
+           the end card the end of the header can't be found, so the entire
+           data is just assumed to be the header.
+
+        kwargs : optional
+           May contain additional keyword arguments specific to an HDU type.
+           Any unrecognized kwargs are simply ignored.
+        """
+
+        from pyfits.header import Header
+
+        if data[:8] not in ['SIMPLE  ', 'XTENSION']:
+            raise ValueError('Block does not begin with SIMPLE or XTENSION')
+
+        # Make sure the end card is present
+        match = re.search(r'END {77}', data)
+        if not match:
+            if ignore_missing_end:
+                hdrlen = len(data)
+            else:
+                raise ValueError('Header missing END card.')
+        else:
+            hdrlen = match.start() + len(match.group())
+            hdrlen += _pad_length(hdrlen)
+
+        header = Header.fromstring(data[:hdrlen])
+        if not fileobj and len(data) > hdrlen:
+            data = data[hdrlen:]
+        elif fileobj:
+            data = DELAYED
+        else:
+            data = None
+
+        # Determine the appropriate arguments to pass to the constructor from
+        # self._kwargs.  self._kwargs contains any number of optional arguments
+        # that may or may not be valid depending on the HDU type
+        # TODO: header._hdutype needs to go away; the appropriate class should
+        # be determined by _BaseHDU.__new__(), I think...
+        cls = header._hdutype
+
+        args, varargs, varkwargs, defaults = inspect.getargspec(cls.__init__)
+        new_kwargs = kwargs.copy()
+        if not varkwargs:
+            # If __init__ accepts arbitrary keyword arguments, then we can go
+            # ahead and pass all keyword argumnets; otherwise we need to delete
+            # any that are invalid
+            for key in kwargs:
+                if key not in args:
+                    del new_kwargs[key]
+
+        hdu = cls(data=data, header=header, **new_kwargs)
+
+        size = hdu.size()
+        hdu._file = fileobj
+        hdu._hdrLoc = offset                 # beginning of the header area
+        if fileobj:
+            hdu._datLoc = fileobj.tell()     # beginning of the data area
+        else:
+            hdu._datLoc = hdrlen
+
+        # data area size, including padding
+        hdu._datSpan = size + _pad_length(size)
+
+        # Checksums are not checked on invalid HDU types
+        if checksum and isinstance(hdu, _ValidHDU):
+            hdu._verify_checksum_datasum(checksum)
+
+        return hdu
 
     @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,
@@ -74,9 +170,11 @@ class _AllHDU(object):
         hdulist = HDUList([self])
         hdulist.writeto(name, output_verify, clobber=clobber,
                         checksum=checksum)
+_AllHDU = _BaseHDU # For backwards-compatibility, though nobody should have
+                   # been using this directly
 
 
-class _CorruptedHDU(_AllHDU):
+class _CorruptedHDU(_BaseHDU):
     """
     A Corrupted HDU class.
 
@@ -107,7 +205,7 @@ class _CorruptedHDU(_AllHDU):
         pass
 
 
-class _NonstandardHDU(_AllHDU, _Verify):
+class _NonstandardHDU(_BaseHDU, _Verify):
     """
     A Non-standard HDU class.
 
@@ -153,7 +251,7 @@ class _NonstandardHDU(_AllHDU, _Verify):
         return errs
 
 
-class _ValidHDU(_AllHDU, _Verify):
+class _ValidHDU(_BaseHDU, _Verify):
     """
     Base class for all HDUs which are not corrupted.
     """
@@ -606,6 +704,42 @@ class _ValidHDU(_AllHDU, _Verify):
         else:
             return 2
 
+
+    def _verify_checksum_datasum(self, blocking):
+        """
+        Verify the checksum/datasum values if the cards exist in the header.
+        Simply displays warnings if either the checksum or datasum don't match.
+        """
+
+        # NOTE:  private data members _checksum and _datasum are
+        # used by the utility script "fitscheck" to detect missing
+        # checksums.
+
+        if 'CHECKSUM' in self.header:
+            self._checksum = self._header['CHECKSUM']
+            self._checksum_comment = self._header.ascard['CHECKSUM'].comment
+            if not self.verify_checksum(blocking):
+                 warnings.warn('Warning:  Checksum verification failed for '
+                               'HDU %s.\n' % ((self.name, self._extver),))
+            del self._header['CHECKSUM']
+        else:
+            self._checksum = None
+            self._checksum_comment = None
+
+        if 'DATASUM' in self.header:
+             self._datasum = self._header['DATASUM']
+             self._datasum_comment = self._header.ascard['DATASUM'].comment
+
+             if not self.verify_datasum(blocking):
+                 warnings.warn('Warning:  Datasum verification failed for '
+                               'HDU %s.\n' % ((self.name, self._extver),))
+             del self.header['DATASUM']
+        else:
+             self._checksum = None
+             self._checksum_comment = None
+             self._datasum = None
+             self._datasum_comment = None
+
     def _get_timestamp(self):
         """
         Return the current timestamp in ISO 8601 format, with microseconds
@@ -797,186 +931,3 @@ class _ValidHDU(_AllHDU, _Verify):
             ascii[i] = asc[(i+15) % 16]
 
         return ascii.tostring()
-
-
-
-# TODO: Possibly move this into a separate module, and possibly even not make
-# it a _ValidHDU subclass (after all, and this point we don't necessarily know
-# if the HDU is valid)
-class _RawHDU(_ValidHDU):
-    """
-    Temporary HDU, used when the file is first opened. This is to
-    speed up the open.  Any header will not be initialized till the
-    HDU is accessed.
-    """
-
-    def __init__(self, data='', fileobj=None, offset=0, checksum=False,
-                 **kwargs):
-        """
-        TODO: Document me better.
-        """
-
-        from pyfits.header import Header
-
-        super(_RawHDU, self).__init__()
-        self._raw = data
-        self._check_checksum = checksum
-        self._kwargs = kwargs
-
-        if (len(data) % BLOCK_SIZE) != 0:
-            raise IOError('Header size is not multiple of %d: %d'
-                          % (BLOCK_SIZE, len(data)))
-        elif data[:8] not in ['SIMPLE  ', 'XTENSION']:
-            raise IOError('Block does not begin with SIMPLE or XTENSION')
-
-        cards = []
-        keys = []
-
-        for idx in range(0, len(data), Card.length):
-            card = create_card_from_string(data[idx:idx + Card.length])
-            key = card.key
-
-            if key == 'END':
-                break
-            else:
-                cards.append(card)
-                keys.append(key)
-
-        self._header = Header(CardList(cards, keylist=keys))
-
-        size = self.size()
-
-        if 'SIMPLE' in self._header and self._header['SIMPLE']:
-            self.name = 'PRIMARY'
-            self._extver = 1
-        else:
-            # If name was not PRIMARY get extname and extver
-            if 'EXTNAME' in self._header:
-                self.name = self._header['EXTNAME']
-            else:
-                self.name = ''
-            if 'EXTVER' in self._header:
-                self._extver = self._header['EXTVER']
-            else:
-                self._extver = 1
-
-        self._file = fileobj
-        self._hdrLoc = offset                 # beginning of the header area
-        self._datLoc = fileobj.tell()         # beginning of the data area
-
-        # data area size, including padding
-        self._datSpan = size + _pad_length(size)
-        self._new = False
-
-    def size(self):
-        if not 'BITPIX' in self._header:
-            raise ValueError('BITPIX not found where expected')
-        if not 'NAXIS' in self._header:
-            raise ValueError('NAXIS not found where expected')
-        return super(_RawHDU, self).size()
-
-    @_with_extensions
-    def setupHDU(self, classExtensions={}):
-        """
-        Read one FITS HDU; data portions are not actually read here,
-        but the beginning locations are computed.
-        """
-
-        from pyfits.header import Header
-
-        # Deal with CONTINUE cards
-        # if a long string has CONTINUE cards, the "Card" is considered
-        # to be more than one 80-char "physical" cards.
-        cards = self._header.ascard
-
-        idx = len(cards)
-        continueimg = []
-        for card in reversed(cards):
-            idx -= 1
-            if idx != 0 and card.key == 'CONTINUE':
-                continueimg.append(card._cardimage)
-                del cards[idx]
-            elif continueimg:
-                continueimg.append(card._cardimage)
-                continueimg = ''.join(reversed(continueimg))
-                cards[idx] = _ContinueCard.fromstring(continueimg)
-                continueimg = []
-
-        # construct the new Header object with combined CONTINUE cards
-        header = Header(CardList(cards))
-
-        # Determine the appropriate arguments to pass to the constructor from
-        # self._kwargs.  self._kwargs contains any number of optional arguments
-        # that may or may not be valid depending on the HDU type
-        cls = header._hdutype
-        args, varargs, varkwargs, defaults = inspect.getargspec(cls.__init__)
-        if not varkwargs:
-            # If __init__ accepts arbitrary keyword arguments, then we can go
-            # ahead and pass all keyword argumnets; otherwise we need to delete
-            # any that are invalid
-            for key in self._kwargs.keys():
-                if key not in args:
-                    del self._kwargs[key]
-
-        hdu = cls(data=DELAYED, header=header, **self._kwargs)
-
-        # pass on these attributes
-        hdu._file = self._file
-        hdu._hdrLoc = self._hdrLoc
-        hdu._datLoc = self._datLoc
-        hdu._datSpan = self._datSpan
-        hdu.name = self.name
-        hdu._extver = self._extver
-        hdu._new = False
-        hdu.header._mod = False
-        hdu.header.ascard._mod = False
-
-        if self._check_checksum:
-            self._verify_checksum_datasum(hdu)
-
-        return hdu
-
-    def is_primary(self):
-        # TODO: This doesn't seem to be used anyhwere, but I'm hesitant to
-        # remove it until I'm sure no one uses it.
-        blocks = self._raw
-
-        if (blocks[:8] == 'SIMPLE  '):
-           return True
-        else:
-           return False
-    isPrimary = is_primary
-
-    def _verify_checksum_datasum(self, hdu):
-        """
-        Verify the checksum/datasum values if the cards exist in the header.
-        """
-
-        # NOTE:  private data members _checksum and _datasum are
-        # used by the utility script "fitscheck" to detect missing
-        # checksums.
-
-        if 'CHECKSUM' in hdu.header:
-            hdu._checksum = hdu._header['CHECKSUM']
-            hdu._checksum_comment = hdu._header.ascard['CHECKSUM'].comment
-            if not hdu.verify_checksum():
-                 warnings.warn('Warning:  Checksum verification failed for '
-                               'HDU %s.\n' % ((hdu.name, hdu._extver),))
-            del hdu._header['CHECKSUM']
-        else:
-            hdu._checksum = None
-            hdu._checksum_comment = None
-
-        if 'DATASUM' in hdu.header:
-             hdu._datasum = hdu._header['DATASUM']
-             hdu._datasum_comment = hdu._header.ascard['DATASUM'].comment
-
-             if not hdu.verify_datasum():
-                 warnings.warn('Warning:  Datasum verification failed for '
-                               'HDU %s.\n' % ((hdu.name, hdu._extver),))
-             del hdu.header['DATASUM']
-        else:
-             hdu._checksum = None
-             hdu._checksum_comment = None
-             hdu._datasum = None
-             hdu._datasum_comment = None

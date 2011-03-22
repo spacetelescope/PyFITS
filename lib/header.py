@@ -1,12 +1,14 @@
 from UserDict import DictMixin
 
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
-                        _HierarchCard, create_card, upper_key
+                        _ContinueCard, _HierarchCard, create_card, \
+                        create_card_from_string, upper_key
 from pyfits.hdu.base import _NonstandardHDU, _CorruptedHDU, _ValidHDU
 from pyfits.hdu.compressed import COMPRESSION_SUPPORTED, CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU, ImageHDU
 from pyfits.hdu.table import TableHDU, BinTableHDU, _TableBaseHDU
+from pyfits.util import BLOCK_SIZE
 
 
 # TODO: The UserDict documentation recommends using the
@@ -63,10 +65,10 @@ class Header(DictMixin):
         if txtfile:
             # get the cards from the input ASCII file
             self.fromTxtFile(txtfile, not len(self.ascard))
-            self._mod = 0
         else:
             # decide which kind of header it belongs to
             self._updateHDUtype()
+        self._mod = False
 
     def __contains__(self, key):
         """
@@ -132,6 +134,54 @@ class Header(DictMixin):
 
     def __str__(self):
         return str(self.ascard)
+
+    @classmethod
+    def fromstring(cls, data):
+        """
+        Creates an HDU header from a byte string containing the entire header
+        data.
+
+        Parameters
+        ----------
+        data : str
+           String containing the entire header.
+        """
+
+        if (len(data) % BLOCK_SIZE) != 0:
+            raise ValueError('Header size is not multiple of %d: %d'
+                             % (BLOCK_SIZE, len(data)))
+
+        cards = []
+        keys = []
+
+        # Split the header into individual cards
+        for idx in range(0, len(data), Card.length):
+            card = create_card_from_string(data[idx:idx + Card.length])
+            key = card.key
+
+            if key == 'END':
+                break
+            else:
+                cards.append(card)
+                keys.append(key)
+
+        # Deal with CONTINUE cards
+        # if a long string has CONTINUE cards, the "Card" is considered
+        # to be more than one 80-char "physical" cards.
+        idx = len(cards)
+        continueimg = []
+        for card in reversed(cards):
+            idx -= 1
+            if idx != 0 and card.key == 'CONTINUE':
+                continueimg.append(card._cardimage)
+                del cards[idx]
+            elif continueimg:
+                continueimg.append(card._cardimage)
+                continueimg = ''.join(reversed(continueimg))
+                cards[idx] = _ContinueCard.fromstring(continueimg)
+                continueimg = []
+
+        return cls(CardList(cards, keylist=keys))
 
     def keys(self):
         """

@@ -4,7 +4,7 @@ from pyfits.card import Card, CardList
 from pyfits.column import DELAYED
 from pyfits.hdu.base import _ValidHDU
 from pyfits.hdu.extension import _ExtensionHDU
-from pyfits.hdu.base import _AllHDU, _ValidHDU
+from pyfits.hdu.base import _ValidHDU
 from pyfits.util import Extendable, _is_pseudo_unsigned, _unsigned_zero, \
                         _is_int, _normalize_slice, lazyproperty
 
@@ -605,6 +605,7 @@ class PrimaryHDU(_ImageBaseHDU):
             data=data, header=header,
             do_not_scale_image_data=do_not_scale_image_data, uint=uint)
         self.name = 'PRIMARY'
+        self._extver = 1
 
         # insert the keywords EXTEND
         if header is None:
@@ -614,7 +615,7 @@ class PrimaryHDU(_ImageBaseHDU):
             self._header.update('EXTEND', True, after='NAXIS'+dim)
 
 
-class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
+class ImageHDU(_ImageBaseHDU, _ExtensionHDU):
     """
     FITS image extension HDU class.
     """
@@ -652,7 +653,6 @@ class ImageHDU(_ExtensionHDU, _ImageBaseHDU):
             and ``BSCALE = 1`` would be treated as `uint16` data.
         """
 
-        # no need to run _ExtensionHDU.__init__ since it is not doing anything.
         super(ImageHDU, self).__init__(
             data=data, header=header,
             do_not_scale_image_data=do_not_scale_image_data, uint=uint)

@@ -11,7 +11,7 @@ import pyfits
 from pyfits.card import Card
 from pyfits.column import _FormatP
 from pyfits.hdu import compressed
-from pyfits.hdu.base import _AllHDU, _ValidHDU, _RawHDU, _NonstandardHDU
+from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU
 from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.groups import GroupsHDU
@@ -106,7 +106,7 @@ class HDUList(list, _Verify):
 
     __metaclass__ = Extendable
 
-    def __init__(self, hdus=[], file=None, ignore_missing_end=False):
+    def __init__(self, hdus=[], file=None):
         """
         Construct a `HDUList` object.
 
@@ -114,7 +114,7 @@ class HDUList(list, _Verify):
         ----------
         hdus : sequence of HDU objects or single HDU, optional
             The HDU object(s) to comprise the `HDUList`.  Should be
-            instances of `_AllHDU`.
+            instances of `_BaseHDU`.
 
         file : file object, optional
             The opened physical file associated with the `HDUList`.
@@ -131,7 +131,7 @@ class HDUList(list, _Verify):
             raise TypeError("Invalid input for HDUList.")
 
         for idx, hdu in enumerate(hdus):
-            if not isinstance(hdu, _AllHDU):
+            if not isinstance(hdu, _BaseHDU):
                 raise TypeError(
                       "Element %d in the HDUList input is not an HDU." % idx)
         super(HDUList, self).__init__(hdus)
@@ -147,12 +147,7 @@ class HDUList(list, _Verify):
         """
 
         idx = self.index_of(key)
-        hdu = super(HDUList, self).__getitem__(idx)
-        if isinstance(hdu, _RawHDU):
-            hdu = hdu.setupHDU()
-            super(HDUList, self).__setitem__(idx, hdu)
-
-        return hdu
+        return super(HDUList, self).__getitem__(idx)
 
     def __getslice__(self, start, end):
         hdus = super(HDUList, self).__getslice__(start, end)
@@ -168,10 +163,10 @@ class HDUList(list, _Verify):
             if _is_int(_key):
                 raise ValueError('An element in the HDUList must be an HDU.')
             for item in hdu:
-                if not isinstance(item, _AllHDU):
+                if not isinstance(item, _BaseHDU):
                     raise ValueError('%s is not an HDU.' % item)
         else:
-            if not isinstance(hdu, _AllHDU):
+            if not isinstance(hdu, _BaseHDU):
                 raise ValueError('%s is not an HDU.' % hdu)
 
         try:
@@ -179,8 +174,8 @@ class HDUList(list, _Verify):
         except IndexError:
             raise IndexError('Extension %s is out of bound or not found.'
                              % key)
-        self._resize = 1
-        self._truncate = 0
+        self._resize = True
+        self._truncate = False
 
     def __delitem__(self, key):
         """
@@ -193,10 +188,10 @@ class HDUList(list, _Verify):
         super(HDUList, self).__delitem__(key)
 
         if (key == end_index or key == -1 and not self._resize):
-            self._truncate = 1
+            self._truncate = True
         else:
-            self._truncate = 0
-            self._resize = 1
+            self._truncate = False
+            self._resize = True
 
     def __delslice__(self, i, j):
         """
@@ -207,10 +202,10 @@ class HDUList(list, _Verify):
         super(HDUList, self).__delslice__(i, j)
 
         if (j == end_index or j == sys.maxint and not self._resize):
-            self._truncate = 1
+            self._truncate = True
         else:
-            self._truncate = 0
-            self._resize = 1
+            self._truncate = False
+            self._resize = True
 
     # Support the 'with' statement
     def __enter__(self):
@@ -241,17 +236,6 @@ class HDUList(list, _Verify):
                kwargs['disable_image_compression']:
                 compressed.COMPRESSION_SUPPORTED = False
 
-            if 'do_not_scale_image_data' in kwargs:
-                do_not_scale_image_data = kwargs['do_not_scale_image_data']
-            else:
-                do_not_scale_image_data = False
-
-            if 'ignore_missing_end' in kwargs:
-                ignore_missing_end = kwargs['ignore_missing_end']
-            else:
-                ignore_missing_end = False
-
-
             if mode == 'ostream':
                 # Output stream--not interested in reading/parsing the HDUs--just
                 # writing to the output file
@@ -262,6 +246,7 @@ class HDUList(list, _Verify):
                 try:
                     hdu = ffo.readHDU(**kwargs)
                     hdulist.append(hdu)
+                    hdu._new = False
                 except EOFError:
                     break
                 # check in the case there is extra space after the last HDU or
@@ -289,8 +274,8 @@ class HDUList(list, _Verify):
             # CardList needs its own _mod attribute since it has methods to change
             # the content of header without being able to pass it to the header
             # object
-            hdulist._resize = 0
-            hdulist._truncate = 0
+            hdulist._resize = False
+            hdulist._truncate = False
 
         finally:
             compressed.COMPRESSION_SUPPORTED = saved_compression_supported
@@ -374,7 +359,7 @@ class HDUList(list, _Verify):
         index : int
             Index before which to insert the new HDU.
 
-        hdu : _AllHDU instance
+        hdu : _BaseHDU instance
             The HDU object to insert
 
         classExtensions : dict
@@ -383,55 +368,55 @@ class HDUList(list, _Verify):
             will be constructed in place of the pyfits class.
         """
 
-        if isinstance(hdu, _AllHDU):
-            num_hdus = len(self)
-
-            if index == 0 or num_hdus == 0:
-                if num_hdus != 0:
-                    # We are inserting a new Primary HDU so we need to
-                    # make the current Primary HDU into an extension HDU.
-                    if isinstance(self[0], GroupsHDU):
-                       raise ValueError(
-                             "The current Primary HDU is a GroupsHDU.  "
-                             "It can't be made into an extension HDU, "
-                             "so you can't insert another HDU in front of it.")
-
-                    hdu1= ImageHDU(self[0].data, self[0].header)
-
-                    # Insert it into position 1, then delete HDU at position 0.
-                    super(HDUList, self).insert(1, hdu1)
-                    super(HDUList, self).__delitem__(0)
-
-                if not isinstance(hdu, PrimaryHDU):
-                    # You passed in an Extension HDU but we need a Primary HDU.
-                    # If you provided an ImageHDU then we can convert it to
-                    # a primary HDU and use that.
-                    if isinstance(hdu, ImageHDU):
-                        hdu = PrimaryHDU(hdu.data, hdu.header)
-                    else:
-                        # You didn't provide an ImageHDU so we create a
-                        # simple Primary HDU and append that first before
-                        # we append the new Extension HDU.
-                        phdu = PrimaryHDU()
-
-                        super(HDUList, self).insert(0, phdu)
-                        index = 1
-            else:
-                if isinstance(hdu, GroupsHDU):
-                   raise ValueError('A GroupsHDU must be inserted as a '
-                                    'Primary HDU.')
-
-                if isinstance(hdu, PrimaryHDU):
-                    # You passed a Primary HDU but we need an Extension HDU
-                    # so create an Extension HDU from the input Primary HDU.
-                    hdu = ImageHDU(hdu.data, hdu.header)
-
-            super(HDUList, self).insert(index, hdu)
-            self._resize = 1
-            self._truncate = 0
-        else:
+        if not isinstance(hdu, _BaseHDU):
             raise ValueError('%s is not an HDU.' % hdu)
 
+        num_hdus = len(self)
+
+        if index == 0 or num_hdus == 0:
+            if num_hdus != 0:
+                # We are inserting a new Primary HDU so we need to
+                # make the current Primary HDU into an extension HDU.
+                if isinstance(self[0], GroupsHDU):
+                   raise ValueError(
+                         "The current Primary HDU is a GroupsHDU.  "
+                         "It can't be made into an extension HDU, "
+                         "so you can't insert another HDU in front of it.")
+
+                hdu1= ImageHDU(self[0].data, self[0].header)
+
+                # Insert it into position 1, then delete HDU at position 0.
+                super(HDUList, self).insert(1, hdu1)
+                super(HDUList, self).__delitem__(0)
+
+            if not isinstance(hdu, PrimaryHDU):
+                # You passed in an Extension HDU but we need a Primary HDU.
+                # If you provided an ImageHDU then we can convert it to
+                # a primary HDU and use that.
+                if isinstance(hdu, ImageHDU):
+                    hdu = PrimaryHDU(hdu.data, hdu.header)
+                else:
+                    # You didn't provide an ImageHDU so we create a
+                    # simple Primary HDU and append that first before
+                    # we append the new Extension HDU.
+                    phdu = PrimaryHDU()
+
+                    super(HDUList, self).insert(0, phdu)
+                    index = 1
+        else:
+            if isinstance(hdu, GroupsHDU):
+               raise ValueError('A GroupsHDU must be inserted as a '
+                                'Primary HDU.')
+
+            if isinstance(hdu, PrimaryHDU):
+                # You passed a Primary HDU but we need an Extension HDU
+                # so create an Extension HDU from the input Primary HDU.
+                hdu = ImageHDU(hdu.data, hdu.header)
+
+        super(HDUList, self).insert(index, hdu)
+        hdu._new = True
+        self._resize = True
+        self._truncate = False
         # make sure the EXTEND keyword is in primary HDU if there is extension
         if len(self) > 1:
             self.update_extend()
@@ -443,7 +428,7 @@ class HDUList(list, _Verify):
 
         Parameters
         ----------
-        hdu : instance of _AllHDU
+        hdu : instance of _BaseHDU
             HDU to add to the `HDUList`.
 
         classExtensions : dict
@@ -451,39 +436,40 @@ class HDUList(list, _Verify):
             classes.  When present in the dictionary, the extension class
             will be constructed in place of the pyfits class.
         """
-        if isinstance(hdu, _AllHDU):
-            if not isinstance(hdu, _RawHDU):
-                if len(self) > 0:
-                    if isinstance(hdu, GroupsHDU):
-                       raise ValueError(
-                             "Can't append a GroupsHDU to a non-empty HDUList")
 
-                    if isinstance(hdu, PrimaryHDU):
-                        # You passed a Primary HDU but we need an Extension HDU
-                        # so create an Extension HDU from the input Primary HDU.
-                        hdu = ImageHDU(hdu.data, hdu.header)
-                else:
-                    if not isinstance(hdu, PrimaryHDU):
-                        # You passed in an Extension HDU but we need a Primary
-                        # HDU.
-                        # If you provided an ImageHDU then we can convert it to
-                        # a primary HDU and use that.
-                        if isinstance(hdu, ImageHDU):
-                            hdu = PrimaryHDU(hdu.data, hdu.header)
-                        else:
-                            # You didn't provide an ImageHDU so we create a
-                            # simple Primary HDU and append that first before
-                            # we append the new Extension HDU.
-                            phdu = PrimaryHDU()
-
-                            super(HDUList, self).append(phdu)
-
-            super(HDUList, self).append(hdu)
-            hdu._new = True
-            self._resize = True
-            self._truncate = False
-        else:
+        if not isinstance(hdu, _BaseHDU):
             raise ValueError('HDUList can only append an HDU.')
+
+        if len(self) > 0:
+            if isinstance(hdu, GroupsHDU):
+               raise ValueError(
+                     "Can't append a GroupsHDU to a non-empty HDUList")
+
+            if isinstance(hdu, PrimaryHDU):
+                # You passed a Primary HDU but we need an Extension HDU
+                # so create an Extension HDU from the input Primary HDU.
+                # TODO: This isn't necessarily sufficient to copy the HDU;
+                # _hdrLoc and friends need to be copied too.
+                hdu = ImageHDU(hdu.data, hdu.header)
+        else:
+            if not isinstance(hdu, PrimaryHDU):
+                # You passed in an Extension HDU but we need a Primary
+                # HDU.
+                # If you provided an ImageHDU then we can convert it to
+                # a primary HDU and use that.
+                if isinstance(hdu, ImageHDU):
+                    hdu = PrimaryHDU(hdu.data, hdu.header)
+                else:
+                    # You didn't provide an ImageHDU so we create a
+                    # simple Primary HDU and append that first before
+                    # we append the new Extension HDU.
+                    phdu = PrimaryHDU()
+                    super(HDUList, self).append(phdu)
+
+        super(HDUList, self).append(hdu)
+        hdu._new = True
+        self._resize = True
+        self._truncate = False
 
         # make sure the EXTEND keyword is in primary HDU if there is extension
         if len(self) > 1:
@@ -649,7 +635,7 @@ class HDUList(list, _Verify):
                     self.__file.writeHDU(hdu, checksum=checksum)
                     if verbose:
                         print 'append HDU', hdu.name, extver
-                    hdu._new = 0
+                    hdu._new = False
 
         elif self.__file.mode == 'update':
             self._wasresized(verbose)
@@ -744,12 +730,12 @@ class HDUList(list, _Verify):
                     os.remove(hdulist.__file.name)
 
                 # reset the resize attributes after updating
-                self._resize = 0
-                self._truncate = 0
+                self._resize = False
+                self._truncate = False
                 for hdu in self:
-                    hdu.header._mod = 0
-                    hdu.header.ascard._mod = 0
-                    hdu._new = 0
+                    hdu.header._mod = False
+                    hdu.header.ascard._mod = False
+                    hdu._new = False
                     hdu._file = ffo.getfile()
 
             # if not resized, update in place
@@ -952,20 +938,12 @@ class HDUList(list, _Verify):
             When `True`, close the underlying file object.
         """
 
-        if self.__file != None:
+        if self.__file:
             if self.__file.mode in ['append', 'update']:
                 self.flush(output_verify=output_verify, verbose=verbose)
 
             if closed and hasattr(self.__file, 'close'):
                 self.__file.close()
-
-        # close the memmap object, it is designed to use an independent
-        # attribute of mmobject so if the HDUList object is created from files
-        # other than FITS, the close() call can also close the mm object.
-#        try:
-#            self.mmobject.close()
-#        except:
-#            pass
 
     def info(self):
         """
@@ -1053,8 +1031,8 @@ class HDUList(list, _Verify):
                 _bytes = (_nch80+1) * Card.length
                 _bytes = _bytes + _pad_length(_bytes)
                 if _bytes != (hdu._datLoc-hdu._hdrLoc):
-                    self._resize = 1
-                    self._truncate = 0
+                    self._resize = True
+                    self._truncate = False
                     if verbose:
                         print 'One or more header is resized.'
                     break
@@ -1065,8 +1043,8 @@ class HDUList(list, _Verify):
                 _bytes = hdu.data.nbytes
                 _bytes = _bytes + _pad_length(_bytes)
                 if _bytes != hdu._datSpan:
-                    self._resize = 1
-                    self._truncate = 0
+                    self._resize = True
+                    self._truncate = False
                     if verbose:
                         print 'One or more data area is resized.'
                     break
@@ -1075,7 +1053,7 @@ class HDUList(list, _Verify):
                try:
                    self.__file.getfile().truncate(hdu._datLoc+hdu._datSpan)
                except IOError:
-                   self._resize = 1
-               self._truncate = 0
+                   self._resize = True
+               self._truncate = False
 
         return self._resize

@@ -923,7 +923,7 @@ class RecordValuedKeywordCard(Card):
     validKeyValue = valid_key_value # For API backwards-compatibility
 
     @classmethod
-    def create_card(cls, key='', value='', comment=''):
+    def create(cls, key='', value='', comment=''):
         """
         Create a card given the input `key`, `value`, and `comment`.
         If the input key and value qualify for a
@@ -952,10 +952,10 @@ class RecordValuedKeywordCard(Card):
             cls = Card
 
         return cls(key, value, comment)
-    createCard = create_card # For API backward-compatibility
+    createCard = create # For API backward-compatibility
 
     @classmethod
-    def create_card_from_string(cls, input):
+    def fromstring(cls, input):
         """
         Create a card given the `input` string.  If the `input` string
         can be parsed into a key and value that qualify for a
@@ -983,7 +983,7 @@ class RecordValuedKeywordCard(Card):
             cls = Card
 
         return cls.fromstring(input)
-    createCardFromString = create_card_from_string # For API backwards-compat
+    createCardFromString = fromstring # For API backwards-compat
 
     def _update_cardimage(self):
         """
@@ -1147,6 +1147,7 @@ class CardList(list):
         # find out how many blank cards are *directly* before the END card
         self._blanks = 0
         self.count_blanks()
+        self._mod = False
 
     def __contains__(self, key):
         return upper_key(key) in self._keys
@@ -1464,15 +1465,14 @@ class CardList(list):
 
 
 def create_card(key='', value='', comment=''):
-    return RecordValuedKeywordCard.createCard(key, value, comment)
-create_card.__doc__ = RecordValuedKeywordCard.create_card.__doc__
+    return RecordValuedKeywordCard.create(key, value, comment)
+create_card.__doc__ = RecordValuedKeywordCard.create.__doc__
 createCard = create_card # For API backwards-compat
 
 
 def create_card_from_string(input):
-    return RecordValuedKeywordCard.create_card_from_string(input)
-create_card_from_string.__doc__ = \
-    RecordValuedKeywordCard.create_card_from_string.__doc__
+    return RecordValuedKeywordCard.fromstring(input)
+create_card_from_string.__doc__ = RecordValuedKeywordCard.fromstring.__doc__
 createCardFromString = create_card_from_string # For API backwards-compat
 
 

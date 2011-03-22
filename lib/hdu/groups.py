@@ -3,12 +3,12 @@ import numpy as np
 from pyfits import rec
 from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
-from pyfits.hdu.base import _AllHDU
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
+from pyfits.hdu.table import _TableLikeHDU
 from pyfits.util import lazyproperty, _is_int
 
 
-class GroupsHDU(PrimaryHDU):
+class GroupsHDU(PrimaryHDU, _TableLikeHDU):
     """
     FITS Random Groups HDU class.
     """
@@ -22,7 +22,7 @@ class GroupsHDU(PrimaryHDU):
 
         super(GroupsHDU, self).__init__(data=data, header=header)
         # TODO: The assignment of the header's hdutype should probably be
-        # something that happens in _AllHDU, or at least further up the
+        # something that happens in _BaseHDU, or at least further up the
         # hierarchy
         self._header._hdutype = self.__class__
 
@@ -34,7 +34,8 @@ class GroupsHDU(PrimaryHDU):
     @lazyproperty
     def data(self):
         """
-        The data of random group FITS file will be like a binary table's data.
+        The data of a random group FITS file will be like a binary table's
+        data.
         """
 
         # Nearly the same code as in _TableBaseHDU
@@ -105,6 +106,7 @@ class GroupsHDU(PrimaryHDU):
         # since binary table does not support ND yet
         self.columns._recformats[-1] = repr(self._dimShape()[:-1]) + \
                                        self.columns._dat_format
+
         return super(GroupsHDU, self)._get_tbdata()
 
     def _verify(self, option='warn'):

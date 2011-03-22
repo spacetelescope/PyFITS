@@ -13,6 +13,18 @@ class _ExtensionHDU(_ValidHDU):
 
     _extension = ''
 
+    def __init__(self, data=None, header=None, **kwargs):
+        super(_ExtensionHDU, self).__init__(data=data, header=header)
+        if header:
+            if 'EXTNAME' in header and not self.name:
+                self.name = header['EXTNAME']
+
+            if not hasattr(self, '_extver'):
+                if 'EXTVER' in header:
+                    self._extver = header['EXTVER']
+                else:
+                    self._extver = 1
+
     def __setattr__(self, attr, value):
         """
         Set an HDU attribute.
