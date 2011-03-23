@@ -195,13 +195,6 @@ def itersubclasses(cls, _seen=None):
                 yield sub
 
 
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod(verbose=1)
-## end of  }}}
-
-
-
 class lazyproperty(object):
     """
     Works similarly to property(), but computes the value only once.
