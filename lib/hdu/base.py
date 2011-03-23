@@ -8,15 +8,64 @@ import numpy as np
 
 from pyfits.card import _pad
 from pyfits.column import DELAYED
+from pyfits.header import Header
 from pyfits.util import lazyproperty, _fromfile, _is_int, _with_extensions, \
-                        _pad_length
+                        _pad_length, itersubclasses
 from pyfits.verify import _Verify, _ErrList
+
+
+class InvalidHDUException(Exception):
+    """
+    A custom exception class used mainly to signal to _BaseHDU.__new__ that
+    an HDU cannot possibly be considered valid, and must be assumed to be
+    corrupted.
+    """
+
+def _hdu_class_from_header(cls, header):
+    """
+    Used primarily by _BaseHDU.__new__ to find an appropriate HDU class to use
+    based on values in the header.  See the _BaseHDU.__new__ docstring.
+    """
+
+    klass = cls # By default, if no subclasses are defined
+    if header:
+        for c in reversed(list(itersubclasses(cls))):
+            try:
+                if c.match_header(header):
+                    klass = c
+                    break
+            except NotImplementedError:
+                continue
+            except:
+                klass = _CorruptedHDU
+                break
+
+    return klass
 
 
 class _BaseHDU(object):
     """
     Base class for all HDU (header data unit) classes.
     """
+
+    def __new__(cls, data=None, header=None, **kwargs):
+        """
+        Iterates through the subclasses of _BaseHDU and uses that class's
+        match_header() method to determine which subclass to instantiate.
+
+        It's important to be aware that the class hierarchy is traversed in a
+        depth-last order.  Each match_header() should identify an HDU type as
+        uniquely as possible.  Abstract types may choose to simply return False
+        or raise NotImplementedError to be skipped.
+
+        If any unexpected exceptions are raised while evaluating
+        match_header(), the type is taken to be _CorruptedHDU.
+        """
+
+        klass = _hdu_class_from_header(cls, header)
+
+        return super(_BaseHDU, cls).__new__(klass, data=data, header=header,
+                                            **kwargs)
 
     def __init__(self, data=None, header=None):
         self._header = header
@@ -36,6 +85,10 @@ class _BaseHDU(object):
     def _setheader(self, value):
         self._header = value
     header = property(_getheader, _setheader)
+
+    @classmethod
+    def match_header(cls, header):
+        raise NotImplementedError
 
     @classmethod
     def fromstring(cls, data, fileobj=None, offset=0, checksum=False,
@@ -72,8 +125,6 @@ class _BaseHDU(object):
            Any unrecognized kwargs are simply ignored.
         """
 
-        from pyfits.header import Header
-
         if data[:8] not in ['SIMPLE  ', 'XTENSION']:
             raise ValueError('Block does not begin with SIMPLE or XTENSION')
 
@@ -99,10 +150,7 @@ class _BaseHDU(object):
         # Determine the appropriate arguments to pass to the constructor from
         # self._kwargs.  self._kwargs contains any number of optional arguments
         # that may or may not be valid depending on the HDU type
-        # TODO: header._hdutype needs to go away; the appropriate class should
-        # be determined by _BaseHDU.__new__(), I think...
-        cls = header._hdutype
-
+        cls = _hdu_class_from_header(cls, header)
         args, varargs, varkwargs, defaults = inspect.getargspec(cls.__init__)
         new_kwargs = kwargs.copy()
         if not varkwargs:
@@ -220,6 +268,26 @@ class _NonstandardHDU(_BaseHDU, _Verify):
     and continues until the end of the file.
     """
 
+    @classmethod
+    def match_header(cls, header):
+        """
+        Matches any HDU that has the 'SIMPLE' keyword but is not a standard
+        Primary or Groups HDU.
+        """
+
+        # The SIMPLE keyword must be in the first card
+        card = header.ascard[0]
+
+        # The check that 'GROUPS' is missing is a bit redundant, since the
+        # match_header for GroupsHDU will always be called before this one.
+        if card.key == 'SIMPLE':
+            if 'GROUPS' not in header and card.value == False:
+                return True
+            else:
+                raise InvalidHDUException
+        else:
+            return False
+
     def size(self):
         """
         Returns the size (in bytes) of the HDU's data part.
@@ -255,6 +323,20 @@ class _ValidHDU(_BaseHDU, _Verify):
     """
     Base class for all HDUs which are not corrupted.
     """
+
+    @classmethod
+    def match_header(cls, header):
+        """
+        Matches any HDU that is not recognized as having either the SIMPLE or
+        XTENSION keyword in its header's first card, but is nonetheless not
+        corrupted.
+
+        TODO: Maybe it would make more sense to use _NonstandardHDU in this
+        case?  Not sure...
+        """
+
+        card = header.ascard[0]
+        return card.key not in ('SIMPLE', 'XTENSION')
 
     # 0.6.5.5
     def size(self):

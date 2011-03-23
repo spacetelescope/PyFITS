@@ -5,6 +5,7 @@ from pyfits.column import DELAYED
 from pyfits.hdu.base import _ValidHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.base import _ValidHDU
+from pyfits.header import Header
 from pyfits.util import Extendable, _is_pseudo_unsigned, _unsigned_zero, \
                         _is_int, _normalize_slice, lazyproperty
 
@@ -38,7 +39,6 @@ class _ImageBaseHDU(_ValidHDU):
                  uint=False):
         from pyfits.hdu.extension import _ExtensionHDU
         from pyfits.hdu.groups import GroupsHDU
-        from pyfits.header import Header
 
         super(_ImageBaseHDU, self).__init__(data=data, header=header)
 
@@ -57,7 +57,8 @@ class _ImageBaseHDU(_ValidHDU):
             else:
                 self._header = header
         else:
-
+            # TODO: Some of this card manipulation should go into the
+            # PrimaryHDU and GroupsHDU subclasses
             # construct a list of cards of minimal header
             if isinstance(self, _ExtensionHDU):
                 c0 = Card('XTENSION', 'IMAGE', 'Image extension')
@@ -77,8 +78,7 @@ class _ImageBaseHDU(_ValidHDU):
                 _list.append(Card('GCOUNT',    1, 'number of groups'))
 
             if header is not None:
-                hcopy = header.copy()
-                hcopy._strip()
+                hcopy = header.copy(strip=True)
                 _list.extend(hcopy.ascardlist())
 
             self._header = Header(_list)
@@ -105,6 +105,15 @@ class _ImageBaseHDU(_ValidHDU):
             # delete the keywords BSCALE and BZERO
             del self._header['BSCALE']
             del self._header['BZERO']
+
+    @classmethod
+    def match_header(cls, header):
+        """
+        _ImageBaseHDU is sort of an abstract class for HDUs containing image
+        data (as opposed to table data) and should never be used directly.
+        """
+
+        raise NotImplementedError
 
     @property
     def section(self):
@@ -612,7 +621,14 @@ class PrimaryHDU(_ImageBaseHDU):
             dim = repr(self._header['NAXIS'])
             if dim == '0':
                 dim = ''
-            self._header.update('EXTEND', True, after='NAXIS'+dim)
+            self._header.update('EXTEND', True, after='NAXIS' + dim)
+
+    @classmethod
+    def match_header(cls, header):
+        card = header.ascard[0]
+        return card.key == 'SIMPLE' and \
+               ('GROUPS' not in header or header['GROUPS'] != True) and \
+               card.value == True
 
 
 class ImageHDU(_ImageBaseHDU, _ExtensionHDU):
@@ -657,20 +673,21 @@ class ImageHDU(_ImageBaseHDU, _ExtensionHDU):
             data=data, header=header,
             do_not_scale_image_data=do_not_scale_image_data, uint=uint)
 
-        self._header._hdutype = ImageHDU
-
-        # insert the require keywords PCOUNT and GCOUNT
-        dim = repr(self._header['NAXIS'])
-        if dim == '0':
-            dim = ''
-
-
-        #  set extension name
+        # set extension name; normally this would be done by
+        # _ExtensionHDU.__init__, but we can't send the name argument to
+        # super().__init__ since it's not supported by _ImageBaseHDU.__init__;
+        # the perils of multiple inheritance...
         if not name and 'EXTNAME' in self._header:
             name = self._header['EXTNAME']
         else:
             name = ''
         self.name = name
+
+    @classmethod
+    def match_header(cls, header):
+        card = header.ascard[0]
+        xtension = card.value.rstrip()
+        return card.key == 'XTENSION' and xtension == cls._extension
 
     def _verify(self, option='warn'):
         """

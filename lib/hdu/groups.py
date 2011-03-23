@@ -21,15 +21,16 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
         """
 
         super(GroupsHDU, self).__init__(data=data, header=header)
-        # TODO: The assignment of the header's hdutype should probably be
-        # something that happens in _BaseHDU, or at least further up the
-        # hierarchy
-        self._header._hdutype = self.__class__
 
         if self._header['NAXIS'] <= 0:
             self._header['NAXIS'] = 1
         self._header.update('NAXIS1', 0, after='NAXIS')
 
+    @classmethod
+    def match_header(cls, header):
+        card = header.ascard[0]
+        return card.key == 'SIMPLE' and 'GROUPS' in header and \
+               header['GROUPS'] == True
 
     @lazyproperty
     def data(self):

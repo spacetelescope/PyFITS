@@ -742,9 +742,9 @@ class HDUList(list, _Verify):
             else:
                 for hdu in self:
                     if verbose:
-                        try: 
+                        try:
                             extver = str(hdu.header['extver'])
-                        except KeyError: 
+                        except KeyError:
                             extver = ''
 
                     if hdu._data_loaded and isinstance(hdu, _ImageBaseHDU):
@@ -772,12 +772,13 @@ class HDUList(list, _Verify):
                                 self.__file.writeHDUdata(hdu)
 
                             if verbose:
-                                print 'update data in place: Name =', hdu.name, extver
+                                print 'update data in place: Name =', \
+                                      hdu.name, extver
 
                 # reset the modification attributes after updating
                 for hdu in self:
-                    hdu.header._mod = 0
-                    hdu.header.ascard._mod = 0
+                    hdu.header._mod = False
+                    hdu.header.ascard._mod = False
 
         if single_thread:
             if keyboard_interrupt_sent:

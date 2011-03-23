@@ -249,6 +249,29 @@ if COMPRESSION_SUPPORTED:
             # a card in the image header is updated.
             self.header._table_header = self._header
 
+
+        @classmethod
+        def match_header(cls, header):
+            card = header.ascard[0]
+            if card.key != 'XTENSION':
+                return False
+
+            xtension = card.value.rstrip()
+            if xtension not in ('BINTABLE', 'A3DTABLE'):
+                return False
+
+            if 'ZIMAGE' not in header or header['ZIMAGE'] != True:
+                return False
+
+            if COMPRESSION_SUPPORTED: # Redundant
+                return True
+            else:
+                warnings.warn(
+                    'Failure matching header to a compressed image HDU.')
+                warnings.warn('The pyfitsComp module is not available.')
+                warnings.warn('The HDU will be treated as a Binary Table HDU.')
+                return False
+
         def updateHeaderData(self, imageHeader,
                              name=None,
                              compressionType=None,

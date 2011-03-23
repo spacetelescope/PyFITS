@@ -130,7 +130,6 @@ class Card(_Verify):
         Construct a card from `key`, `value`, and (optionally) `comment`.
         Any specifed arguments, except defaults, must be compliant to FITS
         standard.
-
         Parameters
         ----------
         key : str, optional

@@ -3,11 +3,6 @@ from UserDict import DictMixin
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _ContinueCard, _HierarchCard, create_card, \
                         create_card_from_string, upper_key
-from pyfits.hdu.base import _NonstandardHDU, _CorruptedHDU, _ValidHDU
-from pyfits.hdu.compressed import COMPRESSION_SUPPORTED, CompImageHDU
-from pyfits.hdu.groups import GroupsHDU
-from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU, ImageHDU
-from pyfits.hdu.table import TableHDU, BinTableHDU, _TableBaseHDU
 from pyfits.util import BLOCK_SIZE
 
 
@@ -65,9 +60,6 @@ class Header(DictMixin):
         if txtfile:
             # get the cards from the input ASCII file
             self.fromTxtFile(txtfile, not len(self.ascard))
-        else:
-            # decide which kind of header it belongs to
-            self._updateHDUtype()
         self._mod = False
 
     def __contains__(self, key):
@@ -123,14 +115,14 @@ class Header(DictMixin):
             while True:
                 try:
                     del self.ascard[key]
-                    self._mod = 1
+                    self._mod = True
                 except:
                     return
 
         # for integer key only delete once
         else:
             del self.ascard[key]
-            self._mod = 1
+            self._mod = True
 
     def __str__(self):
         return str(self.ascard)
@@ -255,13 +247,14 @@ class Header(DictMixin):
         else:
             self.ascard.append(create_card(key, value, comment))
 
-        self._mod = 1
+        self._mod = True
 
         # If this header is associated with a compImageHDU then update
         # the objects underlying header (_table_header) unless the update was
         # made to a card that describes the data.
 
-        # TODO: Consider creating a separate class for CompImageHDU headers
+        # TODO: Consider creating a separate class for CompImageHDU headers or
+        # somehow moving this functionality into CompImageHDU otherwise
 
         if hasattr(self, '_table_header') and \
            key not in ('XTENSION', 'BITPIX', 'PCOUNT', 'GCOUNT', 'TFIELDS',
@@ -271,15 +264,20 @@ class Header(DictMixin):
            key[:6] not in ('ZNAXIS'):
             self._table_header.update(key, value, comment, before, after)
 
-    def copy(self):
+    def copy(self, strip=False):
         """
         Make a copy of the `Header`.
+
+        Parameters
+        ----------
+        strip : bool, optional
+           If True, strip any headers that are specific to one of the standard
+           HDU types, so that this header can be used in a different HDU.
         """
 
         tmp = Header(self.ascard.copy())
-
-        # also copy the class
-        tmp._hdutype = self._hdutype
+        if strip:
+            tmp._strip()
         return tmp
 
     def ascardlist(self):
@@ -568,9 +566,6 @@ class Header(DictMixin):
                                      after=prevKey)
                 prevKey += 1
 
-        # update the hdu type of the header to match the parameters read in
-        self._updateHDUtype()
-
     def _add_commentary(self, key, value, before=None, after=None):
         """
         Add a commentary card.
@@ -581,7 +576,7 @@ class Header(DictMixin):
         """
 
         new_card = Card(key, value)
-        if before != None or after != None:
+        if before is not None or after is not None:
             self.ascard._pos_insert(new_card, before=before, after=after)
         else:
             if key[0] == ' ':
@@ -594,50 +589,7 @@ class Header(DictMixin):
                 except:
                     self.ascard.append(new_card, bottom=1)
 
-        self._mod = 1
-
-    def _updateHDUtype(self):
-        cards = self.ascard
-
-        try:
-            if cards[0].key == 'SIMPLE':
-                if 'GROUPS' in cards._keys and cards['GROUPS'].value == True:
-                    self._hdutype = GroupsHDU
-                elif cards[0].value == True:
-                    self._hdutype = PrimaryHDU
-                elif cards[0].value == False:
-                    self._hdutype = _NonstandardHDU
-                else:
-                    self._hdutype = _CorruptedHDU
-            elif cards[0].key == 'XTENSION':
-                xtension = cards[0].value.rstrip()
-                if xtension == 'TABLE':
-                    self._hdutype = TableHDU
-                elif xtension == 'IMAGE':
-                    self._hdutype = ImageHDU
-                elif xtension in ('BINTABLE', 'A3DTABLE'):
-                    try:
-                        if cards['ZIMAGE'].value == True:
-                            if COMPRESSION_SUPPORTED:
-                                self._hdutype = CompImageHDU
-                            else:
-                                warnings.warn(
-                                    'Failure creating a header for a '
-                                    'compressed image HDU.')
-                                warnings.warn(
-                                    'The pyfitsComp module is not available.')
-                                warnings.warn(
-                                    'The HDU will be treated as a Binary '
-                                    'Table HDU.')
-                                raise KeyError
-                    except KeyError:
-                        self._hdutype = BinTableHDU
-                else:
-                    self._hdutype = _NonstandardExtHDU
-            else:
-                self._hdutype = _ValidHDU
-        except:
-            self._hdutype = _CorruptedHDU
+        self._mod = True
 
     def _strip(self):
         """
@@ -647,58 +599,35 @@ class Header(DictMixin):
         the header can be used to reconstruct another kind of header.
         """
 
+        # TODO: Previously this only deleted some cards specific to an HDU if
+        # _hdutype matched that type.  But it seemed simple enough to just
+        # delete all desired cards anyways, and just ignore the KeyErrors if
+        # they don't exist.
+        # However, it might be desirable to make this extendable somehow--have
+        # a way for HDU classes to specify some headers that are specific only
+        # to that type, and should be removed otherwise.
+
         try:
-
-            # have both SIMPLE and XTENSION to accomodate Extension
-            # and Corrupted cases
-            del self['SIMPLE']
-            del self['XTENSION']
-            del self['BITPIX']
-
-            if self.has_key('NAXIS'):
-                _naxis = self['NAXIS']
+            if 'NAXIS' in self:
+                naxis = self['NAXIS']
             else:
-                _naxis = 0
+                naxis = 0
 
-            if issubclass(self._hdutype, _TableBaseHDU):
-                if self.has_key('TFIELDS'):
-                    _tfields = self['TFIELDS']
-                else:
-                    _tfields = 0
+            if 'TFIELDS' in self:
+                tfields = self['TFIELDS']
+            else:
+                tfields = 0
 
-            del self['NAXIS']
-            for idx in range(_naxis):
-                del self['NAXIS'+ str(idx + 1)]
+            for idx in range(naxis):
+                del self['NAXIS' + str(idx + 1)]
 
-            if issubclass(self._hdutype, PrimaryHDU):
-                del self['EXTEND']
-            del self['PCOUNT']
-            del self['GCOUNT']
+            for name in ('TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE',
+                         'TUNIT', 'TDISP', 'TDIM', 'THEAP', 'TBCOL'):
+                for idx in range(tfields):
+                    del self[name + str(idx + 1)]
 
-            if issubclass(self._hdutype, PrimaryHDU):
-                del self['GROUPS']
-
-            if issubclass(self._hdutype, _ImageBaseHDU):
-                del self['BSCALE']
-                del self['BZERO']
-
-            if issubclass(self._hdutype, _TableBaseHDU):
-                del self['TFIELDS']
-                for name in ['TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE',
-                             'TUNIT']:
-                    for idx in range(_tfields):
-                        del self[name + str(idx + 1)]
-
-            if issubclass(self._hdutype, BinTableHDU):
-                for name in ['TDISP', 'TDIM', 'THEAP']:
-                    for idx in range(_tfields):
-                        del self[name + str(idx + 1)]
-
-            if issubclass(self._hdutype, TableHDU):
-                for idx in range(_tfields):
-                    del self['TBCOL' + str(idx + 1)]
-
+            for name in ('SIMPLE', 'XTENSION', 'BITPIX', 'NAXIS', 'EXTEND',
+                         'PCOUNT', 'GCOUNT', 'GROUPS', 'BSCALE', 'TFIELDS'):
+                del self[name]
         except KeyError:
             pass
-
-

@@ -18,6 +18,7 @@ from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import _ValidHDU
 from pyfits.hdu.extension import _ExtensionHDU
+from pyfits.header import Header
 from pyfits.util import Extendable, lazyproperty, _is_int, _str_to_num, \
                         _pad_length
 
@@ -28,6 +29,16 @@ class _TableLikeHDU(_ValidHDU):
     Binary/ASCII tables as well as Random Access Group HDUs (which are
     otherwise too dissimlary for tables to use _TableBaseHDU directly).
     """
+
+    @classmethod
+    def match_header(cls, header):
+        """
+        This is an abstract HDU type for HDUs that contain table-like data.
+        This is even more abstract than _TableBaseHDU which is specifically for
+        the standard ASCII and Binary Table types.
+        """
+
+        raise NotImplementedError
 
     @lazyproperty
     def columns(self):
@@ -90,8 +101,6 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
             name to be populated in ``EXTNAME`` keyword
         """
 
-        from pyfits.header import Header
-
         super(_TableBaseHDU, self).__init__(data=data, header=header)
 
         if header is not None and not isinstance(header, Header):
@@ -121,8 +130,7 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
             if header is not None:
                 # Make a "copy" (not just a view) of the input header, since it
                 # may get modified.  the data is still a "view" (for now)
-                hcopy = header.copy()
-                hcopy._strip()
+                hcopy = header.copy(strip=True)
                 cards.extend(hcopy.ascardlist())
 
             self._header = Header(cards)
@@ -167,6 +175,16 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
         if self._header[0].rstrip() != self._extension:
             self._header[0] = self._extension
             self._header.ascard[0].comment = self._ext_comment
+
+    @classmethod
+    def match_header(cls, header):
+        """
+        This is an abstract type that implements the shared functionality of
+        the ASCII and Binary Table HDU types, which should be used instead of
+        this.
+        """
+
+        raise NotImplementedError
 
     @lazyproperty
     def columns(self):
@@ -320,6 +338,12 @@ class TableHDU(_TableBaseHDU):
            not isinstance(self.data._coldefs, _ASCIIColDefs):
             self.data._coldefs = _ASCIIColDefs(self.data._coldefs)
 
+    @classmethod
+    def match_header(cls, header):
+        card = header.ascard[0]
+        xtension = card.value.rstrip()
+        return card.key == 'XTENSION' and xtension == cls._extension
+
     def _get_tbdata(self):
         columns = self.columns
 
@@ -399,6 +423,13 @@ class BinTableHDU(_TableBaseHDU):
 
     _extension = 'BINTABLE'
     _ext_comment = 'binary table extension'
+
+    @classmethod
+    def match_header(cls, header):
+        card = header.ascard[0]
+        xtension = card.value.rstrip()
+        return card.key == 'XTENSION' and \
+               xtension in (cls._extension, 'A3DTABLE')
 
     def _calculate_datasum_from_data(self, data, blocking):
         """

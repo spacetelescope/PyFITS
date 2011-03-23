@@ -5,6 +5,7 @@ import numpy as np
 
 from pyfits import rec
 from pyfits.file import PYTHON_MODES, FITSFile
+from pyfits.hdu.base import _BaseHDU
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU, _TableBaseHDU
@@ -710,7 +711,7 @@ def _makehdu(data, header, classExtensions={}):
         else:
             raise KeyError('Data must be numarray or table data.')
     else:
-        hdu = header._hdutype(data=data, header=header)
+        hdu = _BaseHDU(data, header)
     return hdu
 
 
