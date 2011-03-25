@@ -4504,7 +4504,7 @@ class GroupsHDU(PrimaryHDU):
             if size:
                 self._file.seek(self._datLoc)
                 data = GroupData(_get_tbdata(self))
-                data.columns = data._coldefs = self.columns
+                data._coldefs = weakref.ref(self.columns)
                 data.formats = self.columns.formats
                 data.parnames = self.columns._pnames
             else:
@@ -5666,7 +5666,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
         hdu.data = FITS_rec(rec.array(None, formats=",".join(tmp._recformats),
                                       names=tmp.names, shape=nrows))
 
-    hdu.data._coldefs = hdu.columns
+    hdu.data._coldefs = weakref.ref(hdu.columns)
     hdu.data.formats = hdu.columns.formats
 
     # Populate data to the new table from the ndarrays in the input ColDefs
@@ -5886,7 +5886,7 @@ class FITS_rec(rec.recarray):
 
         self._nfields = len(self.dtype.names)
         self._convert = [None]*len(self.dtype.names)
-        self.columns = self._coldefs = None
+        self.__coldefs = None
         self._gap = 0
         self.names = list(self.dtype.names)
         # This attribute added for backward compatibility with numarray version 
@@ -5901,7 +5901,7 @@ class FITS_rec(rec.recarray):
 
         if isinstance(obj, FITS_rec):
             self._convert = obj._convert
-            self.columns = self._coldefs = obj._coldefs
+            self.__coldefs = obj.__coldefs
             self._nfields = obj._nfields
             self.names = obj.names
             self._names = obj._names
@@ -5916,19 +5916,40 @@ class FITS_rec(rec.recarray):
             self._heapoffset = getattr(obj,'_heapoffset',0)
             self._file = getattr(obj,'_file', None)
 
-            self.columns = self._coldefs = None
+            self.__coldefs = None
             self._gap = 0
             self.names = list(obj.dtype.names)
             self._names = self.names
             self.formats = None
 
-            attrs=['_convert', '_coldefs', 'names', '_names', '_gap', 'formats']
+            attrs=['_convert', '__coldefs', 'names', '_names', '_gap',
+                   'formats']
             for attr in attrs:
                 if hasattr(obj, attr):
                     value = getattr(obj, attr, None)
                     if value is None:
                         warnings.warn('Setting attribute %s as None' % attr)
                     setattr(self, attr, value)
+
+    def columns(self):
+        """
+        Users may find it convenient to access the columns through the data
+        object, and might not notice they can since _coldefs is 'private'.  Go
+        ahead and give them read access to it.  (See ticket #44.)
+        """
+
+        return self._coldefs
+    columns = property(columns)
+
+    def _get_coldefs(self):
+        if isinstance(self.__coldefs, weakref.ReferenceType):
+            return self.__coldefs()
+        else:
+            return self.__coldefs
+
+    def _set_coldefs(self, val):
+        self.__coldefs = val
+    _coldefs = property(_get_coldefs, _set_coldefs)
 
     def _clone(self, shape):
         """
@@ -5950,7 +5971,7 @@ class FITS_rec(rec.recarray):
             return self.field(key)
         elif isinstance(key, slice) or isinstance(key,np.ndarray):
             out = rec.recarray.__getitem__(self, key)
-            out.columns = out._coldefs = ColDefs(self._coldefs)
+            out._coldefs = ColDefs(self._coldefs)
             arrays = []
             out._convert = [None]*len(self.dtype.names)
             for i in range(len(self.dtype.names)):
@@ -6589,6 +6610,13 @@ class _TableBaseHDU(_ExtensionHDU):
             else:
                 raise TypeError, "table data has incorrect type"
 
+    #def __del__(self):
+        #for c in self.columns:
+        #    if hasattr(c, 'array'):
+        #        del c.array
+    #    if hasattr(self.data, '_coldefs'):
+    #        del self.data._coldefs
+
     def __getattr__(self, attr):
         """
         Get the `data` or `columns` attribute.
@@ -6598,7 +6626,7 @@ class _TableBaseHDU(_ExtensionHDU):
             if size:
                 self._file.seek(self._datLoc)
                 data = _get_tbdata(self)
-                data.columns = data._coldefs = self.columns
+                data._coldefs = weakref.ref(self.columns)
                 data.formats = self.columns.formats
 #                print "Got data?"
             else:
@@ -7994,7 +8022,7 @@ if compressionSupported:
             self.compData = FITS_rec(rec.array(None,
                                              formats=",".join(cols._recformats),
                                              names=cols.names, shape=nrows))
-            self.compData._coldefs = self.columns
+            self.compData._coldefs = weakref.ref(self.columns)
             self.compData.formats = self.columns.formats
 
             # Set up and initialize the variable length columns.  There will
@@ -11160,6 +11188,10 @@ def getdata(filename, *ext, **extkeys):
 
     hdulist, _ext = _getext(filename, mode, *ext, **extkeys)
     hdu = hdulist[_ext]
+    # Before hdu goes out of scope, convert the hdu.data._coldefs weakref to a
+    # hard reference
+    if hasattr(hdu.data, '_coldefs'):
+        hdu.data._coldefs = hdu.columns
     _data = hdu.data
     if _data is None and isinstance(_ext, _Zero):
         try:
