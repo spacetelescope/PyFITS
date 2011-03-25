@@ -6610,13 +6610,6 @@ class _TableBaseHDU(_ExtensionHDU):
             else:
                 raise TypeError, "table data has incorrect type"
 
-    #def __del__(self):
-        #for c in self.columns:
-        #    if hasattr(c, 'array'):
-        #        del c.array
-    #    if hasattr(self.data, '_coldefs'):
-    #        del self.data._coldefs
-
     def __getattr__(self, attr):
         """
         Get the `data` or `columns` attribute.
