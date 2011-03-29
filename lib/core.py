@@ -4504,14 +4504,17 @@ class GroupsHDU(PrimaryHDU):
             if size:
                 self._file.seek(self._datLoc)
                 data = GroupData(_get_tbdata(self))
-                data._coldefs = weakref.ref(self.columns)
+                data._coldefs = self.columns
                 data.formats = self.columns.formats
                 data.parnames = self.columns._pnames
+                del self.__dict__['columns']
             else:
                 data = None
             self.__dict__[attr] = data
 
         elif attr == 'columns':
+            if 'data' in self.__dict__ and hasattr(self.data, '_coldefs'):
+                return self.data._coldefs
             _cols = []
             _pnames = []
             _pcount = self._header['PCOUNT']
@@ -5192,8 +5195,8 @@ class ColDefs(object):
                 else:
                     dim = None
 
-                c = Column(name=cname, format=format, array=input[cname],
-                           dim=dim)
+                c = Column(name=cname, format=format,
+                           array=input.view(np.ndarray)[cname], dim=dim)
                 self.data.append(c)
 
         elif isinstance(input, _TableBaseHDU):
@@ -5352,6 +5355,7 @@ class ColDefs(object):
     def _update_listener(self):
         if hasattr(self, '_listener'):
             delattr(self._listener, 'data')
+            self._listener.columns = self
 
     def add_col(self, column):
         """
@@ -5666,7 +5670,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
         hdu.data = FITS_rec(rec.array(None, formats=",".join(tmp._recformats),
                                       names=tmp.names, shape=nrows))
 
-    hdu.data._coldefs = weakref.ref(hdu.columns)
+    hdu.data._coldefs = hdu.columns
     hdu.data.formats = hdu.columns.formats
 
     # Populate data to the new table from the ndarrays in the input ColDefs
@@ -5886,22 +5890,22 @@ class FITS_rec(rec.recarray):
 
         self._nfields = len(self.dtype.names)
         self._convert = [None]*len(self.dtype.names)
-        self.__coldefs = None
+        self._coldefs = None
         self._gap = 0
         self.names = list(self.dtype.names)
-        # This attribute added for backward compatibility with numarray version 
+        # This attribute added for backward compatibility with numarray version
         # of FITS_rec
-        self._names = self.names 
+        self._names = self.names
         self.formats = None
         return self
 
-    def __array_finalize__(self,obj):
+    def __array_finalize__(self, obj):
         if obj is None:
             return
 
         if isinstance(obj, FITS_rec):
             self._convert = obj._convert
-            self.__coldefs = obj.__coldefs
+            self._coldefs = obj._coldefs
             self._nfields = obj._nfields
             self.names = obj.names
             self._names = obj._names
@@ -5916,40 +5920,19 @@ class FITS_rec(rec.recarray):
             self._heapoffset = getattr(obj,'_heapoffset',0)
             self._file = getattr(obj,'_file', None)
 
-            self.__coldefs = None
+            self._coldefs = None
             self._gap = 0
             self.names = list(obj.dtype.names)
             self._names = self.names
             self.formats = None
 
-            attrs=['_convert', '__coldefs', 'names', '_names', '_gap',
-                   'formats']
+            attrs=['_convert', '_coldefs', 'names', '_names', '_gap', 'formats']
             for attr in attrs:
                 if hasattr(obj, attr):
                     value = getattr(obj, attr, None)
                     if value is None:
                         warnings.warn('Setting attribute %s as None' % attr)
                     setattr(self, attr, value)
-
-    def columns(self):
-        """
-        Users may find it convenient to access the columns through the data
-        object, and might not notice they can since _coldefs is 'private'.  Go
-        ahead and give them read access to it.  (See ticket #44.)
-        """
-
-        return self._coldefs
-    columns = property(columns)
-
-    def _get_coldefs(self):
-        if isinstance(self.__coldefs, weakref.ReferenceType):
-            return self.__coldefs()
-        else:
-            return self.__coldefs
-
-    def _set_coldefs(self, val):
-        self.__coldefs = val
-    _coldefs = property(_get_coldefs, _set_coldefs)
 
     def _clone(self, shape):
         """
@@ -5969,7 +5952,7 @@ class FITS_rec(rec.recarray):
     def __getitem__(self, key):
         if isinstance(key, (str, unicode)):
             return self.field(key)
-        elif isinstance(key, slice) or isinstance(key,np.ndarray):
+        elif isinstance(key, slice) or isinstance(key, np.ndarray):
             out = rec.recarray.__getitem__(self, key)
             out._coldefs = ColDefs(self._coldefs)
             arrays = []
@@ -5985,7 +5968,8 @@ class FITS_rec(rec.recarray):
                 # the original
                 dummy = self.field(i)
                 if self._convert[i] is not None:
-                    out._convert[i] = np.ndarray.__getitem__(self._convert[i], key)
+                    out._convert[i] = np.ndarray.__getitem__(self._convert[i],
+                                                             key)
             del dummy
 
             out._coldefs._arrays = arrays
@@ -6027,6 +6011,14 @@ class FITS_rec(rec.recarray):
         for i in range(_start,_end):
             self.__setitem__(i,value[i-_start])
 
+    def columns(self):
+        """
+        A user-visible accessor for the coldefs.  See ticket #44.
+        """
+
+        return self._coldefs
+    columns = property(columns)
+
     def _get_scale_factors(self, indx):
         """
         Get the scaling flags and factors for one field.
@@ -6067,12 +6059,24 @@ class FITS_rec(rec.recarray):
         """
         indx = _get_index(self.names, key)
 
+        # If field's base is a FITS_rec, we can run into trouble because it
+        # contains a reference to the ._coldefs object of the original data;
+        # this can lead to a circular reference; see ticket #49
+        base = self
+        while isinstance(base, FITS_rec) and \
+              isinstance(base.base, rec.recarray):
+            base = base.base
+        # base could still be a FITS_rec in some cases, so take care to
+        # use rec.recarray.field to avoid a potential infinite
+        # recursion
+        field = rec.recarray.field(base, indx)
+
         if (self._convert[indx] is None):
             # for X format
             if isinstance(self._coldefs._recformats[indx], _FormatX):
                 _nx = self._coldefs._recformats[indx]._nx
                 dummy = np.zeros(self.shape+(_nx,), dtype=np.bool_)
-                _unwrapx(rec.recarray.field(self,indx), dummy, _nx)
+                _unwrapx(field, dummy, _nx)
                 self._convert[indx] = dummy
                 return self._convert[indx]
 
@@ -6083,16 +6087,16 @@ class FITS_rec(rec.recarray):
                 dummy = _VLF([None]*len(self))
                 dummy._dtype = self._coldefs._recformats[indx]._dtype
                 for i in range(len(self)):
-                    _offset = rec.recarray.field(self,indx)[i,1] + self._heapoffset
+                    _offset = field[i,1] + self._heapoffset
                     self._file.seek(_offset)
                     if self._coldefs._recformats[indx]._dtype is 'a':
-                        count = rec.recarray.field(self,indx)[i,0]
+                        count = field[i,0]
                         da = _fromfile(self._file, dtype=self._coldefs._recformats[indx]._dtype+str(1),count =count,sep="")
                         dummy[i] = chararray.array(da,itemsize=count)
                     else:
 #                       print type(self._file)
 #                       print "type =",self._coldefs._recformats[indx]._dtype
-                        count = rec.recarray.field(self,indx)[i,0]
+                        count = field[i,0]
                         dummy[i] = _fromfile(self._file, dtype=self._coldefs._recformats[indx]._dtype,count =count,sep="")
                         dummy[i].dtype = dummy[i].dtype.newbyteorder(">")
 
@@ -6116,13 +6120,13 @@ class FITS_rec(rec.recarray):
 
                 # if the string = TNULL, return ASCIITNULL
                 nullval = self._coldefs.nulls[indx].strip()
-                dummy = rec.recarray.field(self,indx).replace('D','E')
+                dummy = field.replace('D','E')
                 dummy = np.where(dummy.strip()==nullval, str(ASCIITNULL), dummy)
                 dummy = np.array(dummy, dtype=_type)
 
                 self._convert[indx] = dummy
             else:
-                dummy = rec.recarray.field(self, indx)
+                dummy = field
 
             # Test that the dimensions given in dim are sensible; otherwise
             # display a warning and ignore them
@@ -6589,7 +6593,6 @@ class _TableBaseHDU(_ExtensionHDU):
                         tbtype = 'BinTableHDU'
                     self.data._coldefs = ColDefs(data, tbtype)
 
-                self.columns = self.data._coldefs
                 self.update()
 
                 try:
@@ -6619,14 +6622,19 @@ class _TableBaseHDU(_ExtensionHDU):
             if size:
                 self._file.seek(self._datLoc)
                 data = _get_tbdata(self)
-                data._coldefs = weakref.ref(self.columns)
+                data._coldefs = self.columns
                 data.formats = self.columns.formats
+                # Columns should now just return a reference to the
+                # data._coldefs
+                del self.__dict__['columns']
 #                print "Got data?"
             else:
                 data = None
             self.__dict__[attr] = data
 
         elif attr == 'columns':
+            if 'data' in self.__dict__ and hasattr(self.data, '_coldefs'):
+                return self.data._coldefs
             class_name = str(self.__class__)
             class_name = class_name[class_name.rfind('.')+1:-2]
             self.__dict__[attr] = ColDefs(self, tbtype=class_name)
@@ -8015,7 +8023,7 @@ if compressionSupported:
             self.compData = FITS_rec(rec.array(None,
                                              formats=",".join(cols._recformats),
                                              names=cols.names, shape=nrows))
-            self.compData._coldefs = weakref.ref(self.columns)
+            self.compData._coldefs = self.columns
             self.compData.formats = self.columns.formats
 
             # Set up and initialize the variable length columns.  There will
@@ -11181,10 +11189,6 @@ def getdata(filename, *ext, **extkeys):
 
     hdulist, _ext = _getext(filename, mode, *ext, **extkeys)
     hdu = hdulist[_ext]
-    # Before hdu goes out of scope, convert the hdu.data._coldefs weakref to a
-    # hard reference
-    if hasattr(hdu.data, '_coldefs'):
-        hdu.data._coldefs = hdu.columns
     _data = hdu.data
     if _data is None and isinstance(_ext, _Zero):
         try:
