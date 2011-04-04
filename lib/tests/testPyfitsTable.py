@@ -448,6 +448,20 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdul.close()
         os.remove('toto.fits')
 
+    def testNewFitsrec(self):
+        """
+        Tests creating a new FITS_rec object from a multi-field ndarray.
+        """
+
+        h = pyfits.open(os.path.join(test_dir, 'tb.fits'))
+        data = h[1].data
+        new_data = numpy.array([(3, 'qwe', 4.5, False)], dtype=data.dtype)
+        appended = numpy.append(data, new_data).view(pyfits.FITS_rec)
+        self.assertEqual(repr(appended),
+                         "FITS_rec([(1, 'abc', 1.1, False), (2, 'xy', 2.0999999, True),\n"
+                         "       (3, 'qwe', 4.5, False)], \n"
+                         "      dtype=[('c1', '>i4'), ('c2', '|S3'), ('c3', '>f4'), ('c4', '|i1')])")
+
     def testAppendingAColumn(self):
         counts = num.array([312,334,308,317])
         names = num.array(['NGC1','NGC2','NGC3','NCG4'])

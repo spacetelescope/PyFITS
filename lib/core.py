@@ -5934,6 +5934,11 @@ class FITS_rec(rec.recarray):
                         warnings.warn('Setting attribute %s as None' % attr)
                     setattr(self, attr, value)
 
+            if self._coldefs is None:
+                self._coldefs = ColDefs(self)
+                self.formats = self._coldefs.formats
+
+
     def _clone(self, shape):
         """
         Overload this to make mask array indexing work properly.
