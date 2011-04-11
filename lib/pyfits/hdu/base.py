@@ -1,6 +1,5 @@
 import datetime
 import inspect
-import operator
 import re
 import warnings
 
@@ -9,7 +8,7 @@ import numpy as np
 from pyfits.card import _pad
 from pyfits.column import DELAYED
 from pyfits.header import Header
-from pyfits.util import lazyproperty, _fromfile, _is_int, _with_extensions, \
+from pyfits.util import lazyproperty, _is_int, _with_extensions, \
                         _pad_length, itersubclasses
 from pyfits.verify import _Verify, _ErrList
 
@@ -36,7 +35,11 @@ def _hdu_class_from_header(cls, header):
                     break
             except NotImplementedError:
                 continue
-            except:
+            except Exception, e:
+                warnings.warn(
+                    'An exception occurred matching an HDU header to the '
+                    'appropriate HDU type: %s' % unicode(e))
+                warnings.warn('The HDU will be treated as corrupted.')
                 klass = _CorruptedHDU
                 break
 

@@ -162,9 +162,9 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
 
                     # Delete the _arrays attribute so that it is recreated to
                     # point to the new data placed in the column objects above
-                    del self.columns._array
+                    del self.columns._arrays
                 except (TypeError, AttributeError), e:
-                    # This shouldn't happen as long as self.columns._array
+                    # This shouldn't happen as long as self.columns._arrays
                     # is a lazyproperty
                     pass
             elif data is None:
@@ -175,6 +175,12 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
         if self._header[0].rstrip() != self._extension:
             self._header[0] = self._extension
             self._header.ascard[0].comment = self._ext_comment
+
+    #def __del__(self):
+    #    for c in self.columns:
+    #        if hasattr(c, 'array') and hasattr(c.array, 'copy'):
+    #            c.array = c.array.copy()
+    #    del self.columns._arrays
 
     @classmethod
     def match_header(cls, header):

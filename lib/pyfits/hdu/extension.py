@@ -87,6 +87,8 @@ class _ExtensionHDU(_ValidHDU):
         return errs
 
 
+# TODO: Drop the underscore from the name of this class--it should be usable by
+# third-parties to implement non-standard extension HDUs.
 class _NonstandardExtHDU(_ExtensionHDU):
     """
     A Non-standard Extension HDU class.
