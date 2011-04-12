@@ -21,6 +21,7 @@ import pyfits.core
 import pyfits.util
 from pyfits.core import *
 from pyfits.util import *
+
 __doc__ = pyfits.core.__doc__
 
 __all__ = pyfits.core.__all__ + pyfits.util.__all__

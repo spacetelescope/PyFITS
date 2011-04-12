@@ -11,7 +11,7 @@ from pyfits.hdu.table import BinTableHDU
 from pyfits.util import lazyproperty
 
 try:
-    from pyfits import pyfitsComp
+    from pyfits import compression
     COMPRESSION_SUPPORTED = True
 except ImportError:
     COMPRESSION_SUPPORTED = False
@@ -267,7 +267,7 @@ if COMPRESSION_SUPPORTED:
             else:
                 warnings.warn(
                     'Failure matching header to a compressed image HDU.')
-                warnings.warn('The pyfitsComp module is not available.')
+                warnings.warn('The compression module is not available.')
                 warnings.warn('The HDU will be treated as a Binary Table HDU.')
                 return False
 
@@ -1100,7 +1100,7 @@ if COMPRESSION_SUPPORTED:
             # Call the C decompression routine to decompress the data.
             # Note that any errors in this routine will raise an
             # exception.
-            status = pyfitsComp.decompressData(dataList,
+            status = compression.decompressData(dataList,
                                              self._header['ZNAXIS'],
                                              naxesList, tileSizeList,
                                              zScaleVals, cn_zscale,
@@ -1550,7 +1550,7 @@ if COMPRESSION_SUPPORTED:
             try:
                 # Compress the data.
                 status, compDataList, scaleList, zeroList, uncompDataList =  \
-                   pyfitsComp.compressData(self.data,
+                   compression.compressData(self.data,
                                            self._header['ZNAXIS'],
                                            naxesList, tileSizeList,
                                            cn_zblank, zblank,
