@@ -1,4 +1,9 @@
-from UserDict import DictMixin
+try:
+    from UserDict import DictMixin
+except ImportError:
+    # Not necessarily a direct translation, but the Header class has been
+    # written such that it should be fine.
+    from collections import MutableMapping as DictMixin
 
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _ContinueCard, _HierarchCard, create_card, \

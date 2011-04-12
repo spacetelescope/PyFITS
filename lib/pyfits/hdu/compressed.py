@@ -13,9 +13,8 @@ from pyfits.util import lazyproperty
 try:
     from pyfits import pyfitsComp
     COMPRESSION_SUPPORTED = True
-except:
+except ImportError:
     COMPRESSION_SUPPORTED = False
-    raise
 
 if COMPRESSION_SUPPORTED:
     # If compression object library imports properly then define the

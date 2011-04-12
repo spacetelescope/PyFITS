@@ -13,9 +13,14 @@ __all__ = ['Card', 'CardList', 'RecordValuedKeywordCard', 'create_card',
            'create_card_from_string', 'createCard', 'createCardFromString']
 
 
+# python3 fixup
+try:
+    maketrans = string.maketrans
+except AttributeError:
+    maketrans = str.maketrans # Fine to assume strings here
 # translation tables for floating value strings
-FIX_FP_TABLE = string.maketrans('de', 'DE')
-FIX_FP_TABLE2 = string.maketrans('dD', 'eE')
+FIX_FP_TABLE = maketrans('de', 'DE')
+FIX_FP_TABLE2 = maketrans('dD', 'eE')
 
 
 
