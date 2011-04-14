@@ -571,6 +571,22 @@ class TestPyfitsHDUListFunctions(unittest.TestCase):
                 'No.    Name         Type      Cards   Dimensions   Format\n'
                 '0    PRIMARY     PrimaryHDU       5  (100,)        int32\n')
 
+    def testNewHDUExtname(self):
+        """
+        Tests that new extension HDUs that are added to an HDUList can be
+        properly indexed by their EXTNAME/EXTVER (regression test for
+        ticket:48).
+        """
+
+        f = pyfits.open(os.path.join(data_dir, 'test0.fits'))
+        hdul = pyfits.HDUList()
+        hdul.append(f[0].copy())
+        hdul.append(pyfits.ImageHDU(header=f[1].header))
+
+        self.assertEqual(hdul[1].header['EXTNAME'], 'SCI')
+        self.assertEqual(hdul[1].header['EXTVER'], 1)
+        self.assertEqual(hdul.index_of(('SCI', 1)), 1)
+
 if __name__ == '__main__':
     unittest.main()
 

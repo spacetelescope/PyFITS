@@ -49,13 +49,19 @@ class _TableLikeHDU(_ValidHDU):
     def _get_tbdata(self):
         """Get the table data from an input HDU object."""
 
+        # TODO: Need to find a way to eliminate the check for phantom columns;
+        # this detail really needn't be worried about outside the ColDefs class
         columns = self.columns
-        formats = ','.join(columns._recformats)
-        dtype = rec.format_parser(formats, columns.names, None)._descr
+        recformats = [f for idx, f in enumerate(columns._recformats)
+                      if not columns[idx]._phantom]
+        formats = ','.join(recformats)
+        names = [n for idx, n in enumerate(columns.names)
+                 if not columns[idx]._phantom]
+        dtype = rec.format_parser(formats, names, None)._descr
         raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
                                         shape=columns._shape)
         data = rec.recarray(shape=raw_data.shape, buf=raw_data,
-                            dtype=raw_data.dtype, names=columns.names)
+                            dtype=raw_data.dtype, names=names)
         self._init_tbdata(data)
         return data.view(FITS_rec)
 
@@ -71,11 +77,12 @@ class _TableLikeHDU(_ValidHDU):
         data._gap = self._theap - tbsize
 
         # pass the attributes
-        for attr in ['formats', 'names']:
-            setattr(data, attr, getattr(columns, attr))
+        fidx = 0
         for idx in range(len(columns)):
-           # get the data for each column object from the rec.recarray
-            columns.data[idx].array = data.field(idx)
+            if not columns[idx]._phantom:
+                # get the data for each column object from the rec.recarray
+                columns.data[idx].array = data.field(fidx)
+                fidx += 1
 
         # delete the _arrays attribute so that it is recreated to point to the
         # new data placed in the column object above
@@ -176,12 +183,6 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
             self._header[0] = self._extension
             self._header.ascard[0].comment = self._ext_comment
 
-    #def __del__(self):
-    #    for c in self.columns:
-    #        if hasattr(c, 'array') and hasattr(c.array, 'copy'):
-    #            c.array = c.array.copy()
-    #    del self.columns._arrays
-
     @classmethod
     def match_header(cls, header):
         """
@@ -194,6 +195,8 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
 
     @lazyproperty
     def columns(self):
+        if self._data_loaded and hasattr(self.data, '_coldefs'):
+            return self.data._coldefs
         return ColDefs(self)
 
     @lazyproperty
@@ -203,6 +206,8 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
             data = self._get_tbdata()
             data._coldefs = self.columns
             data.formats = self.columns.formats
+            # Columns should now just return a reference to the data._coldefs
+            del self.columns
         else:
             data = None
         self._data_loaded = True
@@ -336,7 +341,7 @@ class TableHDU(_TableBaseHDU):
     _ext_comment = 'ASCII table extension'
 
     __format_RE = re.compile(
-        r'(?P<code>[ADEFI])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
+        r'(?P<code>[ADEFIJ])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
 
     def __init__(self, data=None, header=None, name=None):
         super(TableHDU, self).__init__(data, header, name)
@@ -352,10 +357,12 @@ class TableHDU(_TableBaseHDU):
 
     def _get_tbdata(self):
         columns = self.columns
+        names = [n for idx, n in enumerate(columns.names)
+                 if not columns[idx]._phantom]
 
         # determine if there are duplicate field names and if there
         # are throw an exception
-        dup = rec.find_duplicate(columns.names)
+        dup = rec.find_duplicate(names)
 
         if dup:
             raise ValueError("Duplicate field names: %s" % dup)
@@ -376,7 +383,7 @@ class TableHDU(_TableBaseHDU):
         raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
                                         shape=columns._shape)
         data = rec.recarray(shape=raw_data.shape, buf=raw_data,
-                            dtype=raw_data.dtype, names=columns.names)
+                            dtype=raw_data.dtype, names=names)
 
         self._init_tbdata(data)
         return data.view(FITS_rec)
@@ -1101,7 +1108,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
             n = 0
 
         # Get any scale factors from the FITS_rec
-        (_scale, _zero, bscale, bzero) = hdu.data._get_scale_factors(i)[3:]
+        _scale, _zero, bscale, bzero, dim = hdu.data._get_scale_factors(i)[3:]
 
         if n > 0:
             # Only copy data if there is input data to copy

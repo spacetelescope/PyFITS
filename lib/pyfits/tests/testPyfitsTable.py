@@ -39,7 +39,7 @@ def comparefloats(a, b):
         if diff[mask0].max() != 0.:
             return False
     if np.any(masknz):
-        if (diff[masknz]/aa[masknz]).max() > precision:
+        if (diff[masknz]/np.absolute(aa[masknz])).max() > precision:
             return False
     return True
 
@@ -208,13 +208,13 @@ class TestPyfitsTableFunctions(unittest.TestCase):
                 "bscale:\n"
                 "     ['', '', 3, '']\n"
                 "bzero:\n"
-                "     ['', '', 0.40000000000000002, '']\n"
+                "     ['', '', %r, '']\n"
                 "disp:\n"
                 "     ['I11', 'A3', 'G15.7', 'L6']\n"
                 "start:\n"
                 "     ['', '', '', '']\n"
                 "dim:\n"
-                "     ['', '', '', '']\n")
+                "     ['', '', '', '']\n" % 0.4)
 
         ra = rec.array([
             (1, 'abc', 3.7000002861022949, 0),
@@ -271,16 +271,16 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdu = pyfits.new_table([c2, c1, c3],tbtype='TableHDU')
 
 
-        self.assertEqual(hdu.data.dtype.fields, {'abc': (np.dtype('|S3'), 18),
-                                                 'def': (np.dtype('|S14'), 2),
-                                                 't1': (np.dtype('|S10'), 21)})
+        self.assertEqual(dict(hdu.data.dtype.fields),
+                         {'abc': (np.dtype('|S3'), 18),
+                          'def': (np.dtype('|S15'), 2),
+                          't1': (np.dtype('|S10'), 21)})
         hdu.writeto('toto.fits', clobber=True)
         hdul = pyfits.open('toto.fits')
         self.assertEqual(comparerecords(hdu.data,hdul[1].data), True)
         hdul.close()
         a.close()
         os.remove('toto.fits')
-
 
     def testVariableLengthColumns(self):
         col_list = []
@@ -432,6 +432,20 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
         hdul.close()
         os.remove('toto.fits')
+
+    def testNewFitsrec(self):
+        """
+        Tests creating a new FITS_rec object from a multi-field ndarray.
+        """
+
+        h = pyfits.open(os.path.join(data_dir, 'tb.fits'))
+        data = h[1].data
+        new_data = np.array([(3, 'qwe', 4.5, False)], dtype=data.dtype)
+        appended = np.append(data, new_data).view(pyfits.FITS_rec)
+        self.assertEqual(repr(appended),
+            "FITS_rec([(1, 'abc', 1.1, False), (2, 'xy', 2.0999999, True),\n"
+            "       (3, 'qwe', 4.5, False)], \n"
+            "      dtype=[('c1', '>i4'), ('c2', '|S3'), ('c3', '>f4'), ('c4', '|i1')])")
 
     def testAppendingAColumn(self):
         counts = np.array([312, 334, 308, 317])
@@ -1508,6 +1522,112 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         t.close()
 
+    def testTableWithZeroWidthColumn(self):
+        hdul = pyfits.open(os.path.join(data_dir, 'zerowidth.fits'))
+        tbhdu = hdul[2] # This HDU contains a zero-width column 'ORBPARM'
+        self.assert_('ORBPARM' in tbhdu.columns.names)
+        # The ORBPARM column should not be in the data, though the data should
+        # be readable
+        self.assert_('ORBPARM' not in tbhdu.data.names)
+        # Verify that some of the data columns are still correctly accessible
+        # by name
+        self.assert_(comparefloats(
+            tbhdu.data[0]['STABXYZ'],
+            np.array([499.85566663, -1317.99231554, -735.18866164],
+                     dtype=np.float64)))
+        self.assertEqual(tbhdu.data[0]['NOSTA'], 1)
+        self.assertEqual(tbhdu.data[0]['MNTSTA'], 0)
+        hdul.writeto('newtable.fits')
+        hdul.close()
+        hdul = pyfits.open('newtable.fits')
+        tbhdu = hdul[2]
+        # Verify that the previous tests still hold after writing
+        self.assert_('ORBPARM' in tbhdu.columns.names)
+        self.assert_('ORBPARM' not in tbhdu.data.names)
+        self.assert_(comparefloats(
+            tbhdu.data[0]['STABXYZ'],
+            np.array([499.85566663, -1317.99231554, -735.18866164],
+                     dtype=np.float64)))
+        self.assertEqual(tbhdu.data[0]['NOSTA'], 1)
+        self.assertEqual(tbhdu.data[0]['MNTSTA'], 0)
+        hdul.close()
+        os.remove('newtable.fits')
+
+    def testStringColumnPadding(self):
+        a = ['img1', 'img2', 'img3a', 'p']
+        s = 'img1\x00\x00\x00\x00\x00\x00' \
+            'img2\x00\x00\x00\x00\x00\x00' \
+            'img3a\x00\x00\x00\x00\x00' \
+            'p\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+        acol = pyfits.Column(name='MEMNAME', format='A10',
+                             array=np.char.array(a))
+        ahdu = pyfits.new_table([acol])
+        self.assertEqual(ahdu.data.tostring(), s)
+
+        ahdu = pyfits.new_table([acol], tbtype='TableHDU')
+        self.assertEqual(ahdu.data.tostring(), s.replace('\x00', ' '))
+
+    def testMultiDimensionalColumns(self):
+        """
+        Tests the multidimensional column implementation with both numeric
+        arrays and string arrays.
+        """
+
+        data = pyfits.rec.array(
+            [([1, 2, 3, 4], 'row1' * 2),
+             ([5, 6, 7, 8], 'row2' * 2),
+             ([9, 1, 2, 3], 'row3' * 2)], formats='4i4,a8')
+
+        thdu = pyfits.new_table(data)
+        # Modify the TDIM fields to my own specification
+        thdu.header.update('TDIM1', '(2,2)')
+        thdu.header.update('TDIM2', '(4,2)')
+
+        thdu.writeto('newtable.fits')
+
+        hdul = pyfits.open('newtable.fits')
+        thdu = hdul[1]
+
+        c1 = thdu.data.field(0)
+        c2 = thdu.data.field(1)
+
+        hdul.close()
+        os.remove('newtable.fits')
+
+        self.assertEqual(c1.shape, (3, 2, 2))
+        self.assertEqual(c2.shape, (3, 2))
+        self.assertTrue((c1 == np.array([[[1, 2], [3, 4]],
+                                         [[5, 6], [7, 8]],
+                                         [[9, 1], [2, 3]]])).all())
+        self.assertTrue((c2 == np.array([['row1', 'row1'],
+                                         ['row2', 'row2'],
+                                         ['row3', 'row3']])).all())
+
+        # Test setting the TDIMn header based on the column data
+        data = np.zeros(3, dtype=[('x', 'f4'), ('s', 'S5', 4)])
+        data['x'] = 1, 2, 3
+        data['s'] = 'ok'
+        pyfits.writeto('newtable.fits', data)
+
+        t = pyfits.getdata('newtable.fits')
+        os.remove('newtable.fits')
+
+        self.assertEqual(t.field(1).dtype, np.dtype('|S5'))
+        self.assertEqual(t.field(1).shape, (3, 4))
+
+        # Like the previous test, but with an extra dimension (a bit more
+        # complicated)
+        data = np.zeros(3, dtype=[('x', 'f4'), ('s', 'S5', (4, 3))])
+        data['x'] = 1, 2, 3
+        data['s'] = 'ok'
+        pyfits.writeto('newtable.fits', data)
+
+        t = pyfits.getdata('newtable.fits')
+        os.remove('newtable.fits')
+
+        self.assertEqual(t.field(1).dtype, np.dtype('|S5'))
+        self.assertEqual(t.field(1).shape, (3, 4, 3))
 
 if __name__ == '__main__':
     unittest.main()

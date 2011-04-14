@@ -911,40 +911,35 @@ class _ValidHDU(_BaseHDU, _Verify):
                     'either':2880,  # do standard first
                     True: 2880}[blocking]
 
-        sum32 = np.array(sum32, dtype='uint32')
+        sum32 = np.uint32(sum32)
         for i in range(0, len(bytes), blocklen):
             length = min(blocklen, len(bytes)-i)   # ????
             sum32 = self._compute_hdu_checksum(bytes[i:i+length], sum32)
         return sum32
 
     def _compute_hdu_checksum(self, bytes, sum32=0):
-        # Translated from FITS Checksum Proposal by Seaman, Pence, and Rots.
-        # Use uint32 literals as a hedge against type promotion to int64.
+        """
+        Translated from FITS Checksum Proposal by Seaman, Pence, and Rots.
+        Use uint32 literals as a hedge against type promotion to int64.
 
-        # This code should only be called with blocks of 2880 bytes
-        # Longer blocks result in non-standard checksums with carry overflow
-        # Historically,  this code *was* called with larger blocks and for that
-        # reason still needs to be for backward compatibility.
+        This code should only be called with blocks of 2880 bytes
+        Longer blocks result in non-standard checksums with carry overflow
+        Historically,  this code *was* called with larger blocks and for that
+        reason still needs to be for backward compatibility.
+        """
 
-        u8 = np.array(8, dtype='uint32')
-        u16 = np.array(16, dtype='uint32')
-        uFFFF = np.array(0xFFFF, dtype='uint32')
-
-        b0 = bytes[0::4].astype('uint32') << u8
-        b1 = bytes[1::4].astype('uint32')
-        b2 = bytes[2::4].astype('uint32') << u8
-        b3 = bytes[3::4].astype('uint32')
-
-        hi = np.array(sum32, dtype='uint32') >> u16
-        lo = np.array(sum32, dtype='uint32') & uFFFF
-
-        hi += np.add.reduce((b0 + b1)).astype('uint32')
-        lo += np.add.reduce((b2 + b3)).astype('uint32')
+        u16 = np.uint32(16)
+        uFFFF = np.uint32(0xFFFF)
+        bytes = bytes.view(dtype='>u2')
+        hi = sum32 >> u16
+        lo = sum32 & uFFFF
+        hi += int(np.add.reduce(bytes[0::2])) & np.uint32(0xFFFFFFFF)
+        lo += int(np.add.reduce(bytes[1::2])) & np.uint32(0xFFFFFFFF)
 
         hicarry = hi >> u16
         locarry = lo >> u16
 
-        while int(hicarry) or int(locarry):
+        while hicarry or locarry:
             hi = (hi & uFFFF) + locarry
             lo = (lo & uFFFF) + hicarry
             hicarry = hi >> u16
@@ -1001,7 +996,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         ascii encoded checksum
         """
 
-        value = np.array(value, dtype='uint32')
+        value = np.uint32(value)
 
         asc = np.zeros((16,), dtype='byte')
         ascii = np.zeros((16,), dtype='byte')

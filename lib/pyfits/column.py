@@ -45,6 +45,9 @@ TFORMAT_RE = re.compile(r'(?P<repeat>^[0-9]*)(?P<dtype>[A-Za-z])'
 # table definition keyword regular expression
 TDEF_RE = re.compile(r'(?P<label>^T[A-Z]*)(?P<num>[1-9][0-9 ]*$)')
 
+# table dimension keyword regular expression (fairly flexible with whitespace)
+TDIM_RE = re.compile(r'\(\s*(?P<dims>(?:\d+,\s*)+\s*\d+)\s*\)\s*')
+
 ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
                         # this can be reset by user.
 
@@ -150,6 +153,14 @@ class Column(object):
                     raise ValueError('Illegal format `%s`.' % format)
 
             self.format = format
+            # Zero-length formats are legal in the FITS format, but since they
+            # are not supported by numpy we mark columns that use them as
+            # "phantom" columns, that are not considered when reading the data
+            # as a record array.
+            if self.format[0] == '0' or self.format[-1] == '0':
+                self._phantom = True
+            else:
+                self._phantom = False
 
             # does not include Object array because there is no guarantee
             # the elements in the object array are consistent.
@@ -202,31 +213,36 @@ class Column(object):
                 if bscale not in ['', None, 1]:
                     array /= bscale
 
-        array = self.__checkValidDataType(array,self.format)
+        array = self._convert_to_valid_data_type(array, self.format)
         self.array = array
 
-    def __checkValidDataType(self,array,format):
+    def __repr__(self):
+        text = ''
+        for attr in KEYWORD_ATTRIBUTES:
+            value = getattr(self, attr)
+            if value is not None:
+                text += cname + ' = ' + repr(value) + '; '
+        return text[:-2]
+
+    def copy(self):
+        """
+        Return a copy of this `Column`.
+        """
+        tmp = Column(format='I') # just use a throw-away format
+        tmp.__dict__ = self.__dict__.copy()
+        return tmp
+
+    def _convert_to_valid_data_type(self, array, format):
         # Convert the format to a type we understand
-        if isinstance(array,Delayed):
+        if isinstance(array, Delayed):
             return array
-        elif (array is None):
+        elif array is None:
             return array
         else:
             if ('A' in format and 'P' not in format):
                 if 'S' in str(array.dtype):
-                    # For ASCII arrays, reconstruct the array and ensure
-                    # that all elements have enough characters to comply
-                    # with the format.  The new array will have the data
-                    # left justified in the field with trailing blanks
-                    # added to complete the format requirements.
-                    fsize=eval(_convert_format(format)[1:])
-                    l = []
-
-                    for i in range(len(array)):
-                        al = len(array[i])
-                        l.append(array[i][:min(fsize,array.itemsize)]+
-                                 ' '*(fsize-al))
-                    return chararray.array(l)
+                    fsize = int(_convert_format(format)[1:])
+                    return chararray.array(array, itemsize=fsize)
                 else:
                     numpyFormat = _convert_format(format)
                     return array.astype(numpyFormat)
@@ -238,22 +254,6 @@ class Column(object):
                 return array.astype(np.uint8)
             else:
                 return array
-
-    def __repr__(self):
-        text = ''
-        for cname in KEYWORD_ATTRIBUTES:
-            value = getattr(self, cname)
-            if value != None:
-                text += cname + ' = ' + `value` + '\n'
-        return text[:-1]
-
-    def copy(self):
-        """
-        Return a copy of this `Column`.
-        """
-        tmp = Column(format='I') # just use a throw-away format
-        tmp.__dict__ = self.__dict__.copy()
-        return tmp
 
 
 class ColDefs(object):
@@ -301,6 +301,7 @@ class ColDefs(object):
         self._tbtype = tbtype
 
         if isinstance(input, ColDefs):
+            # TODO: Wouldn't self.columns be a bit more obvious?
             self.data = [col.copy() for col in input.data]
 
         # if the input is a list of Columns
@@ -323,10 +324,24 @@ class ColDefs(object):
                     format = 'A' + str(ftype.itemsize)
                 else:
                     format = _convert_format(ftype, reverse=True)
-                c = Column(name=cname, format=format, array=input[cname])
+                # Determine the appropriate dimensions for items in the column
+                # (typically just 1D)
+                dim = input.dtype[idx].shape
+                if dim and (len(dim) > 1 or 'A' in format):
+                    if 'A' in format:
+                        # n x m string arrays must include the max string
+                        # length in their dimensions (e.g. l x n x m)
+                        dim = (input.dtype[idx].base.itemsize,) + dim
+                    dim = repr(dim).replace(' ', '')
+                else:
+                    dim = None
+
+                c = Column(name=cname, format=format,
+                           array=input.view(np.ndarray)[cname], dim=dim)
                 self.data.append(c)
 
         # Construct columns from fields in an HDU header
+        # TODO: This should probably go into _ASCIIColDefs...?
         elif isinstance(input, _TableBaseHDU):
             hdr = input._header
             nfields = hdr['TFIELDS']
@@ -359,6 +374,21 @@ class ColDefs(object):
         else:
             raise TypeError('Input to ColDefs must be a table HDU or a list '
                             'of Columns.')
+
+        # For ASCII tables, reconstruct string columns and ensure that spaces
+        # are used for padding instead of \x00, and do the reverse for binary
+        # table columns.
+        if tbtype == 'BinTableHDU':
+            pad = '\x00'
+        else:
+            pad = ' '
+        for col in self.data:
+            array = col.array
+            if not isinstance(array, chararray.chararray):
+                continue
+            for i in range(len(array)):
+                al = len(array[i])
+                array[i] = array[i] + pad * (array.itemsize - al)
 
     def __getattr__(self, name):
         """
@@ -398,7 +428,13 @@ class ColDefs(object):
         return len(self.data)
 
     def __repr__(self):
-        return 'ColDefs' + repr(tuple(self.data))
+        rep = 'ColDefs('
+        if self.data:
+            rep += '\n    '
+            rep += '\n    '.join([repr(c) for c in self.data])
+            rep += '\n'
+        rep += ')'
+        return rep
 
     def __add__(self, other, option='left'):
         if isinstance(other, Column):
@@ -429,6 +465,7 @@ class ColDefs(object):
     def _update_listener(self):
         if hasattr(self, '_listener'):
             delattr(self._listener, 'data')
+            self._listener.columns = self
 
     def add_col(self, column):
         """
@@ -582,8 +619,8 @@ class ColDefs(object):
 class _ASCIIColDefs(ColDefs):
     """ColDefs implementation for ASCII tables."""
 
-    _ascii_fmt = {'A': 'A1', 'I': 'I10', 'E': 'E14.6', 'F': 'F16.7',
-                  'D': 'D24.16'}
+    _ascii_fmt = {'A':'A1', 'I':'I10', 'J':'I15', 'E':'E15.7', 'F':'F16.7',
+                  'D':'D25.17'}
 
     def __init__(self, input, tbtype='TableHDU'):
         super(_ASCIIColDefs, self).__init__(input, tbtype)

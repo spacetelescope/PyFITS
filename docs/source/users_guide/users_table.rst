@@ -54,6 +54,8 @@ Like images, the .data attribute of a table HDU contains the data of the table. 
 
 Note that in PyFITS, when using the ``field()`` method, it is 0-indexed while the suffixes in header keywords, such as TFORM is 1-indexed. So, ``tbdata.field(0)`` is the data in the column with the name specified in TTYPE1 and format in TFORM1.
 
+**Warning:** The FITS format allows table columns with a zero-width data format, such as '0D'.  This is probably intended as a space-saving measure on files in which that column contains no data.  In such files, the zero-width columns are ommitted when accessing the table data, so the indexes of fields might change when using the ``field()`` method.  For this reason, if you expect to encounter files containg zero-width columns it is recommended to access fields by name rather than by index.
+
 
 Table Operations
 ,,,,,,,,,,,,,,,,

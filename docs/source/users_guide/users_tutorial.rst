@@ -342,7 +342,7 @@ If a user only needs to read one keyword, the `getval()` function can further si
     >>> val = getval('in.fits', 10, 'sci', 2) # get the 2nd sci extension's
                                               # 11th keyword's value
 
-The function `getdata()` gets the data of an HDU. Similar to `getheader()`, it only requires the input FITS file name while the extension is specified through the optional arguments. It does have one extra optional arguemnt header. If header is set to True, this function will return both data and header, otherwise only data is returned.
+The function `getdata()` gets the data of an HDU. Similar to `getheader()`, it only requires the input FITS file name while the extension is specified through the optional arguments. It does have one extra optional argument header. If header is set to True, this function will return both data and header, otherwise only data is returned.
 
     >>> from pyfits import getdata
     >>> dat = getdata('in.fits', 'sci', 3) # get 3rd sci extension's data

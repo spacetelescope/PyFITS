@@ -1,12 +1,13 @@
+import operator
 import warnings
 
 import numpy as np
 from numpy import char as chararray
 
 from pyfits import rec
-from pyfits.column import ASCIITNULL, Column, ColDefs, FITS2NUMPY, _FormatX, \
-                          _FormatP, _VLF, _get_index, _wrapx, _unwrapx, \
-                          _convert_format, _convert_ascii_format
+from pyfits.column import ASCIITNULL, FITS2NUMPY, TDIM_RE, Column, ColDefs, \
+                          _FormatX, _FormatP, _VLF, _get_index, _wrapx, \
+                          _unwrapx, _convert_format, _convert_ascii_format
 from pyfits.util import _fromfile
 
 
@@ -54,8 +55,8 @@ class FITS_record(object):
             self.end = endColumn
 
     def __getitem__(self,key):
-        if isinstance(key, (str, unicode)):
-            indx = _get_index(self.array._coldefs.names, key)
+        if isinstance(key, basestring):
+            indx = _get_index(self.array.names, key)
 
             if indx < self.start or indx > self.end - 1:
                 raise KeyError("Key '%s' does not exist." % key)
@@ -146,11 +147,7 @@ class FITS_rec(rec.recarray):
         self._convert = [None] * len(self.dtype.names)
         self._coldefs = None
         self._gap = 0
-        self.names = self.dtype.names
-        # This attribute added for backward compatibility with numarray
-        # version of FITS_rec
-        # TODO: Do we still really need this?
-        self._names = self.dtype.names
+        self.names = list(self.dtype.names)
         self.formats = None
         return self
 
@@ -163,7 +160,6 @@ class FITS_rec(rec.recarray):
             self._coldefs = obj._coldefs
             self._nfields = obj._nfields
             self.names = obj.names
-            self._names = obj._names
             self._gap = obj._gap
             self.formats = obj.formats
         else:
@@ -177,12 +173,10 @@ class FITS_rec(rec.recarray):
 
             self._coldefs = None
             self._gap = 0
-            self.names = obj.dtype.names
-            self._names = obj.dtype.names
+            self.names = list(obj.dtype.names)
             self.formats = None
 
-            attrs = ['_convert', '_coldefs', 'names', '_names', '_gap',
-                     'formats']
+            attrs = ['_convert', '_coldefs', 'names', '_gap', 'formats']
             for attr in attrs:
                 if hasattr(obj, attr):
                     value = getattr(obj, attr, None)
@@ -190,15 +184,9 @@ class FITS_rec(rec.recarray):
                         warnings.warn('Setting attribute %s as None' % attr)
                     setattr(self, attr, value)
 
-    def _clone(self, shape):
-        """
-        Overload this to make mask array indexing work properly.
-        """
-
-        from pyfits.hdu.table import new_table
-
-        hdu = new_table(self._coldefs, nrows=shape[0])
-        return hdu.data
+            if self._coldefs is None:
+                self._coldefs = ColDefs(self)
+                self.formats = self._coldefs.formats
 
     def __repr__(self):
         return rec.recarray.__repr__(self)
@@ -268,40 +256,33 @@ class FITS_rec(rec.recarray):
         for idx in range(_start, _end):
             self.__setitem__(idx, value[idx - _start])
 
-    def _get_scale_factors(self, indx):
+    @property
+    def columns(self):
         """
-        Get the scaling flags and factors for one field.
-
-        `indx` is the index of the field.
+        A user-visible accessor for the coldefs.  See ticket #44.
         """
 
-        if self._coldefs._tbtype == 'BinTableHDU':
-            _str = 'a' in self._coldefs.formats[indx]
-            _bool = self._coldefs._recformats[indx][-2:] == FITS2NUMPY['L']
-        else:
-            _str = self._coldefs.formats[indx][0] == 'A'
-            _bool = False             # there is no boolean in ASCII table
-        _number = not(_bool or _str)
-        bscale = self._coldefs.bscales[indx]
-        bzero = self._coldefs.bzeros[indx]
-        _scale = bscale not in ['', None, 1]
-        _zero = bzero not in ['', None, 0]
-        # ensure bscale/bzero are numbers
-        if not _scale:
-            bscale = 1
-        if not _zero:
-            bzero = 0
-
-        return (_str, _bool, _number, _scale, _zero, bscale, bzero)
+        return self._coldefs
 
     def field(self, key):
         """
         A view of a `Column`'s data as an array.
         """
 
-        indx = _get_index(self._coldefs.names, key)
+        indx = _get_index(self.names, key)
         recformat = self._coldefs._recformats[indx]
-        field = super(FITS_rec, self).field(indx)
+
+        # If field's base is a FITS_rec, we can run into trouble because it
+        # contains a reference to the ._coldefs object of the original data;
+        # this can lead to a circular reference; see ticket #49
+        base = self
+        while isinstance(base, FITS_rec) and \
+              isinstance(base.base, rec.recarray):
+            base = base.base
+        # base could still be a FITS_rec in some cases, so take care to
+        # use rec.recarray.field to avoid a potential infinite
+        # recursion
+        field = rec.recarray.field(base, indx)
 
         if (self._convert[indx] is None):
             # for X format
@@ -312,7 +293,7 @@ class FITS_rec(rec.recarray):
                 self._convert[indx] = dummy
                 return self._convert[indx]
 
-            (_str, _bool, _number, _scale, _zero, bscale, bzero) = \
+            (_str, _bool, _number, _scale, _zero, bscale, bzero, dim) = \
                 self._get_scale_factors(indx)
 
             # for P format
@@ -348,11 +329,8 @@ class FITS_rec(rec.recarray):
                 self._convert[indx] = dummy
                 return self._convert[indx]
 
-            if _str:
-                return field
-
             # ASCII table, convert strings to numbers
-            if self._coldefs._tbtype == 'TableHDU':
+            if not _str and self._coldefs._tbtype == 'TableHDU':
                 _fmap = {'I': np.int32, 'F': np.float32, 'E': np.float32,
                          'D': np.float64}
                 _type = _fmap[self._coldefs.formats[indx][0]]
@@ -368,6 +346,35 @@ class FITS_rec(rec.recarray):
             else:
                 dummy = field
 
+            # Test that the dimensions given in dim are sensible; otherwise
+            # display a warning and ignore them
+            if dim:
+                # See if the dimensions already match, if not, make sure the
+                # number items will fit in the specified dimensions
+                if dummy.ndim > 1:
+                    actual_shape = dummy[0].shape
+                    if _str:
+                        actual_shape = (dummy[0].itemsize,) + actual_shape
+                else:
+                    actual_shape = len(dummy[0])
+                if dim == actual_shape:
+                    # The array already has the correct dimensions, so we
+                    # ignore dim and don't convert
+                    dim = None
+                else:
+                    nitems = reduce(operator.mul, dim)
+                    if _str:
+                        actual_nitems = dummy.itemsize
+                    else:
+                        actual_nitems = dummy.shape[1]
+                    if nitems != actual_nitems:
+                        warnings.warn(
+                            'TDIM%d value %s does not fit with the size of '
+                            'the array items (%d).  TDIM%d will be ignored.'
+                            % (indx + 1, self._coldefs.dims[indx],
+                               actual_nitems, indx + 1))
+                        dim = None
+
             # further conversion for both ASCII and binary tables
             if _number and (_scale or _zero):
 
@@ -380,17 +387,71 @@ class FITS_rec(rec.recarray):
                     self._convert[indx] += bzero
             elif _bool:
                 self._convert[indx] = np.equal(dummy, ord('T'))
+            elif dim:
+                self._convert[indx] = dummy
             else:
                 return dummy
 
+            if dim:
+                if _str:
+                    dtype = ('|S%d' % dim[0], dim[1:])
+                    self._convert[indx].dtype = dtype
+                else:
+                    self._convert[indx].shape = (dummy.shape[0],) + dim
+
         return self._convert[indx]
+
+    def _clone(self, shape):
+        """
+        Overload this to make mask array indexing work properly.
+        """
+
+        from pyfits.hdu.table import new_table
+
+        hdu = new_table(self._coldefs, nrows=shape[0])
+        return hdu.data
+
+    def _get_scale_factors(self, indx):
+        """
+        Get the scaling flags and factors for one field.
+
+        `indx` is the index of the field.
+        """
+
+        if self._coldefs._tbtype == 'BinTableHDU':
+            _str = 'a' in self._coldefs._recformats[indx]
+            _bool = self._coldefs._recformats[indx][-2:] == FITS2NUMPY['L']
+        else:
+            _str = self._coldefs.formats[indx][0] == 'A'
+            _bool = False             # there is no boolean in ASCII table
+        _number = not(_bool or _str)
+        bscale = self._coldefs.bscales[indx]
+        bzero = self._coldefs.bzeros[indx]
+        _scale = bscale not in ['', None, 1]
+        _zero = bzero not in ['', None, 0]
+        # ensure bscale/bzero are numbers
+        if not _scale:
+            bscale = 1
+        if not _zero:
+            bzero = 0
+        dim = self._coldefs.dims[indx]
+        m = dim and TDIM_RE.match(dim)
+        if m:
+            dim = m.group('dims')
+            dim = tuple(int(d.strip()) for d in dim.split(','))
+        else:
+            # Ignore any dim values that don't specify a multidimensional
+            # column
+            dim = ''
+
+        return (_str, _bool, _number, _scale, _zero, bscale, bzero, dim)
 
     def _scale_back(self):
         """
         Update the parent array, using the (latest) scaled array.
         """
 
-        _fmap = {'A': 's', 'I': 'd', 'F': 'f', 'E': 'E', 'D': 'E'}
+        _fmap = {'A': 's', 'I': 'd', 'J': 'd', 'F': 'f', 'E': 'E', 'D': 'E'}
         # calculate the starting point and width of each field for ASCII table
         if self._coldefs._tbtype == 'TableHDU':
             loc = self._coldefs.starts
@@ -412,7 +473,7 @@ class FITS_rec(rec.recarray):
                     _wrapx(self._convert[indx], field, recformat._nx)
                     continue
 
-                (_str, _bool, _number, _scale, _zero, bscale, bzero) = \
+                (_str, _bool, _number, _scale, _zero, bscale, bzero, dim) = \
                     self._get_scale_factors(indx)
 
                 # add the location offset of the heap area for each

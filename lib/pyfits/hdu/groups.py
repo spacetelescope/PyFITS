@@ -46,12 +46,15 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
             data._coldefs = self.columns
             data.formats = self.columns.formats
             data.parnames = self.columns._pnames
+            del self.columns
         else:
             data = None
         return data
 
     @lazyproperty
     def columns(self):
+        if self._data_loaded and hasattr(self.data, '_coldefs'):
+            return self.data._coldefs
         cols = []
         pnames = []
         pcount = self._header['PCOUNT']
@@ -247,7 +250,7 @@ class GroupData(FITS_rec):
                                               names=_coldefs.names,
                                               shape=gcount))
             self._coldefs = _coldefs
-            self.parnames = [i.lower() for i in parnames]
+            self.parnames = parnames
 
             for idx in range(npars):
                 (_scale, _zero)  = self._get_scale_factors(idx)[3:5]
@@ -273,7 +276,7 @@ class GroupData(FITS_rec):
 
     @lazyproperty
     def _unique(self):
-        return _unique(self.parnames)
+        return _unique([p.lower() for p in self.parnames])
 
     def par(self, parname):
         """
@@ -337,7 +340,7 @@ class _Group(FITS_record):
 
     @lazyproperty
     def _unique(self):
-        return _unique(self.parnames)
+        return _unique([p.lower() for p in self.parnames])
 
     def par(self, parname):
         """
