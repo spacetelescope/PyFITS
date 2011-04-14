@@ -46,6 +46,10 @@ class Header(DictMixin):
     dictionary.
     """
 
+    # TODO: Allow the header to take a few other types of inputs, for example
+    # a list of (key, value) tuples, (key, value, comment) tuples, or a dict
+    # of either key: value or key: (value, comment) mappings.  This could all
+    # be handled by the underlying CardList I suppose.
     def __init__(self, cards=[], txtfile=None):
         """
         Construct a `Header` from a `CardList` and/or text file.

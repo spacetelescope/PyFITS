@@ -2,10 +2,11 @@
 
 from __future__ import division # confidence high
 
-# I've seen one example of code that's using datetime from pyfits;
-# That code should be fixed, but in the meantime this is here for
-# compatibility
-import datetime
+try:
+    import pkg_resources
+    __version__ = pkg_resources.get_distribution('pyfits').version
+except ImportError:
+    __version__ = None
 
 # Define the version of the pyfits package.
 try:
@@ -13,8 +14,6 @@ try:
     __svn_version__ = svn_version.__svn_version__
 except ImportError:
     __svn_version__ = 'Unable to determine SVN revision'
-
-__version__ = '2.4.0' + __svn_version__
 
 # Import the pyfits core module.
 import pyfits.core
