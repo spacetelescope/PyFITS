@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 
 from pyfits.card import Card, CardList
@@ -7,7 +8,7 @@ from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.base import _ValidHDU
 from pyfits.header import Header
 from pyfits.util import Extendable, _is_pseudo_unsigned, _unsigned_zero, \
-                        _is_int, _normalize_slice, lazyproperty
+                        _is_int, _pad_length, _normalize_slice, lazyproperty
 
 class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class.
@@ -354,6 +355,58 @@ class _ImageBaseHDU(_ValidHDU):
         #
         self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
 
+    def _writedata(self, fileobj):
+        offset = 0
+        size = 0
+
+        if not fileobj.simulateonly:
+            fileobj.flush()
+            try:
+                offset = fileobj.tell()
+            except (AttributeError, IOError):
+                # TODO: as long as we're assuming fileobj is a FITSFile,
+                # AttributeError won't happen here
+                offset = 0
+
+        if self.data is not None:
+            # Based on the system type, determine the byteorders that
+            # would need to be swapped to get to big-endian output
+            if sys.byteorder == 'little':
+                swap_types = ('<', '=')
+            else:
+                swap_types = ('<',)
+            # deal with unsigned integer 16, 32 and 64 data
+            if _is_pseudo_unsigned(self.data.dtype):
+                # Convert the unsigned array to signed
+                output = np.array(
+                    self.data - _unsigned_zero(self.data.dtype),
+                    dtype='>i%d' % self.data.dtype.itemsize)
+                should_swap = False
+            else:
+                output = self.data
+                byteorder = output.dtype.str[0]
+                should_swap = (byteorder in swap_types)
+
+            if not fileobj.simulateonly:
+                if should_swap:
+                    output.byteswap(True)
+                    try:
+                        fileobj.write(output)
+                    finally:
+                        output.byteswap(True)
+                else:
+                    fileobj.write(output)
+        # flush, to make sure the content is written
+        if not fileobj.simulateonly:
+            fileobj.flush()
+
+        # return both the location and the size of the data area
+        return offset, size + _pad_length(size)
+
+    def _writeto(self, fileobj, checksum=False):
+        self.update_header()
+        super(_ImageBaseHDU, self)._writeto(fileobj, checksum)
+
     def _dimShape(self):
         """
         Returns a tuple of image dimensions, reverse the order of ``NAXIS``.
@@ -695,7 +748,7 @@ class ImageHDU(_ImageBaseHDU, _ExtensionHDU):
         """
 
         errs = super(ImageHDU, self)._verify(option=option)
-        naxis = self.header.get('NAXIS', 0)
+        naxis = self._header.get('NAXIS', 0)
         # PCOUNT must == 0, GCOUNT must == 1; the former is verifed in
         # _ExtensionHDU._verify, however _ExtensionHDU._verify allows PCOUNT
         # to be >= 0, so we need to check it here

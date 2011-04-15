@@ -10,6 +10,7 @@ from numpy import memmap as Memmap
 import pyfits
 from pyfits.card import Card
 from pyfits.column import _FormatP
+from pyfits.file import FITSFile
 from pyfits.hdu import compressed
 from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU
 from pyfits.hdu.compressed import CompImageHDU
@@ -223,9 +224,6 @@ class HDUList(list, _Verify):
         """
 
         # instantiate a FITS file object (ffo)
-        # TODO: This needs to be imported inline for now, otherwise we get a
-        # circular import; maybe this can be moved eventually?
-        from pyfits.file import FITSFile
         ffo = FITSFile(fileobj, mode=mode, memmap=memmap)
         hdulist = cls(file=ffo)
 
@@ -244,7 +242,7 @@ class HDUList(list, _Verify):
             # read all HDUs
             while True:
                 try:
-                    hdu = ffo.readHDU(**kwargs)
+                    hdu = _BaseHDU.readfrom(ffo, **kwargs)
                     hdulist.append(hdu)
                     hdu._new = False
                 except EOFError:
@@ -259,8 +257,7 @@ class HDUList(list, _Verify):
                         % (len(hdulist), err))
                     break
                 except IOError, err:
-                    if isinstance(ffo.getfile(), gzip.GzipFile) and \
-                       'on write-only GzipFile object' in str(err):
+                    if ffo.writeonly:
                         break
                     else:
                         raise err
@@ -590,8 +587,6 @@ class HDUList(list, _Verify):
             class.
         """
 
-        from pyfits.file import FITSFile
-
         # Get the name of the current thread and determine if this is a single treaded application
         curr_thread = threading.currentThread()
         single_thread = (threading.activeCount() == 1) and \
@@ -632,7 +627,8 @@ class HDUList(list, _Verify):
                     else:
                         checksum = False
 
-                    self.__file.writeHDU(hdu, checksum=checksum)
+                    # TODO: Fix this once new HDU writing API is settled on
+                    hdu._writeto(self.__file, checksum=checksum)
                     if verbose:
                         print 'append HDU', hdu.name, extver
                     hdu._new = False
@@ -664,7 +660,7 @@ class HDUList(list, _Verify):
 
                     hdulist = self.fromfile(new_file, mode='append')
 
-                    if verbose: 
+                    if verbose:
                         print 'open a temp file', name
 
                     for hdu in self:
@@ -674,8 +670,9 @@ class HDUList(list, _Verify):
                         else:
                             checksum = False
 
+                        # TODO: Fix this once new HDU writing API is settled on
                         (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = \
-                               hdulist.__file.writeHDU(hdu, checksum=checksum)
+                               hdu._writeto(hdulist.__file, checksum=checksum)
                     hdulist.__file.close()
                     self.__file.close()
                     os.remove(self.__file.name)
@@ -722,8 +719,9 @@ class HDUList(list, _Verify):
                         else:
                             checksum = False
 
+                        # TODO: Fix this once new HDU writing API is settled on
                         (hdu._hdrLoc, hdu._datLoc, hdu._datSpan) = \
-                                            ffo.writeHDU(hdu, checksum=checksum)
+                                hdu._writeto(ffo, checksum=checksum)
 
                     # Close the temporary file and delete it.
                     hdulist.close()
@@ -760,16 +758,19 @@ class HDUList(list, _Verify):
                             checksum = False
 
                         hdu._file.seek(hdu._hdrLoc)
-                        self.__file.writeHDUheader(hdu,checksum=checksum)
-                        if (verbose):
-                            print 'update header in place: Name =', hdu.name, extver
+                        # TODO: Fix this once new HDU writing API is settled on
+                        hdu._writeheader(self.__file, checksum=checksum)
+                        if verbose:
+                            print 'update header in place: Name =', \
+                                  hdu.name, extver
                     if hdu._data_loaded:
                         if hdu.data is not None:
                             if isinstance(hdu.data, Memmap):
                                 hdu.data.sync()
                             else:
                                 hdu._file.seek(hdu._datLoc)
-                                self.__file.writeHDUdata(hdu)
+                                # TODO: Fix this once new HDU writing API is settled on
+                                hdu._writedata(self.__file)
 
                             if verbose:
                                 print 'update data in place: Name =', \
@@ -917,7 +918,8 @@ class HDUList(list, _Verify):
         hdulist = fitsopen(name, mode=mode)
 
         for hdu in self:
-            hdulist.__file.writeHDU(hdu, checksum)
+            # TODO: Fix this once new HDU writing API is settled on
+            hdu._writeto(hdulist.__file, checksum)
         hdulist.close(output_verify=output_verify, closed=closed)
 
 

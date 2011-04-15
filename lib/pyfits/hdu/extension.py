@@ -101,6 +101,8 @@ class _NonstandardExtHDU(_ExtensionHDU):
     beginning of the next header or the end of the file.
     """
 
+    _standard = False
+
     @classmethod
     def match_header(cls, header):
         """

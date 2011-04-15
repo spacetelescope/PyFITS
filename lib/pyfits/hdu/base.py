@@ -7,10 +7,15 @@ import numpy as np
 
 from pyfits.card import _pad
 from pyfits.column import DELAYED
+from pyfits.file import FITSFile
 from pyfits.header import Header
-from pyfits.util import lazyproperty, _is_int, _with_extensions, \
-                        _pad_length, itersubclasses
+from pyfits.util import _with_extensions, lazyproperty, _is_int, \
+                        _is_pseudo_unsigned, _unsigned_zero, _pad_length, \
+                        itersubclasses, BLOCK_SIZE
 from pyfits.verify import _Verify, _ErrList
+
+
+HEADER_END_RE = re.compile('END {77}')
 
 
 class InvalidHDUException(Exception):
@@ -50,6 +55,9 @@ class _BaseHDU(object):
     """
     Base class for all HDU (header data unit) classes.
     """
+
+    # This HDU type is part of the FITS standard
+    _standard = True
 
     def __new__(cls, data=None, header=None, **kwargs):
         """
@@ -132,7 +140,7 @@ class _BaseHDU(object):
             raise ValueError('Block does not begin with SIMPLE or XTENSION')
 
         # Make sure the end card is present
-        match = re.search(r'END {77}', data)
+        match = HEADER_END_RE.search(data)
         if not match:
             if ignore_missing_end:
                 hdrlen = len(data)
@@ -182,6 +190,169 @@ class _BaseHDU(object):
             hdu._verify_checksum_datasum(checksum)
 
         return hdu
+
+    @classmethod
+    def readfrom(cls, fileobj, checksum=False, ignore_missing_end=False,
+                 **kwargs):
+        """
+        Read the HDU from a file.  Normally an HDU should be opened with
+        `fitsopen()` which reads the entire HDU list in a FITS file.  But this
+        method is still provided for symmetry with `writeto()`.
+
+        Parameters
+        ----------
+        fileobj : file object or file-like object
+            Input FITS file.  The file's seek pointer is assumed to be at the
+            beginning of the HDU.
+
+        checksum : bool
+            If `True`, verifies that both ``DATASUM`` and
+            ``CHECKSUM`` card values (when present in the HDU header)
+            match the header and data of all HDU's in the file.
+
+        ignore_missing_end : bool
+            Do not issue an exception when opening a file that is
+            missing an ``END`` card in the last header.
+        """
+
+        # TODO: Figure out a way to make it possible for the FITSFile
+        # constructor to be a noop if the argument is already a FITSFile
+        if not isinstance(fileobj, FITSFile):
+            fileobj = FITSFile(fileobj)
+
+        hdr_offset = fileobj.tell()
+
+        # Read the first header block.
+        block = fileobj.read(BLOCK_SIZE)
+        if block == '':
+            raise EOFError()
+
+        blocks = []
+
+        # continue reading header blocks until END card is reached
+        while True:
+            # find the END card
+            mo = HEADER_END_RE.search(block)
+            if mo is None:
+                blocks.append(block)
+                block = fileobj.read(BLOCK_SIZE)
+                if block == '':
+                    break
+            else:
+                break
+        blocks.append(block)
+
+        if not HEADER_END_RE.search(block) and not ignore_missing_end:
+            raise IOError('Header missing END card.')
+
+        blocks = ''.join(blocks)
+
+        hdu = cls.fromstring(blocks, fileobj=fileobj, offset=hdr_offset,
+                             checksum=checksum,
+                             ignore_missing_end=ignore_missing_end, **kwargs)
+
+        fileobj.seek(hdu._datSpan, 1)
+        return hdu
+
+    def _writeheader(self, fileobj, checksum=False):
+        # NOTE: Right now this assumes fileobj is a FITSFile object
+        # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
+        # cards to header
+        if self._data_loaded and self.data is not None and \
+           self._standard and _is_pseudo_unsigned(self.data.dtype):
+            naxis = self._header.get('NAXIS')
+            self._header.update('BSCALE', 1, after='NAXIS' + repr(naxis))
+            self._header.update('BZERO', _unsigned_zero(self.data.dtype),
+                                after='BSCALE')
+
+        # Handle checksum
+        if 'CHECKSUM' in self._header:
+            del self._header['CHECKSUM']
+
+        if 'DATASUM' in self._header:
+            del self._header['DATASUM']
+
+        if checksum == 'datasum':
+            self.add_datasum()
+        elif checksum == 'nonstandard_datasum':
+            self.add_datasum(blocking='nonstandard')
+        elif checksum == 'test':
+            self.add_datasum(self._datasum_comment)
+            self.add_checksum(self._checksum_comment, True)
+        elif checksum == 'nonstandard':
+            self.add_checksum(blocking='nonstandard')
+        elif checksum:
+            self.add_checksum(blocking='standard')
+
+        blocks = repr(self._header.ascard) + _pad('END')
+        blocks = blocks + _pad_length(len(blocks)) * ' '
+
+        offset = 0
+        size = len(blocks)
+
+        if size % BLOCK_SIZE != 0:
+            raise IOError('Header size (%d) is not a multiple of block size '
+                          '(%d).' % (size, BLOCK_SIZE))
+
+        if not fileobj.simulateonly:
+            fileobj.flush()
+            try:
+                offset = fileobj.tell()
+            except (AttributeError, IOError):
+                offset = 0
+            fileobj.write(blocks)
+            fileobj.flush()
+
+        # If data is unsigned integer 16, 32 or 64, remove the
+        # BSCALE/BZERO cards
+        if self._data_loaded and self.data is not None and \
+           self._standard and _is_pseudo_unsigned(self.data.dtype):
+            del self._header['BSCALE']
+            del self._header['BZERO']
+
+        return offset, size
+
+    def _writedata(self, fileobj):
+        # TODO: A lot of the simulateonly stuff should be moved back into the
+        # FITSFile class--basically it should turn write and flush into a noop
+        offset = 0
+        size = 0
+
+        if not fileobj.simulateonly:
+            fileobj.flush()
+            try:
+                offset = fileobj.tell()
+            except (AttributeError, IOError):
+                # TODO: as long as we're assuming fileobj is a FITSFile,
+                # AttributeError won't happen here
+                offset = 0
+
+        if self.data is not None:
+            output = self.data
+            if not fileobj.simulateonly:
+                fileobj.write(output)
+            size += output.size * output.itemsize
+
+            # pad the FITS data block
+            if size > 0 and not fileobj.simulateonly:
+                fileobj.write(_pad_length(size) * '\0')
+
+        # flush, to make sure the content is written
+        if not fileobj.simulateonly:
+            fileobj.flush()
+
+        # return both the location and the size of the data area
+        return offset, size + _pad_length(size)
+
+
+    # TODO: This is the start of moving HDU writing out of the FITSFile class;
+    # Though right now this is an internal private method (though still used by
+    # HDUList, eventually the plan is to have this be moved into writeto()
+    # somehow...
+    def _writeto(self, fileobj, checksum=False):
+        # For now fileobj is assumed to be a FITSFile object
+        return (self._writeheader(fileobj, checksum)[0],) + \
+               self._writedata(fileobj)
 
     @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,
@@ -271,6 +442,8 @@ class _NonstandardHDU(_BaseHDU, _Verify):
     and continues until the end of the file.
     """
 
+    _standard = False
+
     @classmethod
     def match_header(cls, header):
         """
@@ -297,6 +470,32 @@ class _NonstandardHDU(_BaseHDU, _Verify):
         """
 
         return self._file.size - self._datLoc
+
+    def _writedata(self, fileobj):
+        """
+        Differs from the base class `_writedata()` in that it doesn't
+        automatically add padding.
+        """
+
+        offset = 0
+        size = 0
+
+        if not fileobj.simulateonly:
+            fileobj.flush()
+            try:
+                offset = fileobj.tell()
+            except (AttributeError, IOError):
+                offset = 0
+
+        if self.data is not None:
+            if not fileobj.simulateonly:
+                fileobj.write(self.data)
+                # flush, to make sure the content is written
+                fileobj.flush()
+                size = len(self.data)
+
+        # return both the location and the size of the data area
+        return offset, size
 
     def _summary(self):
         return '%-7s  %-11s  %5d' % (self.name, 'NonstandardHDU',
@@ -373,10 +572,9 @@ class _ValidHDU(_BaseHDU, _Verify):
         Number of bytes
         """
 
-        from pyfits.file import FITSFile
-
         f = FITSFile()
-        return f.writeHDUheader(self)[1] + f.writeHDUdata(self)[1]
+        # TODO: Fix this once new HDU writing API is settled on
+        return self._writeheader(f)[1] + self._writedata(f)[1]
 
     def fileinfo(self):
         """
@@ -678,7 +876,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         if when is None:
            when = 'data unit checksum updated %s' % self._get_timestamp()
 
-        self.header.update('DATASUM', str(cs), when);
+        self._header.update('DATASUM', str(cs), when);
         return cs
 
     def add_checksum(self, when=None, override_datasum=False,
@@ -721,15 +919,15 @@ class _ValidHDU(_BaseHDU, _Verify):
             when = 'HDU checksum updated %s' % self._get_timestamp()
 
         # Add the CHECKSUM card to the header with a value of all zeros.
-        if 'DATASUM' in self.header:
-            self.header.update('CHECKSUM', '0'*16, when, before='DATASUM')
+        if 'DATASUM' in self._header:
+            self._header.update('CHECKSUM', '0'*16, when, before='DATASUM')
         else:
-            self.header.update('CHECKSUM', '0'*16, when)
+            self._header.update('CHECKSUM', '0'*16, when)
 
         s = self._calculate_checksum(data_cs, blocking)
 
         # Update the header card.
-        self.header.update('CHECKSUM', s, when);
+        self._header.update('CHECKSUM', s, when);
 
     def verify_datasum(self, blocking='standard'):
         """
@@ -747,9 +945,9 @@ class _ValidHDU(_BaseHDU, _Verify):
            - 2 - no ``DATASUM`` keyword present
         """
 
-        if 'DATASUM' in self.header:
+        if 'DATASUM' in self._header:
             datasum = self._calculate_datasum(blocking)
-            if datasum == int(self.header['DATASUM']):
+            if datasum == int(self._header['DATASUM']):
                 return 1
             elif blocking == 'either': # i.e. standard failed,  try nonstandard
                 return self.verify_datasum(blocking='nonstandard')
@@ -780,7 +978,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             else:
                 datasum = 0
             checksum = self._calculate_checksum(datasum, blocking)
-            if checksum == self.header['CHECKSUM']:
+            if checksum == self._header['CHECKSUM']:
                 return 1
             elif blocking == 'either': # i.e. standard failed,  try nonstandard
                 return self.verify_checksum(blocking='nonstandard')
@@ -800,7 +998,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         # used by the utility script "fitscheck" to detect missing
         # checksums.
 
-        if 'CHECKSUM' in self.header:
+        if 'CHECKSUM' in self._header:
             self._checksum = self._header['CHECKSUM']
             self._checksum_comment = self._header.ascard['CHECKSUM'].comment
             if not self.verify_checksum(blocking):
@@ -811,14 +1009,14 @@ class _ValidHDU(_BaseHDU, _Verify):
             self._checksum = None
             self._checksum_comment = None
 
-        if 'DATASUM' in self.header:
+        if 'DATASUM' in self._header:
              self._datasum = self._header['DATASUM']
              self._datasum_comment = self._header.ascard['DATASUM'].comment
 
              if not self.verify_datasum(blocking):
                  warnings.warn('Warning:  Datasum verification failed for '
                                'HDU %s.\n' % ((self.name, self._extver),))
-             del self.header['DATASUM']
+             del self._header['DATASUM']
         else:
              self._checksum = None
              self._checksum_comment = None
@@ -862,8 +1060,8 @@ class _ValidHDU(_BaseHDU, _Verify):
         Calculate the value of the ``CHECKSUM`` card in the HDU.
         """
 
-        oldChecksum = self.header['CHECKSUM']
-        self.header.update('CHECKSUM', '0'*16);
+        oldChecksum = self._header['CHECKSUM']
+        self._header.update('CHECKSUM', '0'*16);
 
         # Convert the header to a string.
         s = repr(self._header.ascard) + _pad('END')
@@ -877,7 +1075,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         s = self._char_encode(~cs)
 
         # Return the header card value.
-        self.header.update("CHECKSUM", oldChecksum);
+        self._header.update("CHECKSUM", oldChecksum);
 
         return s
 

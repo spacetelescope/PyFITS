@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 
 from pyfits import rec
@@ -5,7 +6,7 @@ from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
 from pyfits.hdu.table import _TableLikeHDU
-from pyfits.util import lazyproperty, _is_int
+from pyfits.util import lazyproperty, _is_int, _pad_length, _is_pseudo_unsigned
 
 
 class GroupsHDU(PrimaryHDU, _TableLikeHDU):
@@ -113,6 +114,62 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
 
         return super(GroupsHDU, self)._get_tbdata()
 
+    def _writedata(self, fileobj):
+        """
+        Basically copy/pasted from _ImageBaseHDU._writedata(), but we have to
+        get the data's byte order a different way...
+
+        TODO: Might be nice to store some indication of the data's byte order
+        as an attribute or function so that we don't have to do this.
+        """
+
+        offset = 0
+        size = 0
+
+        if not fileobj.simulateonly:
+            fileobj.flush()
+            try:
+                offset = fileobj.tell()
+            except (AttributeError, IOError):
+                # TODO: as long as we're assuming fileobj is a FITSFile,
+                # AttributeError won't happen here
+                offset = 0
+
+        if self.data is not None:
+            # Based on the system type, determine the byteorders that
+            # would need to be swapped to get to big-endian output
+            if sys.byteorder == 'little':
+                swap_types = ('<', '=')
+            else:
+                swap_types = ('<',)
+            # deal with unsigned integer 16, 32 and 64 data
+            if _is_pseudo_unsigned(self.data.dtype):
+                # Convert the unsigned array to signed
+                output = np.array(
+                    self.data - _unsigned_zero(self.data.dtype),
+                    dtype='>i%d' % self.data.dtype.itemsize)
+                should_swap = False
+            else:
+                output = self.data
+                fname = self.data.dtype.names[0]
+                byteorder = self.data.dtype.fields[fname][0].str[0]
+                should_swap = (byteorder in swap_types)
+
+            if not fileobj.simulateonly:
+                if should_swap:
+                    output.byteswap(True)
+                    try:
+                        fileobj.write(output)
+                    finally:
+                        output.byteswap(True)
+                else:
+                    fileobj.write(output)
+        # flush, to make sure the content is written
+        if not fileobj.simulateonly:
+            fileobj.flush()
+
+        # return both the location and the size of the data area
+        return offset, size + _pad_length(size)
     def _verify(self, option='warn'):
         errs = super(GroupsHDU, self)._verify(option=option)
 

@@ -1,6 +1,7 @@
 import gzip
 import os
 
+from pyfits.file import FITSFile
 from pyfits.hdu.hdulist import HDUList
 from pyfits.hdu.image import PrimaryHDU
 from pyfits.util import _pad_length
@@ -54,8 +55,6 @@ class StreamingHDU(object):
         be modified to an image extension header and appended to the
         end of the file.
         """
-
-        from pyfits.file import FITSFile
 
         if isinstance(name, gzip.GzipFile):
             raise TypeError('StreamingHDU not supported for GzipFile objects.')
@@ -114,12 +113,12 @@ class StreamingHDU(object):
                                         after='PCOUNT')
 
         self._ffo = FITSFile(name, 'append')
-        self._ffo.seek(0,2)
 
         # This class doesn't keep an internal data attribute, so this will
         # always be false
         self._data_loaded = False
 
+        # TODO : Fix this; ffo.writeHDUheader is gone
         self._hdrLoc = self._ffo.writeHDUheader(self)[0]
         self._datLoc = self._ffo.tell()
         self._size = self.size()

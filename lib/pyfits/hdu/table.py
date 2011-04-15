@@ -1,7 +1,7 @@
 from __future__ import division # confidence high
 
-
 import re
+import sys
 
 import numpy as np
 from numpy import char as chararray
@@ -11,6 +11,7 @@ from pyfits.card import Card, CardList
 # This module may have many dependencies on pyfits.column, but pyfits.column
 # has fewer dependencies overall, so it's easier to keep table/column-related
 # utilities in pyfits.column
+# TODO: Make consistent of use of either DELAYED or Delayed
 from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
                           TDEF_RE, DELAYED, Delayed, Column, ColDefs, \
                           _ASCIIColDefs, _FormatX, _FormatP, _wrapx, _makep, \
@@ -499,6 +500,93 @@ class BinTableHDU(_TableBaseHDU):
             # all.  This can also be handled in a gereric manner.
             return super(BinTableHDU,self)._calculate_datasum(blocking)
 
+    def _writedata(self, fileobj):
+        offset = 0
+        size = 0
+
+        if not fileobj.simulateonly:
+            fileobj.flush()
+            try:
+                offset = fileobj.tell()
+            except (AttributeError, IOError):
+                # TODO: as long as we're assuming fileobj is a FITSFile,
+                # AttributeError won't happen here
+                offset = 0
+
+        if self.data is not None:
+            size += self._binary_table_byte_swap(fileobj)
+            size += self.data.size * self.data.itemsize
+
+            # pad the FITS data block
+            if size > 0 and not fileobj.simulateonly:
+                fileobj.write(_pad_length(size) * '\0')
+
+
+        # flush, to make sure the content is written
+        if not fileobj.simulateonly:
+            fileobj.flush()
+
+        # return both the location and the size of the data area
+        return offset, size + _pad_length(size)
+
+    def _binary_table_byte_swap(self, fileobj):
+        swapped = []
+        nbytes = 0
+        if sys.byteorder == 'little':
+            swap_types = ('<', '=')
+        else:
+            swap_types = ('<',)
+        try:
+            if not fileobj.simulateonly:
+                for idx in range(self.data._nfields):
+                    coldata = self.data.field(idx)
+                    if isinstance(coldata, chararray.chararray):
+                        continue
+                    # only swap unswapped
+                    # deal with var length table
+                    if isinstance(coldata, _VLF):
+                        for jdx, c in enumerate(coldata):
+                            if (not isinstance(c, chararray.chararray) and
+                                c.itemsize > 1 and
+                                c.dtype.str[0] in swap_types):
+                                swapped.append(c)
+                            field = rec.recarray.field(self.data, idx)
+                            if (field[jdx:jdx+1].dtype.str[0] in swap_types):
+                                swapped.append(field[jdx:jdx+1])
+                    else:
+                        if (coldata.itemsize > 1 and
+                            self.data.dtype.descr[idx][1][0] in swap_types):
+                            swapped.append(rec.recarray.field(self.data, idx))
+
+                for obj in swapped:
+                    obj.byteswap(True)
+
+                fileobj.write(self.data)
+
+                # write out the heap of variable length array
+                # columns this has to be done after the
+                # "regular" data is written (above)
+                fileobj.write(self.data._gap * '\0')
+
+            nbytes = self.data._gap
+
+            for idx in range(self.data._nfields):
+                if isinstance(self.data._coldefs._recformats[idx], _FormatP):
+                    field = self.data.field(idx)
+                    for jdx in range(len(field)):
+                        coldata = field[jdx]
+                        if len(coldata) > 0:
+                            nbytes = nbytes + coldata.nbytes
+                            if not fileobj.simulateonly:
+                                fileobj.writearray(coldata)
+
+            self.data._heapsize = nbytes - self.data._gap
+        finally:
+            for obj in swapped:
+                obj.byteswap(True)
+
+        return nbytes
+
     def _populate_table_keywords(self):
         """Populate the new table definition keywords from the header."""
 
@@ -791,7 +879,7 @@ class BinTableHDU(_TableBaseHDU):
         # Process the header parameters
 
         if hfile:
-            self.header.toTxtFile(hfile)
+            self._header.toTxtFile(hfile)
     tdump.__doc__ += tdump_file_format.replace('\n', '\n        ')
 
     def tcreate(self, datafile, cdfile=None, hfile=None, replace=False):
@@ -998,7 +1086,7 @@ class BinTableHDU(_TableBaseHDU):
                                   dim=self.columns.dims[i],
                                   array=arrays[i]))
 
-        tmp = new_table(columns, self.header)
+        tmp = new_table(columns, self._header)
         self.__dict__ = tmp.__dict__
     tcreate.__doc__ += tdump_file_format.replace("\n", "\n        ")
 

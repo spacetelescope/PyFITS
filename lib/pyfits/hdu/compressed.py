@@ -8,7 +8,7 @@ from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
-from pyfits.util import lazyproperty
+from pyfits.util import lazyproperty, _pad_length
 
 try:
     from pyfits import compression
@@ -230,7 +230,7 @@ if COMPRESSION_SUPPORTED:
 
                 # Update the table header (_header) to the compressed
                 # image format and to match the input data (if any);
-                # Create the image header (_imageHeader) from the input
+                # Create the image header (_image_header) from the input
                 # image header (if any) and ensure it matches the input
                 # data; Create the initially empty table data array to
                 # hold the compressed data.
@@ -246,6 +246,17 @@ if COMPRESSION_SUPPORTED:
             # Maintain a reference to the table header in the image header.
             # This reference will be used to update the table header whenever
             # a card in the image header is updated.
+            # TODO: The handling of headers in this class needs to be clearer
+            # and more straightforward.  Particularly, it needs to be more
+            # clear when we're modifying the physical HDU's header (which looks
+            # like a table HDU header), or the header for the underlying image
+            # HDU (currently referred to by either self.header [by way of a
+            # property] or self._image_hdu).  Also need to fix things so that
+            # the Header class doesn't have to do anything special if there's a
+            # _table_header attribute.  This might involve using a subclass of
+            # Header for compressed HDUs.
+            # TODO: Also, make sure checksums are handled properly; might need
+            # to add a unit test for this....
             self.header._table_header = self._header
 
 
@@ -271,7 +282,7 @@ if COMPRESSION_SUPPORTED:
                 warnings.warn('The HDU will be treated as a Binary Table HDU.')
                 return False
 
-        def updateHeaderData(self, imageHeader,
+        def updateHeaderData(self, image_header,
                              name=None,
                              compressionType=None,
                              tileSize=None,
@@ -281,7 +292,7 @@ if COMPRESSION_SUPPORTED:
             """
             Update the table header (`_header`) to the compressed
             image format and to match the input data (if any).  Create
-            the image header (`_imageHeader`) from the input image
+            the image header (`_image_header`) from the input image
             header (if any) and ensure it matches the input
             data. Create the initially-empty table data array to hold
             the compressed data.
@@ -292,7 +303,7 @@ if COMPRESSION_SUPPORTED:
 
             Parameters
             ----------
-            imageHeader : Header instance
+            image_header : Header instance
                 header to be associated with the image
 
             name : str, optional
@@ -334,9 +345,9 @@ if COMPRESSION_SUPPORTED:
             # matches the input image data.  Store the header from this
             # temporary HDU object as the image header for this object.
 
-            self._imageHeader = \
-              ImageHDU(data=self.data, header=imageHeader).header
-            self._imageHeader._table_header = self._header
+            self._image_header = \
+              ImageHDU(data=self.data, header=image_header).header
+            self._image_header._table_header = self._header
 
             # Update the extension name in the table header
 
@@ -369,9 +380,9 @@ if COMPRESSION_SUPPORTED:
             # If the input image header had BSCALE/BZERO cards, then insert
             # them in the table header.
 
-            if imageHeader:
-                bzero = imageHeader.get('BZERO', 0.0)
-                bscale = imageHeader.get('BSCALE', 1.0)
+            if image_header:
+                bzero = image_header.get('BZERO', 0.0)
+                bscale = image_header.get('BSCALE', 1.0)
                 afterCard = 'EXTNAME'
 
                 if bscale != 1.0:
@@ -381,8 +392,8 @@ if COMPRESSION_SUPPORTED:
                 if bzero != 0.0:
                     self._header.update('BZERO',bzero,after=afterCard)
 
-                bitpix_comment = imageHeader.ascardlist()['BITPIX'].comment
-                naxis_comment =  imageHeader.ascardlist()['NAXIS'].comment
+                bitpix_comment = image_header.ascardlist()['BITPIX'].comment
+                naxis_comment =  image_header.ascardlist()['NAXIS'].comment
             else:
                 bitpix_comment = 'data type of original image'
                 naxis_comment = 'dimension of original image'
@@ -411,7 +422,7 @@ if COMPRESSION_SUPPORTED:
             # Create the additional columns required for floating point
             # data and calculate the width of the output table.
 
-            if self._imageHeader['BITPIX'] < 0:
+            if self._image_header['BITPIX'] < 0:
                 # floating point image has 'COMPRESSED_DATA',
                 # 'UNCOMPRESSED_DATA', 'ZSCALE', and 'ZZERO' columns.
                 ncols = 4
@@ -421,7 +432,7 @@ if COMPRESSION_SUPPORTED:
                 self._header.update('TTYPE2', 'UNCOMPRESSED_DATA',
                                     'label for field 2', after='TFORM1')
 
-                if self._imageHeader['BITPIX'] == -32:
+                if self._image_header['BITPIX'] == -32:
                     tform2 = '1PE'
                 else:
                     tform2 = '1PD'
@@ -480,10 +491,10 @@ if COMPRESSION_SUPPORTED:
             self._header.update('ZIMAGE', True,
                                 'extension contains compressed image',
                                 after = after)
-            self._header.update('ZBITPIX', self._imageHeader['BITPIX'],
+            self._header.update('ZBITPIX', self._image_header['BITPIX'],
                                 bitpix_comment,
                                 after = 'ZIMAGE')
-            self._header.update('ZNAXIS', self._imageHeader['NAXIS'],
+            self._header.update('ZNAXIS', self._image_header['NAXIS'],
                                 naxis_comment,
                                 after = 'ZBITPIX')
 
@@ -505,7 +516,7 @@ if COMPRESSION_SUPPORTED:
 
             if not tileSize:
                 tileSize = []
-            elif len(tileSize) != self._imageHeader['NAXIS']:
+            elif len(tileSize) != self._image_header['NAXIS']:
                 warnings.warn('Warning: Provided tile size not appropriate ' +
                               'for the data.  Default tile size will be used.')
                 tileSize = []
@@ -513,11 +524,11 @@ if COMPRESSION_SUPPORTED:
             # Set default tile dimensions for HCOMPRESS_1
 
             if compressionType == 'HCOMPRESS_1':
-                if self._imageHeader['NAXIS'] < 2:
+                if self._image_header['NAXIS'] < 2:
                     raise ValueError('Hcompress cannot be used with '
                                      '1-dimensional images.')
-                elif self._imageHeader['NAXIS1'] < 4 or \
-                self._imageHeader['NAXIS2'] < 4:
+                elif self._image_header['NAXIS1'] < 4 or \
+                self._image_header['NAXIS2'] < 4:
                     raise ValueError('Hcompress minimum image dimension is '
                                      '4 pixels')
                 elif tileSize and (tileSize[0] < 4 or tileSize[1] < 4):
@@ -527,10 +538,10 @@ if COMPRESSION_SUPPORTED:
 
                 if tileSize and (tileSize[0] == 0 and tileSize[1] == 0):
                     #compress the whole image as a single tile
-                    tileSize[0] = self._imageHeader['NAXIS1']
-                    tileSize[1] = self._imageHeader['NAXIS2']
+                    tileSize[0] = self._image_header['NAXIS1']
+                    tileSize[1] = self._image_header['NAXIS2']
 
-                    for i in range(2, self._imageHeader['NAXIS']):
+                    for i in range(2, self._image_header['NAXIS']):
                         # set all higher tile dimensions = 1
                         tileSize[i] = 1
                 elif not tileSize:
@@ -548,61 +559,61 @@ if COMPRESSION_SUPPORTED:
                     # 4 rows.
 
                     # 1st tile dimension is the row length of the image
-                    tileSize.append(self._imageHeader['NAXIS1'])
+                    tileSize.append(self._image_header['NAXIS1'])
 
-                    if self._imageHeader['NAXIS2'] <= 30:
-                        tileSize.append(self._imageHeader['NAXIS1'])
+                    if self._image_header['NAXIS2'] <= 30:
+                        tileSize.append(self._image_header['NAXIS1'])
                     else:
                         # look for another good tile dimension
-                        if self._imageHeader['NAXIS2'] % 16 == 0 or \
-                        self._imageHeader['NAXIS2'] % 16 > 3:
+                        if self._image_header['NAXIS2'] % 16 == 0 or \
+                        self._image_header['NAXIS2'] % 16 > 3:
                             tileSize.append(16)
-                        elif self._imageHeader['NAXIS2'] % 24 == 0 or \
-                        self._imageHeader['NAXIS2'] % 24 > 3:
+                        elif self._image_header['NAXIS2'] % 24 == 0 or \
+                        self._image_header['NAXIS2'] % 24 > 3:
                             tileSize.append(24)
-                        elif self._imageHeader['NAXIS2'] % 20 == 0 or \
-                        self._imageHeader['NAXIS2'] % 20 > 3:
+                        elif self._image_header['NAXIS2'] % 20 == 0 or \
+                        self._image_header['NAXIS2'] % 20 > 3:
                             tileSize.append(20)
-                        elif self._imageHeader['NAXIS2'] % 30 == 0 or \
-                        self._imageHeader['NAXIS2'] % 30 > 3:
+                        elif self._image_header['NAXIS2'] % 30 == 0 or \
+                        self._image_header['NAXIS2'] % 30 > 3:
                             tileSize.append(30)
-                        elif self._imageHeader['NAXIS2'] % 28 == 0 or \
-                        self._imageHeader['NAXIS2'] % 28 > 3:
+                        elif self._image_header['NAXIS2'] % 28 == 0 or \
+                        self._image_header['NAXIS2'] % 28 > 3:
                             tileSize.append(28)
-                        elif self._imageHeader['NAXIS2'] % 26 == 0 or \
-                        self._imageHeader['NAXIS2'] % 26 > 3:
+                        elif self._image_header['NAXIS2'] % 26 == 0 or \
+                        self._image_header['NAXIS2'] % 26 > 3:
                             tileSize.append(26)
-                        elif self._imageHeader['NAXIS2'] % 22 == 0 or \
-                        self._imageHeader['NAXIS2'] % 22 > 3:
+                        elif self._image_header['NAXIS2'] % 22 == 0 or \
+                        self._image_header['NAXIS2'] % 22 > 3:
                             tileSize.append(22)
-                        elif self._imageHeader['NAXIS2'] % 18 == 0 or \
-                        self._imageHeader['NAXIS2'] % 18 > 3:
+                        elif self._image_header['NAXIS2'] % 18 == 0 or \
+                        self._image_header['NAXIS2'] % 18 > 3:
                             tileSize.append(18)
-                        elif self._imageHeader['NAXIS2'] % 14 == 0 or \
-                        self._imageHeader['NAXIS2'] % 14 > 3:
+                        elif self._image_header['NAXIS2'] % 14 == 0 or \
+                        self._image_header['NAXIS2'] % 14 > 3:
                             tileSize.append(14)
                         else:
                             tileSize.append(17)
                 # check if requested tile size causes the last tile to have
                 # less than 4 pixels
 
-                remain = self._imageHeader['NAXIS1'] % tileSize[0] # 1st dimen
+                remain = self._image_header['NAXIS1'] % tileSize[0] # 1st dimen
 
                 if remain > 0 and remain < 4:
                     tileSize[0] += 1 # try increasing tile size by 1
 
-                    remain = self._imageHeader['NAXIS1'] % tileSize[0]
+                    remain = self._image_header['NAXIS1'] % tileSize[0]
 
                     if remain > 0 and remain < 4:
                         raise ValueError('Last tile along 1st dimension has '
                                          'less than 4 pixels')
 
-                remain = self._imageHeader['NAXIS2'] % tileSize[1] # 2nd dimen
+                remain = self._image_header['NAXIS2'] % tileSize[1] # 2nd dimen
 
                 if remain > 0 and remain < 4:
                     tileSize[1] += 1 # try increasing tile size by 1
 
-                    remain = self._imageHeader['NAXIS2'] % tileSize[1]
+                    remain = self._image_header['NAXIS2'] % tileSize[1]
 
                     if remain > 0 and remain < 4:
                         raise ValueError('Last tile along 2nd dimension has '
@@ -611,7 +622,7 @@ if COMPRESSION_SUPPORTED:
             # Set up locations for writing the next cards in the header.
             after = 'ZNAXIS'
 
-            if self._imageHeader['NAXIS'] > 0:
+            if self._image_header['NAXIS'] > 0:
                 after1 = 'ZNAXIS1'
             else:
                 after1 = 'ZNAXIS'
@@ -620,7 +631,7 @@ if COMPRESSION_SUPPORTED:
             # write the ZNAXISn and ZTILEn cards to the table header.
             nrows = 1
 
-            for idx in range(0, self._imageHeader['NAXIS']):
+            for idx in range(0, self._image_header['NAXIS']):
                 naxis = 'NAXIS' + str(idx + 1)
                 znaxis = 'ZNAXIS' + str(idx + 1)
                 ztile = 'ZTILE' + str(idx + 1)
@@ -630,18 +641,18 @@ if COMPRESSION_SUPPORTED:
                 elif not ztile in self._header:
                     # Default tile size
                     if not idx:
-                        ts = self._imageHeader['NAXIS1']
+                        ts = self._image_header['NAXIS1']
                     else:
                         ts = 1
                 else:
                     ts = self._header[ztile]
 
-                naxisn = self._imageHeader[naxis]
+                naxisn = self._image_header[naxis]
                 nrows = nrows * ((naxisn - 1) // ts + 1)
 
-                if imageHeader and naxis in imageHeader:
+                if image_header and naxis in image_header:
                     self._header.update(
-                        znaxis, naxisn,imageHeader.ascardlist()[naxis].comment,
+                        znaxis, naxisn,image_header.ascardlist()[naxis].comment,
                         after=after)
                 else:
                     self._header.update(znaxis, naxisn,
@@ -773,7 +784,7 @@ if COMPRESSION_SUPPORTED:
                 afterCard = 'ZVAL2'
                 idx = 3
 
-            if self._imageHeader['BITPIX'] < 0:   # floating point image
+            if self._image_header['BITPIX'] < 0:   # floating point image
                 self._header.update('ZNAME' + str(idx), 'NOISEBIT',
                                     'floating point quantization level',
                                     after=afterCard)
@@ -781,30 +792,30 @@ if COMPRESSION_SUPPORTED:
                                     'floating point quantization level',
                                     after='ZNAME' + str(idx))
 
-            if imageHeader:
+            if image_header:
                 # Move SIMPLE card from the image header to the
                 # table header as ZSIMPLE card.
 
-                if 'SIMPLE' in imageHeader:
+                if 'SIMPLE' in image_header:
                     self._header.update('ZSIMPLE',
-                            imageHeader['SIMPLE'],
-                            imageHeader.ascardlist()['SIMPLE'].comment)
+                            image_header['SIMPLE'],
+                            image_header.ascardlist()['SIMPLE'].comment)
 
                 # Move EXTEND card from the image header to the
                 # table header as ZEXTEND card.
 
-                if 'EXTEND' in imageHeader:
+                if 'EXTEND' in image_header:
                     self._header.update('ZEXTEND',
-                            imageHeader['EXTEND'],
-                            imageHeader.ascardlist()['EXTEND'].comment)
+                            image_header['EXTEND'],
+                            image_header.ascardlist()['EXTEND'].comment)
 
                 # Move BLOCKED card from the image header to the
                 # table header as ZBLOCKED card.
 
-                if 'BLOCKED' in imageHeader:
+                if 'BLOCKED' in image_header:
                     self._header.update('ZBLOCKED',
-                            imageHeader['BLOCKED'],
-                            imageHeader.ascardlist()['BLOCKED'].comment)
+                            image_header['BLOCKED'],
+                            image_header.ascardlist()['BLOCKED'].comment)
 
                 # Move XTENSION card from the image header to the
                 # table header as ZTENSION card.
@@ -812,36 +823,36 @@ if COMPRESSION_SUPPORTED:
                 # Since we only handle compressed IMAGEs, ZTENSION should
                 # always be IMAGE, even if the caller has passed in a header
                 # for some other type of extension.
-                if 'XTENSION' in imageHeader:
+                if 'XTENSION' in image_header:
                     self._header.update('ZTENSION',
                             'IMAGE',
-                            imageHeader.ascardlist()['XTENSION'].comment)
+                            image_header.ascardlist()['XTENSION'].comment)
 
                 # Move PCOUNT and GCOUNT cards from image header to the table
                 # header as ZPCOUNT and ZGCOUNT cards.
 
-                if 'PCOUNT' in imageHeader:
+                if 'PCOUNT' in image_header:
                     self._header.update('ZPCOUNT',
-                            imageHeader['PCOUNT'],
-                            imageHeader.ascardlist()['PCOUNT'].comment)
+                            image_header['PCOUNT'],
+                            image_header.ascardlist()['PCOUNT'].comment)
 
-                if 'GCOUNT' in imageHeader:
+                if 'GCOUNT' in image_header:
                     self._header.update('ZGCOUNT',
-                            imageHeader['GCOUNT'],
-                            imageHeader.ascardlist()['GCOUNT'].comment)
+                            image_header['GCOUNT'],
+                            image_header.ascardlist()['GCOUNT'].comment)
 
                 # Move CHECKSUM and DATASUM cards from the image header to the
                 # table header as XHECKSUM and XDATASUM cards.
 
-                if 'CHECKSUM' in imageHeader:
+                if 'CHECKSUM' in image_header:
                     self._header.update('ZHECKSUM',
-                            imageHeader['CHECKSUM'],
-                            imageHeader.ascardlist()['CHECKSUM'].comment)
+                            image_header['CHECKSUM'],
+                            image_header.ascardlist()['CHECKSUM'].comment)
 
-                if 'DATASUM' in imageHeader:
+                if 'DATASUM' in image_header:
                     self._header.update('ZDATASUM',
-                            imageHeader['DATASUM'],
-                            imageHeader.ascardlist()['DATASUM'].comment)
+                            image_header['DATASUM'],
+                            image_header.ascardlist()['DATASUM'].comment)
             else:
                 # Move XTENSION card from the image header to the
                 # table header as ZTENSION card.
@@ -849,23 +860,23 @@ if COMPRESSION_SUPPORTED:
                 # Since we only handle compressed IMAGEs, ZTENSION should
                 # always be IMAGE, even if the caller has passed in a header
                 # for some other type of extension.
-                if self._imageHeader.has_key('XTENSION'):
+                if self._image_header.has_key('XTENSION'):
                     self._header.update('ZTENSION',
                             'IMAGE',
-                            self._imageHeader.ascardlist()['XTENSION'].comment)
+                            self._image_header.ascardlist()['XTENSION'].comment)
 
                 # Move PCOUNT and GCOUNT cards from image header to the table
                 # header as ZPCOUNT and ZGCOUNT cards.
 
-                if self._imageHeader.has_key('PCOUNT'):
+                if self._image_header.has_key('PCOUNT'):
                     self._header.update('ZPCOUNT',
-                            self._imageHeader['PCOUNT'],
-                            self._imageHeader.ascardlist()['PCOUNT'].comment)
+                            self._image_header['PCOUNT'],
+                            self._image_header.ascardlist()['PCOUNT'].comment)
 
-                if self._imageHeader.has_key('GCOUNT'):
+                if self._image_header.has_key('GCOUNT'):
                     self._header.update('ZGCOUNT',
-                            self._imageHeader['GCOUNT'],
-                            self._imageHeader.ascardlist()['GCOUNT'].comment)
+                            self._image_header['GCOUNT'],
+                            self._image_header.ascardlist()['GCOUNT'].comment)
 
 
             # When we have an image checksum we need to ensure that the same
@@ -874,15 +885,15 @@ if COMPRESSION_SUPPORTED:
             # over to the image header when the hdu is uncompressed.
 
             if self._header.has_key('ZHECKSUM'):
-                imageHeader.ascardlist().count_blanks()
-                self._imageHeader.ascardlist().count_blanks()
+                image_header.ascardlist().count_blanks()
+                self._image_header.ascardlist().count_blanks()
                 self._header.ascardlist().count_blanks()
-                requiredBlankCount = imageHeader.ascardlist()._blanks
-                imageBlankCount = self._imageHeader.ascardlist()._blanks
+                requiredBlankCount = image_header.ascardlist()._blanks
+                imageBlankCount = self._image_header.ascardlist()._blanks
                 tableBlankCount = self._header.ascardlist()._blanks
 
                 for i in range(requiredBlankCount - imageBlankCount):
-                    self._imageHeader.add_blank()
+                    self._image_header.add_blank()
                     tableBlankCount = tableBlankCount + 1
 
                 for i in range(requiredBlankCount - tableBlankCount):
@@ -1151,17 +1162,16 @@ if COMPRESSION_SUPPORTED:
             data = self.data
             return self.compData
 
-        @lazyproperty
         def header(self):
             # The header attribute is the header for the image data.  It
             # is not actually stored in the object dictionary.  Instead,
-            # the _imageHeader is stored.  If the _imageHeader attribute
+            # the _image_header is stored.  If the _image_header attribute
             # has already been defined we just return it.  If not, we nust
             # create it from the table header (the _header attribute).
-            if not hasattr(self, '_imageHeader'):
+            if not hasattr(self, '_image_header'):
                 # Start with a copy of the table header.
-                self._imageHeader = self._header.copy()
-                cardList = self._imageHeader.ascardlist()
+                self._image_header = self._header.copy()
+                cardList = self._image_header.ascardlist()
 
                 try:
                     # Set the extension type to IMAGE
@@ -1209,7 +1219,7 @@ if COMPRESSION_SUPPORTED:
                     for idx in range(cardList['NAXIS'].value):
                         znaxis = 'ZNAXIS' + str(idx + 1)
                         del cardList[znaxis]
-                        self._imageHeader.update(znaxis,
+                        self._image_header.update(znaxis,
                           self._header[znaxis],
                           self._header.ascardlist()[znaxis].comment,
                           after='NAXIS' + str(idx))
@@ -1231,7 +1241,7 @@ if COMPRESSION_SUPPORTED:
 
                 try:
                     del cardList['ZPCOUNT']
-                    self._imageHeader.update('PCOUNT',
+                    self._image_header.update('PCOUNT',
                              self._header['ZPCOUNT'],
                              self._header.ascardlist()['ZPCOUNT'].comment)
                 except KeyError:
@@ -1242,7 +1252,7 @@ if COMPRESSION_SUPPORTED:
 
                 try:
                     del cardList['ZGCOUNT']
-                    self._imageHeader.update('GCOUNT',
+                    self._image_header.update('GCOUNT',
                              self._header['ZGCOUNT'],
                              self._header.ascardlist()['ZGCOUNT'].comment)
                 except KeyError:
@@ -1253,7 +1263,7 @@ if COMPRESSION_SUPPORTED:
 
                 try:
                     del cardList['ZEXTEND']
-                    self._imageHeader.update('EXTEND',
+                    self._image_header.update('EXTEND',
                              self._header['ZEXTEND'],
                              self._header.ascardlist()['ZEXTEND'].comment,
                              after = lastNaxisCard)
@@ -1262,7 +1272,7 @@ if COMPRESSION_SUPPORTED:
 
                 try:
                     del cardList['ZBLOCKED']
-                    self._imageHeader.update('BLOCKED',
+                    self._image_header.update('BLOCKED',
                              self._header['ZBLOCKED'],
                              self._header.ascardlist()['ZBLOCKED'].comment)
                 except KeyError:
@@ -1274,7 +1284,7 @@ if COMPRESSION_SUPPORTED:
                     for idx in range(self._header['TFIELDS']):
                         del cardList['TFORM' + str(idx)]
                         ttype = 'TTYPE' + str(idx + 1)
-                        if ttype in self._imageHeader:
+                        if ttype in self._image_header:
                             del cardList[ttype]
 
                 except KeyError:
@@ -1306,7 +1316,7 @@ if COMPRESSION_SUPPORTED:
                 # as CHECKSUM and DATASUM
                 try:
                     del cardList['ZHECKSUM']
-                    self._imageHeader.update('CHECKSUM',
+                    self._image_header.update('CHECKSUM',
                             self._header['ZHECKSUM'],
                             self._header.ascardlist()['ZHECKSUM'].comment)
                 except KeyError:
@@ -1314,7 +1324,7 @@ if COMPRESSION_SUPPORTED:
 
                 try:
                     del cardList['ZDATASUM']
-                    self._imageHeader.update('DATASUM',
+                    self._image_header.update('DATASUM',
                             self._header['ZDATASUM'],
                             self._header.ascardlist()['ZDATASUM'].comment)
                 except KeyError:
@@ -1322,7 +1332,7 @@ if COMPRESSION_SUPPORTED:
 
                 try:
                     del cardList['ZSIMPLE']
-                    self._imageHeader.update('SIMPLE',
+                    self._image_header.update('SIMPLE',
                             self._header['ZSIMPLE'],
                             self._header.ascardlist()['ZSIMPLE'].comment,
                             before=1)
@@ -1335,7 +1345,7 @@ if COMPRESSION_SUPPORTED:
                     if self._header['ZTENSION'] != 'IMAGE':
                         warnings.warn("ZTENSION keyword in compressed "
                                       "extension != 'IMAGE'")
-                    self._imageHeader.update('XTENSION',
+                    self._image_header.update('XTENSION',
                             'IMAGE',
                             self._header.ascardlist()['ZTENSION'].comment)
                 except KeyError:
@@ -1354,16 +1364,20 @@ if COMPRESSION_SUPPORTED:
                 # the image header to make it so.
                 self._header.ascardlist().count_blanks()
                 tableHeaderBlankCount = self._header.ascardlist()._blanks
-                self._imageHeader.ascardlist().count_blanks()
-                imageHeaderBlankCount=self._imageHeader.ascardlist()._blanks
+                self._image_header.ascardlist().count_blanks()
+                image_headerBlankCount=self._image_header.ascardlist()._blanks
 
-                for i in range(tableHeaderBlankCount-imageHeaderBlankCount):
-                    self._imageHeader.add_blank()
+                for i in range(tableHeaderBlankCount-image_headerBlankCount):
+                    self._image_header.add_blank()
 
             try:
-                return self._imageHeader
+                return self._image_header
             except KeyError:
                 raise AttributeError(attr)
+
+        def _setheader(self, value):
+            self._image_header = value
+        header = lazyproperty(header, _setheader)
 
         def _summary(self):
             """
@@ -1407,9 +1421,9 @@ if COMPRESSION_SUPPORTED:
             tileSizeList = []
             zvalList = []
 
-            # Check to see that the imageHeader matches the image data
-            if self.header.get('NAXIS', 0) != len(self.data.shape) or \
-               self.header.get('BITPIX', 0) != \
+            # Check to see that the image_header matches the image data
+            if self._header.get('NAXIS', 0) != len(self.data.shape) or \
+               self._header.get('BITPIX', 0) != \
                _ImageBaseHDU.ImgCode[self.data.dtype.name]:
                 self.updateHeaderData(self.header)
 
@@ -1668,7 +1682,7 @@ if COMPRESSION_SUPPORTED:
 
             Calling this method will scale `self.data` and update the
             keywords of ``BSCALE`` and ``BZERO`` in `self._header` and
-            `self._imageHeader`.  This method should only be used
+            `self._image_header`.  This method should only be used
             right before writing to the output file, as the data will
             be scaled and is therefore not very usable after the call.
 
@@ -1762,6 +1776,53 @@ if COMPRESSION_SUPPORTED:
                 self.header.update('BSCALE', _scale)
             else:
                 del self.header['BSCALE']
+
+        def _writedata(self, fileobj):
+            """
+            Like the normal BinTableHDU._writedata(), but we need to make sure
+            the byte swap is done on the compressed data and not the image
+            data, which requires a little messing with attributes.
+            """
+
+            offset = 0
+            size = 0
+
+            if not fileobj.simulateonly:
+                fileobj.flush()
+                try:
+                    offset = fileobj.tell()
+                except (AttributeError, IOError):
+                    # TODO: as long as we're assuming fileobj is a FITSFile,
+                    # AttributeError won't happen here
+                    offset = 0
+
+            if self.data is not None:
+                imagedata = self.data
+                # TODO: Ick; have to assign to __dict__ to bypass _setdata; need to
+                # find a way to fix this
+                self.__dict__['data'] = self.compData
+                #self.data = self.compData
+                try:
+                    size += self._binary_table_byte_swap(fileobj)
+                finally:
+                    self.data = imagedata
+                size += self.compData.size * self.compData.itemsize
+
+                # pad the FITS data block
+                if size > 0 and not fileobj.simulateonly:
+                    fileobj.write(_pad_length(size) * '\0')
+
+
+            # flush, to make sure the content is written
+            if not fileobj.simulateonly:
+                fileobj.flush()
+
+            # return both the location and the size of the data area
+            return offset, size + _pad_length(size)
+
+        def _writeto(self, fileobj, checksum=False):
+            self.updateCompressedData()
+            super(CompImageHDU, self)._writeto(fileobj, checksum)
 
         def _calculate_datasum(self, blocking):
             """

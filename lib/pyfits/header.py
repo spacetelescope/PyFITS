@@ -354,7 +354,7 @@ class Header(DictMixin):
         # If this header is associated with a compImageHDU then update
         # the objects underlying header (_table_header).
 
-        if hasattr('_table_header'):
+        if hasattr(self, '_table_header'):
             self._table_header.add_history(value, before, after)
 
     def add_comment(self, value, before=None, after=None):
@@ -377,7 +377,7 @@ class Header(DictMixin):
 
         # If this header is associated with a compImageHDU then update
         # the objects underlying header (_table_header).
-        if hasattr('_table_header'):
+        if hasattr(self, '_table_header'):
             self._table_header.add_comment(value, before, after)
 
     def add_blank(self, value='', before=None, after=None):
@@ -401,7 +401,7 @@ class Header(DictMixin):
         # If this header is associated with a compImageHDU then update
         # the objects underlying header (_table_header).
 
-        if hasattr('_table_header'):
+        if hasattr(self, '_table_header'):
             self._table_header.add_blank(value,before,after)
 
     def get_history(self):

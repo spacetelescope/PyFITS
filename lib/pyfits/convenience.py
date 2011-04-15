@@ -417,7 +417,9 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
         else:
             f = FITSFile(filename, mode='append')
             hdu._output_checksum = checksum
-            f.writeHDU(hdu)
+            # TODO: Fix this once an API for writing an HDU to a file is
+            # settled on
+            hdu._writeto(f)
             f.close()
 
 
