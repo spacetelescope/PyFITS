@@ -254,6 +254,35 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
         return new_table(self.columns, header=self._header,
                          tbtype=self.columns._tbtype)
 
+    def _writeheader(self, fileobj, checksum=False):
+        if self._data_loaded and self.data is not None:
+            # check TFIELDS and NAXIS2
+            self._header['TFIELDS'] = self.data._nfields
+            self._header['NAXIS2'] = self.data.shape[0]
+
+            # calculate PCOUNT, for variable length tables
+            tbsize = self.header['NAXIS1'] * self.header['NAXIS2']
+            heapstart = self.header.get('THEAP', tbsize)
+            self.data._gap = heapstart - tbsize
+            pcount = self.data._heapsize + self.data._gap
+            if pcount > 0:
+                self.header['PCOUNT'] = pcount
+
+            # update TFORM for variable length columns
+            for idx in range(self.data._nfields):
+                if isinstance(self.data._coldefs.formats[idx], _FormatP):
+                    key = 'TFORM' + str(idx + 1)
+                    val = self._header[key]
+                    val = val[:val.find('(') + 1] + \
+                          repr(self.data.field(idx)._max) + ')'
+                    self._header[key] = val
+        return super(_TableBaseHDU, self)._writeheader(fileobj, checksum)
+
+    def _writeto(self, fileobj, checksum=False):
+        if self.data is not None:
+            self.data._scale_back()
+        return super(_TableBaseHDU, self)._writeto(fileobj, checksum)
+
     def _verify(self, option='warn'):
         """
         _TableBaseHDU verify method.
@@ -330,7 +359,6 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
                     append(Card(keyword, val))
 
 
-
 class TableHDU(_TableBaseHDU):
     """
     FITS ASCII table extension HDU class.
@@ -340,6 +368,8 @@ class TableHDU(_TableBaseHDU):
 
     _extension = 'TABLE'
     _ext_comment = 'ASCII table extension'
+
+    _padding_byte = ' '
 
     __format_RE = re.compile(
         r'(?P<code>[ADEFIJ])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
@@ -388,45 +418,6 @@ class TableHDU(_TableBaseHDU):
 
         self._init_tbdata(data)
         return data.view(FITS_rec)
-
-    def _writedata(self, fileobj):
-        """
-        Mostly copy/pasted from `_BaseHDU.writedata()`, but uses spaces instead
-        of nulls for padding.
-
-        TODO: Really need to find a way to break up the writedata
-        implementation in such a way that not so much duplication is needed.
-        """
-
-        offset = 0
-        size = 0
-
-        if not fileobj.simulateonly:
-            fileobj.flush()
-            try:
-                offset = fileobj.tell()
-            except (AttributeError, IOError):
-                # TODO: as long as we're assuming fileobj is a FITSFile,
-                # AttributeError won't happen here
-                offset = 0
-
-        if self.data is not None:
-            output = self.data
-            if not fileobj.simulateonly:
-                fileobj.writearray(output)
-            size += output.size * output.itemsize
-
-            # pad the FITS data block
-            # pad with spaces for ASCII tables
-            if size > 0 and not fileobj.simulateonly:
-                fileobj.write(_pad_length(size) * ' ')
-
-        # flush, to make sure the content is written
-        if not fileobj.simulateonly:
-            fileobj.flush()
-
-        # return both the location and the size of the data area
-        return offset, size + _pad_length(size)
 
     def _calculate_datasum(self, blocking):
         """
@@ -539,34 +530,14 @@ class BinTableHDU(_TableBaseHDU):
             # all.  This can also be handled in a gereric manner.
             return super(BinTableHDU,self)._calculate_datasum(blocking)
 
-    def _writedata(self, fileobj):
-        offset = 0
+    def _writedata_internal(self, fileobj):
         size = 0
-
-        if not fileobj.simulateonly:
-            fileobj.flush()
-            try:
-                offset = fileobj.tell()
-            except (AttributeError, IOError):
-                # TODO: as long as we're assuming fileobj is a FITSFile,
-                # AttributeError won't happen here
-                offset = 0
 
         if self.data is not None:
             size += self._binary_table_byte_swap(fileobj)
             size += self.data.size * self.data.itemsize
 
-            # pad the FITS data block
-            if size > 0 and not fileobj.simulateonly:
-                fileobj.write(_pad_length(size) * '\0')
-
-
-        # flush, to make sure the content is written
-        if not fileobj.simulateonly:
-            fileobj.flush()
-
-        # return both the location and the size of the data area
-        return offset, size + _pad_length(size)
+        return size
 
     def _binary_table_byte_swap(self, fileobj):
         swapped = []

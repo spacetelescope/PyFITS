@@ -528,41 +528,6 @@ class HDUList(list, _Verify):
             if hdu.data is not None:
                 continue
 
-    def update_tbhdu(self):
-        """
-        Update all table HDU's for scaled fields.
-        """
-
-        for hdu in self:
-            if hdu._data_loaded and not isinstance(hdu, CompImageHDU):
-                if isinstance(hdu, (GroupsHDU, _TableBaseHDU)) and \
-                   hdu.data is not None:
-                    hdu.data._scale_back()
-                if isinstance(hdu, _TableBaseHDU) and hdu.data is not None:
-
-                    # check TFIELDS and NAXIS2
-                    hdu.header['TFIELDS'] = hdu.data._nfields
-                    hdu.header['NAXIS2'] = hdu.data.shape[0]
-
-                    # calculate PCOUNT, for variable length tables
-                    _tbsize = hdu.header['NAXIS1']*hdu.header['NAXIS2']
-                    _heapstart = hdu.header.get('THEAP', _tbsize)
-                    hdu.data._gap = _heapstart - _tbsize
-                    _pcount = hdu.data._heapsize + hdu.data._gap
-                    if _pcount > 0:
-                        hdu.header['PCOUNT'] = _pcount
-
-                    # update TFORM for variable length columns
-                    for idx in range(hdu.data._nfields):
-                        if isinstance(hdu.data._coldefs.formats[idx],
-                                      _FormatP):
-                            key = hdu.header['TFORM' + str(idx + 1)]
-                            # TODO: This looks overcomplicated, whatever it
-                            # is--simplify it
-                            hdu.header['TFORM'+ str(idx + 1)] = \
-                                key[:key.find('(') + 1] + \
-                                repr(hdu.data.field(idx)._max) + ')'
-
     @_with_extensions
     def flush(self, output_verify='exception', verbose=False,
               classExtensions={}):
@@ -608,7 +573,6 @@ class HDUList(list, _Verify):
                           % self.__file.mode)
             return
 
-        self.update_tbhdu()
         self.verify(option=output_verify)
 
         if self.__file.mode in ('append', 'ostream'):
@@ -842,9 +806,6 @@ class HDUList(list, _Verify):
         if (len(self) == 0):
             warnings.warn("There is nothing to write.")
             return
-
-        self.update_tbhdu()
-
 
         if output_verify == 'warn':
             output_verify = 'exception'

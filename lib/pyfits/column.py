@@ -266,6 +266,8 @@ class ColDefs(object):
     corresponding attribute values from all `Column` objects.
     """
 
+    _pad_byte = '\x00'
+
     def __new__(cls, input, tbtype='BinTableHDU'):
         from pyfits.hdu.table import TableHDU
 
@@ -341,7 +343,6 @@ class ColDefs(object):
                 self.data.append(c)
 
         # Construct columns from fields in an HDU header
-        # TODO: This should probably go into _ASCIIColDefs...?
         elif isinstance(input, _TableBaseHDU):
             hdr = input._header
             nfields = hdr['TFIELDS']
@@ -378,17 +379,13 @@ class ColDefs(object):
         # For ASCII tables, reconstruct string columns and ensure that spaces
         # are used for padding instead of \x00, and do the reverse for binary
         # table columns.
-        if tbtype == 'BinTableHDU':
-            pad = '\x00'
-        else:
-            pad = ' '
         for col in self.data:
             array = col.array
             if not isinstance(array, chararray.chararray):
                 continue
             for i in range(len(array)):
                 al = len(array[i])
-                array[i] = array[i] + pad * (array.itemsize - al)
+                array[i] = array[i] + self._pad_byte * (array.itemsize - al)
 
     def __getattr__(self, name):
         """
@@ -621,6 +618,8 @@ class _ASCIIColDefs(ColDefs):
 
     _ascii_fmt = {'A':'A1', 'I':'I10', 'J':'I15', 'E':'E15.7', 'F':'F16.7',
                   'D':'D25.17'}
+
+    _pad_byte = ' '
 
     def __init__(self, input, tbtype='TableHDU'):
         super(_ASCIIColDefs, self).__init__(input, tbtype)

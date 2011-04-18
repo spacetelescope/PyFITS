@@ -59,6 +59,9 @@ class _BaseHDU(object):
     # This HDU type is part of the FITS standard
     _standard = True
 
+    # Byte to use for padding out blocks
+    _padding_byte = '\x00'
+
     def __new__(cls, data=None, header=None, **kwargs):
         """
         Iterates through the subclasses of _BaseHDU and uses that class's
@@ -322,20 +325,14 @@ class _BaseHDU(object):
             fileobj.flush()
             try:
                 offset = fileobj.tell()
-            except (AttributeError, IOError):
-                # TODO: as long as we're assuming fileobj is a FITSFile,
-                # AttributeError won't happen here
+            except IOError:
                 offset = 0
 
         if self.data is not None:
-            output = self.data
-            if not fileobj.simulateonly:
-                fileobj.writearray(output)
-            size += output.size * output.itemsize
-
+            size += self._writedata_internal(fileobj)
             # pad the FITS data block
             if size > 0 and not fileobj.simulateonly:
-                fileobj.write(_pad_length(size) * '\0')
+                fileobj.write(_pad_length(size) * self._padding_byte)
 
         # flush, to make sure the content is written
         if not fileobj.simulateonly:
@@ -344,6 +341,18 @@ class _BaseHDU(object):
         # return both the location and the size of the data area
         return offset, size + _pad_length(size)
 
+    def _writedata_internal(self, fileobj):
+        """
+        The beginning and end of most _writedata() implementations are the
+        same, but the details of writing the data array itself can vary between
+        HDU types, so that should be implemented in this method.
+
+        Should return the size in bytes of the data written.
+        """
+
+        if not fileobj.simulateonly:
+            fileobj.writearray(self.data)
+        return self.data.size * self.data.itemsize
 
     # TODO: This is the start of moving HDU writing out of the FITSFile class;
     # Though right now this is an internal private method (though still used by
@@ -474,7 +483,8 @@ class _NonstandardHDU(_BaseHDU, _Verify):
     def _writedata(self, fileobj):
         """
         Differs from the base class `_writedata()` in that it doesn't
-        automatically add padding.
+        automatically add padding, and treats the data as a string of raw bytes
+        instead of an array.
         """
 
         offset = 0
@@ -484,7 +494,7 @@ class _NonstandardHDU(_BaseHDU, _Verify):
             fileobj.flush()
             try:
                 offset = fileobj.tell()
-            except (AttributeError, IOError):
+            except IOError:
                 offset = 0
 
         if self.data is not None:

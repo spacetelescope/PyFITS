@@ -1777,24 +1777,23 @@ if COMPRESSION_SUPPORTED:
             else:
                 del self.header['BSCALE']
 
-        def _writedata(self, fileobj):
+        def _writeheader(self, fileobj, checksum=False):
             """
-            Like the normal BinTableHDU._writedata(), but we need to make sure
-            the byte swap is done on the compressed data and not the image
-            data, which requires a little messing with attributes.
+            Bypasses `BinTableHDU._writeheader()` which updates the header with
+            metadata about the data that is meaningless here; another reason
+            why this class maybe shouldn't inherit directly from BinTableHDU...
             """
 
-            offset = 0
+            return _ExtensionHDU._writeheader(self, fileobj, checksum)
+
+        def _writedata_internal(self, fileobj):
+            """
+            Like the normal `BinTableHDU._writedata_internal`(), but we need
+            to make sure the byte swap is done on the compressed data and not
+            the image data, which requires a little messing with attributes.
+            """
+
             size = 0
-
-            if not fileobj.simulateonly:
-                fileobj.flush()
-                try:
-                    offset = fileobj.tell()
-                except (AttributeError, IOError):
-                    # TODO: as long as we're assuming fileobj is a FITSFile,
-                    # AttributeError won't happen here
-                    offset = 0
 
             if self.data is not None:
                 imagedata = self.data
@@ -1808,21 +1807,14 @@ if COMPRESSION_SUPPORTED:
                     self.data = imagedata
                 size += self.compData.size * self.compData.itemsize
 
-                # pad the FITS data block
-                if size > 0 and not fileobj.simulateonly:
-                    fileobj.write(_pad_length(size) * '\0')
-
-
-            # flush, to make sure the content is written
-            if not fileobj.simulateonly:
-                fileobj.flush()
-
-            # return both the location and the size of the data area
-            return offset, size + _pad_length(size)
+            return size
 
         def _writeto(self, fileobj, checksum=False):
             self.updateCompressedData()
-            super(CompImageHDU, self)._writeto(fileobj, checksum)
+            # Doesn't call the super's writeto, since it calls
+            # self.data._scale_back(), which is meaningless here.
+            return (self._writeheader(fileobj, checksum)[0],) + \
+                    self._writedata(fileobj)
 
         def _calculate_datasum(self, blocking):
             """

@@ -29,7 +29,6 @@ class Extendable(type):
         self.__init__(*args, **kwargs)
         return self
 
-    # TODO: Touch up docstrings for sphinx
     @classmethod
     def register_extension(cls, extension, extends=None, silent=False):
         """
@@ -41,12 +40,20 @@ class Extendable(type):
         multiple-inheritence cases, the left-most superclass is used.  In other
         words, the first class in the extension's MRO (after itself).
 
-        Use the optional `extends` parameter to override the default behavior.
-        Either a single class to extend may be specified, or an iterable of
-        classes.  The classes to extend must still use the Extendable
-        metaclass.
+        Parameters
+        ----------
+        extension : class
+            The class object of a superclass of an Extendable class (that is,
+            any class with the `Extendable` metaclass
 
-        Set `silent` to `True` to not output any warnings.
+        extends : class, optional
+            Override the default behavior of extending the immediate
+            superclass.  Either a single class to extend may be specified, or
+            an iterable of classes.  The classes to extend must still have the
+            `Extendable` metaclass.
+
+        silent : bool, optional
+            If `True`, does not output any warnings
         """
 
         # If the extension class itself is not Extendable then we know it's no

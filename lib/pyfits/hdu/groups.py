@@ -114,28 +114,20 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
 
         return super(GroupsHDU, self)._get_tbdata()
 
-    def _writedata(self, fileobj):
+    def _writedata_internal(self, fileobj):
         """
-        Basically copy/pasted from _ImageBaseHDU._writedata(), but we have to
-        get the data's byte order a different way...
+        Basically copy/pasted from `_ImageBaseHDU._writedata_internal()`, but
+        we have to get the data's byte order a different way...
 
         TODO: Might be nice to store some indication of the data's byte order
         as an attribute or function so that we don't have to do this.
         """
 
-        offset = 0
         size = 0
 
-        if not fileobj.simulateonly:
-            fileobj.flush()
-            try:
-                offset = fileobj.tell()
-            except (AttributeError, IOError):
-                # TODO: as long as we're assuming fileobj is a FITSFile,
-                # AttributeError won't happen here
-                offset = 0
-
         if self.data is not None:
+            self.data._scale_back()
+
             # Based on the system type, determine the byteorders that
             # would need to be swapped to get to big-endian output
             if sys.byteorder == 'little':
@@ -166,17 +158,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
                     fileobj.writearray(output)
 
             size += output.size * output.itemsize
-
-            # pad the FITS data block
-            if size > 0 and not fileobj.simulateonly:
-                fileobj.write(_pad_length(size) * '\0')
-
-        # flush, to make sure the content is written
-        if not fileobj.simulateonly:
-            fileobj.flush()
-
-        # return both the location and the size of the data area
-        return offset, size + _pad_length(size)
+        return size
 
     def _verify(self, option='warn'):
         errs = super(GroupsHDU, self)._verify(option=option)

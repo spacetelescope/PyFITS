@@ -355,18 +355,8 @@ class _ImageBaseHDU(_ValidHDU):
         #
         self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
 
-    def _writedata(self, fileobj):
-        offset = 0
+    def _writedata_internal(self, fileobj):
         size = 0
-
-        if not fileobj.simulateonly:
-            fileobj.flush()
-            try:
-                offset = fileobj.tell()
-            except (AttributeError, IOError):
-                # TODO: as long as we're assuming fileobj is a FITSFile,
-                # AttributeError won't happen here
-                offset = 0
 
         if self.data is not None:
             # Based on the system type, determine the byteorders that
@@ -399,16 +389,7 @@ class _ImageBaseHDU(_ValidHDU):
 
             size += output.size * output.itemsize
 
-            # pad the FITS data block
-            if size > 0 and not fileobj.simulateonly:
-                fileobj.write(_pad_length(size) * '\0')
-
-        # flush, to make sure the content is written
-        if not fileobj.simulateonly:
-            fileobj.flush()
-
-        # return both the location and the size of the data area
-        return offset, size + _pad_length(size)
+        return size
 
     def _writeto(self, fileobj, checksum=False):
         self.update_header()

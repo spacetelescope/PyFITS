@@ -643,8 +643,6 @@ def tcreate(datafile, cdfile, hfile=None):
 tcreate.__doc__ += BinTableHDU.tdump_file_format.replace("\n", "\n    ")
 
 
-# TODO: Do we really need quite so many ways to do the same thing? A couple,
-# perhaps. But consider coming up with a proposal to simplify this a bit
 def _getext(filename, mode, *ext1, **ext2):
     """Open the input file, return the `HDUList` and the extension."""
 
