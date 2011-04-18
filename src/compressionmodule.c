@@ -1,11 +1,11 @@
 /* $Id$ 
 */
 
-/* "pyfitsComp module */
+/* "compression module */
 
 /*****************************************************************************/
 /*                                                                           */
-/* The pyfitsComp software is a python module implemented in C that, when    */
+/* The compression software is a python module implemented in C that, when    */
 /* accessed through the pyfits module, supports the storage of compressed    */
 /* images in FITS binary tables.  An n-dimensional image is divided into a   */
 /* rectabgular grid of subimages or 'tiles'.  Each tile is then compressed   */
@@ -95,6 +95,14 @@
 #include <numpy/arrayobject.h>
 #include "fitsio.h"
 #include "string.h"
+
+/* Some defines for Python3 support--bytes objects should be used where */
+/* strings were previously used                                         */
+#if PY_MAJOR_VERSION >= 3
+#define PyString_AsString PyBytes_AsString
+#define PyString_FromStringAndSize PyBytes_FromStringAndSize
+#define PyString_Size PyBytes_Size
+#endif
 
 /* Function to get the input long values from the input list */
 
@@ -399,7 +407,7 @@ void processStatusErr(int status)
 
 /* Wrapper for the _pyfits_fits_write_img() function */
 
-PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
+PyObject* compression_compressData(PyObject* self, PyObject* args)
 {
    int             status;
    PyObject*       naxesObj;
@@ -444,7 +452,7 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
 
    /* Get Python arguments */
 
-   if (!PyArg_ParseTuple(args, "O!iOOiiddiiiddOsiil:pyfitsComp.compressData",
+   if (!PyArg_ParseTuple(args, "O!iOOiiddiiiddOsiil:compression.compressData",
                          &PyArray_Type, &array, &naxis, &naxesObj,
                          &tileSizeObj, &cn_zblank, &zblank, &cn_bscale, 
                          &cn_bzero, &cn_zscale, &cn_zzero, &cn_uncompressed,
@@ -736,7 +744,7 @@ PyObject* pyfitsComp_compressData(PyObject* self, PyObject* args)
 
 /* Wrapper for the _pyfits_fits_read_img() function */
 
-PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
+PyObject* compression_decompressData(PyObject* self, PyObject* args)
 {
    int             status;
    int             nUcTiles = 0;
@@ -789,7 +797,7 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
    /* Get Python arguments */
 
    if (!PyArg_ParseTuple(args, 
-                         "OiOOO!iO!iO!iOiddOsiildO!:pyfitsComp.decompressData",
+                         "OiOOO!iO!iO!iOiddOsiildO!:compression.decompressData",
                          &inDataObj, 
                          &naxis, &naxesObj, &tileSizeObj, &PyArray_Type, 
                          &bscaleArray, &cn_zscale, &PyArray_Type, &bzeroArray,
@@ -1125,18 +1133,34 @@ PyObject* pyfitsComp_decompressData(PyObject* self, PyObject* args)
 
 
 /* Method table mapping names to wrappers */
-
-static PyMethodDef pyfitsCompMethods[] =
+static PyMethodDef compression_methods[] =
 {
-   {"decompressData", pyfitsComp_decompressData, METH_VARARGS},
-   {"compressData", pyfitsComp_compressData, METH_VARARGS},
+   {"decompressData", compression_decompressData, METH_VARARGS},
+   {"compressData", compression_compressData, METH_VARARGS},
    {NULL,NULL}
 };
 
-PyMODINIT_FUNC initpyfitsComp(void)
+#if PY_MAJOR_VERSION >=3
+static struct PyModuleDef compressionmodule = {
+    PyModuleDef_HEAD_INIT,
+    "compression",
+    "pyfits.compression module",
+    -1, /* No global state */
+    compression_methods
+};
+
+PyObject *
+PyInit_compression(void)
 {
-   Py_InitModule4("pyfitsComp", pyfitsCompMethods, "pyfitsComp module", NULL,
-                  PYTHON_API_VERSION);
+    PyObject *module = PyModule_Create(&compressionmodule);
+    import_array();
+    return module;
+}
+#else
+PyMODINIT_FUNC initcompression(void)
+{
+   Py_InitModule4("compression", compression_methods, "compression module",
+                  NULL, PYTHON_API_VERSION);
    import_array();
 }
-
+#endif

@@ -2,27 +2,28 @@
 
 from __future__ import division # confidence high
 
-import os
+try:
+    import pkg_resources
+    __version__ = pkg_resources.get_distribution('pyfits').version
+except ImportError:
+    __version__ = None
 
 # Define the version of the pyfits package.
 try:
-    import svn_version
+    from pyfits import svn_version
     __svn_version__ = svn_version.__svn_version__
 except ImportError:
     __svn_version__ = 'Unable to determine SVN revision'
 
-__version__ = '2.4.0' + __svn_version__
-
 # Import the pyfits core module.
-from core import *
-__doc__ = core.__doc__
+import pyfits.core
+import pyfits.util
+from pyfits.core import *
+from pyfits.util import *
 
-# Define modules available using from pyfits import *.
-_locals = locals().keys()
-for n in _locals[::-1]:
-    if n[0] == '_' or n in ('re', 'os', 'tempfile', 'exceptions', 'operator', 'num', 'ndarray', 'chararray', 'rec', 'objects', 'Memmap', 'maketrans', 'open'):
-        _locals.remove(n)
-__all__ = _locals
+__doc__ = pyfits.core.__doc__
+
+__all__ = pyfits.core.__all__ + pyfits.util.__all__
 
 try:
     import pytools.tester
