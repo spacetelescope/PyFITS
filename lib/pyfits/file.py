@@ -173,11 +173,9 @@ class FITSFile(object):
             else:
                 self.size = 0
 
-            if mode == 'append':
-                self.__file.seek(self.size)
-
     def __repr__(self):
-        return '<%s.%s %s>' % (self.__module__, self.__class__, self.__file)
+        return '<%s.%s %s>' % (self.__module__, self.__class__.__name__,
+                               self.__file)
 
     # Support the 'with' statement
     def __enter__(self):

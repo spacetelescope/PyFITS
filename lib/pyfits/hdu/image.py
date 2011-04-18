@@ -391,11 +391,18 @@ class _ImageBaseHDU(_ValidHDU):
                 if should_swap:
                     output.byteswap(True)
                     try:
-                        fileobj.write(output)
+                        fileobj.writearray(output)
                     finally:
                         output.byteswap(True)
                 else:
-                    fileobj.write(output)
+                    fileobj.writearray(output)
+
+            size += output.size * output.itemsize
+
+            # pad the FITS data block
+            if size > 0 and not fileobj.simulateonly:
+                fileobj.write(_pad_length(size) * '\0')
+
         # flush, to make sure the content is written
         if not fileobj.simulateonly:
             fileobj.flush()
@@ -405,7 +412,7 @@ class _ImageBaseHDU(_ValidHDU):
 
     def _writeto(self, fileobj, checksum=False):
         self.update_header()
-        super(_ImageBaseHDU, self)._writeto(fileobj, checksum)
+        return super(_ImageBaseHDU, self)._writeto(fileobj, checksum)
 
     def _dimShape(self):
         """

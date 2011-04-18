@@ -389,6 +389,45 @@ class TableHDU(_TableBaseHDU):
         self._init_tbdata(data)
         return data.view(FITS_rec)
 
+    def _writedata(self, fileobj):
+        """
+        Mostly copy/pasted from `_BaseHDU.writedata()`, but uses spaces instead
+        of nulls for padding.
+
+        TODO: Really need to find a way to break up the writedata
+        implementation in such a way that not so much duplication is needed.
+        """
+
+        offset = 0
+        size = 0
+
+        if not fileobj.simulateonly:
+            fileobj.flush()
+            try:
+                offset = fileobj.tell()
+            except (AttributeError, IOError):
+                # TODO: as long as we're assuming fileobj is a FITSFile,
+                # AttributeError won't happen here
+                offset = 0
+
+        if self.data is not None:
+            output = self.data
+            if not fileobj.simulateonly:
+                fileobj.writearray(output)
+            size += output.size * output.itemsize
+
+            # pad the FITS data block
+            # pad with spaces for ASCII tables
+            if size > 0 and not fileobj.simulateonly:
+                fileobj.write(_pad_length(size) * ' ')
+
+        # flush, to make sure the content is written
+        if not fileobj.simulateonly:
+            fileobj.flush()
+
+        # return both the location and the size of the data area
+        return offset, size + _pad_length(size)
+
     def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
@@ -561,7 +600,7 @@ class BinTableHDU(_TableBaseHDU):
                 for obj in swapped:
                     obj.byteswap(True)
 
-                fileobj.write(self.data)
+                fileobj.writearray(self.data)
 
                 # write out the heap of variable length array
                 # columns this has to be done after the

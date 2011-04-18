@@ -159,17 +159,25 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
                 if should_swap:
                     output.byteswap(True)
                     try:
-                        fileobj.write(output)
+                        fileobj.writearray(output)
                     finally:
                         output.byteswap(True)
                 else:
-                    fileobj.write(output)
+                    fileobj.writearray(output)
+
+            size += output.size * output.itemsize
+
+            # pad the FITS data block
+            if size > 0 and not fileobj.simulateonly:
+                fileobj.write(_pad_length(size) * '\0')
+
         # flush, to make sure the content is written
         if not fileobj.simulateonly:
             fileobj.flush()
 
         # return both the location and the size of the data area
         return offset, size + _pad_length(size)
+
     def _verify(self, option='warn'):
         errs = super(GroupsHDU, self)._verify(option=option)
 

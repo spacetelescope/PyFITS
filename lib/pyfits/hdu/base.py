@@ -330,7 +330,7 @@ class _BaseHDU(object):
         if self.data is not None:
             output = self.data
             if not fileobj.simulateonly:
-                fileobj.write(output)
+                fileobj.writearray(output)
             size += output.size * output.itemsize
 
             # pad the FITS data block
