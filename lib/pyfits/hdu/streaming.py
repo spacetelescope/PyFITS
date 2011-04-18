@@ -2,6 +2,7 @@ import gzip
 import os
 
 from pyfits.file import FITSFile
+from pyfits.hdu.base import _BaseHDU
 from pyfits.hdu.hdulist import HDUList
 from pyfits.hdu.image import PrimaryHDU
 from pyfits.util import _pad_length
@@ -118,8 +119,9 @@ class StreamingHDU(object):
         # always be false
         self._data_loaded = False
 
-        # TODO : Fix this; ffo.writeHDUheader is gone
-        self._hdrLoc = self._ffo.writeHDUheader(self)[0]
+        # TODO : Fix this once the HDU writing API is cleaned up
+        tmp_hdu = _BaseHDU(header=self._header)
+        self._hdrLoc = tmp_hdu._writeheader(self._ffo)[0]
         self._datLoc = self._ffo.tell()
         self._size = self.size()
 
