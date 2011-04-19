@@ -7,8 +7,8 @@ from pyfits.hdu.base import _ValidHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.base import _ValidHDU
 from pyfits.header import Header
-from pyfits.util import Extendable, _is_pseudo_unsigned, _unsigned_zero, \
-                        _is_int, _pad_length, _normalize_slice, lazyproperty
+from pyfits.util import _is_pseudo_unsigned, _unsigned_zero, _is_int, \
+                        _pad_length, _normalize_slice, lazyproperty
 
 class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class.
@@ -624,8 +624,6 @@ class PrimaryHDU(_ImageBaseHDU):
     FITS primary HDU class.
     """
 
-    __metaclass__ = Extendable
-
     def __init__(self, data=None, header=None, do_not_scale_image_data=False,
                  uint=False):
         """
@@ -676,8 +674,6 @@ class ImageHDU(_ImageBaseHDU, _ExtensionHDU):
     """
     FITS image extension HDU class.
     """
-
-    __metaclass__ = Extendable
 
     _extension = 'IMAGE'
 

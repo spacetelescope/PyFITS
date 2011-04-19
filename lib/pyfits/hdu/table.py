@@ -20,8 +20,7 @@ from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import _ValidHDU
 from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.header import Header
-from pyfits.util import Extendable, lazyproperty, _is_int, _str_to_num, \
-                        _pad_length
+from pyfits.util import lazyproperty, _is_int, _str_to_num, _pad_length
 
 
 class _TableLikeHDU(_ValidHDU):
@@ -364,8 +363,6 @@ class TableHDU(_TableBaseHDU):
     FITS ASCII table extension HDU class.
     """
 
-    __metaclass__ = Extendable
-
     _extension = 'TABLE'
     _ext_comment = 'ASCII table extension'
 
@@ -462,8 +459,6 @@ class BinTableHDU(_TableBaseHDU):
     """
     Binary table HDU class.
     """
-
-    __metaclass__ = Extendable
 
     _extension = 'BINTABLE'
     _ext_comment = 'binary table extension'

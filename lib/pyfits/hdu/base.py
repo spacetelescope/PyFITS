@@ -9,7 +9,7 @@ from pyfits.card import _pad
 from pyfits.column import DELAYED
 from pyfits.file import FITSFile
 from pyfits.header import Header
-from pyfits.util import _with_extensions, lazyproperty, _is_int, \
+from pyfits.util import Extendable, _with_extensions, lazyproperty, _is_int, \
                         _is_pseudo_unsigned, _unsigned_zero, _pad_length, \
                         itersubclasses, BLOCK_SIZE
 from pyfits.verify import _Verify, _ErrList
@@ -55,6 +55,8 @@ class _BaseHDU(object):
     """
     Base class for all HDU (header data unit) classes.
     """
+
+    __metaclass__ = Extendable
 
     # This HDU type is part of the FITS standard
     _standard = True
