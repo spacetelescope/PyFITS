@@ -86,7 +86,7 @@ if COMPRESSION_SUPPORTED:
                    before performing the requested read operations.
                    The pyfits module does not support writing to these
                    types of compressed files.  This type of
-                   compression is supported in the `FITSFile` class, not
+                   compression is supported in the `_File` class, not
                    in the `CompImageHDU` class.  The file compression
                    type is recognized by the ``.gz`` or ``.zip`` file
                    name extension.

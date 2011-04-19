@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 from pyfits import rec
-from pyfits.file import PYTHON_MODES, FITSFile
+from pyfits.file import PYTHON_MODES, _File
 from pyfits.hdu.base import _BaseHDU
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
@@ -415,7 +415,7 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
             hdu._output_checksum = checksum
             f.close(closed=closed)
         else:
-            f = FITSFile(filename, mode='append')
+            f = _File(filename, mode='append')
             hdu._output_checksum = checksum
             # TODO: Fix this once an API for writing an HDU to a file is
             # settled on

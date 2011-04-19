@@ -7,7 +7,7 @@ import numpy as np
 
 from pyfits.card import _pad
 from pyfits.column import DELAYED
-from pyfits.file import FITSFile
+from pyfits.file import _File
 from pyfits.header import Header
 from pyfits.util import _with_extensions, lazyproperty, _is_int, \
                         _is_pseudo_unsigned, _unsigned_zero, _pad_length, \
@@ -218,10 +218,10 @@ class _BaseHDU(object):
             missing an ``END`` card in the last header.
         """
 
-        # TODO: Figure out a way to make it possible for the FITSFile
-        # constructor to be a noop if the argument is already a FITSFile
-        if not isinstance(fileobj, FITSFile):
-            fileobj = FITSFile(fileobj)
+        # TODO: Figure out a way to make it possible for the _File
+        # constructor to be a noop if the argument is already a _File
+        if not isinstance(fileobj, _File):
+            fileobj = _File(fileobj)
 
         hdr_offset = fileobj.tell()
 
@@ -258,7 +258,7 @@ class _BaseHDU(object):
         return hdu
 
     def _writeheader(self, fileobj, checksum=False):
-        # NOTE: Right now this assumes fileobj is a FITSFile object
+        # NOTE: Right now this assumes fileobj is a _File object
         # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
         # cards to header
         if self._data_loaded and self.data is not None and \
@@ -317,7 +317,7 @@ class _BaseHDU(object):
 
     def _writedata(self, fileobj):
         # TODO: A lot of the simulateonly stuff should be moved back into the
-        # FITSFile class--basically it should turn write and flush into a noop
+        # _File class--basically it should turn write and flush into a noop
         offset = 0
         size = 0
 
@@ -354,12 +354,12 @@ class _BaseHDU(object):
             fileobj.writearray(self.data)
         return self.data.size * self.data.itemsize
 
-    # TODO: This is the start of moving HDU writing out of the FITSFile class;
+    # TODO: This is the start of moving HDU writing out of the _File class;
     # Though right now this is an internal private method (though still used by
     # HDUList, eventually the plan is to have this be moved into writeto()
     # somehow...
     def _writeto(self, fileobj, checksum=False):
-        # For now fileobj is assumed to be a FITSFile object
+        # For now fileobj is assumed to be a _File object
         return (self._writeheader(fileobj, checksum)[0],) + \
                self._writedata(fileobj)
 
@@ -582,7 +582,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         Number of bytes
         """
 
-        f = FITSFile()
+        f = _File()
         # TODO: Fix this once new HDU writing API is settled on
         return self._writeheader(f)[1] + self._writedata(f)[1]
 
