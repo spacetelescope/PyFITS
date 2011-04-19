@@ -250,7 +250,7 @@ class Header(DictMixin):
             else:
                 _comment = self.ascard[j].comment
             self.ascard[j] = create_card(key, value, _comment)
-        elif before != None or after != None:
+        elif before is not None or after is not None:
             _card = create_card(key, value, comment)
             self.ascard._pos_insert(_card, before=before, after=after)
         else:

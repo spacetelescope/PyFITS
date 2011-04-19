@@ -1,7 +1,7 @@
 import gzip
 import os
 
-from pyfits.file import FITSFile
+from pyfits.file import _File
 from pyfits.hdu.base import _BaseHDU
 from pyfits.hdu.hdulist import HDUList
 from pyfits.hdu.image import PrimaryHDU
@@ -113,7 +113,7 @@ class StreamingHDU(object):
                     self._header.update('GCOUNT', 1, 'number of groups',
                                         after='PCOUNT')
 
-        self._ffo = FITSFile(name, 'append')
+        self._ffo = _File(name, 'append')
 
         # This class doesn't keep an internal data attribute, so this will
         # always be false

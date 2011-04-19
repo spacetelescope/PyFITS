@@ -16,9 +16,7 @@ PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
 MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+'}
 
 
-# TODO: Maybe rename this back to _File since there's no longer anything really
-# FITS-specific about it
-class FITSFile(object):
+class _File(object):
     """
     Represents a FITS file on disk (or in some other file-like object).
     """
@@ -36,7 +34,7 @@ class FITSFile(object):
         if mode not in PYTHON_MODES:
             raise ValueError("Mode '%s' not recognized" % mode)
 
-        # Determine what the FITSFile object's name should be
+        # Determine what the _File object's name should be
         if isinstance(fileobj, file):
             self.name = fileobj.name
         elif isinstance(fileobj, basestring):
@@ -63,6 +61,13 @@ class FITSFile(object):
         self.closed = False
         self.mode = mode
         self.memmap = memmap
+
+        # Underlying fileobj is a file-like object, but an actual file object
+        self.file_like = False
+
+        self.compressed = False
+        if isinstance(fileobj, (gzip.GzipFile, zipfile.ZipFile)):
+            self.comrpessed = True
 
         self.readonly = False
         self.writeonly = False
@@ -108,7 +113,7 @@ class FITSFile(object):
                         raise ValueError(
                               "Writing to gzipped fits files is not supported")
                     zfile = gzip.GzipFile(self.name)
-                    self.tfile = tempfile.NamedTemporaryFile('rb+',-1,'.fits')
+                    self.tfile = tempfile.NamedTemporaryFile('rb+', -1, '.fits')
                     self.name = self.tfile.name
                     self.__file = self.tfile.file
                     self.__file.write(zfile.read())
@@ -134,6 +139,7 @@ class FITSFile(object):
             else:
                 # We are dealing with a file like object.
                 # Assume it is open.
+                self.file_like = True
                 self.__file = fileobj
 
                 # If there is not seek or tell methods then set the mode to
@@ -281,6 +287,10 @@ class FITSFile(object):
         if not hasattr(self.__file, 'tell'):
             raise EOFError
         return self.__file.tell()
+
+    def truncate(self, size=None):
+        if hasattr(self.__file, 'truncate'):
+            self.__file.truncate(size)
 
     def close(self):
         """

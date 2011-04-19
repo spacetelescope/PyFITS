@@ -10,7 +10,7 @@ from numpy import memmap as Memmap
 import pyfits
 from pyfits.card import Card
 from pyfits.column import _FormatP
-from pyfits.file import FITSFile
+from pyfits.file import _File
 from pyfits.hdu import compressed
 from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU
 from pyfits.hdu.compressed import CompImageHDU
@@ -224,7 +224,7 @@ class HDUList(list, _Verify):
         """
 
         # instantiate a FITS file object (ffo)
-        ffo = FITSFile(fileobj, mode=mode, memmap=memmap)
+        ffo = _File(fileobj, mode=mode, memmap=memmap)
         hdulist = cls(file=ffo)
 
         saved_compression_supported = compressed.COMPRESSION_SUPPORTED
@@ -600,24 +600,23 @@ class HDUList(list, _Verify):
         elif self.__file.mode == 'update':
             self._wasresized(verbose)
 
-            # TODO: Much of this section should probably be handled in FITSFile
+            # TODO: Much of this section should probably be handled in _File
 
             # if the HDUList is resized, need to write out the entire contents
             # of the hdulist to the file.
-            if self._resize or isinstance(self.__file.getfile(), gzip.GzipFile):
+            if self._resize or self.__file.compressed:
                 old_name = self.__file.name
                 old_memmap = self.__file.memmap
                 name = _tmp_name(old_name)
 
-                if isinstance(self.__file.getfile(), file) or \
-                   isinstance(self.__file.getfile(), gzip.GzipFile):
+                if not self.__file.file_like:
                     #
                     # The underlying file is an acutal file object.
                     # The HDUList is resized, so we need to write it to a tmp
                     # file, delete the original file, and rename the tmp
                     # file to the original file.
                     #
-                    if isinstance(self.__file.getfile(), gzip.GzipFile):
+                    if self.__file.compressed:
                         new_file = gzip.GzipFile(name, mode='ab+')
                     else:
                         new_file = name
@@ -652,7 +651,7 @@ class HDUList(list, _Verify):
                     else:
                         old_file = old_name
 
-                    ffo = FITSFile(old_file, mode='update', memmap=old_memmap)
+                    ffo = _File(old_file, mode='update', memmap=old_memmap)
 
                     self.__file = ffo
                     if verbose:
@@ -672,7 +671,7 @@ class HDUList(list, _Verify):
                     ffo = self.__file
 
                     try:
-                        ffo.getfile().truncate(0)
+                        ffo.truncate(0)
                     except AttributeError:
                         pass
 
@@ -698,7 +697,7 @@ class HDUList(list, _Verify):
                     hdu.header._mod = False
                     hdu.header.ascard._mod = False
                     hdu._new = False
-                    hdu._file = ffo.getfile()
+                    hdu._file = ffo
 
             # if not resized, update in place
             else:
@@ -1015,7 +1014,7 @@ class HDUList(list, _Verify):
 
             if self._truncate:
                try:
-                   self.__file.getfile().truncate(hdu._datLoc+hdu._datSpan)
+                   self.__file.truncate(hdu._datLoc + hdu._datSpan)
                except IOError:
                    self._resize = True
                self._truncate = False
