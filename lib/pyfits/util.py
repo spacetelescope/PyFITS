@@ -78,12 +78,17 @@ class Extendable(type):
                                 % c.__name__)
 
         for c in extends:
-            if not silent and c in cls._extensions:
-                warnings.showwarning(
-                    "Extension '%s' for '%s' being replaced with '%s'."
-                    % (cls._extensions[c].__name__, c.__name__,
-                       extension.__name__))
+            if c in cls._extensions:
+                if not silent:
+                    warnings.warn(
+                        "Extension '%s' for '%s' being replaced with '%s'."
+                        % (cls._extensions[c].__name__, c.__name__,
+                           extension.__name__))
+                # This class has already been extended by a different class, so
+                # first we need to undo that
+                cls._unextend_subclasses(c, extension)
             cls._extensions[c] = extension
+            cls._extend_subclasses(c, extension)
 
     @classmethod
     def register_extensions(cls, extensions, silent=False):
@@ -105,6 +110,7 @@ class Extendable(type):
                     "Extension '%s' for '%s' being replaced with '%s'."
                     % (cls._extensions[v].__name__, v.__name__, k.__name__))
             cls._extensions[v] = k
+            cls._extend_subclasses(v, k)
 
     @classmethod
     def unregister_extensions(cls, extensions):
@@ -122,6 +128,28 @@ class Extendable(type):
         for k, v in cls._extensions.items():
             if v in extensions:
                 del cls._extensions[k]
+                cls._unextend_subclasses(k, v)
+
+    @classmethod
+    def _extend_subclasses(cls, extendable, extension):
+        for s in extendable.__subclasses__():
+            if s is extension:
+                # Don't want the extension to have itself as a base
+                continue
+            bases = list(s.__bases__)
+            idx = bases.index(extendable)
+            bases = bases[:idx] + [extension] + bases[idx + 1:]
+            s.__bases__ = tuple(bases)
+
+    @classmethod
+    def _unextend_subclasses(self, extendable, extension):
+        for s in extendable.__subclasses__():
+            if s is extension:
+                continue
+            bases = list(s.__bases__)
+            idx = bases.index(extension)
+            bases = bases[:idx] + [extendable] + bases[idx + 1:]
+            s.__bases__ = tuple(bases)
 
 # Some shortcuts
 register_extension = Extendable.register_extension
