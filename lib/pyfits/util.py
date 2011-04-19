@@ -129,6 +129,9 @@ register_extensions = Extendable.register_extensions
 unregister_extensions = Extendable.unregister_extensions
 
 
+# TODO: Display a warning whenever classExtensions is used, explaining that
+# it's been deprecated.  Point to the appropriate documentation for the new
+# extension system
 def _with_extensions(func):
     """
     This decorator exists mainly to support use of the new extension system in
