@@ -1,3 +1,6 @@
+# This module is actually part of the stsci_python.pytools package, but it's
+# included with PyFITS for now.
+
 import sys
 
 try:
