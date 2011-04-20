@@ -29,6 +29,12 @@ class Extendable(type):
         self.__init__(*args, **kwargs)
         return self
 
+    def __getattribute__(cls, attr):
+        orig_cls = cls
+        if attr != '_extensions' and cls in cls._extensions:
+            cls = cls._extensions[cls]
+        return super(Extendable, cls).__getattribute__(attr)
+
     @classmethod
     def register_extension(cls, extension, extends=None, silent=False):
         """
@@ -87,8 +93,10 @@ class Extendable(type):
                 # This class has already been extended by a different class, so
                 # first we need to undo that
                 cls._unextend_subclasses(c, extension)
-            cls._extensions[c] = extension
+            # It's imperative that _extend_subclasses is called first;
+            # otherwise the extension will override c.__subclasses__!
             cls._extend_subclasses(c, extension)
+            cls._extensions[c] = extension
 
     @classmethod
     def register_extensions(cls, extensions, silent=False):
@@ -109,8 +117,8 @@ class Extendable(type):
                 warnings.showwarning(
                     "Extension '%s' for '%s' being replaced with '%s'."
                     % (cls._extensions[v].__name__, v.__name__, k.__name__))
-            cls._extensions[v] = k
             cls._extend_subclasses(v, k)
+            cls._extensions[v] = k
 
     @classmethod
     def unregister_extensions(cls, extensions):
@@ -142,8 +150,10 @@ class Extendable(type):
             s.__bases__ = tuple(bases)
 
     @classmethod
-    def _unextend_subclasses(self, extendable, extension):
-        for s in extendable.__subclasses__():
+    def _unextend_subclasses(cls, extendable, extension):
+        # Since the subclasses' bases were changed, they will now be listed as
+        # subclasses of the extension
+        for s in extension.__subclasses__():
             if s is extension:
                 continue
             bases = list(s.__bases__)
@@ -154,6 +164,10 @@ class Extendable(type):
 # Some shortcuts
 register_extension = Extendable.register_extension
 register_extensions = Extendable.register_extensions
+# unregister_extension is currently the same as just unregister_extensions (it
+# won't balk if you still try to pass more than one)--it's just provided for
+# symmetry's sake
+unregister_extension = Extendable.unregister_extensions
 unregister_extensions = Extendable.unregister_extensions
 
 
