@@ -26,8 +26,10 @@ def is_display_option():
     display_opts = ['--command-packages']
 
     for opt in Distribution.global_options:
-        display_opts.append('--' + opt[0])
-        display_opts.append('-' + opt[1])
+        if opt[0]:
+            display_opts.append('--' + opt[0])
+        if opt[1]:
+            display_opts.append('-' + opt[1])
 
     for opt in Distribution.display_options:
         display_opts.append('--' + opt[0])
