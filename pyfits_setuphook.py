@@ -23,13 +23,7 @@ def is_display_option():
     if len(sys.argv) < 2:
         return True
 
-    display_opts = ['--command-packages']
-
-    for opt in Distribution.global_options:
-        if opt[0]:
-            display_opts.append('--' + opt[0])
-        if opt[1]:
-            display_opts.append('-' + opt[1])
+    display_opts = ['--command-packages', '--help', '-h']
 
     for opt in Distribution.display_options:
         display_opts.append('--' + opt[0])
