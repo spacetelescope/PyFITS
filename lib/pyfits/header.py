@@ -8,7 +8,7 @@ except ImportError:
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _ContinueCard, _HierarchCard, create_card, \
                         create_card_from_string, upper_key
-from pyfits.util import BLOCK_SIZE
+from pyfits.util import BLOCK_SIZE, strtobytes, bytestostr
 
 
 # TODO: The UserDict documentation recommends using the
@@ -71,6 +71,13 @@ class Header(DictMixin):
             self.fromTxtFile(txtfile, not len(self.ascard))
         self._mod = False
 
+    def __len__(self):
+        return len(self.ascard)
+
+    def __iter__(self):
+        for card in self.ascard:
+            yield card.key
+
     def __contains__(self, key):
         """
         Check for existence of a keyword.
@@ -86,6 +93,8 @@ class Header(DictMixin):
             Returns `True` if found, otherwise, `False`.
         """
 
+        key = strtobytes(key)
+
         key = upper_key(key)
         if key[:8] == 'HIERARCH':
             key = key[8:].strip()
@@ -99,7 +108,8 @@ class Header(DictMixin):
         card = self.ascard[key]
 
         if isinstance(card, RecordValuedKeywordCard) and \
-           (not isinstance(key, basestring) or '.' not in key):
+           (not isinstance(bytestostr(key), basestring) or
+            '.' not in strtobytes(key)):
             return card.strvalue()
         elif isinstance(card, CardList):
             return card
@@ -120,7 +130,7 @@ class Header(DictMixin):
         """
 
         # delete ALL cards with the same keyword name
-        if isinstance(key, basestring):
+        if isinstance(bytestostr(key), basestring):
             while True:
                 try:
                     del self.ascard[key]
@@ -236,6 +246,8 @@ class Header(DictMixin):
             preserved.
         """
 
+        key = strtobytes(key)
+
         keylist = RecordValuedKeywordCard.validKeyValue(key, value)
 
         if keylist:
@@ -312,6 +324,9 @@ class Header(DictMixin):
             When `True`, if new key name already exists, force to have
             duplicate name.
         """
+
+        oldkey = strtobytes(oldkey)
+        newkey = strtobytes(newkey)
 
         oldkey = upper_key(oldkey)
         newkey = upper_key(newkey)
@@ -583,6 +598,8 @@ class Header(DictMixin):
         of cards of the same name (except blank card).  If there is no
         card (or blank card), append at the end.
         """
+
+        key = strtobytes(key)
 
         new_card = Card(key, value)
         if before is not None or after is not None:

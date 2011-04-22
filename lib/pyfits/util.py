@@ -1,6 +1,7 @@
 import functools
 import itertools
 import os
+import sys
 import tempfile
 import warnings
 
@@ -29,11 +30,12 @@ class Extendable(type):
         self.__init__(*args, **kwargs)
         return self
 
-    def __getattribute__(cls, attr):
-        orig_cls = cls
-        if attr != '_extensions' and cls in cls._extensions:
-            cls = cls._extensions[cls]
-        return super(Extendable, cls).__getattribute__(attr)
+# TODO: Fix this in Python3--commented out in the meantime
+#    def __getattribute__(cls, attr):
+#        orig_cls = cls
+#        if attr != '_extensions' and cls in cls._extensions:
+#            cls = cls._extensions[cls]
+#        return super(Extendable, cls).__getattribute__(attr)
 
     @classmethod
     def register_extension(cls, extension, extends=None, silent=False):
@@ -283,6 +285,30 @@ class lazyproperty(object):
         if key in obj.__dict__:
             del obj.__dict__[key]
 
+
+if sys.version_info[0] >= 3:
+    def strtobytes(s):
+        if isinstance(s, str):
+        # There should never be a case where non-ascii characters are used in
+        # FITS keywords and such
+            return s.encode('ascii')
+        else:
+            # If s is already bytes, or something else entirely, just assume
+            # it's correct and return it
+            return s
+
+    def bytestostr(b):
+        if isinstance(b, bytes):
+            return b.decode('ascii')
+        else:
+            return b
+else:
+    def strtobytes(s):
+        # Do nothing; strings are fine
+        return s
+
+    def bytestostr(b):
+        return b
 
 def pairwise(iterable):
     """Return the items of an iterable paired with its next item.

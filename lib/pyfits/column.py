@@ -6,7 +6,7 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits.card import Card
-from pyfits.util import lazyproperty, pairwise, _is_int
+from pyfits.util import lazyproperty, pairwise, _is_int, bytestostr
 
 
 __all__ = ['Column', 'ColDefs']
@@ -35,12 +35,12 @@ NUMPY2FITS = dict([(val, key) for key, val in FITS2NUMPY.iteritems()])
 # preferred order.
 KEYWORD_NAMES = ['TTYPE', 'TFORM', 'TUNIT', 'TNULL', 'TSCAL', 'TZERO',
                  'TDISP', 'TBCOL', 'TDIM']
-KEYWORD_ATTRIBUTES = ['name', 'format', 'unit', 'null', 'bscale', 'bzero',
-                      'disp', 'start', 'dim']
+KEYWORD_ATTRIBUTES = [u'name', u'format', u'unit', u'null', u'bscale',
+                      u'bzero', u'disp', u'start', u'dim']
 
 # TFORM regular expression
 TFORMAT_RE = re.compile(r'(?P<repeat>^[0-9]*)(?P<dtype>[A-Za-z])'
-                         '(?P<option>[!-~]*)')
+                        r'(?P<option>[!-~]*)')
 
 # table definition keyword regular expression
 TDEF_RE = re.compile(r'(?P<label>^T[A-Z]*)(?P<num>[1-9][0-9 ]*$)')

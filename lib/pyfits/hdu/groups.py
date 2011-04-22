@@ -6,7 +6,8 @@ from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
 from pyfits.hdu.table import _TableLikeHDU
-from pyfits.util import lazyproperty, _is_int, _pad_length, _is_pseudo_unsigned
+from pyfits.util import lazyproperty, _is_int, _pad_length, \
+                        _is_pseudo_unsigned, bytestostr
 
 
 class GroupsHDU(PrimaryHDU, _TableLikeHDU):
@@ -381,7 +382,7 @@ class _Group(FITS_record):
 
                 outlist.append(' (%s)' % ', '.join(rowlist))
 
-            return '[%s]' % ',\n'.join(outlist)
+            return bytestostr('[%s]' % ',\n'.join(outlist))
         else:
             return super(_Group, self).__str__()
 

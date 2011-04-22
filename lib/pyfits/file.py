@@ -1,5 +1,6 @@
 import gzip
 import os
+import sys
 import tempfile
 import urllib
 import warnings
@@ -8,11 +9,18 @@ import zipfile
 import numpy as np
 from numpy import memmap as Memmap
 
-from pyfits.util import Extendable, _fromfile, _tofile
+from pyfits.util import Extendable, _fromfile, _tofile, strtobytes
 
 
-PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
-                'append': 'ab+', 'ostream': 'w'}  # open modes
+# For Py3k; use the correct file type
+# TODO: Consider moving this to the py3kcompat module and add file to builtins
+if sys.version_info[0] >= 3:
+    import io
+    file = io.FileIO
+
+
+PYTHON_MODES = {'readonly': u'rb', 'copyonwrite': u'rb', 'update': u'rb+',
+                'append': u'ab+', 'ostream': u'w'}  # open modes
 MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+'}
 
 
@@ -24,6 +32,8 @@ class _File(object):
     __metaclass__ = Extendable
 
     def __init__(self, fileobj=None, mode='copyonwrite', memmap=False):
+
+        mode = strtobytes(mode)
 
         if fileobj is None:
             self.simulateonly = True

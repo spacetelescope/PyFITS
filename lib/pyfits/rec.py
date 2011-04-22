@@ -12,6 +12,11 @@ import warnings
 import numpy as np
 import StringIO
 
+# For Py3k; use the correct file type
+if sys.version_info[0] >= 3:
+    import io
+    file = io.FileIO
+
 ndarray = sb.ndarray
 
 _byteorderconv = {'b':'>',

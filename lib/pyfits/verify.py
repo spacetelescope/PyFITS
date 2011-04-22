@@ -1,5 +1,7 @@
 import warnings
 
+from pyfits.util import bytestostr
+
 
 _INDENT = "   "
 
@@ -108,4 +110,4 @@ class _ErrList(list):
                     result += _dummy
                 element += 1
 
-        return result
+        return bytestostr(result)

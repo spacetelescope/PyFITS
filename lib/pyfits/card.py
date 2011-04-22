@@ -1,11 +1,12 @@
 import re
 import string
+import sys
 import warnings
 
 import numpy as np
 from numpy import char as chararray
 
-from pyfits.util import _str_to_num, _is_int
+from pyfits.util import _str_to_num, _is_int, strtobytes, bytestostr
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -14,14 +15,19 @@ __all__ = ['Card', 'CardList', 'RecordValuedKeywordCard', 'create_card',
 
 
 # python3 fixup
-try:
-    maketrans = string.maketrans
-except AttributeError:
-    maketrans = str.maketrans # Fine to assume strings here
-# translation tables for floating value strings
-FIX_FP_TABLE = maketrans('de', 'DE')
-FIX_FP_TABLE2 = maketrans('dD', 'eE')
-
+#if sys.version_info[0] >= 3:
+#    maketrans = bytes.maketrans
+#else:
+#    maketrans = string.maketrans
+#
+#FIX_FP_TABLE = maketrans('de', 'DE')
+#FIX_FP_TABLE2 = maketrans('dD', 'eE')
+if sys.version_info[0] >= 3:
+    FIX_FP_TABLE = bytes.maketrans(b'de', b'DE')
+    FIX_FP_TABLE2 = bytes.maketrans(b'dD', b'eE')
+else:
+    FIX_FP_TABLE = string.maketrans('de', 'DE')
+    FIX_FP_TABLE2 = string.maketrans('dD', 'eE')
 
 
 class Undefined:
@@ -89,10 +95,10 @@ class Card(_Verify):
                 #  match.
                 r'\'(?P<strg>([ -~]+?|\'\'|)) *?\'(?=$|/| )|'
                 r'(?P<bool>[FT])|'
-                r'(?P<numr>' + _numr_FSC + ')|'
+                r'(?P<numr>' + _numr_FSC + r')|'
                 r'(?P<cplx>\( *'
-                    r'(?P<real>' + _numr_FSC + ') *, *'
-                    r'(?P<imag>' + _numr_FSC + ') *\))'
+                    r'(?P<real>' + _numr_FSC + r') *, *'
+                    r'(?P<imag>' + _numr_FSC + r') *\))'
             r')? *)'
         r'(?P<comm_field>'
             r'(?P<sepr>/ *)'
@@ -104,10 +110,10 @@ class Card(_Verify):
             r'(?P<valu>'
                 r'\'(?P<strg>([ -~]+?|\'\'|)) *?\'(?=$|/| )|'
                 r'(?P<bool>[FT])|'
-                r'(?P<numr>' + _numr_NFSC + ')|'
+                r'(?P<numr>' + _numr_NFSC + r')|'
                 r'(?P<cplx>\( *'
-                    r'(?P<real>' + _numr_NFSC + ') *, *'
-                    r'(?P<imag>' + _numr_NFSC + ') *\))'
+                    r'(?P<real>' + _numr_NFSC + r') *, *'
+                    r'(?P<imag>' + _numr_NFSC + r') *\))'
             r')? *)'
         r'(?P<comm_field>'
             r'(?P<sepr>/ *)'
@@ -147,6 +153,8 @@ class Card(_Verify):
             comment
         """
 
+        key = strtobytes(key)
+
         if key != '' or value != '' or comment != '':
             self.key = key
             self._update_value(value)
@@ -154,14 +162,14 @@ class Card(_Verify):
             # for commentary cards, value can only be strings and there
             # is no comment
             if self.key in Card._commentary_keys:
-                if not isinstance(self.value, str):
+                if not isinstance(self.value, basestring):
                     raise ValueError('Value in a commentary card must be a '
                                      'string.')
         else:
             self._cardimage = ' ' * 80
 
     def __repr__(self):
-        return self.cardimage
+        return bytestostr(self.cardimage)
 
     def _getkey(self):
         """Returns the keyword name parsed from the card image."""
@@ -177,7 +185,8 @@ class Card(_Verify):
         if hasattr(self, '_key'):
             raise AttributeError('Keyword name cannot be modified.')
 
-        if isinstance(val, str):
+        if isinstance(bytestostr(val), basestring):
+            val = strtobytes(val)
             val = val.strip()
             if len(val) <= 8:
                 val = val.upper()
@@ -244,7 +253,7 @@ class Card(_Verify):
     def _update_comment(self, val):
         """Set the comment attribute."""
 
-        if isinstance(val, str):
+        if isinstance(bytestostr(val), basestring):
             self._check_text(val)
         else:
             if val is not None:
@@ -721,7 +730,7 @@ class RecordValuedKeywordCard(Card):
     # a card value; the value may not be FITS Standard Complient
     # (ex. 'AXIS.1: 2.0e5')
     #
-    field_specifier_NFSC_val_RE = re.compile(field_specifier_NFSC_val + '$')
+    field_specifier_NFSC_val_RE = re.compile(field_specifier_NFSC_val + r'$')
     #
     # regular expression to extract the key and the field specifier from a
     # string that is being used to index into a card list that contains
@@ -1172,6 +1181,8 @@ class CardList(list):
     def __setitem__(self, key, value):
         """Set a `Card` by indexing or by the keyword name."""
 
+        key = strtobytes(key)
+
         if isinstance(value, Card):
             idx = self.index_of(key)
 
@@ -1186,6 +1197,8 @@ class CardList(list):
 
     def __delitem__(self, key):
         """Delete a `Card` from the `CardList`."""
+
+        key = strtobytes(key)
 
         if self._has_filter_char(key):
             cardlist = self.filter_list(key)
@@ -1210,11 +1223,11 @@ class CardList(list):
     def __repr__(self):
         """Format a list of cards into a string."""
 
-        return ''.join(map(repr, self))
+        return bytestostr(''.join(map(repr, self)))
 
     def __str__(self):
         """Format a list of cards into a printable string."""
-        return '\n'.join(map(str, self))
+        return bytestostr('\n'.join(map(str, self)))
 
     def copy(self):
         """Make a (deep)copy of the `CardList`."""
@@ -1348,9 +1361,11 @@ class CardList(list):
             The index of the `Card` with the given keyword.
         """
 
+        key = strtobytes(key)
+
         if _is_int(key):
             return key
-        elif isinstance(key, basestring):
+        elif isinstance(bytestostr(key), basestring):
             _key = key.strip().upper()
             if _key[:8] == 'HIERARCH':
                 _key = _key[8:].strip()
@@ -1403,6 +1418,8 @@ class CardList(list):
             requested cards.
         """
 
+        key = strtobytes(key)
+
         out_cl = CardList()
 
         mykey = upper_key(key)
@@ -1441,8 +1458,8 @@ class CardList(list):
         characters (``*``, ``?``, or ...).
         """
 
-        if isinstance(key, basestring) and (key.endswith('...') or \
-           key.find('*') > 0 or key.find('?') > 0):
+        if isinstance(bytestostr(key), basestring) and \
+           (key.endswith('...') or key.find('*') > 0 or key.find('?') > 0):
             return True
         else:
             return False
@@ -1531,7 +1548,7 @@ class _ContinueCard(Card):
         output = []
         for idx in range(len(self.cardimage) // 80):
             output.append(self.cardimage[idx*80:(idx+1)*80])
-        return '\n'.join(output)
+        return bytestostr('\n'.join(output))
 
     def _iter_cards(self):
         ncards = self._ncards()

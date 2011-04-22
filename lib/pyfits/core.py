@@ -93,7 +93,7 @@ def showwarning(message, category, filename, lineno, file=None, line=None):
     _showwarning(message, category, filename, lineno, file)
 
 def formatwarning(message, category, filename, lineno, line=None):
-    return str(message) + '\n'
+    return unicode(message) + u'\n'
 
 warnings.showwarning = showwarning
 warnings.formatwarning = formatwarning
