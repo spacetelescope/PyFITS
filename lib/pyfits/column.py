@@ -9,7 +9,7 @@ from pyfits.card import Card
 from pyfits.util import lazyproperty, pairwise, _is_int
 
 
-__all__ = ['Column', 'ColDefs']
+__all__ = ['Column', 'ColDefs', 'Delayed']
 
 
 # mapping from TFORM data type to numpy data type (code)

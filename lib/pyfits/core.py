@@ -53,10 +53,15 @@ from pyfits.hdu.table import new_table
 from pyfits.header import Header
 
 
+# Additional imports used by the documentation (some of which should be
+# restructured at some point)
+from pyfits.verify import VerifyError
+
+
 __all__ = pyfits.card.__all__ + pyfits.column.__all__ + \
           pyfits.convenience.__all__ + pyfits.hdu.__all__ + \
           ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',
-           'new_table', 'Header', 'TRUE', 'FALSE',
+           'new_table', 'Header', 'VerifyError', 'TRUE', 'FALSE',
            'setExtensionNameCaseSensitive']
 
 # These are of course deprecated, but a handful of external code still uses

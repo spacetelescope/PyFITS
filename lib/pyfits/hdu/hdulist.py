@@ -43,7 +43,7 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
     memmap : bool
         Is memory mapping to be used?
 
-    classExtensions : dict
+    classExtensions : dict (''Deprecated'')
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
@@ -85,7 +85,7 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
 
     Returns
     -------
-        hdulist : an HDUList object
+        hdulist : an `HDUList` object
             `HDUList` containing all of the header data units in the
             file.
 

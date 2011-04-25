@@ -27,18 +27,18 @@ Cards
 Free functions
 ,,,,,,,,,,,,,,
 
-createCard
-----------
+create_card
+-----------
 
-.. autofunction:: createCard
+.. autofunction:: create_card
 
-createCardFromString
---------------------
+create_card_from_string
+-----------------------
 
-.. autofunction:: createCardFromString
+.. autofunction:: create_card_from_string
 
-upperKey
---------
+upper_key
+---------
 
-.. autofunction:: upperKey
+.. autofunction:: upper_key
 

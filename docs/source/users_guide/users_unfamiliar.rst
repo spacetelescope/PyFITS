@@ -3,15 +3,22 @@
 Less Familiar Objects
 `````````````````````
 
-In this chapter, we'll discuss less frequently used FITS data structures. They include ASCII tables, variable length tables, and random access group FITS files.
+In this chapter, we'll discuss less frequently used FITS data structures. They
+include ASCII tables, variable length tables, and random access group FITS
+files.
 
 
 ASCII Tables
 ,,,,,,,,,,,,
 
-FITS standard supports both binary and ASCII tables. In ASCII tables, all the data are stored in a human readable text form, so it takes up more space and extra processing to parse the text for numeric data.
+FITS standard supports both binary and ASCII tables. In ASCII tables, all the
+data are stored in a human readable text form, so it takes up more space and
+extra processing to parse the text for numeric data.
 
-In PyFITS, the interface for ASCII tables and binary tables is basically the same, i.e. the data is in the ``.data`` attribute and the ``field()`` method is used to refer to the columns and returns a numpy array. When reading the table, PyFITS will automatically detect what kind of table it is.
+In PyFITS, the interface for ASCII tables and binary tables is basically the
+same, i.e. the data is in the ``.data`` attribute and the ``field()`` method
+is used to refer to the columns and returns a numpy array. When reading the
+table, PyFITS will automatically detect what kind of table it is.
 
     >>> hdus = pyfits.open('ascii_table.fits')
     >>> hdus[1].data[:1]
@@ -24,15 +31,23 @@ In PyFITS, the interface for ASCII tables and binary tables is basically the sam
     >>> hdus[1].data.formats
     ['E10.4', 'I5']
 
-Note that the formats in the record array refer to the raw data which are ASCII strings (therefore 'a11' and 'a5'), but the .formats attribute of data retains the original format specifications ('E10.4' and 'I5').
+Note that the formats in the record array refer to the raw data which are ASCII
+strings (therefore 'a11' and 'a5'), but the .formats attribute of data retains
+the original format specifications ('E10.4' and 'I5').
 
 
 Creating an ASCII Table
 -----------------------
 
-Creating an ASCII table from scratch is similar to creating a binary table. The difference is in the Column definitions. The columns/fields in an ASCII table are more limited than in a binary table. It does not allow more than one numerical value in a cell. Also, it only supports a subset of what allowed in a binary table, namely character strings, integer, and (single and double precision) floating point numbers. Boolean and complex numbers are not allowed.
+Creating an ASCII table from scratch is similar to creating a binary table. The
+difference is in the Column definitions. The columns/fields in an ASCII table
+are more limited than in a binary table. It does not allow more than one
+numerical value in a cell. Also, it only supports a subset of what allowed in a
+binary table, namely character strings, integer, and (single and double
+precision) floating point numbers. Boolean and complex numbers are not allowed.
 
-The format syntax (the values of the TFORM keywords) is different from that of a binary table, they are:
+The format syntax (the values of the TFORM keywords) is different from that of a
+binary table, they are:
 
 .. parsed-literal::
 
@@ -42,9 +57,13 @@ The format syntax (the values of the TFORM keywords) is different from that of a
     Ew.d       Single precision real, in exponential notation
     Dw.d       Double precision real, in exponential notation
 
-where, w is the width, and d the number of digits after the decimal point. The syntax difference between ASCII and binary tables can be confusing. For example, a field of 3-character string is specified '3A' in a binary table and as 'A3' in an ASCII table.
+where, w is the width, and d the number of digits after the decimal point. The
+syntax difference between ASCII and binary tables can be confusing. For example,
+a field of 3-character string is specified '3A' in a binary table and as 'A3' in
+an ASCII table.
 
-The other difference is the need to specify the table type when using either `ColDef()` or `new_table()`.
+The other difference is the need to specify the table type when using either
+`ColDef()` or `new_table()`.
 
 The default value for tbtype is `BinTableHDU`.
 
@@ -71,15 +90,29 @@ The default value for tbtype is `BinTableHDU`.
 Variable Length Array Tables
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-The FITS standard also supports variable length array tables. The basic idea is that sometimes it is desirable to have tables with cells in the same field (column) that have the same data type but have different lengths/dimensions. Compared with the standard table data structure, the variable length table can save storage space if there is a large dynamic range of data lengths in different cells.
+The FITS standard also supports variable length array tables. The basic idea is
+that sometimes it is desirable to have tables with cells in the same field
+(column) that have the same data type but have different lengths/dimensions.
+Compared with the standard table data structure, the variable length table can
+save storage space if there is a large dynamic range of data lengths in
+different cells.
 
-A variable length array table can have one or more fields (columns) which are variable length. The rest of the fields (columns) in the same table can still be regular, fixed-length ones. PyFITS will automatically detect what kind of field it is during reading; no special action is needed from the user. The data type specification (i.e. the value of the TFORM keyword) uses an extra letter 'P' and the format is
+A variable length array table can have one or more fields (columns) which are
+variable length. The rest of the fields (columns) in the same table can still be
+regular, fixed-length ones. PyFITS will automatically detect what kind of field
+it is during reading; no special action is needed from the user. The data type
+specification (i.e. the value of the TFORM keyword) uses an extra letter 'P' and
+the format is
 
 .. parsed-literal::
 
     rPt(max)
 
-where r is 0, 1, or absent, t is one of the letter code for regular table data type (L, B, X, I, J, etc. currently, the X format is not supported for variable length array field in PyFITS), and max is the maximum number of elements. So, for a variable length field of int32, The corresponding format spec is, e.g. 'PJ(100)'.
+where r is 0, 1, or absent, t is one of the letter code for regular table data
+type (L, B, X, I, J, etc. currently, the X format is not supported for variable
+length array field in PyFITS), and max is the maximum number of elements. So,
+for a variable length field of int32, The corresponding format spec is,
+e.g. 'PJ(100)'.
 
     >>> f = pyfits.open('variable_length_table.fits')
     >>> print f[1].header['tform5']
@@ -88,17 +121,29 @@ where r is 0, 1, or absent, t is one of the letter code for regular table data t
     [array([1], dtype=int16) array([88, 2], dtype=int16)
     array([ 1, 88, 3], dtype=int16)]
 
-The above example shows a variable length array field of data type int16 and its first row has one element, second row has 2 elements etc. Accessing variable length fields is almost identical to regular fields, except that operations on the whole filed are usually not possible. A user has to process the field row by row.
+The above example shows a variable length array field of data type int16 and its
+first row has one element, second row has 2 elements etc. Accessing variable
+length fields is almost identical to regular fields, except that operations on
+the whole filed are usually not possible. A user has to process the field row by
+row.
 
 
 Creating a Variable Length Array Table
 --------------------------------------
 
-Creating a variable length table is almost identical to creating a regular table. The only difference is in the creation of field definitions which are variable length arrays. First, the data type specification will need the 'P' letter, and secondly, the field data must be an objects array (as included in the numpy module). Here is an example of creating a table with two fields,  one is regular and the other variable length array.
+Creating a variable length table is almost identical to creating a regular
+table. The only difference is in the creation of field definitions which are
+variable length arrays. First, the data type specification will need the 'P'
+letter, and secondly, the field data must be an objects array (as included in
+the numpy module). Here is an example of creating a table with two fields,  one
+is regular and the other variable length array.
 
     >>> import pyfits
     >>> import numpy as np
-    >>> c1 = pyfits.Column(name='var', format='PJ()', array=np.array([np.array([45., 56]), np.array([11, 12, 13])], dtype=np.object))
+    >>> c1 = pyfits.Column(name='var', format='PJ()',
+                           array=np.array([np.array([45., 56]),
+			                   np.array([11, 12, 13])],
+					  dtype=np.object))
     >>> c2 = pyfits.Column(name='xyz', format='2I', array=[[11, 3], [12, 4]])
     # the rest is the same as a regular table.
     # Create the table HDU
@@ -129,11 +174,22 @@ Creating a variable length table is almost identical to creating a regular table
 Random Access Groups
 ,,,,,,,,,,,,,,,,,,,,
 
-Another less familiar data structure supported by the FITS standard is the random access group. This convention was established before the binary table extension was introduced. In most cases its use can now be superseded by the binary table. It is mostly used in radio interferometry.
+Another less familiar data structure supported by the FITS standard is the
+random access group. This convention was established before the binary table
+extension was introduced. In most cases its use can now be superseded by the
+binary table. It is mostly used in radio interferometry.
 
-Like Primary HDUs, a Random Access Group HDU is always the first HDU of a FITS file. Its data has one or more groups. Each group may have any number (including 0) of parameters, together with an image. The parameters and the image have the same data type.
+Like Primary HDUs, a Random Access Group HDU is always the first HDU of a FITS
+file. Its data has one or more groups. Each group may have any number (including
+0) of parameters, together with an image. The parameters and the image have the
+same data type.
 
-All groups in the same HDU have the same data structure, i.e. same data type (specified by the keyword BITPIX, as in image HDU), same number of parameters (specified by PCOUNT), and the same size and shape (specified by NAXISn keywords) of the image data. The number of groups is specified by GCOUNT and the keyword NAXIS1 is always 0. Thus the total data size for a Random Access Group HDU is
+All groups in the same HDU have the same data structure, i.e. same data type
+(specified by the keyword BITPIX, as in image HDU), same number of parameters
+(specified by PCOUNT), and the same size and shape (specified by NAXISn
+keywords) of the image data. The number of groups is specified by GCOUNT and the
+keyword NAXIS1 is always 0. Thus the total data size for a Random Access Group
+HDU is
 
 .. parsed-literal::
 
@@ -143,9 +199,11 @@ All groups in the same HDU have the same data structure, i.e. same data type (sp
 Header and Summary
 ------------------
 
-Accessing the header of a Random Access Group HDU is no different from any other HDU. Just use the .header attribute.
+Accessing the header of a Random Access Group HDU is no different from any other
+HDU. Just use the .header attribute.
 
-The content of the HDU can similarly be summarized by using the `HDUList.info()` method:
+The content of the HDU can similarly be summarized by using the `HDUList.info()`
+method:
 
     >>> f = pyfits.open('random_group.fits')
     >>> print f[0].header['groups']
@@ -164,7 +222,8 @@ The content of the HDU can similarly be summarized by using the `HDUList.info()`
 Data: Group Parameters
 ----------------------
 
-The data part of a random access group HDU is, like other HDUs, in the ``.data`` attribute. It includes both parameter(s) and image array(s).
+The data part of a random access group HDU is, like other HDUs, in the ``.data``
+attribute. It includes both parameter(s) and image array(s).
 
 1. show the data in 100th group, including parameters and data 
 
@@ -176,21 +235,27 @@ The data part of a random access group HDU is, like other HDUs, in the ``.data``
     [ 0. , 0. , 3.99993873],
     [ 0. , 0. , 3.99993873]]]]], dtype=float32))
 
-The data first lists all the parameters, then the image array, for the specified group(s). As a reminder, the image data in this file has the shape of (1,1,1,4,3) in Python or C convention, or (3,4,1,1,1) in IRAF or FORTRAN convention.
+The data first lists all the parameters, then the image array, for the specified
+group(s). As a reminder, the image data in this file has the shape of
+(1,1,1,4,3) in Python or C convention, or (3,4,1,1,1) in IRAF or FORTRAN
+convention.
 
-To access the parameters, first find out what the parameter names are, with the .parnames attribute:
+To access the parameters, first find out what the parameter names are, with the
+.parnames attribute:
 
     >>> f[0].data.parnames # get the parameter names
     ['uu--', 'vv--', 'ww--', 'baseline', 'date', 'date']
 
-The group parameter can be accessed by the ``.par()`` method. Like the table ``field()`` method, the argument can be either index or name:
+The group parameter can be accessed by the ``.par()`` method. Like the table
+``field()`` method, the argument can be either index or name:
 
     >>> print f[0].data.par(0)[99] # Access group parameter by name or by index
     -8.1987486677035799e-06
     >>> print f[0].data.par('uu--')[99]
     -8.1987486677035799e-06
 
-Note that the parameter name 'date' appears twice. This is a feature in the random access group, and it means to add the values together. Thus:
+Note that the parameter name 'date' appears twice. This is a feature in the
+random access group, and it means to add the values together. Thus:
 
     >>>
     # Duplicate group parameter name 'date' for 5th and 6th parameters
@@ -203,7 +268,10 @@ Note that the parameter name 'date' appears twice. This is a feature in the rand
     >>> print f[0].data.par('date')[99]
     2445728.10
 
-The ``.par()`` is a method for either the entire data object or one data item (a group). So there are two possible ways to get a group parameter for a certain group, this is similar to the situation in table data (with its ``field()`` method):
+The ``.par()`` is a method for either the entire data object or one data item (a
+group). So there are two possible ways to get a group parameter for a certain
+group, this is similar to the situation in table data (with its ``field()``
+method):
 
     >>>
     # Access group parameter by selecting the row (group) number last
@@ -213,7 +281,11 @@ The ``.par()`` is a method for either the entire data object or one data item (a
     >>> print f[0].data[99].par(0)
     -8.1987486677035799e-06
 
-On the other hand, to modify a group parameter, we can either assign the new value directly (if accessing the row/group number last) or use the ``setpar()`` method (if accessing the row/group number first). The method ``setpar()`` is also needed for updating by name if the parameter is shared by more than one parameters:
+On the other hand, to modify a group parameter, we can either assign the new
+value directly (if accessing the row/group number last) or use the ``setpar()``
+method (if accessing the row/group number first). The method ``setpar()`` is
+also needed for updating by name if the parameter is shared by more than one
+parameters:
 
     >>>
     # Update group parameter when selecting the row (group) number last
@@ -233,7 +305,8 @@ On the other hand, to modify a group parameter, we can either assign the new val
 Data: Image Data
 ----------------
 
-The image array of the data portion is accessible by the ``.data`` attribute of the data object. A numpy array is returned:
+The image array of the data portion is accessible by the ``.data`` attribute of
+the data object. A numpy array is returned:
 
     # image part of the data
     >>> print f[0].data.data[99]
@@ -246,7 +319,9 @@ The image array of the data portion is accessible by the ``.data`` attribute of 
 Creating a Random Access Group HDU
 ----------------------------------
 
-To create a random access group HDU from scratch, use `GroupData()` to encapsulate the data into the group data structure, and use `GroupsHDU()` to create the HDU itself:
+To create a random access group HDU from scratch, use `GroupData()` to
+encapsulate the data into the group data structure, and use `GroupsHDU()` to
+create the HDU itself:
 
     >>>
     # Create the image arrays. The first dimension is the number of groups.
@@ -292,7 +367,13 @@ To create a random access group HDU from scratch, use `GroupData()` to encapsula
 Compressed Image Data
 ,,,,,,,,,,,,,,,,,,,,,
 
-A general technique has been developed for storing compressed image data in FITS binary tables.  The principle used in this convention is to first divide the n-dimensional image into a rectangular grid of sub images or  'tiles'.  Each tile is then compressed as a continuous block of data, and the resulting compressed byte stream is stored in a row of a variable  length column in a FITS binary table.  Several commonly used algorithms for compressing image tiles are supported.  These include, Gzip, Rice,  IRAF Pixel List (PLIO), and Hcompress.
+A general technique has been developed for storing compressed image data in FITS
+binary tables.  The principle used in this convention is to first divide the
+n-dimensional image into a rectangular grid of sub images or  'tiles'.  Each
+tile is then compressed as a continuous block of data, and the resulting
+compressed byte stream is stored in a row of a variable  length column in a FITS
+binary table.  Several commonly used algorithms for compressing image tiles are
+supported.  These include, Gzip, Rice,  IRAF Pixel List (PLIO), and Hcompress.
 
 For more details, reference "A FITS Image Compression Proposal" from:
 
@@ -302,13 +383,24 @@ and "Registered FITS Convention, Tiled Image Compression Convention":
 
     http://fits.gsfc.nasa.gov/registry/tilecompression.html
 
-Compressed image data is accessed, in PyFITS, using the optional  "pyfitsComp" module contained in a C shared library (pyfitsCompmodule.so). If an attempt is made to access an HDU containing compressed image data when the pyfitsComp module is not available, the user is notified of the  problem and the HDU is treated like a standard binary table HDU.  This  notification will only be made the first time compressed image data is encountered.  In this way, the pyfitsComp module is not required in order for PyFITS to work.
+Compressed image data is accessed, in PyFITS, using the optional
+"pyfits.compression" module contained in a C shared library (compression.so). If
+an attempt is made to access an HDU containing compressed image data when the
+pyfitsComp module is not available, the user is notified of the  problem and the
+HDU is treated like a standard binary table HDU.  This  notification will only
+be made the first time compressed image data is encountered.  In this way, the
+pyfitsComp module is not required in order for PyFITS to work.
 
 
 Header and Summary
 ------------------
 
-In PyFITS, the header of a compressed image HDU appears to the user like any image header.  The actual header stored in the FITS file is that of a  binary table HDU with a set of special keywords, defined by the convention, to describe the structure of the compressed image.  The conversion between binary table HDU header and image HDU header is all performed behind the scenes.  Since the HDU is actually a binary table, it may not appear as a primary HDU in a FITS file.
+In PyFITS, the header of a compressed image HDU appears to the user like any
+image header.  The actual header stored in the FITS file is that of a  binary
+table HDU with a set of special keywords, defined by the convention, to describe
+the structure of the compressed image.  The conversion between binary table HDU
+header and image HDU header is all performed behind the scenes.  Since the HDU
+is actually a binary table, it may not appear as a primary HDU in a FITS file.
 
 The content of the HDU header may be accessed using the ``.header`` attribute:
 
@@ -323,7 +415,9 @@ The content of the HDU header may be accessed using the ``.header`` attribute:
     GCOUNT  =                    1 / one data group (required keyword)
     EXTNAME = 'COMPRESSED'         / name of this binary table extension
 
-The contents of the corresponding binary table HDU may be accessed using the hidden ``._header`` attribute.  However, all user interface with the HDU header should be accomplished through the image header (the ``.header`` attribute).
+The contents of the corresponding binary table HDU may be accessed using the
+hidden ``._header`` attribute.  However, all user interface with the HDU header
+should be accomplished through the image header (the ``.header`` attribute).
 
     >>> f = pyfits.open('compressed_image.fits')
     >>> print f[1]._header
@@ -349,7 +443,8 @@ The contents of the corresponding binary table HDU may be accessed using the hid
     ZVAL1   =                   32 / pixels per block
     EXTNAME = 'COMPRESSED'         / name of this binary table extension
 
-The contents of the HDU can be summarized by using either the `info()` convenience function or method:
+The contents of the HDU can be summarized by using either the `info()`
+convenience function or method:
 
     >>> pyfits.info('compressed_image.fits')
     Filename: compressed_image.fits
@@ -369,7 +464,16 @@ The contents of the HDU can be summarized by using either the `info()` convenien
 Data
 ----
 
-As with the header, the data of a compressed image HDU appears to the user as standard uncompressed image data.  The actual data is stored in the fits file as Binary Table data containing at least one column (COMPRESSED_DATA).  Each row of this variable-length column contains the byte stream that was generated as a result of compressing the corresponding image tile.  Several optional columns may also appear.  These include, UNCOMPRESSED_DATA to hold the uncompressed pixel values for tiles that cannot be compressed, ZSCALE and ZZERO to hold the linear scale factor and zero point offset which may be needed to transform the raw uncompressed values back to the original image pixel values, and ZBLANK to hold the integer value used to represent undefined pixels (if any) in the image.
+As with the header, the data of a compressed image HDU appears to the user as
+standard uncompressed image data.  The actual data is stored in the fits file as
+Binary Table data containing at least one column (COMPRESSED_DATA).  Each row of
+this variable-length column contains the byte stream that was generated as a
+result of compressing the corresponding image tile.  Several optional columns
+may also appear.  These include, UNCOMPRESSED_DATA to hold the uncompressed
+pixel values for tiles that cannot be compressed, ZSCALE and ZZERO to hold the
+linear scale factor and zero point offset which may be needed to transform the
+raw uncompressed values back to the original image pixel values, and ZBLANK to
+hold the integer value used to represent undefined pixels (if any) in the image.
 
 The content of the HDU data may be accessed using the ``.data`` attribute:
 
@@ -387,13 +491,16 @@ The content of the HDU data may be accessed using the ``.data`` attribute:
 Creating a Compressed Image HDU
 -------------------------------
 
-To create a compressed image HDU from scratch, simply construct a `CompImageHDU` object from an uncompressed image data array and its associated image header.  From there, the HDU can be treated just like any other image HDU.
+To create a compressed image HDU from scratch, simply construct a `CompImageHDU`
+object from an uncompressed image data array and its associated image header.
+From there, the HDU can be treated just like any other image HDU.
 
     >>> hdu = pyfits.CompImageHDU(imageData, imageHeader)
     >>> hdu.writeto('compressed_image.fits')
     >>>
 
-The signature for the `CompImageHDU` initializer method describes the possible options for constructing a `CompImageHDU` object:
+The signature for the `CompImageHDU` initializer method describes the possible
+options for constructing a `CompImageHDU` object:
 
 .. parsed-literal::
 
@@ -418,3 +525,4 @@ The signature for the `CompImageHDU` initializer method describes the possible o
        hcompSmooth:     HCOMPRESS smooth parameter
        quantizeLevel:   floating point quantization level
     """
+
