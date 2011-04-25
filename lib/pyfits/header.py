@@ -589,7 +589,7 @@ class Header(DictMixin):
             self.ascard._pos_insert(new_card, before=before, after=after)
         else:
             if key[0] == ' ':
-                useblanks = new_card._cardimage != ' '*80
+                useblanks = new_card.cardimage != ' '*80
                 self.ascard.append(new_card, useblanks=useblanks, bottom=1)
             else:
                 try:

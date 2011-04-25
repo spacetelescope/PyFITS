@@ -115,10 +115,6 @@ class StreamingHDU(object):
 
         self._ffo = _File(name, 'append')
 
-        # This class doesn't keep an internal data attribute, so this will
-        # always be false
-        self._data_loaded = False
-
         # TODO : Fix this once the HDU writing API is cleaned up
         tmp_hdu = _BaseHDU(header=self._header)
         self._hdrLoc = tmp_hdu._writeheader(self._ffo)[0]

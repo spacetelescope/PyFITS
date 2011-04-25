@@ -42,27 +42,22 @@ import pyfits.convenience
 import pyfits.hdu
 from pyfits.card import *
 from pyfits.column import *
-from pyfits.convenience import * 
+from pyfits.convenience import *
 from pyfits.fitsrec import FITS_record, FITS_rec
 from pyfits.hdu import *
+
 from pyfits.hdu.groups import GroupData
 from pyfits.hdu.hdulist import fitsopen as open
 from pyfits.hdu.image import Section
 from pyfits.hdu.table import new_table
 from pyfits.header import Header
 
-# Additional imports for compatibility with stpyfits.py (which should be
-# updated at some point)
-from pyfits.file import _File
-from pyfits.hdu.base import _AllHDU
-from pyfits.hdu.image import _ImageBaseHDU
-
 
 __all__ = pyfits.card.__all__ + pyfits.column.__all__ + \
           pyfits.convenience.__all__ + pyfits.hdu.__all__ + \
           ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',
-           'new_table', 'Header', '_File', '_AllHDU',
-           '_ImageBaseHDU', 'TRUE', 'FALSE', 'setExtensionNameCaseSensitive']
+           'new_table', 'Header', 'TRUE', 'FALSE',
+           'setExtensionNameCaseSensitive']
 
 # These are of course deprecated, but a handful of external code still uses
 # them

@@ -12,9 +12,8 @@ from pyfits.card import Card
 from pyfits.column import _FormatP
 from pyfits.file import _File
 from pyfits.hdu import compressed
-from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU
+from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU, _ExtensionHDU
 from pyfits.hdu.compressed import CompImageHDU
-from pyfits.hdu.extension import _ExtensionHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
@@ -908,6 +907,9 @@ class HDUList(list, _Verify):
             if closed and hasattr(self.__file, 'close'):
                 self.__file.close()
 
+    # TODO: Add an optioin to return the summary as a list of tuples, rather
+    # than printing--useful mainly for testing purposes, or possibly to enable
+    # alternate formatting
     def info(self):
         """
         Summarize the info of the HDUs in this `HDUList`.
@@ -924,8 +926,14 @@ class HDUList(list, _Verify):
         results = ['Filename: %s' % name,
                    'No.    Name         Type      Cards   Dimensions   Format']
 
+        format = '%-3d  %-10s  %-11s  %5d   %-10s   %s%s'
+        default = ('', '', 0, '()', '', '')
         for idx, hdu in enumerate(self):
-            results.append('%-3d  %s' % (idx, hdu._summary()))
+            summary = hdu._summary()
+            if len(summary) < len(default):
+                summary += default[len(summary):]
+            summary = (idx,) + summary
+            results.append(format % summary)
         print '\n'.join(results)
 
     def filename(self):
