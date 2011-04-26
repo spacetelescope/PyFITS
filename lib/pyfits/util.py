@@ -316,7 +316,7 @@ def _tofile(arr, outfile):
         arr.tofile(outfile)
     else: # treat as file-like object with "write" method
         s = arr.tostring()
-        outfile.write(str)
+        outfile.write(s)
 
 
 def _chunk_array(arr, CHUNK_SIZE=2 ** 25):
