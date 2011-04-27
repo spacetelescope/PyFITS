@@ -9,7 +9,7 @@ import zipfile
 import numpy as np
 from numpy import memmap as Memmap
 
-from pyfits.util import Extendable, _fromfile, _tofile, strtobytes
+from pyfits.util import Extendable, _fromfile, _tofile
 
 
 # For Py3k; use the correct file type
@@ -32,9 +32,6 @@ class _File(object):
     __metaclass__ = Extendable
 
     def __init__(self, fileobj=None, mode='copyonwrite', memmap=False):
-
-        mode = strtobytes(mode)
-
         if fileobj is None:
             self.simulateonly = True
             return
@@ -257,6 +254,10 @@ class _File(object):
             return data
 
     def write(self, string):
+        if 'b' in self.__file.mode and isinstance(string, unicode):
+            string = string.encode('raw-unicode-escape')
+        elif 'b' not in self.__file.mode and not isinstance(string, unicode):
+            string = string.decode('raw-unicode-escape')
         self.__file.write(string)
 
     def writearray(self, array):

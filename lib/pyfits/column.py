@@ -1,4 +1,5 @@
 import re
+import sys
 import warnings
 import weakref
 
@@ -6,10 +7,18 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits.card import Card
-from pyfits.util import lazyproperty, pairwise, _is_int, bytestostr
+from pyfits.util import lazyproperty, pairwise, _is_int
 
 
 __all__ = ['Column', 'ColDefs']
+
+
+if sys.version_info[0] >= 3:
+    NP_STRING_TYPE = 'U'
+    NP_STRING_REC_FIELD = 'U'
+else:
+    NP_STRING_TYPE = 'S'
+    NP_STRING_REC_FIELD = 'a'
 
 
 # mapping from TFORM data type to numpy data type (code)
@@ -24,7 +33,7 @@ __all__ = ['Column', 'ColDefs']
 # M: Double-precision Complex
 # A: Character
 FITS2NUMPY = {'L': 'i1', 'B': 'u1', 'I': 'i2', 'J': 'i4', 'K': 'i8', 'E': 'f4',
-              'D': 'f8', 'C': 'c8', 'M': 'c16', 'A': 'a'}
+              'D': 'f8', 'C': 'c8', 'M': 'c16', 'A': NP_STRING_REC_FIELD}
 
 # the inverse dictionary of the above
 NUMPY2FITS = dict([(val, key) for key, val in FITS2NUMPY.iteritems()])
@@ -240,7 +249,7 @@ class Column(object):
             return array
         else:
             if ('A' in format and 'P' not in format):
-                if 'S' in str(array.dtype):
+                if NP_STRING_TYPE in str(array.dtype):
                     fsize = int(_convert_format(format)[1:])
                     return chararray.array(array, itemsize=fsize)
                 else:
@@ -266,7 +275,7 @@ class ColDefs(object):
     corresponding attribute values from all `Column` objects.
     """
 
-    _pad_byte = '\x00'
+    _padding_byte = '\x00'
 
     def __new__(cls, input, tbtype='BinTableHDU'):
         from pyfits.hdu.table import TableHDU
@@ -385,7 +394,9 @@ class ColDefs(object):
                 continue
             for i in range(len(array)):
                 al = len(array[i])
-                array[i] = array[i] + self._pad_byte * (array.itemsize - al)
+                array[i] = array[i] + \
+                           self._padding_byte.encode('raw-unicode-escape') * \
+                           (array.itemsize - al)
 
     def __getattr__(self, name):
         """
@@ -619,7 +630,7 @@ class _ASCIIColDefs(ColDefs):
     _ascii_fmt = {'A':'A1', 'I':'I10', 'J':'I15', 'E':'E15.7', 'F':'F16.7',
                   'D':'D25.17'}
 
-    _pad_byte = ' '
+    _padding_byte = ' '
 
     def __init__(self, input, tbtype='TableHDU'):
         super(_ASCIIColDefs, self).__init__(input, tbtype)
@@ -657,7 +668,7 @@ class _ASCIIColDefs(ColDefs):
         # context in which this is used, for now...
         # TODO: Determine if we can make this less fragile.
         widths.append(self._width - self.starts[-1] + 1)
-        return ['a' + str(w) for w in widths]
+        return [NP_STRING_REC_FIELD + str(w) for w in widths]
 
     def add_col(self, column):
         # Clear existing spans value
@@ -702,7 +713,7 @@ class _VLF(np.ndarray):
             pass
         elif isinstance(value, chararray.chararray) and value.itemsize == 1:
             pass
-        elif self._dtype == 'a':
+        elif self._dtype == NP_STRING_REC_FIELD:
             value = chararray.array(value, itemsize=1)
         else:
             value = np.array(value, dtype=self._dtype)
@@ -837,13 +848,13 @@ def _makep(input, desp_output, dtype):
     data_output = _VLF([None]*len(input))
     data_output._dtype = dtype
 
-    if dtype == 'a':
+    if dtype == NP_STRING_REC_FIELD:
         _nbytes = 1
     else:
         _nbytes = np.array([],dtype=np.typeDict[dtype]).itemsize
 
     for i in range(len(input)):
-        if dtype == 'a':
+        if dtype == NP_STRING_REC_FIELD:
             data_output[i] = chararray.array(input[i], itemsize=1)
         else:
             data_output[i] = np.array(input[i], dtype=dtype)
@@ -920,8 +931,8 @@ def _convert_record2fits(format):
         shape = format.shape
         kind = format.base.kind
         option = str(format.base.itemsize)
-        if kind == 'S':
-            kind = 'a'
+        if kind == NP_STRING_TYPE:
+            kind = NP_STRING_REC_FIELD
         dtype = kind
 
         ndims = len(shape)
@@ -933,7 +944,7 @@ def _convert_record2fits(format):
     else:
         repeat, dtype, option = _parse_tformat(format)
 
-    if dtype == 'a':
+    if dtype == NP_STRING_REC_FIELD:
         # This is a kludge that will place string arrays into a
         # single field, so at least we won't lose data.  Need to
         # use a TDIM keyword to fix this, declaring as (slength,
@@ -970,7 +981,8 @@ def _convert_format(format, reverse=False):
 def _convert_ascii_format(input_format):
     """Convert ASCII table format spec to record format spec."""
 
-    ascii2rec = {'A': 'a', 'I': 'i4', 'F': 'f4', 'E': 'f4', 'D': 'f8'}
+    ascii2rec = {'A': NP_STRING_REC_FIELD, 'I': 'i4', 'F': 'f4', 'E': 'f4',
+                 'D': 'f8'}
     _re = re.compile(r'(?P<dtype>[AIFED])(?P<width>[0-9]*)')
 
     # Parse the TFORM value into data type and width.

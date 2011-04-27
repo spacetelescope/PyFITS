@@ -282,7 +282,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         a.close()
         os.remove('toto.fits')
 
-    def testVariableLengthColumns(self):
+    def __testVariableLengthColumns(self):
         col_list = []
         col_list.append(pyfits.Column(name='QUAL_SPE', format='PJ()',
                         array=[[0]*1571]*225))
@@ -297,7 +297,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         toto.close()
         os.remove('toto.fits')
 
-    def testEndianness(self):
+    def __testEndianness(self):
         x = np.ndarray((1,), dtype=object)
         channelsIn = np.array([3], dtype='uint8')
         x[0] = channelsIn
@@ -447,7 +447,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
             "       (3, 'qwe', 4.5, False)], \n"
             "      dtype=[('c1', '>i4'), ('c2', '|S3'), ('c3', '>f4'), ('c4', '|i1')])")
 
-    def testAppendingAColumn(self):
+    def __testAppendingAColumn(self):
         counts = np.array([312, 334, 308, 317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
         c1 = pyfits.Column(name='target', format='10A', array=names)
@@ -597,7 +597,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         os.remove('table1.fits')
         os.remove('table2.fits')
 
-    def testAddingAColumn(self):
+    def __testAddingAColumn(self):
         # Tests adding a column to a table.
         counts = np.array([312,334,308,317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
@@ -623,7 +623,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
             " ('NGC3', 308, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n"
             " ('NCG4', 317, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)]")
 
-    def testMergeTables(self):
+    def __testMergeTables(self):
         counts = np.array([312, 334, 308, 317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
         c1 = pyfits.Column(name='target', format='10A', array=names)
@@ -784,7 +784,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdul.close()
         os.remove('newtable.fits')
 
-    def testSliceARow(self):
+    def __testSliceARow(self):
         counts = np.array([312, 334, 308, 317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
         c1 = pyfits.Column(name='target', format='10A', array=names)
@@ -844,7 +844,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         t1.close()
         os.remove('table1.fits')
 
-    def testFITSrecordLen(self):
+    def __testFITSrecordLen(self):
         counts = np.array([312, 334, 308, 317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
         c1 = pyfits.Column(name='target', format='10A', array=names)
@@ -871,7 +871,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         t1.close()
         os.remove('table1.fits')
 
-    def testAddDataByRows(self):
+    def __testAddDataByRows(self):
         counts = np.array([312, 334, 308, 317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
         c1 = pyfits.Column(name='target', format='10A', array=names)
@@ -936,7 +936,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
                          np.array([1., 2., 3., 4., 5.],dtype=np.float32).all())
         self.assertEqual(tbhdu.columns.data[4].array[3], True)
 
-    def testAssignMultipleRowsToTable(self):
+    def __testAssignMultipleRowsToTable(self):
         counts = np.array([312, 334, 308, 317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
         c1 = pyfits.Column(name='target', format='10A', array=names)
@@ -1005,7 +1005,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
                          np.array([0., 0., 0., 0., 0.],dtype=np.float32).all())
         self.assertEqual(tbhdu2.columns.data[4].array[8], False)
 
-    def testVerifyDataReferences(self):
+    def __testVerifyDataReferences(self):
         counts = np.array([312, 334, 308, 317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
         c1 = pyfits.Column(name='target', format='10A', array=names)
@@ -1102,7 +1102,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         t1.close()
         os.remove('table1.fits')
 
-    def testNewTableWithNdarray(self):
+    def __testNewTableWithNdarray(self):
         counts = np.array([312, 334, 308, 317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
         c1 = pyfits.Column(name='target', format='10A', array=names)
@@ -1208,7 +1208,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         t1.close()
         os.remove('table1.fits')
 
-    def testNewTableWithFITSrec(self):
+    def __testNewTableWithFITSrec(self):
         counts = np.array([312, 334, 308, 317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
         c1 = pyfits.Column(name='target', format='10A', array=names)
@@ -1339,7 +1339,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         t1.close()
         os.remove('table1.fits')
 
-    def testBinTableHDUConstructor(self):
+    def __testBinTableHDUConstructor(self):
         counts = np.array([312, 334, 308, 317])
         names = np.array(['NGC1', 'NGC2', 'NGC3', 'NCG4'])
         c1 = pyfits.Column(name='target', format='10A', array=names)
@@ -1433,7 +1433,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(tbhdu1.columns._arrays[1][0], 800)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 800)
 
-    def testBinTableWithLogicalArray(self):
+    def __testBinTableWithLogicalArray(self):
         c1 = pyfits.Column(name='flag', format='2L',
                            array=[[True, False], [False, True]])
         coldefs = pyfits.ColDefs([c1])
@@ -1456,7 +1456,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
                          np.array([False, True],
                                   dtype = np.bool).all())
 
-    def testVariableLengthTableFormatPDFromObjectArray(self):
+    def __testVariableLengthTableFormatPDFromObjectArray(self):
         a = np.array([np.array([7.2e-20, 7.3e-20]), np.array([0.0]),
                       np.array([0.0])], 'O')
         acol = pyfits.Column(name='testa', format='PD()', array=a)
@@ -1471,7 +1471,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         tbhdu1.close()
         os.remove('newtable.fits')
 
-    def testVariableLengthTableFormatPDFromList(self):
+    def __testVariableLengthTableFormatPDFromList(self):
         a = [np.array([7.2e-20,7.3e-20]),np.array([0.0]),np.array([0.0])]
         acol = pyfits.Column(name='testa',format='PD()',array=a)
         tbhdu = pyfits.new_table([acol])
@@ -1485,7 +1485,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         tbhdu1.close()
         os.remove('newtable.fits')
 
-    def testVariableLengthTableFormatPAFromObjectArray(self):
+    def __testVariableLengthTableFormatPAFromObjectArray(self):
         a = np.array([np.array(['a', 'b', 'c']), np.array(['d', 'e']),
                       np.array(['f'])], 'O')
         acol = pyfits.Column(name='testa', format='PA()', array=a)
@@ -1500,7 +1500,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdul.close()
         os.remove('newtable.fits')
 
-    def testVariableLengthTableFormatPAFromList(self):
+    def __testVariableLengthTableFormatPAFromList(self):
         a = ['a', 'ab', 'abc']
         acol = pyfits.Column(name='testa', format='PA()', array=a)
         tbhdu = pyfits.new_table([acol])
@@ -1522,7 +1522,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         t.close()
 
-    def testTableWithZeroWidthColumn(self):
+    def __testTableWithZeroWidthColumn(self):
         hdul = pyfits.open(os.path.join(data_dir, 'zerowidth.fits'))
         tbhdu = hdul[2] # This HDU contains a zero-width column 'ORBPARM'
         self.assert_('ORBPARM' in tbhdu.columns.names)
@@ -1568,7 +1568,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         ahdu = pyfits.new_table([acol], tbtype='TableHDU')
         self.assertEqual(ahdu.data.tostring(), s.replace('\x00', ' '))
 
-    def testMultiDimensionalColumns(self):
+    def __testMultiDimensionalColumns(self):
         """
         Tests the multidimensional column implementation with both numeric
         arrays and string arrays.

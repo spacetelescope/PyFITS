@@ -286,30 +286,6 @@ class lazyproperty(object):
             del obj.__dict__[key]
 
 
-if sys.version_info[0] >= 3:
-    def strtobytes(s):
-        if isinstance(s, str):
-        # There should never be a case where non-ascii characters are used in
-        # FITS keywords and such
-            return s.encode('ascii')
-        else:
-            # If s is already bytes, or something else entirely, just assume
-            # it's correct and return it
-            return s
-
-    def bytestostr(b):
-        if isinstance(b, bytes):
-            return b.decode('ascii')
-        else:
-            return b
-else:
-    def strtobytes(s):
-        # Do nothing; strings are fine
-        return s
-
-    def bytestostr(b):
-        return b
-
 def pairwise(iterable):
     """Return the items of an iterable paired with its next item.
 
@@ -342,7 +318,13 @@ def _tofile(arr, outfile):
         arr.tofile(outfile)
     else: # treat as file-like object with "write" method
         s = arr.tostring()
-        outfile.write(str)
+        # TODO: Find some way to centralize this sort of functionality
+        # (converting str to bytes depending on file mode)
+        if 'b' in outfile.mode and isinstance(outfile, basestring):
+            s = s.encode('raw-unicode-escape')
+        elif 'b' not in outfile.mode and not isinstance(outfile, basestring):
+            s = s.decode('raw-unicode-escape')
+        outfile.write(s)
 
 
 def _chunk_array(arr, CHUNK_SIZE=2 ** 25):

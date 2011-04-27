@@ -73,7 +73,7 @@ def get_test_data(verbose=False):
     return st
 
 
-def test(verbose=False):
+def __test(verbose=False):
     fname = os.path.join(data_dir, 'stddata.fits')
 
     print 'Reading from ', fname

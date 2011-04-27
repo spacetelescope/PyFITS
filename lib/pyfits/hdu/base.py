@@ -228,7 +228,7 @@ class _BaseHDU(object):
         hdr_offset = fileobj.tell()
 
         # Read the first header block.
-        block = fileobj.read(BLOCK_SIZE)
+        block = fileobj.read(BLOCK_SIZE).decode('raw-unicode-escape')
         if block == '':
             raise EOFError()
 
@@ -240,7 +240,7 @@ class _BaseHDU(object):
             mo = HEADER_END_RE.search(block)
             if mo is None:
                 blocks.append(block)
-                block = fileobj.read(BLOCK_SIZE)
+                block = fileobj.read(BLOCK_SIZE).decode('raw-unicode-escape')
                 if block == '':
                     break
             else:
@@ -305,7 +305,7 @@ class _BaseHDU(object):
                 offset = fileobj.tell()
             except (AttributeError, IOError):
                 offset = 0
-            fileobj.write(blocks)
+            fileobj.write(blocks.encode('raw-unicode-escape'))
             fileobj.flush()
 
         # If data is unsigned integer 16, 32 or 64, remove the
@@ -334,7 +334,11 @@ class _BaseHDU(object):
             size += self._writedata_internal(fileobj)
             # pad the FITS data block
             if size > 0 and not fileobj.simulateonly:
-                fileobj.write(_pad_length(size) * self._padding_byte)
+                padding = _pad_length(size) * self._padding_byte
+                # TODO: Not that this is ever likely, but if for some odd
+                # reason _padding_byte is > 0x80 this will fail.  Maybe do
+                # something cleaner...
+                fileobj.write(padding.encode('raw-unicode-escape'))
 
         # flush, to make sure the content is written
         if not fileobj.simulateonly:
@@ -1220,4 +1224,4 @@ class _ValidHDU(_BaseHDU, _Verify):
         for i in range(16):
             ascii[i] = asc[(i+15) % 16]
 
-        return ascii.tostring()
+        return ascii.tostring().decode('raw-unicode-escape')

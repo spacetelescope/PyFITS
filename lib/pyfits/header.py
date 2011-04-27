@@ -8,7 +8,7 @@ except ImportError:
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _ContinueCard, _HierarchCard, create_card, \
                         create_card_from_string, upper_key
-from pyfits.util import BLOCK_SIZE, strtobytes, bytestostr
+from pyfits.util import BLOCK_SIZE
 
 
 # TODO: The UserDict documentation recommends using the
@@ -93,8 +93,6 @@ class Header(DictMixin):
             Returns `True` if found, otherwise, `False`.
         """
 
-        key = strtobytes(key)
-
         key = upper_key(key)
         if key[:8] == 'HIERARCH':
             key = key[8:].strip()
@@ -108,8 +106,7 @@ class Header(DictMixin):
         card = self.ascard[key]
 
         if isinstance(card, RecordValuedKeywordCard) and \
-           (not isinstance(bytestostr(key), basestring) or
-            '.' not in strtobytes(key)):
+           (not isinstance(key, basestring) or '.' not in key):
             return card.strvalue()
         elif isinstance(card, CardList):
             return card
@@ -130,7 +127,7 @@ class Header(DictMixin):
         """
 
         # delete ALL cards with the same keyword name
-        if isinstance(bytestostr(key), basestring):
+        if isinstance(key, basestring):
             while True:
                 try:
                     del self.ascard[key]
@@ -246,8 +243,6 @@ class Header(DictMixin):
             preserved.
         """
 
-        key = strtobytes(key)
-
         keylist = RecordValuedKeywordCard.validKeyValue(key, value)
 
         if keylist:
@@ -324,9 +319,6 @@ class Header(DictMixin):
             When `True`, if new key name already exists, force to have
             duplicate name.
         """
-
-        oldkey = strtobytes(oldkey)
-        newkey = strtobytes(newkey)
 
         oldkey = upper_key(oldkey)
         newkey = upper_key(newkey)
@@ -598,8 +590,6 @@ class Header(DictMixin):
         of cards of the same name (except blank card).  If there is no
         card (or blank card), append at the end.
         """
-
-        key = strtobytes(key)
 
         new_card = Card(key, value)
         if before is not None or after is not None:

@@ -571,7 +571,8 @@ class BinTableHDU(_TableBaseHDU):
                 # write out the heap of variable length array
                 # columns this has to be done after the
                 # "regular" data is written (above)
-                fileobj.write(self.data._gap * '\0')
+                fileobj.write(
+                    (self.data._gap * '\0').encode('raw-unicode-escape'))
 
             nbytes = self.data._gap
 

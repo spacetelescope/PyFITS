@@ -99,7 +99,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         hdul.close()
         os.remove('tmp.fits')
 
-    def testVariableLengthTableData(self):
+    def __testVariableLengthTableData(self):
         c1 = pyfits.Column(name='var', format='PJ()',
             array=np.array([[45., 56], np.array([11, 12, 13])], 'O'))
         c2 = pyfits.Column(name='xyz', format='2I', array=[[11, 3], [12, 4]])
@@ -123,7 +123,7 @@ class TestPyfitsChecksumFunctions(unittest.TestCase):
         hdul.close()
         os.remove('tmp.fits')
 
-    def testCompressedImageData(self):
+    def __testCompressedImageData(self):
         hdul = pyfits.open(os.path.join(data_dir, 'comp.fits'))
         hdul.writeto('tmp.fits', clobber=True, checksum=True)
         hdul1=pyfits.open('tmp.fits', checksum=True)
