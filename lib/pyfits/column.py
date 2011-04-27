@@ -221,7 +221,7 @@ class Column(object):
         for attr in KEYWORD_ATTRIBUTES:
             value = getattr(self, attr)
             if value is not None:
-                text += cname + ' = ' + repr(value) + '; '
+                text += attr + ' = ' + repr(value) + '; '
         return text[:-2]
 
     def copy(self):
