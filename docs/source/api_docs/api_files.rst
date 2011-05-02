@@ -3,8 +3,8 @@
 Files
 =====
 
-Free Functions
---------------
+Convenience Functions
+---------------------
 
 open
 ````

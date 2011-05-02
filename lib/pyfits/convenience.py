@@ -194,7 +194,7 @@ def getval(filename, key, *ext, **extkeys):
     key : str
         keyword name
 
-    classExtensions : (optional)
+    classExtensions : (optional) **(Deprecated)**
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
@@ -291,7 +291,7 @@ def delval(filename, key, *ext, **extkeys):
     key : str, int
         Keyword name or index
 
-    classExtensions : optional
+    classExtensions : optional **(Deprecated)**
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
@@ -331,7 +331,7 @@ def writeto(filename, data, header=None, **keys):
         of the appropriate type is created for the supplied data. This
         argument is optional.
 
-    classExtensions : dict, optional
+    classExtensions : dict, optional **(Deprecated)**
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
@@ -383,7 +383,7 @@ def append(filename, data, header=None, classExtensions={}, checksum=False,
         The header associated with `data`.  If `None`, an appropriate
         header will be created for the data object supplied.
 
-    classExtensions : dictionary, optional
+    classExtensions : dictionary, optional **(Deprecated)**
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
@@ -446,7 +446,7 @@ def update(filename, data, *ext, **extkeys):
     data : array, table, or group data object
         the new data used for updating
 
-    classExtensions : dict, optional
+    classExtensions : dict, optional **(Deprecated)**
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
@@ -506,7 +506,7 @@ def info(filename, classExtensions={}, **kwargs):
         FITS file to obtain info from.  If opened, mode must be one of
         the following: rb, rb+, or ab+.
 
-    classExtensions : dict, optional
+    classExtensions : dict, optional **(Deprecated)**
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
@@ -576,7 +576,7 @@ def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
     clobber : bool
         Overwrite the output files if they exist.
 
-    classExtensions : dict
+    classExtensions : dict **(Deprecated)**
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.

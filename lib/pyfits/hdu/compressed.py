@@ -5,7 +5,7 @@ import numpy as np
 from pyfits import rec
 from pyfits.column import DELAYED, Column, ColDefs, _FormatP, _makep
 from pyfits.fitsrec import FITS_rec
-from pyfits.hdu.extension import _ExtensionHDU
+from pyfits.hdu.base import _ExtensionHDU
 from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
 from pyfits.util import lazyproperty, _pad_length
@@ -1143,8 +1143,6 @@ if COMPRESSION_SUPPORTED:
 
                 if cn_zblank:
                     data = np.where(blanks, np.nan, data)
-
-            self._data_loaded = True
             return data
 
         def _setdata(self, value):
@@ -1383,8 +1381,7 @@ if COMPRESSION_SUPPORTED:
             """
             Summarize the HDU: name, dimensions, and formats.
             """
-            class_name  = str(self.__class__)
-            type  = class_name[class_name.rfind('.')+1:-2]
+            class_name  = self.__class__.__name__
 
             # if data is touched, use data info.
             if self._data_loaded:
@@ -1409,8 +1406,8 @@ if COMPRESSION_SUPPORTED:
 
                 _format = _ImageBaseHDU.NumCode[self.header['BITPIX']]
 
-            return "%-10s  %-12s  %4d  %-12s  %s" % \
-               (self.name, type, len(self.header.ascard), _shape, _format)
+            return (self.name, class_name, len(self.header.ascard), _shape,
+                    _format)
 
         def updateCompressedData(self):
             """

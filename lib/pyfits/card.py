@@ -11,7 +11,8 @@ from pyfits.verify import _Verify, _ErrList
 
 
 __all__ = ['Card', 'CardList', 'RecordValuedKeywordCard', 'create_card',
-           'create_card_from_string', 'createCard', 'createCardFromString']
+           'create_card_from_string', 'upper_key', 'createCard',
+           'createCardFromString', 'upperKey', 'Undefined']
 
 
 # TODO: Maybe put versions of maketrans and translate in util module
@@ -142,6 +143,7 @@ class Card(_Verify):
         Construct a card from `key`, `value`, and (optionally) `comment`.
         Any specifed arguments, except defaults, must be compliant to FITS
         standard.
+
         Parameters
         ----------
         key : str, optional

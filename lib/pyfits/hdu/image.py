@@ -3,9 +3,7 @@ import numpy as np
 
 from pyfits.card import Card, CardList
 from pyfits.column import DELAYED
-from pyfits.hdu.base import _ValidHDU
-from pyfits.hdu.extension import _ExtensionHDU
-from pyfits.hdu.base import _ValidHDU
+from pyfits.hdu.base import _ValidHDU, _ExtensionHDU
 from pyfits.header import Header
 from pyfits.util import _is_pseudo_unsigned, _unsigned_zero, _is_int, \
                         _pad_length, _normalize_slice, lazyproperty
@@ -38,7 +36,6 @@ class _ImageBaseHDU(_ValidHDU):
 
     def __init__(self, data=None, header=None, do_not_scale_image_data=False,
                  uint=False):
-        from pyfits.hdu.extension import _ExtensionHDU
         from pyfits.hdu.groups import GroupsHDU
 
         super(_ImageBaseHDU, self).__init__(data=data, header=header)
@@ -122,8 +119,6 @@ class _ImageBaseHDU(_ValidHDU):
 
     @lazyproperty
     def data(self):
-        self._data_loaded = True
-
         if self._header['NAXIS'] < 1:
             return
 
@@ -407,17 +402,14 @@ class _ImageBaseHDU(_ValidHDU):
 #        print "axes in _dimShape line 2081:",axes
         return tuple(axes)
 
+    # TODO: Move the GroupsHDU-specific summary code to GroupsHDU itself
     def _summary(self):
         """
         Summarize the HDU: name, dimensions, and formats.
         """
         from pyfits.hdu.groups import GroupsHDU
 
-        class_name  = str(self.__class__)
-        type  = class_name[class_name.rfind('.')+1:-2]
-
-        if type.find('_') != -1:
-            type = type[type.find('_')+1:]
+        class_name  = self.__class__.__name__
 
         # if data is touched, use data info.
         if self._data_loaded:
@@ -452,9 +444,8 @@ class _ImageBaseHDU(_ValidHDU):
                       % (self._header['GCOUNT'], self._header['PCOUNT'])
         else:
             _gcount = ''
-        return "%-10s  %-11s  %5d  %-12s  %s%s" \
-               % (self.name, type, len(self._header.ascard), _shape, _format,
-                  _gcount)
+        return (self.name, class_name, len(self._header.ascard), _shape,
+                _format, _gcount)
 
     def _calculate_datasum(self, blocking):
         """

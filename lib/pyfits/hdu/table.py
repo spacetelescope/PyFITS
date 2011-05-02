@@ -17,8 +17,7 @@ from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
                           _ASCIIColDefs, _FormatX, _FormatP, _wrapx, _makep, \
                           _VLF, _parse_tformat, _convert_format
 from pyfits.fitsrec import FITS_rec
-from pyfits.hdu.base import _ValidHDU
-from pyfits.hdu.extension import _ExtensionHDU
+from pyfits.hdu.base import _ValidHDU, _ExtensionHDU
 from pyfits.header import Header
 from pyfits.util import lazyproperty, _is_int, _str_to_num, _pad_length
 
@@ -210,7 +209,6 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
             del self.columns
         else:
             data = None
-        self._data_loaded = True
         return data
 
     @lazyproperty
@@ -328,8 +326,7 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
         dims = "%dR x %dC" % (nrows, ncols)
         ncards = len(self._header.ascard)
 
-        return "%-10s  %-11s  %5d  %-12s  %s" \
-               % (self.name, class_name, ncards, dims, format)
+        return (self.name, class_name, ncards, dims, format)
 
     def _clear_table_keywords(self):
         """Wipe out any existing table definition keywords from the header."""
@@ -1177,7 +1174,6 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     else:
         hdu.data = FITS_rec(rec.array(None, formats=",".join(tmp._recformats),
                                       names=tmp.names, shape=nrows))
-    hdu._data_loaded = True
 
     hdu.data._coldefs = hdu.columns
     hdu.data.formats = hdu.columns.formats

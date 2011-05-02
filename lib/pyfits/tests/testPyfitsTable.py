@@ -502,8 +502,8 @@ class TestPyfitsTableFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: newtable.fits\n'
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    PRIMARY     PrimaryHDU       4  ()            uint8\n'
-                '1                BinTableHDU     19  8R x 5C       [10A, J, 10A, 5E, L]\n')
+                '0    PRIMARY     PrimaryHDU       4   ()           uint8\n'
+                '1                BinTableHDU     19   8R x 5C      [10A, J, 10A, 5E, L]\n')
 
         self.assertEqual(str(hdu.data),
             "[ ('NGC1', 312, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n"
@@ -705,8 +705,8 @@ class TestPyfitsTableFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: newtable.fits\n'
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    PRIMARY     PrimaryHDU       4  ()            uint8\n'
-                '1                BinTableHDU     30  4R x 10C      [10A, J, 10A, 5E, L, 10A, J, 10A, 5E, L]\n')
+                '0    PRIMARY     PrimaryHDU       4   ()           uint8\n'
+                '1                BinTableHDU     30   4R x 10C     [10A, J, 10A, 5E, L, 10A, J, 10A, 5E, L]\n')
 
         hdul = pyfits.open('newtable.fits')
         hdu = hdul[1]

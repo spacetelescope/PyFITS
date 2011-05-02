@@ -310,11 +310,11 @@ class TestPyfitsImageFunctions(unittest.TestCase):
             self.assertEqual(f.getvalue(),
                 'Filename: %s\n' % os.path.join(data_dir, 'test0.fits') +
                 'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    PRIMARY     PrimaryHDU     138  ()            int16\n'
-                '1    SCI         ImageHDU        61  (40, 40)      int16\n'
-                '2    SCI         ImageHDU        61  (40, 40)      int16\n'
-                '3    SCI         ImageHDU        61  (40, 40)      int16\n'
-                '4    SCI         ImageHDU        61  (40, 40)      int16\n')
+                '0    PRIMARY     PrimaryHDU     138   ()           int16\n'
+                '1    SCI         ImageHDU        61   (40, 40)     int16\n'
+                '2    SCI         ImageHDU        61   (40, 40)     int16\n'
+                '3    SCI         ImageHDU        61   (40, 40)     int16\n'
+                '4    SCI         ImageHDU        61   (40, 40)     int16\n')
 
     def testIOManipulation(self):
         # Get a keyword value.  An extension can be referred by name or by number.

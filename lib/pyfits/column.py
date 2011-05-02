@@ -10,12 +10,14 @@ from pyfits.card import Card
 from pyfits.util import lazyproperty, pairwise, _is_int
 
 
-__all__ = ['Column', 'ColDefs']
+__all__ = ['Column', 'ColDefs', 'Delayed']
 
 
 if sys.version_info[0] >= 3:
-    NP_STRING_TYPE = 'U'
-    NP_STRING_REC_FIELD = 'U'
+    #NP_STRING_TYPE = 'U'
+    #NP_STRING_REC_FIELD = 'U'
+    NP_STRING_TYPE = 'S'
+    NP_STRING_REC_FIELD = 'a'
 else:
     NP_STRING_TYPE = 'S'
     NP_STRING_REC_FIELD = 'a'
@@ -230,7 +232,7 @@ class Column(object):
         for attr in KEYWORD_ATTRIBUTES:
             value = getattr(self, attr)
             if value is not None:
-                text += cname + ' = ' + repr(value) + '; '
+                text += attr + ' = ' + repr(value) + '; '
         return text[:-2]
 
     def copy(self):
@@ -394,9 +396,8 @@ class ColDefs(object):
                 continue
             for i in range(len(array)):
                 al = len(array[i])
-                array[i] = array[i] + \
-                           self._padding_byte.encode('raw-unicode-escape') * \
-                           (array.itemsize - al)
+                pad = self._padding_byte.encode('raw-unicode-escape')
+                array[i] = array[i] + (pad * (array.itemsize - al))
 
     def __getattr__(self, name):
         """
