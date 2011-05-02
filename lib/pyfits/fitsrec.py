@@ -1,4 +1,5 @@
 import operator
+import sys
 import warnings
 
 import numpy as np
@@ -555,3 +556,4 @@ class FITS_rec(rec.recarray):
                         np.choose(self._convert[indx],
                                   (np.array([ord('F')], dtype=np.int8)[0],
                                   np.array([ord('T')],dtype=np.int8)[0]))
+

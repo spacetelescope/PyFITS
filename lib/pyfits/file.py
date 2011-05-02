@@ -9,6 +9,7 @@ import zipfile
 import numpy as np
 from numpy import memmap as Memmap
 
+from pyfits.rec import _fix_dtype
 from pyfits.util import Extendable, _fromfile, _tofile
 
 
@@ -217,7 +218,11 @@ class _File(object):
         if not hasattr(self.__file, 'read'):
             raise EOFError
 
-        dtype = np.dtype(dtype)
+        if not isinstance(dtype, np.dtype):
+            dtype = np.dtype(dtype)
+
+        dtype = _fix_dtype(dtype)
+
         if size and size % dtype.itemsize != 0:
             raise ValueError('size %d not a multiple of %s' % (size, dtype))
 
