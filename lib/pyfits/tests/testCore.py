@@ -63,12 +63,21 @@ def test_add_del_columns2():
     table = hdulist[1]
     assert table.data.dtype.names == ('c1', 'c2', 'c3', 'c4')
     assert table.columns.names == ['c1', 'c2', 'c3', 'c4']
+    #old_data = table.data.base.copy().view(pyfits.FITS_rec)
     table.columns.del_col('c1')
     assert table.data.dtype.names == ('c2', 'c3', 'c4')
     assert table.columns.names == ['c2', 'c3', 'c4']
+
+    #for idx in range(len(old_data)):
+    #    assert np.all(old_data[idx][1:] == table.data[idx])
+
     table.columns.del_col('c3')
     assert table.data.dtype.names == ('c2', 'c4')
     assert table.columns.names == ['c2', 'c4']
+
+    #for idx in range(len(old_data)):
+    #    assert np.all(old_data[idx][2:] == table.data[idx])
+
     table.columns.add_col(pyfits.Column('foo', '3J'))
     assert table.data.dtype.names == ('c2', 'c4', 'foo')
     assert table.columns.names == ['c2', 'c4', 'foo']

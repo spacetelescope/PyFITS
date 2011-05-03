@@ -157,7 +157,8 @@ class Column(object):
             # are not supported by numpy we mark columns that use them as
             # "phantom" columns, that are not considered when reading the data
             # as a record array.
-            if self.format[0] == '0' or self.format[-1] == '0':
+            if self.format[0] == '0' or \
+               (self.format[-1] == '0' and self.format[-2].isalpha()):
                 self._phantom = True
             else:
                 self._phantom = False
