@@ -245,7 +245,7 @@ class _BaseHDU(object):
         hdr_offset = fileobj.tell()
 
         # Read the first header block.
-        block = fileobj.read(BLOCK_SIZE).decode('raw-unicode-escape')
+        block = fileobj.read(BLOCK_SIZE).decode('ascii')
         if block == '':
             raise EOFError()
 
@@ -257,7 +257,7 @@ class _BaseHDU(object):
             mo = HEADER_END_RE.search(block)
             if mo is None:
                 blocks.append(block)
-                block = fileobj.read(BLOCK_SIZE).decode('raw-unicode-escape')
+                block = fileobj.read(BLOCK_SIZE).decode('ascii')
                 if block == '':
                     break
             else:
@@ -322,7 +322,7 @@ class _BaseHDU(object):
                 offset = fileobj.tell()
             except (AttributeError, IOError):
                 offset = 0
-            fileobj.write(blocks.encode('raw-unicode-escape'))
+            fileobj.write(blocks.encode('ascii'))
             fileobj.flush()
 
         # If data is unsigned integer 16, 32 or 64, remove the
@@ -353,9 +353,10 @@ class _BaseHDU(object):
             if size > 0 and not fileobj.simulateonly:
                 padding = _pad_length(size) * self._padding_byte
                 # TODO: Not that this is ever likely, but if for some odd
-                # reason _padding_byte is > 0x80 this will fail.  Maybe do
-                # something cleaner...
-                fileobj.write(padding.encode('raw-unicode-escape'))
+                # reason _padding_byte is > 0x80 this will fail; but really if
+                # somebody's custom fits format is doing that, they're doing it
+                # wrong and should be reprimanded harshly.
+                fileobj.write(padding.encode('ascii'))
 
         # flush, to make sure the content is written
         if not fileobj.simulateonly:
@@ -1242,7 +1243,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         for i in range(16):
             ascii[i] = asc[(i+15) % 16]
 
-        return ascii.tostring().decode('raw-unicode-escape')
+        return ascii.tostring().decode('ascii')
 
 
 class _ExtensionHDU(_ValidHDU):

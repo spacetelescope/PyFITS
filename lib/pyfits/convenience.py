@@ -1,6 +1,5 @@
 import gzip
 import os
-import sys
 
 import numpy as np
 
@@ -18,13 +17,6 @@ __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
            'append', 'update', 'info', 'tdump', 'tcreate']
 
 """Convenience functions"""
-
-
-# For Py3k; use the correct file type
-# TODO: Consider moving this to the py3kcompat module and add file to builtins
-if sys.version_info[0] >= 3:
-    import io
-    file = io.FileIO
 
 
 def getheader(filename, *ext, **extkeys):

@@ -569,7 +569,7 @@ class BinTableHDU(_TableBaseHDU):
                 # columns this has to be done after the
                 # "regular" data is written (above)
                 fileobj.write(
-                    (self.data._gap * '\0').encode('raw-unicode-escape'))
+                    (self.data._gap * '\0').encode('ascii'))
 
             nbytes = self.data._gap
 
@@ -1200,6 +1200,10 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
         # Get any scale factors from the FITS_rec
         _scale, _zero, bscale, bzero, dim = hdu.data._get_scale_factors(i)[3:]
 
+        field = rec.recarray.field(hdu.data, i)
+        if isinstance(field, chararray.chararray):
+            field = field.view(np.ndarray)
+
         if n > 0:
             # Only copy data if there is input data to copy
             # Copy all of the data from the input ColDefs object for this
@@ -1207,29 +1211,25 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
             if isinstance(tmp._recformats[i], _FormatX):
                 # Data is a bit array
                 if tmp._arrays[i][:n].shape[-1] == tmp._recformats[i]._nx:
-                    _wrapx(tmp._arrays[i][:n],
-                           rec.recarray.field(hdu.data,i)[:n],
+                    _wrapx(tmp._arrays[i][:n], field[:n],
                            tmp._recformats[i]._nx)
                 else: # from a table parent data, just pass it
-                    rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
+                    field[:n] = tmp._arrays[i][:n]
             elif isinstance(tmp._recformats[i], _FormatP):
-                hdu.data._convert[i] = _makep(tmp._arrays[i][:n],
-                                            rec.recarray.field(hdu.data,i)[:n],
-                                            tmp._recformats[i]._dtype)
+                hdu.data._convert[i] = _makep(tmp._arrays[i][:n], field[:n],
+                                              tmp._recformats[i]._dtype)
             elif tmp._recformats[i][-2:] == FITS2NUMPY['L'] and \
                  tmp._arrays[i].dtype == bool:
                 # column is boolean
-                rec.recarray.field(hdu.data,i)[:n] = \
-                           np.where(tmp._arrays[i]==False, ord('F'), ord('T'))
+                field[:n] = np.where(tmp._arrays[i]==False, ord('F'), ord('T'))
             else:
                 if tbtype == 'TableHDU':
-
                     # string no need to convert,
                     if isinstance(tmp._arrays[i], chararray.chararray):
-                        rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
+                        field[:n] = tmp._arrays[i][:n]
                     else:
-                        hdu.data._convert[i] = np.zeros(nrows,
-                                                    dtype=tmp._arrays[i].dtype)
+                        hdu.data._convert[i] = \
+                                np.zeros(nrows, dtype=tmp._arrays[i].dtype)
                         if _scale or _zero:
                             _arr = tmp._arrays[i].copy()
                         else:
@@ -1240,20 +1240,18 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                             _arr += bzero
                         hdu.data._convert[i][:n] = _arr[:n]
                 else:
-                    rec.recarray.field(hdu.data,i)[:n] = tmp._arrays[i][:n]
+                    field[:n] = tmp._arrays[i][:n]
 
         if n < nrows:
             # If there are additional rows in the new table that were not
             # copied from the input ColDefs object, initialize the new data
             if tbtype == 'BinTableHDU':
-                if isinstance(rec.recarray.field(hdu.data,i), np.ndarray):
-                    # make the scaled data = 0
-                    rec.recarray.field(hdu.data,i)[n:] = -bzero/bscale
+                if isinstance(field, np.ndarray):
+                    field[n:] = -bzero/bscale
                 else:
-                    rec.recarray.field(hdu.data,i)[n:] = ''
+                    field[n:] = ''
             else:
-                rec.recarray.field(hdu.data,i)[n:] = \
-                                                 ' '*hdu.data._coldefs.spans[i]
+                field[n:] = ' ' * hdu.data._coldefs.spans[i]
 
     # Update the HDU header to match the data
     hdu.update()

@@ -320,10 +320,10 @@ def _tofile(arr, outfile):
         s = arr.tostring()
         # TODO: Find some way to centralize this sort of functionality
         # (converting str to bytes depending on file mode)
-        if 'b' in outfile.mode and isinstance(outfile, basestring):
-            s = s.encode('raw-unicode-escape')
-        elif 'b' not in outfile.mode and not isinstance(outfile, basestring):
-            s = s.decode('raw-unicode-escape')
+        if 'b' in outfile.mode and isinstance(outfile, unicode):
+            s = s.encode('ascii')
+        elif 'b' not in outfile.mode and not isinstance(outfile, unicode):
+            s = s.decode('ascii')
         outfile.write(s)
 
 

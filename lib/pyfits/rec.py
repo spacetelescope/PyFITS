@@ -11,11 +11,6 @@ import warnings
 import numpy as np
 import StringIO
 
-# For Py3k; use the correct file type
-if sys.version_info[0] >= 3:
-    import io
-    file = io.FileIO
-
 ndarray = sb.ndarray
 
 _byteorderconv = {'b':'>',
@@ -195,7 +190,6 @@ class recarray(ndarray):
                 byteorder=None, aligned=False, heapoffset=0, file=None):
 
         if dtype is not None:
-            dtype = _fix_dtype(dtype)
             descr = sb.dtype(dtype)
         else:
             descr = format_parser(formats, names, titles, aligned, byteorder)._descr
@@ -619,36 +613,3 @@ def array(obj, dtype=None, shape=None, offset=0, strides=None, formats=None,
         if issubclass(res.dtype.type, nt.void):
             res.dtype = sb.dtype((record, res.dtype))
         return res
-
-
-if sys.version_info[0] >= 3:
-    def _fix_dtype(dtype):
-        """
-        Numpy has a bug (in Python3 only) that causes a segfault when accessing
-        the data of arrays containing nested arrays.  Specifically, this
-        happens if the shape of the subarray is not given as a tuple.  See
-        http://projects.scipy.org/numpy/ticket/1766.
-
-        This fixes the dtype of all incoming recarrays to ensure that the shape
-        is a tuple.  Note that this is only necessary in the Python 3 version,
-        and so this can be a noop on Python 2.
-
-        We can also make this a noop for any Numpy release that contains the
-        fix (though currently only the dev version is fixed).
-        """
-
-        if dtype.fields is None:
-            return dtype
-
-        new_dtype = []
-        for name in dtype.names:
-            field = dtype.fields[name][0]
-            shape = field.shape
-            if not isinstance(shape, tuple):
-                shape = (shape,)
-            new_dtype.append((name, field.base, shape))
-
-        return np.dtype(new_dtype)
-else:
-    def _fix_dtype(dtype):
-        return dtype

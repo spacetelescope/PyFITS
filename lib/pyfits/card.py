@@ -4,7 +4,6 @@ import sys
 import warnings
 
 import numpy as np
-from numpy import char as chararray
 
 from pyfits.util import _str_to_num, _is_int
 from pyfits.verify import _Verify, _ErrList
@@ -15,7 +14,7 @@ __all__ = ['Card', 'CardList', 'RecordValuedKeywordCard', 'create_card',
            'createCardFromString', 'upperKey', 'Undefined']
 
 
-# TODO: Maybe put versions of maketrans and translate in util module
+# TODO: Move this stuff to the py3compat module
 if sys.version_info[0] >= 3:
     FIX_FP_TABLE = str.maketrans('de', 'DE')
     FIX_FP_TABLE2 = str.maketrans('dD', 'eE')
@@ -1627,10 +1626,10 @@ class _ContinueCard(Card):
         lst = []
         _nblanks = input.count(' ')
         nmax = max(_nblanks, len(input)//strlen+1)
-        arr = chararray.array(input+' ', itemsize=1)
+        arr = np.fromstring((input + ' '), dtype=(np.bytes_, 1))
 
         # locations of the blanks
-        blank_loc = np.nonzero(arr == ' ')[0]
+        blank_loc = np.nonzero(arr == np.bytes_(' '))[0]
         offset = 0
         xoffset = 0
         for idx in range(nmax):

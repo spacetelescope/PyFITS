@@ -9,15 +9,7 @@ import zipfile
 import numpy as np
 from numpy import memmap as Memmap
 
-from pyfits.rec import _fix_dtype
 from pyfits.util import Extendable, _fromfile, _tofile
-
-
-# For Py3k; use the correct file type
-# TODO: Consider moving this to the py3kcompat module and add file to builtins
-if sys.version_info[0] >= 3:
-    import io
-    file = io.FileIO
 
 
 PYTHON_MODES = {'readonly': u'rb', 'copyonwrite': u'rb', 'update': u'rb+',
@@ -221,8 +213,6 @@ class _File(object):
         if not isinstance(dtype, np.dtype):
             dtype = np.dtype(dtype)
 
-        dtype = _fix_dtype(dtype)
-
         if size and size % dtype.itemsize != 0:
             raise ValueError('size %d not a multiple of %s' % (size, dtype))
 
@@ -260,9 +250,9 @@ class _File(object):
 
     def write(self, string):
         if 'b' in self.__file.mode and isinstance(string, unicode):
-            string = string.encode('raw-unicode-escape')
+            string = string.encode('ascii')
         elif 'b' not in self.__file.mode and not isinstance(string, unicode):
-            string = string.decode('raw-unicode-escape')
+            string = string.decode('ascii')
         self.__file.write(string)
 
     def writearray(self, array):

@@ -60,13 +60,16 @@ def comparerecords(a, b):
     for i in range(nfieldsa):
         fielda = a.field(i)
         fieldb = b.field(i)
+        if fielda.dtype.char == 'S':
+            fielda = fielda.astype(np.unicode_)
+        if fieldb.dtype.char == 'S':
+            fieldb = fieldb.astype(np.unicode_)
         if type(fielda) != type(fieldb):
             print "type(fielda): ",type(fielda)," fielda: ",fielda
             print "type(fieldb): ",type(fieldb)," fieldb: ",fieldb
             print 'field %d type differs' % i
             return False
-        if not isinstance(fielda, np.chararray) and \
-               isinstance(fielda[0], np.floating):
+        if isinstance(fielda[0], np.floating):
             if not comparefloats(fielda, fieldb):
                 print "fielda: ",fielda
                 print "fieldb: ",fieldb
@@ -321,7 +324,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
                          formats='int16,a20,float32,a10',\
                          names='order,name,mag,Sp')
         hdu=pyfits.BinTableHDU(bright)
-        self.assertEqual(comparerecords(hdu.data,bright),True)
+        self.assertEqual(comparerecords(hdu.data, bright), True)
         hdu.writeto('toto.fits', clobber=True)
         hdul = pyfits.open('toto.fits')
         self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
@@ -919,8 +922,9 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(tbhdu.data._coldefs.data[1].array[0], 312)
         self.assertEqual(tbhdu.columns._arrays[1][0], 312)
         self.assertEqual(tbhdu.columns.data[1].array[0], 312)
-        self.assertEqual(tbhdu.columns.data[0].array[0], 'NGC1')
-        self.assertEqual(tbhdu.columns.data[2].array[0], '0.0')
+        self.assertEqual(tbhdu.columns.data[0].array[0].decode('ascii'),
+                         'NGC1')
+        self.assertEqual(tbhdu.columns.data[2].array[0].decode('ascii'), '0.0')
         self.assertEqual(tbhdu.columns.data[3].array[0].all(),
                          np.array([0., 0., 0., 0., 0.],dtype=np.float32).all())
         self.assertEqual(tbhdu.columns.data[4].array[0], True)
@@ -930,8 +934,10 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(tbhdu.data._coldefs.data[1].array[3], 33)
         self.assertEqual(tbhdu.columns._arrays[1][3], 33)
         self.assertEqual(tbhdu.columns.data[1].array[3], 33)
-        self.assertEqual(tbhdu.columns.data[0].array[3], 'JIM1')
-        self.assertEqual(tbhdu.columns.data[2].array[3], 'A Note')
+        self.assertEqual(tbhdu.columns.data[0].array[3].decode('ascii'),
+                         'JIM1')
+        self.assertEqual(tbhdu.columns.data[2].array[3].decode('ascii'),
+                         'A Note')
         self.assertEqual(tbhdu.columns.data[3].array[3].all(),
                          np.array([1., 2., 3., 4., 5.],dtype=np.float32).all())
         self.assertEqual(tbhdu.columns.data[4].array[3], True)
@@ -1563,7 +1569,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         acol = pyfits.Column(name='MEMNAME', format='A10',
                              array=np.char.array(a))
         ahdu = pyfits.new_table([acol])
-        self.assertEqual(ahdu.data.tostring(), s)
+        self.assertEqual(ahdu.data.tostring().decode('raw-unicode-escape'), s)
 
         ahdu = pyfits.new_table([acol], tbtype='TableHDU')
         self.assertEqual(ahdu.data.tostring(), s.replace('\x00', ' '))

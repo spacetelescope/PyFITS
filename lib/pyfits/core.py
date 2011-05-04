@@ -35,6 +35,9 @@ import urllib
 import sys
 import warnings
 
+if sys.version_info[0] >= 3:
+    import pyfits.py3compat
+
 # Public API compatibility imports
 import pyfits.card
 import pyfits.column
@@ -63,12 +66,6 @@ __all__ = pyfits.card.__all__ + pyfits.column.__all__ + \
           ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',
            'new_table', 'Header', 'VerifyError', 'TRUE', 'FALSE',
            'setExtensionNameCaseSensitive']
-
-
-if sys.version_info[0] >= 3:
-    import io
-    import builtins
-    builtins.file = io.FileIO
 
 
 # These are of course deprecated, but a handful of external code still uses

@@ -3,7 +3,6 @@ import sys
 import warnings
 
 import numpy as np
-from numpy import char as chararray
 
 from pyfits import rec
 from pyfits.column import ASCIITNULL, FITS2NUMPY, TDIM_RE, Column, ColDefs, \
@@ -55,12 +54,15 @@ class FITS_record(object):
         else:
             self.end = endColumn
 
-    def __getitem__(self,key):
+    def __getitem__(self, key):
         if isinstance(key, basestring):
             indx = _get_index(self.array.names, key)
 
             if indx < self.start or indx > self.end - 1:
                 raise KeyError("Key '%s' does not exist." % key)
+        elif isinstance(key, slice):
+            # TODO: Maybe get step working?
+            return FITS_record(self.array, self.row, key.start, key.stop)
         else:
             indx = key + self.start
 
@@ -69,7 +71,7 @@ class FITS_record(object):
 
         return self.array.field(indx)[self.row]
 
-    def __setitem__(self,fieldname, value):
+    def __setitem__(self, fieldname, value):
         if isinstance(fieldname, basestring):
             indx = _get_index(self.array._coldefs.names, fieldname)
 
@@ -82,9 +84,6 @@ class FITS_record(object):
                 raise IndexError('Index out of bounds')
 
         self.array.field(indx)[self.row] = value
-
-    def __getslice__(self, i, j):
-        return FITS_record(self.array, self.row, i, j)
 
     def __len__(self):
         return min(self.end - self.start, self.array._nfields)
@@ -192,10 +191,6 @@ class FITS_rec(rec.recarray):
     def __repr__(self):
         return rec.recarray.__repr__(self)
 
-    def __getslice__(self, i, j):
-        key = slice(i, j)
-        return self.__getitem__(key)
-
     def __getitem__(self, key):
         if isinstance(key, basestring):
             return self.field(key)
@@ -234,6 +229,16 @@ class FITS_rec(rec.recarray):
             return newrecord
 
     def __setitem__(self, row, value):
+        if isinstance(row, slice):
+            end = min(len(self), row.stop)
+            end = max(0, end)
+            start = max(0, row.start)
+            end = min(end, start + len(value))
+
+            for idx in range(start, end):
+                self.__setitem__(idx, value[idx - start])
+            return
+
         if isinstance(value, FITS_record):
             for idx in range(self._nfields):
                 self.field(self.names[idx])[row] = value.field(self.names[idx])
@@ -247,15 +252,6 @@ class FITS_rec(rec.recarray):
         else:
             raise TypeError('Assignment requires a FITS_record, tuple, or '
                             'list as input.')
-
-    def __setslice__(self, start, end, value):
-        _end = min(len(self), end)
-        _end = max(0, _end)
-        _start = max(0,start)
-        _end = min(_end, _start + len(value))
-
-        for idx in range(_start, _end):
-            self.__setitem__(idx, value[idx - _start])
 
     @property
     def columns(self):
@@ -309,7 +305,7 @@ class FITS_rec(rec.recarray):
                         dt = recformat._dtype + str(1)
                         da = _fromfile(self._file, dtype=dt, count=count,
                                        sep='')
-                        dummy[i] = chararray.array(da, itemsize=count)
+                        dummy[i] = da.astype((np.unicode_, count))
                     else:
                         count = field[i,0]
                         dt = recformat._dtype
@@ -390,12 +386,17 @@ class FITS_rec(rec.recarray):
                 self._convert[indx] = np.equal(dummy, ord('T'))
             elif dim:
                 self._convert[indx] = dummy
+            elif _str:
+                try:
+                    return dummy.astype(np.unicode_)
+                except UnicodeDecodeError:
+                    return dummy
             else:
                 return dummy
 
             if dim:
                 if _str:
-                    dtype = ('|S%d' % dim[0], dim[1:])
+                    dtype = ('|U%d' % dim[0], dim[1:])
                     self._convert[indx].dtype = dtype
                 else:
                     self._convert[indx].shape = (dummy.shape[0],) + dim
