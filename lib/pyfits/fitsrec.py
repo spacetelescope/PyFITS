@@ -387,27 +387,27 @@ class FITS_rec(rec.recarray):
                     self._convert[indx] += bzero
             elif _bool:
                 self._convert[indx] = np.equal(dummy, ord('T'))
-            elif dim:
-                self._convert[indx] = dummy
             elif _str:
                 if not issubclass(dummy.dtype.type, np.unicode_):
                     try:
                         self._convert[indx] = dummy.astype(np.unicode_)
                     except UnicodeDecodeError:
-                        return dummy
-                else:
-                    return dummy
-            else:
-                return dummy
+                        pass
 
             if dim:
+                if self._convert[indx] is None:
+                    self._convert[indx] = dummy
                 if _str:
-                    dtype = ('|U%d' % dim[0], dim[1:])
+                    fmt = self._convert[indx].dtype.char
+                    dtype = ('|%s%d' % (fmt, dim[0]), dim[1:])
                     self._convert[indx].dtype = dtype
                 else:
                     self._convert[indx].shape = (dummy.shape[0],) + dim
 
-        return self._convert[indx]
+        if self._convert[indx] is not None:
+            return self._convert[indx]
+        else:
+            return dummy
 
     def _clone(self, shape):
         """

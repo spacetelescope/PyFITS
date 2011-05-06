@@ -1617,7 +1617,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         t = pyfits.getdata('newtable.fits')
         os.remove('newtable.fits')
 
-        self.assertEqual(t.field(1).dtype, np.dtype('|S5'))
+        self.assertEqual(t.field(1).dtype.str[-1], '5')
         self.assertEqual(t.field(1).shape, (3, 4))
 
         # Like the previous test, but with an extra dimension (a bit more
@@ -1630,7 +1630,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         t = pyfits.getdata('newtable.fits')
         os.remove('newtable.fits')
 
-        self.assertEqual(t.field(1).dtype, np.dtype('|S5'))
+        self.assertEqual(t.field(1).dtype.str[-1], '5')
         self.assertEqual(t.field(1).shape, (3, 4, 3))
 
 if __name__ == '__main__':
