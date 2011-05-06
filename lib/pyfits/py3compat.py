@@ -99,4 +99,8 @@ if sys.version_info[0] >= 3:
     pyfits.file._File = _File
 else:
     # Stuff to do if not Python 3
-    pass
+
+    # We want a bytes stand-in so we can do stuff like isinstance(..., bytes)
+    # and have it work correctly
+    import __builtin__
+    __builtin__.bytes = str

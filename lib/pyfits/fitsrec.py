@@ -230,9 +230,9 @@ class FITS_rec(rec.recarray):
 
     def __setitem__(self, row, value):
         if isinstance(row, slice):
-            end = min(len(self), row.stop)
+            end = min(len(self), row.stop or len(self))
             end = max(0, end)
-            start = max(0, row.start)
+            start = max(0, row.start or 0)
             end = min(end, start + len(value))
 
             for idx in range(start, end):
@@ -335,8 +335,9 @@ class FITS_rec(rec.recarray):
                 _type = _fmap[self._coldefs.formats[indx][0]]
 
                 # if the string = TNULL, return ASCIITNULL
-                nullval = self._coldefs.nulls[indx].strip()
-                dummy = field.replace('D', 'E')
+                nullval = self._coldefs.nulls[indx].strip().encode('ascii')
+                dummy = field.replace('D'.encode('ascii'),
+                                      'E'.encode('ascii'))
                 dummy = np.where(dummy.strip() == nullval, str(ASCIITNULL),
                                  dummy)
                 dummy = np.array(dummy, dtype=_type)

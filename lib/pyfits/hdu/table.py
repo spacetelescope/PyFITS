@@ -59,8 +59,7 @@ class _TableLikeHDU(_ValidHDU):
         dtype = rec.format_parser(formats, names, None)._descr
         raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
                                         shape=columns._shape)
-        data = rec.recarray(shape=raw_data.shape, buf=raw_data,
-                            dtype=raw_data.dtype, names=names)
+        data = raw_data.view(rec.recarray)
         self._init_tbdata(data)
         return data.view(FITS_rec)
 
@@ -407,9 +406,7 @@ class TableHDU(_TableBaseHDU):
 
         raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
                                         shape=columns._shape)
-        data = rec.recarray(shape=raw_data.shape, buf=raw_data,
-                            dtype=raw_data.dtype, names=names)
-
+        data = raw_data.view(rec.recarray)
         self._init_tbdata(data)
         return data.view(FITS_rec)
 
@@ -1168,11 +1165,12 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
            data_type = 'S'+str(tmp.spans[j])
            dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
 
-        hdu.data = FITS_rec(rec.array(' '*_itemsize*nrows, dtype=dtype,
-                                      shape=nrows))
+        hdu.data = FITS_rec(
+                rec.array((' ' * _itemsize * nrows).encode('ascii'),
+                          dtype=dtype, shape=nrows))
         hdu.data.setflags(write=True)
     else:
-        hdu.data = FITS_rec(rec.array(None, formats=",".join(tmp._recformats),
+        hdu.data = FITS_rec(rec.array(None, formats=','.join(tmp._recformats),
                                       names=tmp.names, shape=nrows))
 
     hdu.data._coldefs = hdu.columns
@@ -1201,8 +1199,6 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
         _scale, _zero, bscale, bzero, dim = hdu.data._get_scale_factors(i)[3:]
 
         field = rec.recarray.field(hdu.data, i)
-        if isinstance(field, chararray.chararray):
-            field = field.view(np.ndarray)
 
         if n > 0:
             # Only copy data if there is input data to copy

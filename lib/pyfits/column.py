@@ -239,14 +239,13 @@ class Column(object):
         elif array is None:
             return array
         else:
-            if isinstance(array, chararray.chararray):
-                # chararray is semi-deprecated, and is also broken in Python3
-                # so let's try not to use them internally
-                array = array.view(np.ndarray)
-
             if ('A' in format and 'P' not in format):
-                numpy_format = _convert_format(format)
-                return array.astype(numpy_format)
+                if array.dtype.char in 'SU':
+                    fsize = int(_convert_format(format)[1:])
+                    return chararray.array(array, itemsize=fsize)
+                else:
+                    numpy_format = _convert_format(format)
+                    return array.astype(numpy_format)
             elif ('X' not in format and 'P' not in format):
                 (repeat, fmt, option) = _parse_tformat(format)
                 numpyFormat = _convert_format(fmt)
@@ -386,7 +385,10 @@ class ColDefs(object):
                 continue
             for i in range(len(array)):
                 al = len(array[i])
-                pad = self._padding_byte.encode('ascii')
+                if isinstance(array[i], unicode):
+                    pad = self._padding_byte
+                else:
+                    pad = self._padding_byte.encode('ascii')
                 array[i] = array[i] + (pad * (array.itemsize - al))
 
     def __getattr__(self, name):
