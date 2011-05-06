@@ -60,10 +60,6 @@ def comparerecords(a, b):
     for i in range(nfieldsa):
         fielda = a.field(i)
         fieldb = b.field(i)
-        if fielda.dtype.char == 'S':
-            fielda = fielda.astype(np.unicode_)
-        if fieldb.dtype.char == 'S':
-            fieldb = fieldb.astype(np.unicode_)
         if type(fielda) != type(fieldb):
             print "type(fielda): ",type(fielda)," fielda: ",fielda
             print "type(fieldb): ",type(fieldb)," fieldb: ",fieldb
@@ -321,7 +317,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         bright=rec.array([(1,'Serius',-1.45,'A1V'),\
                           (2,'Canopys',-0.73,'F0Ib'),\
                           (3,'Rigil Kent',-0.1,'G2V')],\
-                         formats='int16,a20,float32,a10',\
+                         formats='int16,u20,float32,u10',\
                          names='order,name,mag,Sp')
         hdu=pyfits.BinTableHDU(bright)
         self.assertEqual(comparerecords(hdu.data, bright), True)
@@ -339,7 +335,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
                       (2,'Canopys',-0.73,'F0Ib'),
                       (3,'Rigil Kent',-0.1,'G2V')], dtype=desc)
         hdu=pyfits.BinTableHDU(a)
-        self.assertEqual(comparerecords(hdu.data, a.view(rec.recarray)),
+        self.assertEqual(comparerecords(hdu.data, a.view(pyfits.FITS_rec)),
                          True)
         hdu.writeto('toto.fits', clobber=True)
         hdul = pyfits.open('toto.fits')

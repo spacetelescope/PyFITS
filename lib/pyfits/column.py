@@ -846,7 +846,8 @@ def _makep(input, desp_output, dtype):
 
     for i in range(len(input)):
         if dtype == 'a':
-            data_output[i] = np.array(input[i], dtype=(np.bytes_, 1))
+            data_output[i] = chararray.array(input[i].astype(np.bytes_),
+                                             itemsize=1)
         else:
             data_output[i] = np.array(input[i], dtype=dtype)
 

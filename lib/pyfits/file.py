@@ -104,6 +104,10 @@ class _File(object):
                     self.__file = fileobj
                 elif isinstance(fileobj, file):
                     self.__file = open(self.name, PYTHON_MODES[mode])
+                    # Return to the beginning of the file--in Python 3 when
+                    # opening in append mode the file pointer is at the end of
+                    # the file
+                    self.__file.seek(0)
                 else:
                     self.__file = gzip.open(self.name, PYTHON_MODES[mode])
             elif isinstance(fileobj, basestring):
@@ -136,6 +140,7 @@ class _File(object):
                     zfile.close()
                 else:
                     self.__file = open(self.name, PYTHON_MODES[mode])
+                    self.__file.seek(0)
             else:
                 # We are dealing with a file like object.
                 # Assume it is open.
