@@ -35,6 +35,8 @@ import urllib
 import sys
 import warnings
 
+import pyfits.py3compat
+
 # Public API compatibility imports
 import pyfits.card
 import pyfits.column
@@ -63,6 +65,7 @@ __all__ = pyfits.card.__all__ + pyfits.column.__all__ + \
           ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',
            'new_table', 'Header', 'VerifyError', 'TRUE', 'FALSE',
            'setExtensionNameCaseSensitive']
+
 
 # These are of course deprecated, but a handful of external code still uses
 # them
@@ -93,7 +96,7 @@ def showwarning(message, category, filename, lineno, file=None, line=None):
     _showwarning(message, category, filename, lineno, file)
 
 def formatwarning(message, category, filename, lineno, line=None):
-    return str(message) + '\n'
+    return unicode(message) + '\n'
 
 warnings.showwarning = showwarning
 warnings.formatwarning = formatwarning

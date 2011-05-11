@@ -240,6 +240,7 @@ class _ImageBaseHDU(_ValidHDU):
             except KeyError:
                 pass
 
+        # TODO: This needs to be moved into the GroupHDU class
         if isinstance(self.data, GroupData):
             self._header.update('GROUPS', True, after='NAXIS' + str(len(axes)))
             self._header.update('PCOUNT', len(self.data.parnames),

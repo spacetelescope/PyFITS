@@ -1,5 +1,6 @@
 import gzip
 import os
+import sys
 import tempfile
 import urllib
 import warnings
@@ -8,7 +9,7 @@ import zipfile
 import numpy as np
 from numpy import memmap as Memmap
 
-from pyfits.util import Extendable, _fromfile, _tofile
+from pyfits.util import Extendable, _fromfile, _tofile, decode_ascii
 
 
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
@@ -24,7 +25,6 @@ class _File(object):
     __metaclass__ = Extendable
 
     def __init__(self, fileobj=None, mode='copyonwrite', memmap=False):
-
         if fileobj is None:
             self.simulateonly = True
             return
@@ -104,6 +104,10 @@ class _File(object):
                     self.__file = fileobj
                 elif isinstance(fileobj, file):
                     self.__file = open(self.name, PYTHON_MODES[mode])
+                    # Return to the beginning of the file--in Python 3 when
+                    # opening in append mode the file pointer is at the end of
+                    # the file
+                    self.__file.seek(0)
                 else:
                     self.__file = gzip.open(self.name, PYTHON_MODES[mode])
             elif isinstance(fileobj, basestring):
@@ -136,6 +140,7 @@ class _File(object):
                     zfile.close()
                 else:
                     self.__file = open(self.name, PYTHON_MODES[mode])
+                    self.__file.seek(0)
             else:
                 # We are dealing with a file like object.
                 # Assume it is open.
@@ -210,7 +215,9 @@ class _File(object):
         if not hasattr(self.__file, 'read'):
             raise EOFError
 
-        dtype = np.dtype(dtype)
+        if not isinstance(dtype, np.dtype):
+            dtype = np.dtype(dtype)
+
         if size and size % dtype.itemsize != 0:
             raise ValueError('size %d not a multiple of %s' % (size, dtype))
 
@@ -247,6 +254,10 @@ class _File(object):
             return data
 
     def write(self, string):
+        if 'b' in self.__file.mode and isinstance(string, unicode):
+            string = string.encode('ascii')
+        elif 'b' not in self.__file.mode and not isinstance(string, unicode):
+            string = decode_ascii(string)
         self.__file.write(string)
 
     def writearray(self, array):

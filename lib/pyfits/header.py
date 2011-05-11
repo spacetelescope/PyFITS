@@ -71,6 +71,13 @@ class Header(DictMixin):
             self.fromTxtFile(txtfile, not len(self.ascard))
         self._mod = False
 
+    def __len__(self):
+        return len(self.ascard)
+
+    def __iter__(self):
+        for card in self.ascard:
+            yield card.key
+
     def __contains__(self, key):
         """
         Check for existence of a keyword.

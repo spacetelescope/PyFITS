@@ -40,7 +40,7 @@ KEYWORD_ATTRIBUTES = ['name', 'format', 'unit', 'null', 'bscale', 'bzero',
 
 # TFORM regular expression
 TFORMAT_RE = re.compile(r'(?P<repeat>^[0-9]*)(?P<dtype>[A-Za-z])'
-                         '(?P<option>[!-~]*)')
+                        r'(?P<option>[!-~]*)')
 
 # table definition keyword regular expression
 TDEF_RE = re.compile(r'(?P<label>^T[A-Z]*)(?P<num>[1-9][0-9 ]*$)')
@@ -241,12 +241,12 @@ class Column(object):
             return array
         else:
             if ('A' in format and 'P' not in format):
-                if 'S' in str(array.dtype):
+                if array.dtype.char in 'SU':
                     fsize = int(_convert_format(format)[1:])
                     return chararray.array(array, itemsize=fsize)
                 else:
-                    numpyFormat = _convert_format(format)
-                    return array.astype(numpyFormat)
+                    numpy_format = _convert_format(format)
+                    return array.astype(numpy_format)
             elif ('X' not in format and 'P' not in format):
                 (repeat, fmt, option) = _parse_tformat(format)
                 numpyFormat = _convert_format(fmt)
@@ -267,7 +267,7 @@ class ColDefs(object):
     corresponding attribute values from all `Column` objects.
     """
 
-    _pad_byte = '\x00'
+    _padding_byte = '\x00'
 
     def __new__(cls, input, tbtype='BinTableHDU'):
         from pyfits.hdu.table import TableHDU
@@ -386,7 +386,11 @@ class ColDefs(object):
                 continue
             for i in range(len(array)):
                 al = len(array[i])
-                array[i] = array[i] + self._pad_byte * (array.itemsize - al)
+                if isinstance(array[i], unicode):
+                    pad = self._padding_byte
+                else:
+                    pad = self._padding_byte.encode('ascii')
+                array[i] = array[i] + (pad * (array.itemsize - al))
 
     def __getattr__(self, name):
         """
@@ -620,7 +624,7 @@ class _ASCIIColDefs(ColDefs):
     _ascii_fmt = {'A':'A1', 'I':'I10', 'J':'I15', 'E':'E15.7', 'F':'F16.7',
                   'D':'D25.17'}
 
-    _pad_byte = ' '
+    _padding_byte = ' '
 
     def __init__(self, input, tbtype='TableHDU'):
         super(_ASCIIColDefs, self).__init__(input, tbtype)
@@ -841,11 +845,12 @@ def _makep(input, desp_output, dtype):
     if dtype == 'a':
         _nbytes = 1
     else:
-        _nbytes = np.array([],dtype=np.typeDict[dtype]).itemsize
+        _nbytes = np.array([], dtype=np.typeDict[dtype]).itemsize
 
     for i in range(len(input)):
         if dtype == 'a':
-            data_output[i] = chararray.array(input[i], itemsize=1)
+            data_output[i] = chararray.array(input[i].astype(np.bytes_),
+                                             itemsize=1)
         else:
             data_output[i] = np.array(input[i], dtype=dtype)
 
@@ -921,7 +926,7 @@ def _convert_record2fits(format):
         shape = format.shape
         kind = format.base.kind
         option = str(format.base.itemsize)
-        if kind == 'S':
+        if kind in ('U', 'S'):
             kind = 'a'
         dtype = kind
 

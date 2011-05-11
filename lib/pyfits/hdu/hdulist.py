@@ -146,12 +146,12 @@ class HDUList(list, _Verify):
         Get an HDU from the `HDUList`, indexed by number or name.
         """
 
+        if isinstance(key, slice):
+            hdus = super(HDUList, self).__getitem__(key)
+            return HDUList(hdus)
+
         idx = self.index_of(key)
         return super(HDUList, self).__getitem__(idx)
-
-    def __getslice__(self, start, end):
-        hdus = super(HDUList, self).__getslice__(start, end)
-        return HDUList(hdus)
 
     def __setitem__(self, key, hdu):
         """
@@ -182,9 +182,12 @@ class HDUList(list, _Verify):
         Delete an HDU from the `HDUList`, indexed by number or name.
         """
 
-        key = self.index_of(key)
+        if isinstance(key, slice):
+            end_index = len(self)
+        else:
+            key = self.index_of(key)
+            end_index = len(self) - 1
 
-        end_index = len(self) - 1
         super(HDUList, self).__delitem__(key)
 
         if (key == end_index or key == -1 and not self._resize):
@@ -193,19 +196,15 @@ class HDUList(list, _Verify):
             self._truncate = False
             self._resize = True
 
-    def __delslice__(self, i, j):
+    def __getslice__(self, start, end):
+        return self[slice(start, end)]
+
+    def __delslice__(self, start, stop):
         """
         Delete a slice of HDUs from the `HDUList`, indexed by number only.
         """
 
-        end_index = len(self)
-        super(HDUList, self).__delslice__(i, j)
-
-        if (j == end_index or j == sys.maxint and not self._resize):
-            self._truncate = True
-        else:
-            self._truncate = False
-            self._resize = True
+        del self[slice(start, stop)]
 
     # Support the 'with' statement
     def __enter__(self):

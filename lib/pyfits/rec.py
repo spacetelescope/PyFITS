@@ -5,7 +5,6 @@ __all__ = ['record', 'recarray', 'format_parser']
 import numpy.core.numeric as sb
 from numpy.core.defchararray import chararray
 import numpy.core.numerictypes as nt
-import types
 import os
 import sys
 import warnings
@@ -75,10 +74,10 @@ class format_parser(object):
         """convert input field names into a list and assign to the _names
         attribute """
 
-        if (names):
-            if (type(names) in [types.ListType, types.TupleType]):
+        if names:
+            if isinstance(names, (list, tuple)):
                 pass
-            elif (type(names) == types.StringType):
+            elif isinstance(names, basestring):
                 names = names.split(',')
             else:
                 raise NameError("Illegal input names %s" % repr(names))
@@ -570,7 +569,7 @@ def array(obj, dtype=None, shape=None, offset=0, strides=None, formats=None,
         if shape is None:
             raise ValueError('Must define a shape if obj is None')
         return recarray(shape, dtype, buf=obj, offset=offset, strides=strides)
-    elif isinstance(obj, str):
+    elif isinstance(obj, bytes):
         return fromstring(obj, dtype, shape=shape, offset=offset, **kwds)
 
     elif isinstance(obj, (list, tuple)):

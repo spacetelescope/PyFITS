@@ -1,6 +1,7 @@
 import functools
 import itertools
 import os
+import sys
 import tempfile
 import warnings
 
@@ -29,11 +30,12 @@ class Extendable(type):
         self.__init__(*args, **kwargs)
         return self
 
-    def __getattribute__(cls, attr):
-        orig_cls = cls
-        if attr != '_extensions' and cls in cls._extensions:
-            cls = cls._extensions[cls]
-        return super(Extendable, cls).__getattribute__(attr)
+# TODO: Fix this in Python3--commented out in the meantime
+#    def __getattribute__(cls, attr):
+#        orig_cls = cls
+#        if attr != '_extensions' and cls in cls._extensions:
+#            cls = cls._extensions[cls]
+#        return super(Extendable, cls).__getattribute__(attr)
 
     @classmethod
     def register_extension(cls, extension, extends=None, silent=False):
@@ -316,6 +318,12 @@ def _tofile(arr, outfile):
         arr.tofile(outfile)
     else: # treat as file-like object with "write" method
         s = arr.tostring()
+        # TODO: Find some way to centralize this sort of functionality
+        # (converting str to bytes depending on file mode)
+        if 'b' in outfile.mode and isinstance(outfile, unicode):
+            s = s.encode('ascii')
+        elif 'b' not in outfile.mode and not isinstance(outfile, unicode):
+            s = decode_ascii(s)
         outfile.write(s)
 
 
@@ -428,3 +436,13 @@ def _tmp_name(input):
         return name
     else:
         raise IOError('%s exists' % name)
+
+
+def decode_ascii(s):
+    """
+    In Python 2 this is a no-op.  Strings are left alone.  In Python 3 this
+    will be replaced with a function that actually decodes ascii bytes to
+    unicode.
+    """
+
+    return s

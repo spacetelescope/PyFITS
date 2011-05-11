@@ -60,13 +60,16 @@ def comparerecords(a, b):
     for i in range(nfieldsa):
         fielda = a.field(i)
         fieldb = b.field(i)
+        if fielda.dtype.char == 'S':
+            fielda = fielda.astype(np.str_)
+        if fieldb.dtype.char == 'S':
+            fieldb = fieldb.astype(np.str_)
         if type(fielda) != type(fieldb):
             print "type(fielda): ",type(fielda)," fielda: ",fielda
             print "type(fieldb): ",type(fieldb)," fieldb: ",fieldb
             print 'field %d type differs' % i
             return False
-        if not isinstance(fielda, np.chararray) and \
-               isinstance(fielda[0], np.floating):
+        if isinstance(fielda[0], np.floating):
             if not comparefloats(fielda, fieldb):
                 print "fielda: ",fielda
                 print "fieldb: ",fieldb
@@ -321,7 +324,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
                          formats='int16,a20,float32,a10',\
                          names='order,name,mag,Sp')
         hdu=pyfits.BinTableHDU(bright)
-        self.assertEqual(comparerecords(hdu.data,bright),True)
+        self.assertEqual(comparerecords(hdu.data, bright), True)
         hdu.writeto('toto.fits', clobber=True)
         hdul = pyfits.open('toto.fits')
         self.assertEqual(comparerecords(hdu.data,hdul[1].data),True)
@@ -336,7 +339,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
                       (2,'Canopys',-0.73,'F0Ib'),
                       (3,'Rigil Kent',-0.1,'G2V')], dtype=desc)
         hdu=pyfits.BinTableHDU(a)
-        self.assertEqual(comparerecords(hdu.data, a.view(rec.recarray)),
+        self.assertEqual(comparerecords(hdu.data, a.view(pyfits.FITS_rec)),
                          True)
         hdu.writeto('toto.fits', clobber=True)
         hdul = pyfits.open('toto.fits')
@@ -1563,10 +1566,11 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         acol = pyfits.Column(name='MEMNAME', format='A10',
                              array=np.char.array(a))
         ahdu = pyfits.new_table([acol])
-        self.assertEqual(ahdu.data.tostring(), s)
+        self.assertEqual(ahdu.data.tostring().decode('raw-unicode-escape'), s)
 
         ahdu = pyfits.new_table([acol], tbtype='TableHDU')
-        self.assertEqual(ahdu.data.tostring(), s.replace('\x00', ' '))
+        self.assertEqual(ahdu.data.tostring().decode('raw-unicode-escape'),
+                         s.replace('\x00', ' '))
 
     def testMultiDimensionalColumns(self):
         """
@@ -1613,7 +1617,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         t = pyfits.getdata('newtable.fits')
         os.remove('newtable.fits')
 
-        self.assertEqual(t.field(1).dtype, np.dtype('|S5'))
+        self.assertEqual(t.field(1).dtype.str[-1], '5')
         self.assertEqual(t.field(1).shape, (3, 4))
 
         # Like the previous test, but with an extra dimension (a bit more
@@ -1626,7 +1630,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         t = pyfits.getdata('newtable.fits')
         os.remove('newtable.fits')
 
-        self.assertEqual(t.field(1).dtype, np.dtype('|S5'))
+        self.assertEqual(t.field(1).dtype.str[-1], '5')
         self.assertEqual(t.field(1).shape, (3, 4, 3))
 
 if __name__ == '__main__':

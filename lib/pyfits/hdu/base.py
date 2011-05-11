@@ -11,7 +11,7 @@ from pyfits.file import _File
 from pyfits.header import Header
 from pyfits.util import Extendable, _with_extensions, lazyproperty, _is_int, \
                         _is_pseudo_unsigned, _unsigned_zero, _pad_length, \
-                        itersubclasses, BLOCK_SIZE
+                        itersubclasses, decode_ascii, BLOCK_SIZE
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -245,7 +245,7 @@ class _BaseHDU(object):
         hdr_offset = fileobj.tell()
 
         # Read the first header block.
-        block = fileobj.read(BLOCK_SIZE)
+        block = decode_ascii(fileobj.read(BLOCK_SIZE))
         if block == '':
             raise EOFError()
 
@@ -257,7 +257,7 @@ class _BaseHDU(object):
             mo = HEADER_END_RE.search(block)
             if mo is None:
                 blocks.append(block)
-                block = fileobj.read(BLOCK_SIZE)
+                block = decode_ascii(fileobj.read(BLOCK_SIZE))
                 if block == '':
                     break
             else:
@@ -322,7 +322,7 @@ class _BaseHDU(object):
                 offset = fileobj.tell()
             except (AttributeError, IOError):
                 offset = 0
-            fileobj.write(blocks)
+            fileobj.write(blocks.encode('ascii'))
             fileobj.flush()
 
         # If data is unsigned integer 16, 32 or 64, remove the
@@ -351,7 +351,12 @@ class _BaseHDU(object):
             size += self._writedata_internal(fileobj)
             # pad the FITS data block
             if size > 0 and not fileobj.simulateonly:
-                fileobj.write(_pad_length(size) * self._padding_byte)
+                padding = _pad_length(size) * self._padding_byte
+                # TODO: Not that this is ever likely, but if for some odd
+                # reason _padding_byte is > 0x80 this will fail; but really if
+                # somebody's custom fits format is doing that, they're doing it
+                # wrong and should be reprimanded harshly.
+                fileobj.write(padding.encode('ascii'))
 
         # flush, to make sure the content is written
         if not fileobj.simulateonly:
@@ -1238,7 +1243,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         for i in range(16):
             ascii[i] = asc[(i+15) % 16]
 
-        return ascii.tostring()
+        return decode_ascii(ascii.tostring())
 
 
 class _ExtensionHDU(_ValidHDU):
