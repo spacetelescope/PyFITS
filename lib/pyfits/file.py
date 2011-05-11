@@ -9,11 +9,11 @@ import zipfile
 import numpy as np
 from numpy import memmap as Memmap
 
-from pyfits.util import Extendable, _fromfile, _tofile
+from pyfits.util import Extendable, _fromfile, _tofile, decode_ascii
 
 
-PYTHON_MODES = {'readonly': u'rb', 'copyonwrite': u'rb', 'update': u'rb+',
-                'append': u'ab+', 'ostream': u'w'}  # open modes
+PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
+                'append': 'ab+', 'ostream': 'w'}  # open modes
 MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+'}
 
 
@@ -257,7 +257,7 @@ class _File(object):
         if 'b' in self.__file.mode and isinstance(string, unicode):
             string = string.encode('ascii')
         elif 'b' not in self.__file.mode and not isinstance(string, unicode):
-            string = string.decode('ascii')
+            string = decode_ascii(string)
         self.__file.write(string)
 
     def writearray(self, array):

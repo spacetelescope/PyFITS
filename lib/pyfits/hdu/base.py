@@ -11,7 +11,7 @@ from pyfits.file import _File
 from pyfits.header import Header
 from pyfits.util import Extendable, _with_extensions, lazyproperty, _is_int, \
                         _is_pseudo_unsigned, _unsigned_zero, _pad_length, \
-                        itersubclasses, BLOCK_SIZE
+                        itersubclasses, decode_ascii, BLOCK_SIZE
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -245,7 +245,7 @@ class _BaseHDU(object):
         hdr_offset = fileobj.tell()
 
         # Read the first header block.
-        block = fileobj.read(BLOCK_SIZE).decode('ascii')
+        block = decode_ascii(fileobj.read(BLOCK_SIZE))
         if block == '':
             raise EOFError()
 
@@ -257,7 +257,7 @@ class _BaseHDU(object):
             mo = HEADER_END_RE.search(block)
             if mo is None:
                 blocks.append(block)
-                block = fileobj.read(BLOCK_SIZE).decode('ascii')
+                block = decode_ascii(fileobj.read(BLOCK_SIZE))
                 if block == '':
                     break
             else:
@@ -1243,7 +1243,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         for i in range(16):
             ascii[i] = asc[(i+15) % 16]
 
-        return ascii.tostring().decode('ascii')
+        return decode_ascii(ascii.tostring())
 
 
 class _ExtensionHDU(_ValidHDU):

@@ -28,7 +28,14 @@ else:
     FIX_FP_TABLE = string.maketrans('de', 'DE')
     FIX_FP_TABLE2 = string.maketrans('dD', 'eE')
     def translate(s, table, deletechars):
-        return s.translate(table, deletechars)
+        if isinstance(s, str):
+            return s.translate(table, deletechars)
+        elif isinstance(s, unicode):
+            table = dict((x, ord(table[x])) for x in range(256)
+                         if ord(table[x]) != x)
+            for c in deletechars:
+                table[ord(c)] = None
+            return s.translate(table)
 
 
 class Undefined:
@@ -1214,6 +1221,9 @@ class CardList(list):
             del self._keys[idx]  # update the keylist
             self.count_blanks()
             self._mod = True
+
+    def __getslice__(self, start, end):
+        return self[slice(start, end)]
 
     def __repr__(self):
         """Format a list of cards into a string."""

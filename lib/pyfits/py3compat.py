@@ -8,6 +8,15 @@ if sys.version_info[0] >= 3:
     # Make io.FileIO available as the 'file' builtin as Go^H^HPython 2 intended
     builtins.file = io.FileIO
 
+    # Make the decode_ascii utility function actually work
+    import pyfits.util
+
+    def decode_ascii(s):
+        if isinstance(s, bytes):
+            return s.decode('ascii')
+        return s
+    pyfits.util.decode_ascii = decode_ascii
+
     # Here we monkey patch (yes, I know) numpy to fix a few numpy Python 3
     # bugs.  The only behavior that's modified is that bugs are fixed, so that
     # should be OK.

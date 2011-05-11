@@ -35,8 +35,8 @@ NUMPY2FITS = dict([(val, key) for key, val in FITS2NUMPY.iteritems()])
 # preferred order.
 KEYWORD_NAMES = ['TTYPE', 'TFORM', 'TUNIT', 'TNULL', 'TSCAL', 'TZERO',
                  'TDISP', 'TBCOL', 'TDIM']
-KEYWORD_ATTRIBUTES = [u'name', u'format', u'unit', u'null', u'bscale',
-                      u'bzero', u'disp', u'start', u'dim']
+KEYWORD_ATTRIBUTES = ['name', 'format', 'unit', 'null', 'bscale', 'bzero',
+                      'disp', 'start', 'dim']
 
 # TFORM regular expression
 TFORMAT_RE = re.compile(r'(?P<repeat>^[0-9]*)(?P<dtype>[A-Za-z])'

@@ -323,7 +323,7 @@ def _tofile(arr, outfile):
         if 'b' in outfile.mode and isinstance(outfile, unicode):
             s = s.encode('ascii')
         elif 'b' not in outfile.mode and not isinstance(outfile, unicode):
-            s = s.decode('ascii')
+            s = decode_ascii(s)
         outfile.write(s)
 
 
@@ -436,3 +436,13 @@ def _tmp_name(input):
         return name
     else:
         raise IOError('%s exists' % name)
+
+
+def decode_ascii(s):
+    """
+    In Python 2 this is a no-op.  Strings are left alone.  In Python 3 this
+    will be replaced with a function that actually decodes ascii bytes to
+    unicode.
+    """
+
+    return s

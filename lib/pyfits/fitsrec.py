@@ -85,6 +85,9 @@ class FITS_record(object):
 
         self.array.field(indx)[self.row] = value
 
+    def __getslice__(self, start, end):
+        return self[slice(start, end)]
+
     def __len__(self):
         return min(self.end - self.start, self.array._nfields)
 
@@ -253,6 +256,12 @@ class FITS_rec(rec.recarray):
             raise TypeError('Assignment requires a FITS_record, tuple, or '
                             'list as input.')
 
+    def __getslice__(self, start, end):
+        return self[slice(start, end)]
+
+    def __setslice__(self, start, end, value):
+        self[slice(start, end)] = value
+
     @property
     def columns(self):
         """
@@ -306,8 +315,8 @@ class FITS_rec(rec.recarray):
                         da = _fromfile(self._file, dtype=dt, count=count,
                                        sep='')
                         dummy[i] = np.char.array(da, itemsize=count)
-                        if not issubclass(dummy[i].dtype.type, np.unicode_):
-                            dummy[i] = dummy[i].astype(np.unicode_)
+                        if not issubclass(dummy[i].dtype.type, np.str_):
+                            dummy[i] = dummy[i].astype(np.str_)
                     else:
                         count = field[i,0]
                         dt = recformat._dtype
@@ -388,9 +397,9 @@ class FITS_rec(rec.recarray):
             elif _bool:
                 self._convert[indx] = np.equal(dummy, ord('T'))
             elif _str:
-                if not issubclass(dummy.dtype.type, np.unicode_):
+                if not issubclass(dummy.dtype.type, np.str_):
                     try:
-                        self._convert[indx] = dummy.astype(np.unicode_)
+                        self._convert[indx] = dummy.astype(np.str_)
                     except UnicodeDecodeError:
                         pass
 
