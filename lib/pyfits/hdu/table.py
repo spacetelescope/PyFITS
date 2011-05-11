@@ -1162,8 +1162,8 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
         dtype = {}
 
         for j in range(len(tmp)):
-           data_type = 'S'+str(tmp.spans[j])
-           dtype[tmp.names[j]] = (data_type,tmp.starts[j]-1)
+           data_type = 'S' + str(tmp.spans[j])
+           dtype[tmp.names[j]] = (data_type, tmp.starts[j] - 1)
 
         hdu.data = FITS_rec(
                 rec.array((' ' * _itemsize * nrows).encode('ascii'),

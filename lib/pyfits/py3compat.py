@@ -48,13 +48,13 @@ if sys.version_info[0] >= 3:
         if dtype.fields is None:
             return dtype
 
-        new_dtype = []
+        new_dtype = {}
         for name in dtype.names:
-            field = dtype.fields[name][0]
-            shape = field.shape
+            field = dtype.fields[name]
+            shape = field[0].shape
             if not isinstance(shape, tuple):
                 shape = (shape,)
-            new_dtype.append((name, field.base, shape))
+            new_dtype[name] = ((field[0].base, shape), field[1])
 
         return numpy.dtype(new_dtype)
 
