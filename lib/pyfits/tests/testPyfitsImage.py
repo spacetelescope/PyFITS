@@ -723,6 +723,18 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         hdul = pyfits.open(os.path.join(data_dir, 'scale.fits'))
         self.assertEqual(hdul[0].data.dtype, np.dtype('float32'))
 
+    def testAppendUintData(self):
+        """Test for ticket #56 (BZERO and BSCALE added in the wrong location
+        when appending scaled data)
+        """
+
+        pyfits.writeto('test_new.fits', data=np.array([], dtype='uint8'))
+        d = np.zeros([100, 100]).astype('uint16')
+        pyfits.append('test_new.fits', data=d)
+        f = pyfits.open('test_new.fits', uint=True)
+        self.assertEqual(f[1].data.dtype, 'uint16')
+        os.remove('test_new.fits')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -282,7 +282,10 @@ class _BaseHDU(object):
         # cards to header
         if self._data_loaded and self.data is not None and \
            self._standard and _is_pseudo_unsigned(self.data.dtype):
-            self._header.update('BSCALE', 1, after='GCOUNT')
+            if 'GCOUNT' in self._header:
+                self._header.update('BSCALE', 1, after='GCOUNT')
+            else:
+                self._header.update('BSCALE', 1)
             self._header.update('BZERO', _unsigned_zero(self.data.dtype),
                                 after='BSCALE')
 
