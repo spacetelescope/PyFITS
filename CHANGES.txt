@@ -1,0 +1,46 @@
+Changelog
+===========
+
+3.0.0 (unreleased)
+--------------------
+
+- Contains major changes, bumping the version to 3.0
+- Large amounts of refactoring and reorganization of the code; tried to
+  preserve public API backwards-compatibility with older versions (private API
+  has many changes and is not guaranteed to be backwards-compatible).  There
+  are a few small public API changes to be aware of:
+
+  * `Card` instances have a new `.cardimage` attribute that should be used
+    rather than `.ascardimage()`, which may become deprecated.
+  * The `Card.fromstring()` method is now a classmethod.  It returns a new
+    `Card` instance rather than modifying an existing instance.
+  * The `req_cards()` method on HDU instances has changed:  The `pos` argument
+    is not longer a string.  It is either an integer value (meaning the card's
+    position must match that value) or it can be a function that takes the
+    card's position as it's argument, and returns True if the position is
+    valid.  Likewise, the `test` argument no longer takes a string, but instead
+    a function that validates the card's value and returns True or False.
+  * The `get_coldefs()` method of table HDUs is deprecated.  Use the `.columns`
+    attribute instead.
+  * Possibly others--please report if you find any changes that cause
+    difficulties.
+
+- Added basic Python 3 support
+- Added support for multi-dimensional columns in tables as specified by the
+  TDIMn keywords (#47)
+- Fixed a major memory leak that occurred when creating new tables with the
+  `new_table()` function (#49)
+  be padded with zero-bytes) vs ASCII tables (where strings are padded with
+  spaces) (#15)
+- Fixed a bug in which the case of Random Access Group parameters names was not
+  preserved when writing (#41)
+- Added support for binary table fields with zero width (#42)
+- Added support for wider integer types in ASCII tables; although this is non-
+  standard, some GEIS images require it (#45)
+- Fixed a bug that caused the index_of() method of HDULists to crash when the
+  HDUList object is created from scratch (#48)
+- Fixed the behavior of string padding in binary tables (where strings should
+- Fixed a rare issue that caused excessive memory usage when computing
+  checksums using a non-standard block size (see r818)
+- Fixed an issue where BZERO and BSCALE keywords were appended to headers in
+  the wrong location (#56)
