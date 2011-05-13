@@ -198,7 +198,10 @@ class FITS_rec(rec.recarray):
         if isinstance(key, basestring):
             return self.field(key)
         elif isinstance(key, (slice, np.ndarray)):
-            out = rec.recarray.__getitem__(self, key)
+            # Have to view as a recarray then back as a FITS_rec, otherwise the
+            # circular reference fix/hack in FITS_rec.field() won't preserve
+            # the slice
+            out = self.view(rec.recarray).__getitem__(key).view(FITS_rec)
             out._coldefs = ColDefs(self._coldefs)
             arrays = []
             out._convert = [None] * len(self.dtype.names)

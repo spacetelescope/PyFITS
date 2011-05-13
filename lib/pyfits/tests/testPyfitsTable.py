@@ -1633,6 +1633,23 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(t.field(1).dtype.str[-1], '5')
         self.assertEqual(t.field(1).shape, (3, 4, 3))
 
+    def testSlicing(self):
+        f = pyfits.open(os.path.join(data_dir, 'table.fits'))
+        data = f[1].data
+        targets = data.field('target')
+        s = data[:]
+        self.assert_((s.field('target') == targets).all())
+        for n in range(len(targets) + 2):
+            s = data[:n]
+            self.assert_((s.field('target') == targets[:n]).all())
+            s = data[n:]
+            self.assert_((s.field('target') == targets[n:]).all())
+        s = data[::2]
+        self.assert_((s.field('target') == targets[::2]).all())
+        s = data[::-1]
+        self.assert_((s.field('target') == targets[::-1]).all())
+
+
 if __name__ == '__main__':
     unittest.main()
 
