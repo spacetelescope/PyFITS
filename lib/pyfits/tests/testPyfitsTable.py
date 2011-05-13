@@ -1634,6 +1634,8 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(t.field(1).shape, (3, 4, 3))
 
     def testSlicing(self):
+        """Regression test for #52."""
+
         f = pyfits.open(os.path.join(data_dir, 'table.fits'))
         data = f[1].data
         targets = data.field('target')
@@ -1648,6 +1650,21 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assert_((s.field('target') == targets[::2]).all())
         s = data[::-1]
         self.assert_((s.field('target') == targets[::-1]).all())
+
+    def testArraySlicing(self):
+        """Regression test for #55."""
+
+        f = pyfits.open(os.path.join(data_dir, 'table.fits'))
+        data = f[1].data
+        s1 = data[data['target'] == 'NGC1001']
+        s2 = data[np.where(data['target'] == 'NGC1001')]
+        s3 = data[[0]]
+        s4 = data[:1]
+        for s in [s1, s2, s3, s4]:
+            self.assert_(isinstance(s, pyfits.FITS_rec))
+        self.assert_((s1 == s2).all())
+        self.assert_((s2 == s3).all())
+        self.assert_((s3 == s4).all())
 
 
 if __name__ == '__main__':

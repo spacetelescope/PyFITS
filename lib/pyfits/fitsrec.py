@@ -197,7 +197,7 @@ class FITS_rec(rec.recarray):
     def __getitem__(self, key):
         if isinstance(key, basestring):
             return self.field(key)
-        elif isinstance(key, (slice, np.ndarray)):
+        elif isinstance(key, (slice, np.ndarray, tuple, list)):
             # Have to view as a recarray then back as a FITS_rec, otherwise the
             # circular reference fix/hack in FITS_rec.field() won't preserve
             # the slice
