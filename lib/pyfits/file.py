@@ -9,7 +9,8 @@ import zipfile
 import numpy as np
 from numpy import memmap as Memmap
 
-from pyfits.util import Extendable, _fromfile, _tofile, decode_ascii
+from pyfits.util import Extendable, _fromfile, _tofile, decode_ascii, \
+                        deprecated
 
 
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
@@ -195,6 +196,7 @@ class _File(object):
     def __exit__(self, type, value, traceback):
         self.close()
 
+    @deprecated
     def getfile(self):
         """**Deprecated** Will be going away as soon as I figure out how."""
         return self.__file

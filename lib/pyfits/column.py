@@ -6,7 +6,7 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits.card import Card
-from pyfits.util import lazyproperty, pairwise, _is_int
+from pyfits.util import lazyproperty, pairwise, _is_int, _convert_array
 
 
 __all__ = ['Column', 'ColDefs', 'Delayed']
@@ -240,19 +240,19 @@ class Column(object):
         elif array is None:
             return array
         else:
-            if ('A' in format and 'P' not in format):
+            if 'A' in format and 'P' not in format:
                 if array.dtype.char in 'SU':
                     fsize = int(_convert_format(format)[1:])
                     return chararray.array(array, itemsize=fsize)
                 else:
                     numpy_format = _convert_format(format)
-                    return array.astype(numpy_format)
-            elif ('X' not in format and 'P' not in format):
+                    return _convert_array(array, np.dtype(numpy_format))
+            elif 'X' not in format and 'P' not in format:
                 (repeat, fmt, option) = _parse_tformat(format)
-                numpyFormat = _convert_format(fmt)
-                return array.astype(numpyFormat)
-            elif ('X' in format):
-                return array.astype(np.uint8)
+                numpy_format = _convert_format(fmt)
+                return _convert_array(array, np.dtype(numpy_format))
+            elif 'X' in format:
+                return _convert_array(array, np.dtype('uint8'))
             else:
                 return array
 

@@ -19,7 +19,8 @@ from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import _ValidHDU, _ExtensionHDU
 from pyfits.header import Header
-from pyfits.util import lazyproperty, _is_int, _str_to_num, _pad_length
+from pyfits.util import lazyproperty, _is_int, _str_to_num, _pad_length, \
+                        deprecated
 
 
 class _TableLikeHDU(_ValidHDU):
@@ -219,6 +220,7 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
     def _pcount(self):
         return self._header.get('PCOUNT', 0)
 
+    @deprecated(alternative='the .columns attribute')
     def get_coldefs(self):
         """
         **[Deprecated]** Returns the table's column definitions.

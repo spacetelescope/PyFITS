@@ -5,7 +5,7 @@ import warnings
 
 import numpy as np
 
-from pyfits.util import _str_to_num, _is_int
+from pyfits.util import _str_to_num, _is_int, deprecated
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -269,7 +269,7 @@ class Card(_Verify):
     @property
     def cardimage(self):
         if not hasattr(self, '_cardimage'):
-            self.ascardimage()
+            self._ascardimage()
         return self._cardimage
 
     def _update_cardimage(self):
@@ -369,7 +369,11 @@ class Card(_Verify):
 
     # TODO: Wouldn't 'verification' be a better name for the 'option' keyword
     # argument?  'option' is pretty vague.
+    @deprecated(alternative='the .cardimage attribute')
     def ascardimage(self, option='silentfix'):
+        return self._ascardimage(option)
+
+    def _ascardimage(self, option='silentfix'):
         """
         Generate a (new) card image from the attributes: `key`, `value`,
         and `comment`, or from raw string.
@@ -877,7 +881,9 @@ class RecordValuedKeywordCard(Card):
                    mo.group('field_spec')
         else:
             return key.strip().upper()
-    upperKey = upper_key # For API backwards-compatibility
+    # For API backwards-compatibility
+    upperKey = \
+        deprecated(name='upperKey', alternative='upper_key()')(upper_key)
 
     @classmethod
     def valid_key_value(cls, key, value=0):
@@ -939,7 +945,10 @@ class RecordValuedKeywordCard(Card):
             return [rtnKey, rtnFieldSpec, rtnValue]
         else:
             return []
-    validKeyValue = valid_key_value # For API backwards-compatibility
+    # For API backwards-compatibility
+    validKeyValue = \
+        deprecated(name='validKeyValue',
+                   alternative='valid_key_value()')(valid_key_value)
 
     @classmethod
     def create(cls, key='', value='', comment=''):
@@ -971,7 +980,8 @@ class RecordValuedKeywordCard(Card):
             cls = Card
 
         return cls(key, value, comment)
-    createCard = create # For API backward-compatibility
+    # For API backwards-compatibility
+    createCard = deprecated(name='createCard', alternative='create()')(create)
 
     @classmethod
     def fromstring(cls, input):
@@ -997,12 +1007,17 @@ class RecordValuedKeywordCard(Card):
 
         if idx2 > idx1 and idx1 >= 0 and \
            cls.valid_key_value('', value=input[idx1:idx2]):
-            pass
+            # This calls Card.fromstring, but with the RecordValuedKeywordClass
+            # as the cls argument (causing an RVKC to be created)
+            return super(RecordValuedKeywordCard, cls).fromstring(input)
         else:
-            cls = Card
+            # This calls Card.fromstring directly, creating a plain Card
+            # object.
+            return Card.fromstring(input)
 
-        return cls.fromstring(input)
-    createCardFromString = fromstring # For API backwards-compat
+    # For API backwards-compatibility
+    createCardFromString = deprecated(name='createCardFromString',
+                                      alternative='fromstring()')(fromstring)
 
     def _update_cardimage(self):
         """
@@ -1489,19 +1504,24 @@ class CardList(list):
 def create_card(key='', value='', comment=''):
     return RecordValuedKeywordCard.create(key, value, comment)
 create_card.__doc__ = RecordValuedKeywordCard.create.__doc__
-createCard = create_card # For API backwards-compat
+# For API backwards-compatibility
+createCard = deprecated(name='createCard',
+                        alternative='create_card()')(create_card)
 
 
 def create_card_from_string(input):
     return RecordValuedKeywordCard.fromstring(input)
 create_card_from_string.__doc__ = RecordValuedKeywordCard.fromstring.__doc__
-createCardFromString = create_card_from_string # For API backwards-compat
-
+# For API backwards-compat
+createCardFromString = \
+        deprecated(name='createCardFromString',
+                   alternative='fromstring()')(create_card_from_string)
 
 def upper_key(key):
     return RecordValuedKeywordCard.upper_key(key)
 upper_key.__doc__ = RecordValuedKeywordCard.upper_key.__doc__
-upperKey = upper_key # For API backward-compat
+# For API backwards-compat
+upperKey = deprecated(name='upperKey', alternative='upper_key()')(upper_key)
 
 
 class _HierarchCard(Card):

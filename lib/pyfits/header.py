@@ -243,7 +243,7 @@ class Header(DictMixin):
             preserved.
         """
 
-        keylist = RecordValuedKeywordCard.validKeyValue(key, value)
+        keylist = RecordValuedKeywordCard.valid_key_value(key, value)
 
         if keylist:
             keyword = keylist[0] + '.' + keylist[1]

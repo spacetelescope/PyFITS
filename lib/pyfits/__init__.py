@@ -6,14 +6,7 @@ try:
     import pkg_resources
     __version__ = pkg_resources.get_distribution('pyfits').version
 except ImportError:
-    __version__ = None
-
-# Define the version of the pyfits package.
-try:
-    from pyfits import svn_version
-    __svn_version__ = svn_version.__svn_version__
-except ImportError:
-    __svn_version__ = 'Unable to determine SVN revision'
+    __version__ = ''
 
 # Import the pyfits core module.
 import pyfits.core
@@ -26,9 +19,9 @@ __doc__ = pyfits.core.__doc__
 __all__ = pyfits.core.__all__ + pyfits.util.__all__
 
 try:
-    import pytools.tester
+    import stsci.tools.tester
     def test(*args,**kwds):
-        pytools.tester.test(modname=__name__, *args, **kwds)
+        stsci.tools.tester.test(modname=__name__, *args, **kwds)
 except ImportError:
     pass
 
