@@ -286,6 +286,89 @@ class lazyproperty(object):
             del obj.__dict__[key]
 
 
+def deprecated(message='', name='', alternative='', pending=False):
+    """
+    Used to mark a function as deprecated.
+
+    TODO: Provide a class deprecation marker as well.
+
+    To mark an attribute as deprecated, replace that attribute with a
+    depcrecated property.
+
+    Parameters
+    ------------
+    message : str, optional
+        Override the default deprecation message.  The format specifier
+        %(func)s may be used for the name of the function, and %(alternative)s
+        may be used in the deprecation message to insert the name of an
+        alternative to the deprecated function.
+
+    name : str, optional
+        The name of the deprecated function; if not provided the name is
+        automatically determined from the passed in function, though this is
+        useful in the case of renamed functions, where the new function is just
+        assigned to the name of the deprecated function.  For example:
+            def new_function():
+                ...
+            oldFunction = new_function
+
+    alternative : str, optional
+        An alternative function that the user may use in place of the
+        deprecated function.  The deprecation warning will tell the user about
+        this alternative if provided.
+
+    pending : bool, optional
+        If True, uses a PendingDeprecationWarning instead of a
+        DeprecationWarning.
+
+    """
+
+    def deprecate(func):
+        if isinstance(func, classmethod):
+            func = func.__func__
+            is_classmethod = True
+        else:
+            is_classmethod = False
+        @functools.wraps(func)
+        def deprecated_func(*args, **kwargs):
+            # _message and _name are necessary; otherwise assignments to name
+            # and message will cause the interpreter to treat them as local
+            # variables, instead of encapuslated variables
+            _message = message
+            _name = name
+            if not _name:
+                _name = func.__name__
+
+            if not _message or type(_message) == type(deprecate):
+                if pending:
+                    _message = 'The %(func)s function will be deprecated in' \
+                               'a future version.'
+                else:
+                    _message = 'The %(func)s function is deprecated and may ' \
+                               'be removed in a future version.'
+                if alternative:
+                    _message += '  Use %(alternative)s instead.'
+
+            if pending:
+                category = DeprecationPendingWarning
+            else:
+                category = DeprecationWarning
+
+            warnings.warn(
+                _message % {'func': _name, 'alternative': alternative},
+                category, stacklevel=2)
+
+            return func(*args, **kwargs)
+        if is_classmethod:
+            deprecated_func = classmethod(deprecated_func)
+        return deprecated_func
+
+    if type(message) == type(deprecate):
+        return deprecate(message)
+
+    return deprecate
+
+
 def pairwise(iterable):
     """Return the items of an iterable paired with its next item.
 
