@@ -343,6 +343,21 @@ def _chunk_array(arr, CHUNK_SIZE=2 ** 25):
         yield arr[idx:idx + rows_per_chunk,...]
 
 
+def _convert_array(array, dtype):
+    """
+    Converts an array to a new dtype--if the itemsize of the new dtype is
+    the same as the old dtype, a view is returned.  Otherwise a new array must
+    be created.
+    """
+
+    if array.dtype == dtype:
+        return array
+    if array.dtype.itemsize == dtype.itemsize:
+        return array.view(dtype)
+    else:
+        return array.astype(dtype)
+
+
 def _unsigned_zero(dtype):
     """
     Given a numpy dtype, finds its "zero" point, which is exactly in the
