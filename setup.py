@@ -7,11 +7,29 @@ except ImportError:
     use_setuptools()
     from setuptools import setup
 
+try:
+    from stsci.distutils.command.easier_install import easier_install
+except ImportError:
+    import os
+    import sys
+    stsci_distutils = os.path.abspath(os.path.join('..', 'distutils', 'lib'))
+    if os.path.exists(stsci_distutils) and stsci_distutils not in sys.path:
+        sys.path.append(stsci_distutils)
+    try:
+        from stsci.distutils.command.easier_install import easier_install
+        import setuptools.command.easy_install
+        setuptools.command.easy_install.easy_install = easier_install
+    except ImportError:
+        # If even this failed, we're not in an stsci_python source checkout,
+        # so there's nothing gained from using easier_install
+        from setuptools.command.easy_install import easy_install
+        easier_install = easy_install
+
+
 setup(
-    # Don't require stsci.tools until the stsci_python refactoring is closer
-    # to being available
-    #setup_requires=['d2to1', 'stsci.tools>=2.9'],
-    setup_requires=['d2to1'],
+    setup_requires=['d2to1', 'stsci.distutils>=0.2dev'],
     d2to1=True,
-    use_2to3=True
+    use_2to3=True,
+    # TODO: Move this to setup.cfg once d2to1 supports custom command classes
+    cmdclass={'easy_install': easier_install}
 )

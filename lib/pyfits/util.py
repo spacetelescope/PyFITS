@@ -435,7 +435,7 @@ def _convert_array(array, dtype):
 
     if array.dtype == dtype:
         return array
-    if array.dtype.itemsize == dtype.itemsize:
+    elif array.dtype.itemsize == dtype.itemsize:
         return array.view(dtype)
     else:
         return array.astype(dtype)
