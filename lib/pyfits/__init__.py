@@ -5,7 +5,7 @@ from __future__ import division # confidence high
 try:
     import pkg_resources
     __version__ = pkg_resources.get_distribution('pyfits').version
-except ImportError:
+except:
     __version__ = ''
 
 # Import the pyfits core module.

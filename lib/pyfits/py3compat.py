@@ -112,4 +112,5 @@ else:
     # We want a bytes stand-in so we can do stuff like isinstance(..., bytes)
     # and have it work correctly
     import __builtin__
-    __builtin__.bytes = str
+    if not hasattr(__builtin__, 'bytes'):
+        __builtin__.bytes = str
