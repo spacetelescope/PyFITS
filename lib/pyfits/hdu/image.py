@@ -134,26 +134,7 @@ class _ImageBaseHDU(_ValidHDU):
         if (self._bzero == 0 and self._bscale == 1):
             return raw_data
 
-        data = None
-        # Handle "pseudo-unsigned" integers, if the user
-        # requested it.  In this case, we don't need to
-        # handle BLANK to convert it to NAN, since we
-        # can't do NaNs with integers, anyway, i.e. the
-        # user is responsible for managing blanks.
-        if self._uint and self._bscale == 1:
-            for bits, dtype in ((16, np.uint16),
-                                (32, np.uint32),
-                                (64, np.uint64)):
-                if bitpix == bits and self._bzero == 1 << (bits - 1):
-                    # Convert the input raw data into an unsigned
-                    # integer array and then scale the data
-                    # adjusting for the value of BZERO.  Note
-                    # that we subtract the value of BZERO instead
-                    # of adding because of the way numpy converts
-                    # the raw signed array into an unsigned array.
-                    data = np.array(raw_data, dtype=dtype)
-                    data -= (1 << (bits - 1))
-                    break
+        data = self._convert_pseudo_unsigned(raw_data)
 
         if data is None:
             # In these cases, we end up with
@@ -391,6 +372,32 @@ class _ImageBaseHDU(_ValidHDU):
         self.update_header()
         return super(_ImageBaseHDU, self)._writeto(fileobj, checksum)
 
+    def _convert_pseudo_unsigned(self, data):
+        """
+        Handle "pseudo-unsigned" integers, if the user requested it.  Returns
+        the converted data array if so; otherwise returns None.
+
+        In this case case, we don't need to handle BLANK to convert it to NAN,
+        since we can't do NaNs with integers, anyway, i.e. the user is
+        responsible for managing blanks.
+        """
+
+        bitpix = self._header['BITPIX']
+        if self._uint and self._bscale == 1:
+            for bits, dtype in ((16, np.uint16),
+                                (32, np.uint32),
+                                (64, np.uint64)):
+                if bitpix == bits and self._bzero == 1 << (bits - 1):
+                    # Convert the input raw data into an unsigned
+                    # integer array and then scale the data
+                    # adjusting for the value of BZERO.  Note
+                    # that we subtract the value of BZERO instead
+                    # of adding because of the way numpy converts
+                    # the raw signed array into an unsigned array.
+                    data = np.array(data, dtype=dtype)
+                    data -= (1 << (bits - 1))
+                    return data
+
     def _dimShape(self):
         """
         Returns a tuple of image dimensions, reverse the order of ``NAXIS``.
@@ -546,17 +553,21 @@ class Section(object):
             if not dims:
                 dims = [1]
 
-            # Now, get the data (does not include bscale/bzero for now XXX)
             _bitpix = self.hdu.header['BITPIX']
             code = _ImageBaseHDU.NumCode[_bitpix]
             offset = self.hdu._datLoc + (offset * abs(_bitpix) // 8)
             raw_data = self.hdu._file.readarray(offset=offset, dtype=code,
                                                 shape=dims)
             raw_data.dtype = raw_data.dtype.newbyteorder('>')
-            return raw_data
+            data = raw_data
         else:
-            out = self._getdata(key)
-            return out
+            data = self._getdata(key)
+
+        converted_data = self.hdu._convert_pseudo_unsigned(data)
+        if converted_data:
+            data = converted_data
+
+        return data
 
     def _getdata(self, keys):
         out = []
