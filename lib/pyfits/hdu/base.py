@@ -56,6 +56,8 @@ def _hdu_class_from_header(cls, header):
     return klass
 
 
+# TODO: Come up with a better __repr__ for HDUs (and for HDULists, for that
+# matter)
 class _BaseHDU(object):
     """
     Base class for all HDU (header data unit) classes.

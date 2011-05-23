@@ -42,6 +42,7 @@ Changelog
 - Fixed the behavior of string padding in binary tables (where strings should
 - Fixed a rare issue that caused excessive memory usage when computing
   checksums using a non-standard block size (see r818)
+- Add support for forced uint data in image sections (#53)
 - Fixed tuple and list-based indexing of FITS_rec objects (#55)
 - Fixed an issue where BZERO and BSCALE keywords were appended to headers in
   the wrong location (#56)

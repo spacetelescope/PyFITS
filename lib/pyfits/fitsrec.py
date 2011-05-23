@@ -319,7 +319,7 @@ class FITS_rec(rec.recarray):
                                        sep='')
                         dummy[i] = np.char.array(da, itemsize=count)
                         if not issubclass(dummy[i].dtype.type, np.str_):
-                            dummy[i] = dummy[i].astype(np.str_)
+                            dummy[i] = np.char.encode(dummy[i], 'ascii')
                     else:
                         count = field[i,0]
                         dt = recformat._dtype
@@ -402,7 +402,7 @@ class FITS_rec(rec.recarray):
             elif _str:
                 if not issubclass(dummy.dtype.type, np.str_):
                     try:
-                        self._convert[indx] = dummy.astype(np.str_)
+                        self._convert[indx] = np.char.encode('dummy', 'ascii')
                     except UnicodeDecodeError:
                         pass
 

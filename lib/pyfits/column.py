@@ -849,8 +849,11 @@ def _makep(input, desp_output, dtype):
 
     for i in range(len(input)):
         if dtype == 'a':
-            data_output[i] = chararray.array(input[i].astype(np.bytes_),
-                                             itemsize=1)
+            if not issubclass(input[i].dtype.type, np.bytes_):
+                inp = np.encode(input[i], 'ascii')
+            else:
+                inp = input[i]
+            data_output[i] = chararray.array(inp, itemsize=1)
         else:
             data_output[i] = np.array(input[i], dtype=dtype)
 
