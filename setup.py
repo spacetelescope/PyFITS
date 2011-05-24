@@ -18,18 +18,16 @@ except ImportError:
     try:
         from stsci.distutils.command.easier_install import easier_install
         import setuptools.command.easy_install
-        setuptools.command.easy_install.easy_install = easier_install
     except ImportError:
         # If even this failed, we're not in an stsci_python source checkout,
         # so there's nothing gained from using easier_install
         from setuptools.command.easy_install import easy_install
         easier_install = easy_install
-
+# This is required so that easier_install can be used for setup_requires
+setuptools.command.easy_install.easy_install = easier_install
 
 setup(
     setup_requires=['d2to1', 'stsci.distutils>=0.2dev'],
     d2to1=True,
-    use_2to3=True,
-    # TODO: Move this to setup.cfg once d2to1 supports custom command classes
-    cmdclass={'easy_install': easier_install}
+    use_2to3=True
 )
