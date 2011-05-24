@@ -24,6 +24,7 @@ except ImportError:
         from setuptools.command.easy_install import easy_install
         easier_install = easy_install
 # This is required so that easier_install can be used for setup_requires
+import setuptools
 setuptools.command.easy_install.easy_install = easier_install
 
 setup(
