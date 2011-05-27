@@ -47,7 +47,9 @@ if sys.version_info[0] >= 3:
     # Fix chararrays; this is necessary in numpy 1.5.1 and below--hopefully
     # should not be necessary later.  See
     # http://projects.scipy.org/numpy/ticket/1817
-    # TODO: Maybe do a version check on numpy for this?
+    # TODO: Maybe do a version check on numpy for this?  (Note: the fix for
+    # this hasn't been accepted in Numpy yet, so a version number check would
+    # not be helpful yet...)
     import pyfits.rec
     import pyfits.file
 
@@ -67,7 +69,9 @@ if sys.version_info[0] >= 3:
 
     # Fix recarrays with sub-array fields.  See
     # http://projects.scipy.org/numpy/ticket/1766
-    # TODO: Same as above
+    # TODO: Same as above, though the fix to this problem hasn't made it into
+    # any Numpy release yet either, so we'll have to hold off on a version
+    # check
     def _fix_dtype(dtype):
         """
         Numpy has a bug (in Python3 only) that causes a segfault when

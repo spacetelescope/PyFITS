@@ -22,6 +22,9 @@ Changelog
     a function that validates the card's value and returns True or False.
   * The `get_coldefs()` method of table HDUs is deprecated.  Use the `.columns`
     attribute instead.
+  * The `ColDefs.data` attribute is deprecated--use `ColDefs.columns` instead
+    (though in general you shouldn't mess with it directly--it might become
+    internal at some point).
   * Possibly others--please report if you find any changes that cause
     difficulties.
 

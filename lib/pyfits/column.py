@@ -7,7 +7,7 @@ from numpy import char as chararray
 
 from pyfits.card import Card
 from pyfits.util import lazyproperty, pairwise, _is_int, _convert_array, \
-                        encode_ascii
+                        encode_ascii, deprecated
 
 
 __all__ = ['Column', 'ColDefs', 'Delayed']
@@ -305,8 +305,7 @@ class ColDefs(object):
         self._tbtype = tbtype
 
         if isinstance(input, ColDefs):
-            # TODO: Wouldn't self.columns be a bit more obvious?
-            self.data = [col.copy() for col in input.data]
+            self.columns = [col.copy() for col in input.data]
 
         # if the input is a list of Columns
         elif isinstance(input, (list, tuple)):
@@ -315,11 +314,11 @@ class ColDefs(object):
                     raise TypeError(
                            'Element %d in the ColDefs input is not a Column.'
                            % input.index(col))
-            self.data = [col.copy() for col in input]
+            self.columns = [col.copy() for col in input]
 
         # Construct columns from the fields of a record array
         elif isinstance(input, np.ndarray) and input.dtype.fields is not None:
-            self.data = []
+            self.columns = []
             for idx in range(len(input.dtype)):
                 cname = input.dtype.names[idx]
                 ftype = input.dtype.fields[cname][0]
@@ -342,7 +341,7 @@ class ColDefs(object):
 
                 c = Column(name=cname, format=format,
                            array=input.view(np.ndarray)[cname], dim=dim)
-                self.data.append(c)
+                self.columns.append(c)
 
         # Construct columns from fields in an HDU header
         elif isinstance(input, _TableBaseHDU):
@@ -372,7 +371,7 @@ class ColDefs(object):
                 col_attributes[col]['array'] = Delayed(input, col)
 
             # now build the columns
-            self.data = [Column(**attrs) for attrs in col_attributes]
+            self.columns = [Column(**attrs) for attrs in col_attributes]
             self._listener = input
         else:
             raise TypeError('Input to ColDefs must be a table HDU or a list '
@@ -381,7 +380,7 @@ class ColDefs(object):
         # For ASCII tables, reconstruct string columns and ensure that spaces
         # are used for padding instead of \x00, and do the reverse for binary
         # table columns.
-        for col in self.data:
+        for col in self.columns:
             array = col.array
             if not isinstance(array, chararray.chararray):
                 continue
@@ -412,29 +411,39 @@ class ColDefs(object):
             return self.__dict__[name]
         raise AttributeError(name)
 
+    @property
+    @deprecated(alternative='the .columns attribute')
+    def data(self):
+        """
+        What was originally self.columns is now self.data; this provides some
+        backwards compatibility.
+        """
+
+        return self.columns
+
     @lazyproperty
     def _arrays(self):
-        return [col.array for col in self.data]
+        return [col.array for col in self.columns]
 
     @lazyproperty
     def _recformats(self):
         return [_convert_format(fmt) for fmt in self.formats]
 
     def __getitem__(self, key):
-        x = self.data[key]
-        if isinstance(key, (int, long, np.integer)):
+        x = self.columns[key]
+        if _is_int(key):
             return x
         else:
             return ColDefs(x)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.columns)
 
     def __repr__(self):
         rep = 'ColDefs('
-        if self.data:
+        if self.columns:
             rep += '\n    '
-            rep += '\n    '.join([repr(c) for c in self.data])
+            rep += '\n    '.join([repr(c) for c in self.columns])
             rep += '\n'
         rep += ')'
         return rep
@@ -443,13 +452,13 @@ class ColDefs(object):
         if isinstance(other, Column):
             b = [other]
         elif isinstance(other, ColDefs):
-            b = list(other.data)
+            b = list(other.columns)
         else:
             raise TypeError('Wrong type of input.')
         if option == 'left':
-            tmp = list(self.data) + b
+            tmp = list(self.columns) + b
         else:
-            tmp = b + list(self.data)
+            tmp = b + list(self.columns)
         return ColDefs(tmp)
 
     def __radd__(self, other):
@@ -492,7 +501,7 @@ class ColDefs(object):
         # Obliterate caches of certain things
         del self._recformats
 
-        self.data.append(column)
+        self.columns.append(column)
 
         # If this ColDefs is being tracked by a Table, inform the
         # table that its data is now invalid.
@@ -517,7 +526,7 @@ class ColDefs(object):
         # Obliterate caches of certain things
         del self._recformats
 
-        del self.data[indx]
+        del self.columns[indx]
 
         # If this ColDefs is being tracked by a Table, inform the
         # table that its data is now invalid.
@@ -632,7 +641,7 @@ class _ASCIIColDefs(ColDefs):
 
         # if the format of an ASCII column has no width, add one
         if not isinstance(input, _ASCIIColDefs):
-            for col in self.data:
+            for col in self.columns:
                 (type, width) = _convert_ascii_format(col.format)
                 if width is None:
                     col.format = self._ascii_fmt[col.format]
@@ -661,7 +670,8 @@ class _ASCIIColDefs(ColDefs):
         # NOTE: The self._width attribute only exists if this ColDefs was
         # instantiated with a _TableHDU object; make sure that's the only
         # context in which this is used, for now...
-        # TODO: Determine if we can make this less fragile.
+        # Touch spans to make sure self.starts is set
+        self.spans
         widths.append(self._width - self.starts[-1] + 1)
         return ['a' + str(w) for w in widths]
 

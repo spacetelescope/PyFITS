@@ -358,11 +358,11 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         # Verify that all ndarray objects within the HDU reference the
         # same ndarray.
-        self.assertEqual(id(hdu.data._coldefs.data[0].array),
+        self.assertEqual(id(hdu.data._coldefs.columns[0].array),
                          id(hdu.data._coldefs._arrays[0]))
-        self.assertEqual(id(hdu.data._coldefs.data[0].array),
+        self.assertEqual(id(hdu.data._coldefs.columns[0].array),
                          id(hdu.columns.data[0].array))
-        self.assertEqual(id(hdu.data._coldefs.data[0].array),
+        self.assertEqual(id(hdu.data._coldefs.columns[0].array),
                          id(hdu.columns._arrays[0]))
 
         # Ensure I can change the value of one data element and it effects
@@ -371,7 +371,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(hdu.data[0][0], 213)
         self.assertEqual(hdu.data._coldefs._arrays[0][0], 213)
-        self.assertEqual(hdu.data._coldefs.data[0].array[0], 213)
+        self.assertEqual(hdu.data._coldefs.columns[0].array[0], 213)
         self.assertEqual(hdu.columns._arrays[0][0], 213)
         self.assertEqual(hdu.columns.data[0].array[0], 213)
 
@@ -379,28 +379,28 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(hdu.data[0][0], 100)
         self.assertEqual(hdu.data._coldefs._arrays[0][0], 100)
-        self.assertEqual(hdu.data._coldefs.data[0].array[0], 100)
+        self.assertEqual(hdu.data._coldefs.columns[0].array[0], 100)
         self.assertEqual(hdu.columns._arrays[0][0], 100)
         self.assertEqual(hdu.columns.data[0].array[0], 100)
 
-        hdu.data._coldefs.data[0].array[0] = 500
+        hdu.data._coldefs.columns[0].array[0] = 500
         self.assertEqual(hdu.data[0][0], 500)
         self.assertEqual(hdu.data._coldefs._arrays[0][0], 500)
-        self.assertEqual(hdu.data._coldefs.data[0].array[0], 500)
+        self.assertEqual(hdu.data._coldefs.columns[0].array[0], 500)
         self.assertEqual(hdu.columns._arrays[0][0], 500)
         self.assertEqual(hdu.columns.data[0].array[0], 500)
 
         hdu.columns._arrays[0][0] = 600
         self.assertEqual(hdu.data[0][0], 600)
         self.assertEqual(hdu.data._coldefs._arrays[0][0], 600)
-        self.assertEqual(hdu.data._coldefs.data[0].array[0], 600)
+        self.assertEqual(hdu.data._coldefs.columns[0].array[0], 600)
         self.assertEqual(hdu.columns._arrays[0][0], 600)
         self.assertEqual(hdu.columns.data[0].array[0], 600)
 
         hdu.columns.data[0].array[0] = 800
         self.assertEqual(hdu.data[0][0], 800)
         self.assertEqual(hdu.data._coldefs._arrays[0][0], 800)
-        self.assertEqual(hdu.data._coldefs.data[0].array[0], 800)
+        self.assertEqual(hdu.data._coldefs.columns[0].array[0], 800)
         self.assertEqual(hdu.columns._arrays[0][0], 800)
         self.assertEqual(hdu.columns.data[0].array[0], 800)
 
@@ -523,35 +523,35 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         # numarray
         hdu.data[0][1] = 300
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 300)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 300)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 300)
         self.assertEqual(hdu.columns._arrays[1][0], 300)
         self.assertEqual(hdu.columns.data[1].array[0], 300)
         self.assertEqual(hdu.data[0][1], 300)
 
         hdu.data._coldefs._arrays[1][0] = 200
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 200)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 200)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 200)
         self.assertEqual(hdu.columns._arrays[1][0], 200)
         self.assertEqual(hdu.columns.data[1].array[0], 200)
         self.assertEqual(hdu.data[0][1], 200)
 
-        hdu.data._coldefs.data[1].array[0] = 100
+        hdu.data._coldefs.columns[1].array[0] = 100
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 100)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 100)
         self.assertEqual(hdu.columns._arrays[1][0], 100)
         self.assertEqual(hdu.columns.data[1].array[0], 100)
         self.assertEqual(hdu.data[0][1], 100)
 
         hdu.columns._arrays[1][0] = 90
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 90)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 90)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 90)
         self.assertEqual(hdu.columns._arrays[1][0], 90)
         self.assertEqual(hdu.columns.data[1].array[0], 90)
         self.assertEqual(hdu.data[0][1], 90)
 
         hdu.columns.data[1].array[0] = 80
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 80)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 80)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 80)
         self.assertEqual(hdu.columns._arrays[1][0], 80)
         self.assertEqual(hdu.columns.data[1].array[0], 80)
         self.assertEqual(hdu.data[0][1], 80)
@@ -561,35 +561,35 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         hdu = hdul[1]
         hdu.data[0][1] = 300
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 300)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 300)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 300)
         self.assertEqual(hdu.columns._arrays[1][0], 300)
         self.assertEqual(hdu.columns.data[1].array[0], 300)
         self.assertEqual(hdu.data[0][1], 300)
 
         hdu.data._coldefs._arrays[1][0] = 200
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 200)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 200)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 200)
         self.assertEqual(hdu.columns._arrays[1][0], 200)
         self.assertEqual(hdu.columns.data[1].array[0], 200)
         self.assertEqual(hdu.data[0][1], 200)
 
-        hdu.data._coldefs.data[1].array[0] = 100
+        hdu.data._coldefs.columns[1].array[0] = 100
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 100)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 100)
         self.assertEqual(hdu.columns._arrays[1][0], 100)
         self.assertEqual(hdu.columns.data[1].array[0], 100)
         self.assertEqual(hdu.data[0][1], 100)
 
         hdu.columns._arrays[1][0] = 90
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 90)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 90)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 90)
         self.assertEqual(hdu.columns._arrays[1][0], 90)
         self.assertEqual(hdu.columns.data[1].array[0], 90)
         self.assertEqual(hdu.data[0][1], 90)
 
         hdu.columns.data[1].array[0] = 80
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 80)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 80)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 80)
         self.assertEqual(hdu.columns._arrays[1][0], 80)
         self.assertEqual(hdu.columns.data[1].array[0], 80)
         self.assertEqual(hdu.data[0][1], 80)
@@ -671,35 +671,35 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         # numarray
         hdu.data[0][1] = 300
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 300)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 300)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 300)
         self.assertEqual(hdu.columns._arrays[1][0], 300)
         self.assertEqual(hdu.columns.data[1].array[0], 300)
         self.assertEqual(hdu.data[0][1], 300)
 
         hdu.data._coldefs._arrays[1][0] = 200
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 200)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 200)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 200)
         self.assertEqual(hdu.columns._arrays[1][0], 200)
         self.assertEqual(hdu.columns.data[1].array[0], 200)
         self.assertEqual(hdu.data[0][1], 200)
 
-        hdu.data._coldefs.data[1].array[0] = 100
+        hdu.data._coldefs.columns[1].array[0] = 100
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 100)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 100)
         self.assertEqual(hdu.columns._arrays[1][0], 100)
         self.assertEqual(hdu.columns.data[1].array[0], 100)
         self.assertEqual(hdu.data[0][1], 100)
 
         hdu.columns._arrays[1][0] = 90
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 90)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 90)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 90)
         self.assertEqual(hdu.columns._arrays[1][0], 90)
         self.assertEqual(hdu.columns.data[1].array[0], 90)
         self.assertEqual(hdu.data[0][1], 90)
 
         hdu.columns.data[1].array[0] = 80
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 80)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 80)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 80)
         self.assertEqual(hdu.columns._arrays[1][0], 80)
         self.assertEqual(hdu.columns.data[1].array[0], 80)
         self.assertEqual(hdu.data[0][1], 80)
@@ -728,35 +728,35 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         # Same verification from the file
         hdu.data[0][1] = 300
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 300)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 300)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 300)
         self.assertEqual(hdu.columns._arrays[1][0], 300)
         self.assertEqual(hdu.columns.data[1].array[0], 300)
         self.assertEqual(hdu.data[0][1], 300)
 
         hdu.data._coldefs._arrays[1][0] = 200
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 200)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 200)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 200)
         self.assertEqual(hdu.columns._arrays[1][0], 200)
         self.assertEqual(hdu.columns.data[1].array[0], 200)
         self.assertEqual(hdu.data[0][1], 200)
 
-        hdu.data._coldefs.data[1].array[0] = 100
+        hdu.data._coldefs.columns[1].array[0] = 100
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 100)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 100)
         self.assertEqual(hdu.columns._arrays[1][0], 100)
         self.assertEqual(hdu.columns.data[1].array[0], 100)
         self.assertEqual(hdu.data[0][1], 100)
 
         hdu.columns._arrays[1][0] = 90
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 90)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 90)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 90)
         self.assertEqual(hdu.columns._arrays[1][0], 90)
         self.assertEqual(hdu.columns.data[1].array[0], 90)
         self.assertEqual(hdu.data[0][1], 90)
 
         hdu.columns.data[1].array[0] = 80
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 80)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 80)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 80)
         self.assertEqual(hdu.columns._arrays[1][0], 80)
         self.assertEqual(hdu.columns.data[1].array[0], 80)
         self.assertEqual(hdu.data[0][1], 80)
@@ -840,7 +840,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertRaises(KeyError, row[1:4].setfield, 'flag', False)
 
         self.assertEqual(t1[1].data._coldefs._arrays[1][2], 500)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[2], 500)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[2], 500)
         self.assertEqual(t1[1].columns._arrays[1][2], 500)
         self.assertEqual(t1[1].columns.data[1].array[2], 500)
         self.assertEqual(t1[1].data[2][1], 500)
@@ -911,16 +911,16 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         # Verify that all ndarray objects within the HDU reference the
         # same ndarray.
-        self.assertEqual(id(tbhdu.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu.data._coldefs.columns[0].array),
                          id(tbhdu.data._coldefs._arrays[0]))
-        self.assertEqual(id(tbhdu.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu.data._coldefs.columns[0].array),
                          id(tbhdu.columns.data[0].array))
-        self.assertEqual(id(tbhdu.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu.data._coldefs.columns[0].array),
                          id(tbhdu.columns._arrays[0]))
 
         self.assertEqual(tbhdu.data[0][1], 312)
         self.assertEqual(tbhdu.data._coldefs._arrays[1][0], 312)
-        self.assertEqual(tbhdu.data._coldefs.data[1].array[0], 312)
+        self.assertEqual(tbhdu.data._coldefs.columns[1].array[0], 312)
         self.assertEqual(tbhdu.columns._arrays[1][0], 312)
         self.assertEqual(tbhdu.columns.data[1].array[0], 312)
         self.assertEqual(tbhdu.columns.data[0].array[0], 'NGC1')
@@ -931,7 +931,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(tbhdu.data[3][1], 33)
         self.assertEqual(tbhdu.data._coldefs._arrays[1][3], 33)
-        self.assertEqual(tbhdu.data._coldefs.data[1].array[3], 33)
+        self.assertEqual(tbhdu.data._coldefs.columns[1].array[3], 33)
         self.assertEqual(tbhdu.columns._arrays[1][3], 33)
         self.assertEqual(tbhdu.columns.data[1].array[3], 33)
         self.assertEqual(tbhdu.columns.data[0].array[3], 'JIM1')
@@ -973,16 +973,16 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         # Verify that all ndarray objects within the HDU reference the
         # same ndarray.
-        self.assertEqual(id(tbhdu2.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu2.data._coldefs.columns[0].array),
                          id(tbhdu2.data._coldefs._arrays[0]))
-        self.assertEqual(id(tbhdu2.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu2.data._coldefs.columns[0].array),
                          id(tbhdu2.columns.data[0].array))
-        self.assertEqual(id(tbhdu2.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu2.data._coldefs.columns[0].array),
                          id(tbhdu2.columns._arrays[0]))
 
         self.assertEqual(tbhdu2.data[0][1], 312)
         self.assertEqual(tbhdu2.data._coldefs._arrays[1][0], 312)
-        self.assertEqual(tbhdu2.data._coldefs.data[1].array[0], 312)
+        self.assertEqual(tbhdu2.data._coldefs.columns[1].array[0], 312)
         self.assertEqual(tbhdu2.columns._arrays[1][0], 312)
         self.assertEqual(tbhdu2.columns.data[1].array[0], 312)
         self.assertEqual(tbhdu2.columns.data[0].array[0], 'NGC1')
@@ -993,7 +993,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(tbhdu2.data[4][1], 112)
         self.assertEqual(tbhdu2.data._coldefs._arrays[1][4], 112)
-        self.assertEqual(tbhdu2.data._coldefs.data[1].array[4], 112)
+        self.assertEqual(tbhdu2.data._coldefs.columns[1].array[4], 112)
         self.assertEqual(tbhdu2.columns._arrays[1][4], 112)
         self.assertEqual(tbhdu2.columns.data[1].array[4], 112)
         self.assertEqual(tbhdu2.columns.data[0].array[4], 'NGC5')
@@ -1028,25 +1028,25 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         # Verify that original ColDefs object has independent Column
         # objects.
-        self.assertNotEqual(id(coldefs.data[0]), id(c1))
+        self.assertNotEqual(id(coldefs.columns[0]), id(c1))
 
         # Verify that original ColDefs object has independent ndarray
         # objects.
-        self.assertNotEqual(id(coldefs.data[0].array), id(names))
+        self.assertNotEqual(id(coldefs.columns[0].array), id(names))
 
         # Verify that original ColDefs object references the same data
         # object as the original Column object.
-        self.assertEqual(id(coldefs.data[0].array), id(c1.array))
-        self.assertEqual(id(coldefs.data[0].array), id(coldefs._arrays[0]))
+        self.assertEqual(id(coldefs.columns[0].array), id(c1.array))
+        self.assertEqual(id(coldefs.columns[0].array), id(coldefs._arrays[0]))
 
         # Verify new HDU has an independent ColDefs object.
         self.assertNotEqual(id(coldefs), id(tbhdu.columns))
 
         # Verify new HDU has independent Column objects.
-        self.assertNotEqual(id(coldefs.data[0]), id(tbhdu.columns.data[0]))
+        self.assertNotEqual(id(coldefs.columns[0]), id(tbhdu.columns.data[0]))
 
         # Verify new HDU has independent ndarray objects.
-        self.assertNotEqual(id(coldefs.data[0].array),
+        self.assertNotEqual(id(coldefs.columns[0].array),
                             id(tbhdu.columns.data[0].array))
 
         # Verify that both ColDefs objects in the HDU reference the same
@@ -1055,11 +1055,11 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         # Verify that all ndarray objects within the HDU reference the
         # same ndarray.
-        self.assertEqual(id(tbhdu.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu.data._coldefs.columns[0].array),
                          id(tbhdu.data._coldefs._arrays[0]))
-        self.assertEqual(id(tbhdu.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu.data._coldefs.columns[0].array),
                          id(tbhdu.columns.data[0].array))
-        self.assertEqual(id(tbhdu.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu.data._coldefs.columns[0].array),
                          id(tbhdu.columns._arrays[0]))
 
         tbhdu.writeto('table1.fits')
@@ -1070,7 +1070,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(t1[1].data[0][1], 213)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 213)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 213)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 213)
         self.assertEqual(t1[1].columns._arrays[1][0], 213)
         self.assertEqual(t1[1].columns.data[1].array[0], 213)
 
@@ -1078,28 +1078,28 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(t1[1].data[0][1], 100)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 100)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 100)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 100)
         self.assertEqual(t1[1].columns._arrays[1][0], 100)
         self.assertEqual(t1[1].columns.data[1].array[0], 100)
 
-        t1[1].data._coldefs.data[1].array[0] = 500
+        t1[1].data._coldefs.columns[1].array[0] = 500
         self.assertEqual(t1[1].data[0][1], 500)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 500)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 500)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 500)
         self.assertEqual(t1[1].columns._arrays[1][0], 500)
         self.assertEqual(t1[1].columns.data[1].array[0], 500)
 
         t1[1].columns._arrays[1][0] = 600
         self.assertEqual(t1[1].data[0][1], 600)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 600)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 600)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 600)
         self.assertEqual(t1[1].columns._arrays[1][0], 600)
         self.assertEqual(t1[1].columns.data[1].array[0], 600)
 
         t1[1].columns.data[1].array[0] = 800
         self.assertEqual(t1[1].data[0][1], 800)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 800)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 800)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 800)
         self.assertEqual(t1[1].columns._arrays[1][0], 800)
         self.assertEqual(t1[1].columns.data[1].array[0], 800)
 
@@ -1122,11 +1122,11 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         # Verify that all ndarray objects within the HDU reference the
         # same ndarray.
-        self.assertEqual(id(tbhdu1.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu1.data._coldefs.columns[0].array),
                          id(tbhdu1.data._coldefs._arrays[0]))
-        self.assertEqual(id(tbhdu1.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu1.data._coldefs.columns[0].array),
                          id(tbhdu1.columns.data[0].array))
-        self.assertEqual(id(tbhdu1.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu1.data._coldefs.columns[0].array),
                          id(tbhdu1.columns._arrays[0]))
 
         # Ensure I can change the value of one data element and it effects
@@ -1135,7 +1135,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(tbhdu1.data[0][1], 213)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 213)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 213)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 213)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 213)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 213)
 
@@ -1143,28 +1143,28 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(tbhdu1.data[0][1], 100)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 100)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 100)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 100)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 100)
 
-        tbhdu1.data._coldefs.data[1].array[0] = 500
+        tbhdu1.data._coldefs.columns[1].array[0] = 500
         self.assertEqual(tbhdu1.data[0][1], 500)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 500)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 500)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 500)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 500)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 500)
 
         tbhdu1.columns._arrays[1][0] = 600
         self.assertEqual(tbhdu1.data[0][1], 600)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 600)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 600)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 600)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 600)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 600)
 
         tbhdu1.columns.data[1].array[0] = 800
         self.assertEqual(tbhdu1.data[0][1], 800)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 800)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 800)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 800)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 800)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 800)
 
@@ -1176,7 +1176,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(t1[1].data[0][1], 213)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 213)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 213)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 213)
         self.assertEqual(t1[1].columns._arrays[1][0], 213)
         self.assertEqual(t1[1].columns.data[1].array[0], 213)
 
@@ -1184,28 +1184,28 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(t1[1].data[0][1], 100)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 100)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 100)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 100)
         self.assertEqual(t1[1].columns._arrays[1][0], 100)
         self.assertEqual(t1[1].columns.data[1].array[0], 100)
 
-        t1[1].data._coldefs.data[1].array[0] = 500
+        t1[1].data._coldefs.columns[1].array[0] = 500
         self.assertEqual(t1[1].data[0][1], 500)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 500)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 500)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 500)
         self.assertEqual(t1[1].columns._arrays[1][0], 500)
         self.assertEqual(t1[1].columns.data[1].array[0], 500)
 
         t1[1].columns._arrays[1][0] = 600
         self.assertEqual(t1[1].data[0][1], 600)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 600)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 600)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 600)
         self.assertEqual(t1[1].columns._arrays[1][0], 600)
         self.assertEqual(t1[1].columns.data[1].array[0], 600)
 
         t1[1].columns.data[1].array[0] = 800
         self.assertEqual(t1[1].data[0][1], 800)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 800)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 800)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 800)
         self.assertEqual(t1[1].columns._arrays[1][0], 800)
         self.assertEqual(t1[1].columns.data[1].array[0], 800)
 
@@ -1228,7 +1228,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(tbhdu.data[0][1], 213)
         self.assertEqual(tbhdu.data._coldefs._arrays[1][0], 213)
-        self.assertEqual(tbhdu.data._coldefs.data[1].array[0], 213)
+        self.assertEqual(tbhdu.data._coldefs.columns[1].array[0], 213)
         self.assertEqual(tbhdu.columns._arrays[1][0], 213)
         self.assertEqual(tbhdu.columns.data[1].array[0], 213)
 
@@ -1236,28 +1236,28 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(tbhdu.data[0][1], 100)
         self.assertEqual(tbhdu.data._coldefs._arrays[1][0], 100)
-        self.assertEqual(tbhdu.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(tbhdu.data._coldefs.columns[1].array[0], 100)
         self.assertEqual(tbhdu.columns._arrays[1][0], 100)
         self.assertEqual(tbhdu.columns.data[1].array[0], 100)
 
-        tbhdu.data._coldefs.data[1].array[0] = 500
+        tbhdu.data._coldefs.columns[1].array[0] = 500
         self.assertEqual(tbhdu.data[0][1], 500)
         self.assertEqual(tbhdu.data._coldefs._arrays[1][0], 500)
-        self.assertEqual(tbhdu.data._coldefs.data[1].array[0], 500)
+        self.assertEqual(tbhdu.data._coldefs.columns[1].array[0], 500)
         self.assertEqual(tbhdu.columns._arrays[1][0], 500)
         self.assertEqual(tbhdu.columns.data[1].array[0], 500)
 
         tbhdu.columns._arrays[1][0] = 600
         self.assertEqual(tbhdu.data[0][1], 600)
         self.assertEqual(tbhdu.data._coldefs._arrays[1][0], 600)
-        self.assertEqual(tbhdu.data._coldefs.data[1].array[0], 600)
+        self.assertEqual(tbhdu.data._coldefs.columns[1].array[0], 600)
         self.assertEqual(tbhdu.columns._arrays[1][0], 600)
         self.assertEqual(tbhdu.columns.data[1].array[0], 600)
 
         tbhdu.columns.data[1].array[0] = 800
         self.assertEqual(tbhdu.data[0][1], 800)
         self.assertEqual(tbhdu.data._coldefs._arrays[1][0], 800)
-        self.assertEqual(tbhdu.data._coldefs.data[1].array[0], 800)
+        self.assertEqual(tbhdu.data._coldefs.columns[1].array[0], 800)
         self.assertEqual(tbhdu.columns._arrays[1][0], 800)
         self.assertEqual(tbhdu.columns.data[1].array[0], 800)
 
@@ -1271,14 +1271,14 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         fr = t1[1].data
         self.assertEqual(t1[1].data[0][1], 1)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 1)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 1)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 1)
         self.assertEqual(t1[1].columns._arrays[1][0], 1)
         self.assertEqual(t1[1].columns.data[1].array[0], 1)
         self.assertEqual(fr[0][1], 1)
         self.assertEqual(fr._coldefs._arrays[1][0], 1)
-        self.assertEqual(fr._coldefs.data[1].array[0], 1)
+        self.assertEqual(fr._coldefs.columns[1].array[0], 1)
 
-        fr._coldefs.data[1].array[0] = 312
+        fr._coldefs.columns[1].array[0] = 312
 
         tbhdu1 = pyfits.new_table(fr)
         #tbhdu1 = pyfits.new_table(t1[1].data)
@@ -1296,15 +1296,15 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(t1[1].data[0][1], 312)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 312)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 312)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 312)
         self.assertEqual(t1[1].columns._arrays[1][0], 312)
         self.assertEqual(t1[1].columns.data[1].array[0], 312)
         self.assertEqual(fr[0][1], 312)
         self.assertEqual(fr._coldefs._arrays[1][0], 312)
-        self.assertEqual(fr._coldefs.data[1].array[0], 312)
+        self.assertEqual(fr._coldefs.columns[1].array[0], 312)
         self.assertEqual(tbhdu1.data[0][1], 213)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 213)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 213)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 213)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 213)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 213)
 
@@ -1312,15 +1312,15 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(t1[1].data[0][1], 10)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 10)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 10)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 10)
         self.assertEqual(t1[1].columns._arrays[1][0], 10)
         self.assertEqual(t1[1].columns.data[1].array[0], 10)
         self.assertEqual(fr[0][1], 10)
         self.assertEqual(fr._coldefs._arrays[1][0], 10)
-        self.assertEqual(fr._coldefs.data[1].array[0], 10)
+        self.assertEqual(fr._coldefs.columns[1].array[0], 10)
         self.assertEqual(tbhdu1.data[0][1], 213)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 213)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 213)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 213)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 213)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 213)
 
@@ -1328,15 +1328,15 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(t1[1].data[0][1], 10)
         self.assertEqual(t1[1].data._coldefs._arrays[1][0], 10)
-        self.assertEqual(t1[1].data._coldefs.data[1].array[0], 10)
+        self.assertEqual(t1[1].data._coldefs.columns[1].array[0], 10)
         self.assertEqual(t1[1].columns._arrays[1][0], 10)
         self.assertEqual(t1[1].columns.data[1].array[0], 10)
         self.assertEqual(fr[0][1], 10)
         self.assertEqual(fr._coldefs._arrays[1][0], 10)
-        self.assertEqual(fr._coldefs.data[1].array[0], 10)
+        self.assertEqual(fr._coldefs.columns[1].array[0], 10)
         self.assertEqual(tbhdu1.data[0][1], 666)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 666)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 666)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 666)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 666)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 666)
 
@@ -1359,16 +1359,16 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         # Verify that all ndarray objects within the HDU reference the
         # same ndarray.
-        self.assertEqual(id(hdu.data._coldefs.data[0].array),
+        self.assertEqual(id(hdu.data._coldefs.columns[0].array),
                          id(hdu.data._coldefs._arrays[0]))
-        self.assertEqual(id(hdu.data._coldefs.data[0].array),
+        self.assertEqual(id(hdu.data._coldefs.columns[0].array),
                          id(hdu.columns.data[0].array))
-        self.assertEqual(id(hdu.data._coldefs.data[0].array),
+        self.assertEqual(id(hdu.data._coldefs.columns[0].array),
                          id(hdu.columns._arrays[0]))
 
         # Verify that the references in the original HDU are the same as the
         # references in the new HDU.
-        self.assertEqual(id(tbhdu1.data._coldefs.data[0].array),
+        self.assertEqual(id(tbhdu1.data._coldefs.columns[0].array),
                          id(hdu.data._coldefs._arrays[0]))
 
 
@@ -1379,12 +1379,12 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(hdu.data[0][1], 213)
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 213)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 213)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 213)
         self.assertEqual(hdu.columns._arrays[1][0], 213)
         self.assertEqual(hdu.columns.data[1].array[0], 213)
         self.assertEqual(tbhdu1.data[0][1], 213)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 213)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 213)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 213)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 213)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 213)
 
@@ -1392,48 +1392,48 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         self.assertEqual(hdu.data[0][1], 100)
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 100)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 100)
         self.assertEqual(hdu.columns._arrays[1][0], 100)
         self.assertEqual(hdu.columns.data[1].array[0], 100)
         self.assertEqual(tbhdu1.data[0][1], 100)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 100)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 100)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 100)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 100)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 100)
 
-        hdu.data._coldefs.data[1].array[0] = 500
+        hdu.data._coldefs.columns[1].array[0] = 500
         self.assertEqual(hdu.data[0][1], 500)
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 500)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 500)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 500)
         self.assertEqual(hdu.columns._arrays[1][0], 500)
         self.assertEqual(hdu.columns.data[1].array[0], 500)
         self.assertEqual(tbhdu1.data[0][1], 500)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 500)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 500)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 500)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 500)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 500)
 
         hdu.columns._arrays[1][0] = 600
         self.assertEqual(hdu.data[0][1], 600)
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 600)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 600)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 600)
         self.assertEqual(hdu.columns._arrays[1][0], 600)
         self.assertEqual(hdu.columns.data[1].array[0], 600)
         self.assertEqual(tbhdu1.data[0][1], 600)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 600)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 600)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 600)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 600)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 600)
 
         hdu.columns.data[1].array[0] = 800
         self.assertEqual(hdu.data[0][1], 800)
         self.assertEqual(hdu.data._coldefs._arrays[1][0], 800)
-        self.assertEqual(hdu.data._coldefs.data[1].array[0], 800)
+        self.assertEqual(hdu.data._coldefs.columns[1].array[0], 800)
         self.assertEqual(hdu.columns._arrays[1][0], 800)
         self.assertEqual(hdu.columns.data[1].array[0], 800)
         self.assertEqual(tbhdu1.data[0][1], 800)
         self.assertEqual(tbhdu1.data._coldefs._arrays[1][0], 800)
-        self.assertEqual(tbhdu1.data._coldefs.data[1].array[0], 800)
+        self.assertEqual(tbhdu1.data._coldefs.columns[1].array[0], 800)
         self.assertEqual(tbhdu1.columns._arrays[1][0], 800)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 800)
 

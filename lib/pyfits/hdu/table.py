@@ -80,7 +80,7 @@ class _TableLikeHDU(_ValidHDU):
         for idx in range(len(columns)):
             if not columns[idx]._phantom:
                 # get the data for each column object from the rec.recarray
-                columns.data[idx].array = data.field(fidx)
+                columns[idx].array = data.field(fidx)
                 fidx += 1
 
         # delete the _arrays attribute so that it is recreated to point to the
@@ -164,7 +164,7 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
                    # object of the HDU reference the same ndarray as the HDU's
                    # FITS_rec object.
                     for idx in range(len(self.columns)):
-                        self.columns.data[idx].array = self.data.field(idx)
+                        self.columns[idx].array = self.data.field(idx)
 
                     # Delete the _arrays attribute so that it is recreated to
                     # point to the new data placed in the column objects above
@@ -1256,8 +1256,8 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
 
     # Make the ndarrays in the Column objects of the ColDefs object of the HDU
     # reference the same ndarray as the HDU's FITS_rec object.
-    for i in range(len(tmp)):
-        hdu.columns.data[i].array = hdu.data.field(i)
+    for idx in range(len(tmp)):
+        hdu.columns[idx].array = hdu.data.field(idx)
 
     # Delete the _arrays attribute so that it is recreated to point to the
     # new data placed in the column objects above
