@@ -10,6 +10,7 @@ from numpy import char as chararray
 
 import pyfits
 from pyfits import rec
+from pyfits.util import decode_ascii
 from pyfits.tests.util import CaptureStdout
 
 
@@ -61,9 +62,9 @@ def comparerecords(a, b):
         fielda = a.field(i)
         fieldb = b.field(i)
         if fielda.dtype.char == 'S':
-            fielda = np.char.encode(fielda, 'ascii')
+            fielda = decode_ascii(fielda)
         if fieldb.dtype.char == 'S':
-            fieldb = np.char.encode(fieldb, 'ascii')
+            fieldb = decode_ascii(fieldb)
         if type(fielda) != type(fieldb):
             print "type(fielda): ",type(fielda)," fielda: ",fielda
             print "type(fieldb): ",type(fieldb)," fieldb: ",fieldb

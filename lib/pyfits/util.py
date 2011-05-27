@@ -536,6 +536,16 @@ def _tmp_name(input):
         raise IOError('%s exists' % name)
 
 
+def encode_ascii(s):
+    """
+    In Python 2 this is a no-op.  Strings are left alone.  In Python 3 this
+    will be replaced with a function that actually encodes unicode strings to
+    ASCII bytes.
+    """
+
+    return s
+
+
 def decode_ascii(s):
     """
     In Python 2 this is a no-op.  Strings are left alone.  In Python 3 this

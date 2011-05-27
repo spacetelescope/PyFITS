@@ -8,7 +8,7 @@ from pyfits import rec
 from pyfits.column import ASCIITNULL, FITS2NUMPY, TDIM_RE, Column, ColDefs, \
                           _FormatX, _FormatP, _VLF, _get_index, _wrapx, \
                           _unwrapx, _convert_format, _convert_ascii_format
-from pyfits.util import _fromfile
+from pyfits.util import _fromfile, decode_ascii
 
 
 class FITS_record(object):
@@ -318,8 +318,7 @@ class FITS_rec(rec.recarray):
                         da = _fromfile(self._file, dtype=dt, count=count,
                                        sep='')
                         dummy[i] = np.char.array(da, itemsize=count)
-                        if not issubclass(dummy[i].dtype.type, np.str_):
-                            dummy[i] = np.char.encode(dummy[i], 'ascii')
+                        dummy[i] = decode_ascii(dummy[i])
                     else:
                         count = field[i,0]
                         dt = recformat._dtype
@@ -400,11 +399,10 @@ class FITS_rec(rec.recarray):
             elif _bool:
                 self._convert[indx] = np.equal(dummy, ord('T'))
             elif _str:
-                if not issubclass(dummy.dtype.type, np.str_):
-                    try:
-                        self._convert[indx] = np.char.encode('dummy', 'ascii')
-                    except UnicodeDecodeError:
-                        pass
+                try:
+                    self._convert[indx] = decode_ascii(dummy)
+                except UnicodeDecodeError:
+                    pass
 
             if dim:
                 if self._convert[indx] is None:

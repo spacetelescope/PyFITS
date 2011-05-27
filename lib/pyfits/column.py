@@ -6,7 +6,8 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits.card import Card
-from pyfits.util import lazyproperty, pairwise, _is_int, _convert_array
+from pyfits.util import lazyproperty, pairwise, _is_int, _convert_array, \
+                        encode_ascii
 
 
 __all__ = ['Column', 'ColDefs', 'Delayed']
@@ -849,11 +850,8 @@ def _makep(input, desp_output, dtype):
 
     for i in range(len(input)):
         if dtype == 'a':
-            if not issubclass(input[i].dtype.type, np.bytes_):
-                inp = np.encode(input[i], 'ascii')
-            else:
-                inp = input[i]
-            data_output[i] = chararray.array(inp, itemsize=1)
+            data_output[i] = chararray.array(encode_ascii(input[i]),
+                                             itemsize=1)
         else:
             data_output[i] = np.array(input[i], dtype=dtype)
 

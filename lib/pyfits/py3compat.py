@@ -10,10 +10,33 @@ if sys.version_info[0] >= 3:
 
     # Make the decode_ascii utility function actually work
     import pyfits.util
+    import numpy
+
+    def encode_ascii(s):
+        if isinstance(s, str):
+            return s.encode('ascii')
+        elif isinstance(s, numpy.ndarray) and \
+             issubclass(s.dtype.type, numpy.str_):
+            ns = numpy.char.encode(s, 'ascii').view(type(s))
+            if ns.dtype.itemsize != s.dtype.itemsize / 4:
+                ns = ns.astype((numpy.bytes_, s.dtype.itemsize / 4))
+            return ns
+        return s
+    pyfits.util.encode_ascii = encode_ascii
 
     def decode_ascii(s):
         if isinstance(s, bytes):
             return s.decode('ascii')
+        elif isinstance(s, numpy.ndarray) and \
+             issubclass(s.dtype.type, numpy.bytes_):
+            # np.char.encode/decode annoyingly don't preserve the type of the
+            # array, hence the view() call
+            # It also doesn't necessarily preserve widths of the strings,
+            # hence the astype()
+            ns = numpy.char.decode(s, 'ascii').view(type(s))
+            if ns.dtype.itemsize / 4 != s.dtype.itemsize:
+                ns = ns.astype((numpy.str_, s.dtype.itemsize))
+            return ns
         return s
     pyfits.util.decode_ascii = decode_ascii
 
@@ -25,7 +48,6 @@ if sys.version_info[0] >= 3:
     # should not be necessary later.  See
     # http://projects.scipy.org/numpy/ticket/1817
     # TODO: Maybe do a version check on numpy for this?
-    import numpy
     import pyfits.rec
     import pyfits.file
 
