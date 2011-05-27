@@ -239,7 +239,8 @@ class _File(object):
             shape = (size / dtype.itemsize,)
 
         if not (size or shape):
-            # TODO: Maybe issue a warning or raise an error instead?
+            warnings.warn('No size or shape given to readarray(); assuming a '
+                          'shape of (1,)')
             shape = (1,)
 
         if self.memmap:

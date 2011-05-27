@@ -25,6 +25,11 @@ Changelog
   * Possibly others--please report if you find any changes that cause
     difficulties.
 
+- Calls to deprecated functions will display a Deprecation warning.  However,
+  in Python 2.7 and up Deprecation warnings are ignored by default, so run
+  Python with the `-Wd` option to see if you're using any deprecated
+  functions.  If we get close to actually removing any functions, we might
+  make the Deprecation warnings display by default.
 - Added basic Python 3 support
 - Added support for multi-dimensional columns in tables as specified by the
   TDIMn keywords (#47)

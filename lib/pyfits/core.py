@@ -89,6 +89,7 @@ def setExtensionNameCaseSensitive(value=True):
 
 # Warnings routines
 _showwarning = warnings.showwarning
+_formatwarning = warnings.formatwarning
 
 def showwarning(message, category, filename, lineno, file=None, line=None):
     if file is None:
@@ -96,7 +97,10 @@ def showwarning(message, category, filename, lineno, file=None, line=None):
     _showwarning(message, category, filename, lineno, file)
 
 def formatwarning(message, category, filename, lineno, line=None):
-    return unicode(message) + '\n'
+    if issubclass(category, UserWarning):
+        return unicode(message) + '\n'
+    else:
+        return _formatwarning(message, category, filename, lineno, line)
 
 warnings.showwarning = showwarning
 warnings.formatwarning = formatwarning

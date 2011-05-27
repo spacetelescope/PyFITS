@@ -35,3 +35,14 @@ It is also possible to suppress warnings from within a python script.  For insta
      warnings.filterwarnings('always', category=UserWarning, append=True)
     
      # ...
+
+PyFITS also issues warnings when deprecated API features are used.  In Python
+2.7 and up deprecation warnings are ignored by default.  To run Python with
+deprecation warnings enabled, either start Python with the ``-Wall`` argument,
+or you can enable deprecation warnings specifically with ``-Wd``.
+
+In Python versions below 2.7, if you wish to *squelch* deprecation warnings,
+you can start Python with ``-Wi::Deprecation``.  This sets all deprecation
+warnings to ignored.  See
+http://docs.python.org/using/cmdline.html#cmdoption-unittest-discover-W
+for more information on the -W argument.

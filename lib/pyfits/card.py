@@ -137,12 +137,13 @@ class Card(_Verify):
         value.
         """
 
+        klass = cls
         val_str = _value_to_string(value)
         if len(val_str) > (Card.length - 10):
-            cls = _ContinueCard
+            klass = _ContinueCard
         elif isinstance(key, basestring) and key.upper().strip() == 'HIERARCH':
-            cls = _HierarchCard
-        return super(Card, cls).__new__(cls, key, value, comment) 
+            klass = _HierarchCard
+        return super(Card, cls).__new__(klass)
 
     def __init__(self, key='', value='', comment=''):
         """

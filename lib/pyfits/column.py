@@ -273,16 +273,16 @@ class ColDefs(object):
         from pyfits.hdu.table import TableHDU
 
         if tbtype == 'BinTableHDU':
-            pass
+            klass = cls
         elif tbtype == 'TableHDU':
-            cls = _ASCIIColDefs
+            klass = _ASCIIColDefs
         else:
             raise ValueError('Invalid table type: %s.' % tbtype)
 
         if isinstance(input, TableHDU):
-            cls = _ASCIIColDefs
+            klass = _ASCIIColDefs
 
-        return object.__new__(cls, input, tbtype)
+        return object.__new__(klass)
 
     def __init__(self, input, tbtype='BinTableHDU'):
         """
