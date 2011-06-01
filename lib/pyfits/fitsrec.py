@@ -8,7 +8,7 @@ from pyfits import rec
 from pyfits.column import ASCIITNULL, FITS2NUMPY, TDIM_RE, Column, ColDefs, \
                           _FormatX, _FormatP, _VLF, _get_index, _wrapx, \
                           _unwrapx, _convert_format, _convert_ascii_format
-from pyfits.util import _fromfile, decode_ascii
+from pyfits.util import _fromfile, decode_ascii, lazyproperty
 
 
 class FITS_record(object):
@@ -21,7 +21,8 @@ class FITS_record(object):
     class expects a `FITS_rec` object as input.
     """
 
-    def __init__(self, input, row=0, startColumn=0, endColumn=0):
+    def __init__(self, input, row=0, start=None, end=None, step=None,
+                 base=None, **kwargs):
         """
         Parameters
         ----------
@@ -31,28 +32,35 @@ class FITS_record(object):
         row : int, optional
            The starting logical row of the array.
 
-        startColumn : int, optional
+        start : int, optional
            The starting column in the row associated with this object.
            Used for subsetting the columns of the FITS_rec object.
 
-        endColumn : int, optional
+        end : int, optional
            The ending column in the row associated with this object.
            Used for subsetting the columns of the FITS_rec object.
         """
 
+        # For backward compatibility...
+        for arg in [('startColumn', 'start'), ('endColumn', 'end')]:
+            if arg[0] in kwargs:
+                warnings.warn('The %s argument to FITS_record is deprecated; '
+                              'use %s instead' % arg, DeprecationWarning)
+                if arg[0] == 'startColumn':
+                    start = kwargs[arg[0]]
+                elif arg[0] == 'endColumn':
+                    end = kwargs[arg[0]]
+
         self.array = input
         self.row = row
-        len = self.array._nfields
-
-        if startColumn > len:
-            self.start = len + 1
+        if base:
+            width = len(base)
         else:
-            self.start = startColumn
+            width = self.array._nfields
 
-        if endColumn <= 0 or endColumn > len:
-            self.end = len
-        else:
-            self.end = endColumn
+        s = slice(start, end, step).indices(width)
+        self.start, self.end, self.step = s
+        self.base = base
 
     def __getitem__(self, key):
         if isinstance(key, basestring):
@@ -61,26 +69,29 @@ class FITS_record(object):
             if indx < self.start or indx > self.end - 1:
                 raise KeyError("Key '%s' does not exist." % key)
         elif isinstance(key, slice):
-            # TODO: Maybe get step working?
-            return FITS_record(self.array, self.row, key.start, key.stop)
+            return FITS_record(self.array, self.row, key.start, key.stop,
+                               key.step, self)
         else:
-            indx = key + self.start
+            indx = self._get_index(key)
 
-            if indx > self.end - 1:
+            if indx > self.array._nfields - 1:
                 raise IndexError('Index out of bounds')
 
         return self.array.field(indx)[self.row]
 
-    def __setitem__(self, fieldname, value):
-        if isinstance(fieldname, basestring):
-            indx = _get_index(self.array._coldefs.names, fieldname)
+    def __setitem__(self, key, value):
+        if isinstance(key, basestring):
+            indx = _get_index(self.array._coldefs.names, key)
 
             if indx < self.start or indx > self.end - 1:
-                raise KeyError("Key '%s' does not exist." % fieldname)
+                raise KeyError("Key '%s' does not exist." % key)
+        elif isinstance(key, slice):
+            for indx in xrange(slice.start, slice.stop, slice.step):
+                indx = self._get_indx(indx)
+                self.array.field(indx)[self.row] = value
         else:
-            indx = fieldname + self.start
-
-            if indx > self.end - 1:
+            indx = self._get_index(key)
+            if indx > self.array._nfields - 1:
                 raise IndexError('Index out of bounds')
 
         self.array.field(indx)[self.row] = value
@@ -89,7 +100,7 @@ class FITS_record(object):
         return self[slice(start, end)]
 
     def __len__(self):
-        return min(self.end - self.start, self.array._nfields)
+        return len(xrange(self.start, self.end, self.step))
 
     def __repr__(self):
         """
@@ -97,26 +108,44 @@ class FITS_record(object):
         """
 
         outlist = []
-        for idx in range(self.array._nfields):
-            if idx >= self.start and idx < self.end:
-                outlist.append(repr(self.array.field(idx)[self.row]))
+        for idx in xrange(len(self)):
+            outlist.append(repr(self[idx]))
         return '(%s)' % ', '.join(outlist)
 
 
-    def field(self, fieldName):
+    def field(self, field):
         """
         Get the field data of the record.
         """
 
-        return self.__getitem__(fieldName)
+        return self.__getitem__(field)
 
 
-    def setfield(self, fieldName, value):
+    def setfield(self, field, value):
         """
         Set the field data of the record.
         """
 
-        self.__setitem__(fieldName, value)
+        self.__setitem__(field, value)
+
+    @lazyproperty
+    def _bases(self):
+        bases = [self]
+        base = self.base
+        while base:
+            bases.append(base)
+            base = base.base
+        return bases
+
+    def _get_index(self, indx):
+        indices = np.ogrid[:self.array._nfields]
+        for base in reversed(self._bases):
+            if base.step < 1:
+                s = slice(base.start, None, base.step)
+            else:
+                s = slice(base.start, base.end, base.step)
+            indices = indices[s]
+        return indices[indx]
 
 
 class FITS_rec(rec.recarray):

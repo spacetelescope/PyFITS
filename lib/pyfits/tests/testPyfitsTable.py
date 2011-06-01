@@ -827,6 +827,12 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         row[1:4]['counts'] = 300
         self.assertEqual(row[1:4]['counts'], 300)
 
+        # Test stepping for #59
+        row[1:4][::-1][-1] = 500
+        self.assertEqual(row[1:4]['counts'], 500)
+        row[1:4:2][0] = 300
+        self.assertEqual(row[1:4]['counts'], 300)
+
         self.assertRaises(KeyError, lambda r: r[1:4]['flag'], row)
 
         self.assertEqual(row[1:4].field(0), 300)
