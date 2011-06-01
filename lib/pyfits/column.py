@@ -1,4 +1,5 @@
 import re
+import sys
 import warnings
 import weakref
 
@@ -51,8 +52,6 @@ TDIM_RE = re.compile(r'\(\s*(?P<dims>(?:\d+,\s*)+\s*\d+)\s*\)\s*')
 
 ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
                         # this can be reset by user.
-
-DELAYED = "delayed"     # used for lazy instantiation of table column data
 
 
 class Delayed(object):
@@ -591,24 +590,31 @@ class ColDefs(object):
         # table that its data is now invalid.
         self._update_listener()
 
-    def info(self, attrib='all'):
+    def info(self, attrib='all', output=None):
         """
         Get attribute(s) information of the column definition.
 
         Parameters
         ----------
         attrib : str
-           Can be one or more of the attributes listed in
-           `KEYWORD_ATTRIBUTES`.  The default is ``"all"`` which will print
-           out all attributes.  It forgives plurals and blanks.  If
-           there are two or more attribute names, they must be
-           separated by comma(s).
+            Can be one or more of the attributes listed in
+            `KEYWORD_ATTRIBUTES`.  The default is ``"all"`` which will print
+            out all attributes.  It forgives plurals and blanks.  If
+            there are two or more attribute names, they must be
+            separated by comma(s).
+
+        output : file, optional
+            File-like object to output to.  Outputs to stdout by default.
+            If False, returns the attributes as a dict instead.
 
         Notes
         -----
-        This function doesn't return anything, it just prints to
+        This function doesn't return anything by default; it just prints to
         stdout.
         """
+
+        if output is None:
+            output = sys.stdout
 
         if attrib.strip().lower() in ['all', '']:
             lst = KEYWORD_ATTRIBUTES
@@ -619,13 +625,21 @@ class ColDefs(object):
                 if lst[idx][-1] == 's':
                     lst[idx]=list[idx][:-1]
 
+        ret = {}
+
         for attr in lst:
-            if attr not in KEYWORD_ATTRIBUTES:
-                print "'%s' is not an attribute of the column definitions." \
-                      % attr
+            if output:
+                if attr not in KEYWORD_ATTRIBUTES:
+                    output.write("'%s' is not an attribute of the column "
+                                 "definitions.\n" % attr)
                 continue
-            print "%s:" % attr
-            print '    ', getattr(self, attr + 's')
+                output.write("%s:\n" % attr)
+                output.write('    %s\n' % getattr(self, attr + 's'))
+            else:
+                ret[attr] = getattr(self, attr + 's')
+
+        if not output:
+            return ret
 
 
 class _ASCIIColDefs(ColDefs):

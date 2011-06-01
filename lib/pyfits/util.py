@@ -173,9 +173,6 @@ unregister_extension = Extendable.unregister_extensions
 unregister_extensions = Extendable.unregister_extensions
 
 
-# TODO: Display a warning whenever classExtensions is used, explaining that
-# it's been deprecated.  Point to the appropriate documentation for the new
-# extension system
 def _with_extensions(func):
     """
     This decorator exists mainly to support use of the new extension system in
@@ -193,6 +190,10 @@ def _with_extensions(func):
         extension_classes = []
         if 'classExtensions' in kwargs:
             extensions = kwargs['classExtensions']
+            warnings.warn('The classExtensions argument is deprecated.  '
+                          'Instead call pyfits.register_extensions(%s) once '
+                          'before any code that uses those extensions.'
+                          % repr(extensions), DeprecationWarning)
             if extensions:
                 register_extensions(extensions)
                 extension_classes = extensions.values()
@@ -438,14 +439,20 @@ def _tofile(arr, outfile):
     if isinstance(outfile, file):
         arr.tofile(outfile)
     else: # treat as file-like object with "write" method
-        s = arr.tostring()
-        # TODO: Find some way to centralize this sort of functionality
-        # (converting str to bytes depending on file mode)
-        if 'b' in outfile.mode and isinstance(outfile, unicode):
-            s = s.encode('ascii')
-        elif 'b' not in outfile.mode and not isinstance(outfile, unicode):
-            s = decode_ascii(s)
-        outfile.write(s)
+        _write_string(outfile, arr.tostring())
+
+
+def _write_string(f, s):
+    """
+    Write a string to a file, encoding to ASCII if the file is open in binary
+    mode, or decoding if the file is open in text mode.
+    """
+
+    if 'b' in f.mode and isinstance(s, unicode):
+        s = encode_ascii(s)
+    elif 'b' not in f.mode and not isinstance(f, unicode):
+        s = decode_ascii(s)
+    f.write(s)
 
 
 def _chunk_array(arr, CHUNK_SIZE=2 ** 25):

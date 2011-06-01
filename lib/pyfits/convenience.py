@@ -485,7 +485,7 @@ def update(filename, data, *ext, **extkeys):
 
 
 @_with_extensions
-def info(filename, classExtensions={}, **kwargs):
+def info(filename, classExtensions={}, output=None, **kwargs):
     """
     Print the summary information on a FITS file.
 
@@ -502,6 +502,10 @@ def info(filename, classExtensions={}, **kwargs):
         A dictionary that maps pyfits classes to extensions of those
         classes.  When present in the dictionary, the extension class
         will be constructed in place of the pyfits class.
+
+    output : file, optional
+        File-like object to output the HDU info to.  Outputs to stdout by
+        default.
 
     kwargs : optional keyword arguments
 
@@ -529,10 +533,12 @@ def info(filename, classExtensions={}, **kwargs):
         kwargs['ignore_missing_end'] = True
 
     f = fitsopen(filename, mode=mode, **kwargs)
-    f.info()
+    ret = f.info(output=output)
 
     if closed:
         f.close()
+
+    return ret
 
 
 @_with_extensions

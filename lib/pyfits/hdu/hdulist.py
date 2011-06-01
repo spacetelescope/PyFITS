@@ -1,6 +1,7 @@
 import gzip
 import os
 import signal
+import sys
 import threading
 import warnings
 
@@ -10,7 +11,7 @@ from numpy import memmap as Memmap
 import pyfits
 from pyfits.card import Card
 from pyfits.column import _FormatP
-from pyfits.file import _File
+from pyfits.file import PYTHON_MODES, _File
 from pyfits.hdu import compressed
 from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU, _ExtensionHDU
 from pyfits.hdu.compressed import CompImageHDU
@@ -798,8 +799,6 @@ class HDUList(list, _Verify):
             to the headers of all HDU's written to the file.
         """
 
-        from pyfits.file import PYTHON_MODES
-
         if (len(self) == 0):
             warnings.warn("There is nothing to write.")
             return
@@ -906,16 +905,23 @@ class HDUList(list, _Verify):
             if closed and hasattr(self.__file, 'close'):
                 self.__file.close()
 
-    # TODO: Add an optioin to return the summary as a list of tuples, rather
-    # than printing--useful mainly for testing purposes, or possibly to enable
-    # alternate formatting
-    def info(self):
+    def info(self, output=None):
         """
         Summarize the info of the HDUs in this `HDUList`.
 
         Note that this function prints its results to the console---it
         does not return a value.
+
+        Parameters
+        ----------
+        output : file, optional
+            A file-like object to write the output to.  If False, does not
+            output to a file and instead returns a list of tuples representing
+            the HDU info.  Writes to sys.stdout by default.
         """
+
+        if output is None:
+            output = sys.stdout
 
         if self.__file is None:
             name = '(No file associated with this HDUList)'
@@ -932,8 +938,17 @@ class HDUList(list, _Verify):
             if len(summary) < len(default):
                 summary += default[len(summary):]
             summary = (idx,) + summary
-            results.append(format % summary)
-        print '\n'.join(results)
+            if output:
+                results.append(format % summary)
+            else:
+                results.append(summary)
+
+        if output:
+            output.write('\n'.join(results))
+            output.write('\n')
+            output.flush()
+        else:
+            return results[2:]
 
     def filename(self):
         """

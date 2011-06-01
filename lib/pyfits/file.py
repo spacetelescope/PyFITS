@@ -9,7 +9,7 @@ import zipfile
 import numpy as np
 from numpy import memmap as Memmap
 
-from pyfits.util import Extendable, _fromfile, _tofile, decode_ascii, \
+from pyfits.util import Extendable, _fromfile, _tofile, _write_string, \
                         deprecated
 
 
@@ -257,15 +257,11 @@ class _File(object):
             return data
 
     def write(self, string):
-        if 'b' in self.__file.mode and isinstance(string, unicode):
-            string = string.encode('ascii')
-        elif 'b' not in self.__file.mode and not isinstance(string, unicode):
-            string = decode_ascii(string)
-        self.__file.write(string)
+        _write_string(self.__file, string)
 
     def writearray(self, array):
         """
-        Similar to file.write(), but writes a numpy array instead of a
+        Similar to file.write(), but writes a numpy array instead of a string.
 
         Also like file.write(), a flush() or close() may be needed before
         the file on disk reflects the data written.

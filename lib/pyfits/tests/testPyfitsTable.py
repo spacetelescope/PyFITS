@@ -11,7 +11,6 @@ from numpy import char as chararray
 import pyfits
 from pyfits import rec
 from pyfits.util import decode_ascii
-from pyfits.tests.util import CaptureStdout
 
 
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -198,27 +197,17 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         t = pyfits.open(os.path.join(data_dir, 'tb.fits'))
         self.assertEqual(t[1].header['tform1'], '1J')
 
-        with CaptureStdout() as f:
-            t[1].columns.info()
-            self.assertEqual(f.getvalue(),
-                "name:\n"
-                "     ['c1', 'c2', 'c3', 'c4']\n"
-                "format:\n"
-                "     ['1J', '3A', '1E', '1L']\n"
-                "unit:\n"
-                "     ['', '', '', '']\n"
-                "null:\n"
-                "     [-2147483647, '', '', '']\n"
-                "bscale:\n"
-                "     ['', '', 3, '']\n"
-                "bzero:\n"
-                "     ['', '', %r, '']\n"
-                "disp:\n"
-                "     ['I11', 'A3', 'G15.7', 'L6']\n"
-                "start:\n"
-                "     ['', '', '', '']\n"
-                "dim:\n"
-                "     ['', '', '', '']\n" % 0.4)
+        info = {'name': ['c1', 'c2', 'c3', 'c4'],
+                'format': ['1J', '3A', '1E', '1L'],
+                'unit': ['', '', '', ''],
+                'null': [-2147483647, '', '', ''],
+                'bscale': ['', '', 3, ''],
+                'bzero': ['', '', 0.4, ''],
+                'disp': ['I11', 'A3', 'G15.7', 'L6'],
+                'start': ['', '', '', ''],
+                'dim': ['', '', '', '']}
+
+        self.assertEqual(t[1].columns.info(output=False), info)
 
         ra = rec.array([
             (1, 'abc', 3.7000002861022949, 0),
@@ -501,13 +490,11 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         hdu.writeto('newtable.fits')
 
-        with CaptureStdout() as f:
-            pyfits.info('newtable.fits')
-            self.assertEqual(f.getvalue(),
-                'Filename: newtable.fits\n'
-                'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    PRIMARY     PrimaryHDU       4   ()           uint8\n'
-                '1                BinTableHDU     19   8R x 5C      [10A, J, 10A, 5E, L]\n')
+        info = [(0, 'PRIMARY', 'PrimaryHDU', 4, (), 'uint8', ''),
+                (1, '', 'BinTableHDU', 19, '8R x 5C', '[10A, J, 10A, 5E, L]',
+                 '')]
+
+        self.assertEqual(pyfits.info('newtable.fits', output=False), info)
 
         self.assertEqual(str(hdu.data),
             "[ ('NGC1', 312, '0.0', array([ 0.,  0.,  0.,  0.,  0.], dtype=float32), True)\n"
@@ -704,13 +691,11 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(hdu.columns.data[1].array[0], 80)
         self.assertEqual(hdu.data[0][1], 80)
 
-        with CaptureStdout() as f:
-            pyfits.info('newtable.fits')
-            self.assertEqual(f.getvalue(),
-                'Filename: newtable.fits\n'
-                'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    PRIMARY     PrimaryHDU       4   ()           uint8\n'
-                '1                BinTableHDU     30   4R x 10C     [10A, J, 10A, 5E, L, 10A, J, 10A, 5E, L]\n')
+        info = [(0, 'PRIMARY', 'PrimaryHDU', 4, (), 'uint8', ''),
+                (1, '', 'BinTableHDU', 30, '4R x 10C', 
+                 '[10A, J, 10A, 5E, L, 10A, J, 10A, 5E, L]', '')]
+
+        self.assertEqual(pyfits.info('newtable.fits', output=False), info)
 
         hdul = pyfits.open('newtable.fits')
         hdu = hdul[1]

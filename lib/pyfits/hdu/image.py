@@ -2,8 +2,7 @@ import sys
 import numpy as np
 
 from pyfits.card import Card, CardList
-from pyfits.column import DELAYED
-from pyfits.hdu.base import _ValidHDU, _ExtensionHDU
+from pyfits.hdu.base import DELAYED, _ValidHDU, _ExtensionHDU
 from pyfits.header import Header
 from pyfits.util import _is_pseudo_unsigned, _unsigned_zero, _is_int, \
                         _pad_length, _normalize_slice, lazyproperty
@@ -91,7 +90,8 @@ class _ImageBaseHDU(_ValidHDU):
             self._bzero = self._header.get('BZERO', 0)
             self._bscale = self._header.get('BSCALE', 1)
 
-        if (data is DELAYED): return
+        if data is DELAYED:
+            return
 
         self.data = data
 

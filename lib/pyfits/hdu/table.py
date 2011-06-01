@@ -11,13 +11,12 @@ from pyfits.card import Card, CardList
 # This module may have many dependencies on pyfits.column, but pyfits.column
 # has fewer dependencies overall, so it's easier to keep table/column-related
 # utilities in pyfits.column
-# TODO: Make consistent of use of either DELAYED or Delayed
 from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
-                          TDEF_RE, DELAYED, Delayed, Column, ColDefs, \
-                          _ASCIIColDefs, _FormatX, _FormatP, _wrapx, _makep, \
-                          _VLF, _parse_tformat, _convert_format
+                          TDEF_RE, Delayed, Column, ColDefs, _ASCIIColDefs, \
+                          _FormatX, _FormatP, _wrapx, _makep, _VLF, \
+                          _parse_tformat, _convert_format
 from pyfits.fitsrec import FITS_rec
-from pyfits.hdu.base import _ValidHDU, _ExtensionHDU
+from pyfits.hdu.base import DELAYED, _ValidHDU, _ExtensionHDU
 from pyfits.header import Header
 from pyfits.util import lazyproperty, _is_int, _str_to_num, _pad_length, \
                         deprecated
@@ -1095,7 +1094,7 @@ class BinTableHDU(_TableBaseHDU):
 
 # TODO: Allow tbtype to be either a string or a class; perhaps eventually
 # replace this with separate functions for creating tables (possibly in the
-# form of a classmethod)
+# form of a classmethod)  See ticket #60
 def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     """
     Create a new table from the input column definitions.

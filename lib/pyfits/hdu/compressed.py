@@ -3,9 +3,9 @@ import warnings
 import numpy as np
 
 from pyfits import rec
-from pyfits.column import DELAYED, Column, ColDefs, _FormatP, _makep
+from pyfits.column import Column, ColDefs, _FormatP, _makep
 from pyfits.fitsrec import FITS_rec
-from pyfits.hdu.base import _ExtensionHDU
+from pyfits.hdu.base import DELAYED, _ExtensionHDU
 from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
 from pyfits.util import lazyproperty, _pad_length
@@ -48,7 +48,7 @@ if COMPRESSION_SUPPORTED:
 
             header : Header instance, optional
                 header to be associated with the image; when reading
-                the HDU from a file ( `data` = "DELAYED" ), the header
+                the HDU from a file (data=DELAYED), the header
                 read from the file
 
             name : str, optional

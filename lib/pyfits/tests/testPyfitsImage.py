@@ -303,18 +303,14 @@ class TestPyfitsImageFunctions(unittest.TestCase):
     def testOpen2(self):
         r = pyfits.open(os.path.join(data_dir, 'test0.fits'))
 
-        # Use the "info" method for a summary of the FITS file's content.
-        with CaptureStdout() as f:
-            r.info()
+        info = [(0, 'PRIMARY', 'PrimaryHDU', 138, (), 'int16', '')] + \
+               [(x, 'SCI', 'ImageHDU', 61, (40, 40), 'int16', '')
+                for x in range(1, 5)]
+
+        try:
+            self.assertEqual(r.info(output=False), info)
+        finally:
             r.close()
-            self.assertEqual(f.getvalue(),
-                'Filename: %s\n' % os.path.join(data_dir, 'test0.fits') +
-                'No.    Name         Type      Cards   Dimensions   Format\n'
-                '0    PRIMARY     PrimaryHDU     138   ()           int16\n'
-                '1    SCI         ImageHDU        61   (40, 40)     int16\n'
-                '2    SCI         ImageHDU        61   (40, 40)     int16\n'
-                '3    SCI         ImageHDU        61   (40, 40)     int16\n'
-                '4    SCI         ImageHDU        61   (40, 40)     int16\n')
 
     def testIOManipulation(self):
         # Get a keyword value.  An extension can be referred by name or by number.

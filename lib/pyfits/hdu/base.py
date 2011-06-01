@@ -6,7 +6,6 @@ import warnings
 import numpy as np
 
 from pyfits.card import Card, _pad
-from pyfits.column import DELAYED
 from pyfits.file import _File
 from pyfits.header import Header
 from pyfits.util import Extendable, _with_extensions, lazyproperty, _is_int, \
@@ -16,6 +15,11 @@ from pyfits.verify import _Verify, _ErrList
 
 
 HEADER_END_RE = re.compile('END {77}')
+
+
+class _Delayed(object):
+    pass
+DELAYED = _Delayed()
 
 
 class InvalidHDUException(Exception):
