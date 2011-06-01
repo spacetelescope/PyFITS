@@ -5,7 +5,7 @@ import warnings
 
 import numpy as np
 
-from pyfits.util import _str_to_num, _is_int, deprecated
+from pyfits.util import _str_to_num, _is_int, deprecated, maketrans, translate
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -14,28 +14,8 @@ __all__ = ['Card', 'CardList', 'RecordValuedKeywordCard', 'create_card',
            'createCardFromString', 'upperKey', 'Undefined']
 
 
-# TODO: Move this stuff to the py3compat module
-if sys.version_info[0] >= 3:
-    FIX_FP_TABLE = str.maketrans('de', 'DE')
-    FIX_FP_TABLE2 = str.maketrans('dD', 'eE')
-    def translate(s, table, deletechars):
-        if deletechars:
-            table = table.copy()
-            for c in deletechars:
-                table[ord(c)] = None
-        return s.translate(table)
-else:
-    FIX_FP_TABLE = string.maketrans('de', 'DE')
-    FIX_FP_TABLE2 = string.maketrans('dD', 'eE')
-    def translate(s, table, deletechars):
-        if isinstance(s, str):
-            return s.translate(table, deletechars)
-        elif isinstance(s, unicode):
-            table = dict((x, ord(table[x])) for x in range(256)
-                         if ord(table[x]) != x)
-            for c in deletechars:
-                table[ord(c)] = None
-            return s.translate(table)
+FIX_FP_TABLE = maketrans('de', 'DE')
+FIX_FP_TABLE2 = maketrans('dD', 'eE')
 
 
 class Undefined:

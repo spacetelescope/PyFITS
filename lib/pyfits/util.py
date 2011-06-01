@@ -383,6 +383,44 @@ def pairwise(iterable):
     return itertools.izip(a, b)
 
 
+def encode_ascii(s):
+    """
+    In Python 2 this is a no-op.  Strings are left alone.  In Python 3 this
+    will be replaced with a function that actually encodes unicode strings to
+    ASCII bytes.
+    """
+
+    return s
+
+
+def decode_ascii(s):
+    """
+    In Python 2 this is a no-op.  Strings are left alone.  In Python 3 this
+    will be replaced with a function that actually decodes ascii bytes to
+    unicode.
+    """
+
+    return s
+
+
+def translate(s, table, deletechars):
+    """
+    This is a version of string/unicode.translate() that can handle string or
+    unicode strings the same way using a translation table made with
+    string.maketrans.
+    """
+
+    if isinstance(s, str):
+        return s.translate(table, deletechars)
+    elif isinstance(s, unicode):
+        table = dict((x, ord(table[x])) for x in range(256)
+                     if ord(table[x]) != x)
+        for c in deletechars:
+            table[ord(c)] = None
+        return s.translate(table)
+
+
+
 def _fromfile(infile, dtype, count, sep):
     """Create a numpy array from a file or a file-like object."""
 
@@ -534,23 +572,3 @@ def _tmp_name(input):
         return name
     else:
         raise IOError('%s exists' % name)
-
-
-def encode_ascii(s):
-    """
-    In Python 2 this is a no-op.  Strings are left alone.  In Python 3 this
-    will be replaced with a function that actually encodes unicode strings to
-    ASCII bytes.
-    """
-
-    return s
-
-
-def decode_ascii(s):
-    """
-    In Python 2 this is a no-op.  Strings are left alone.  In Python 3 this
-    will be replaced with a function that actually decodes ascii bytes to
-    unicode.
-    """
-
-    return s

@@ -1,7 +1,7 @@
 import warnings
 
 
-_INDENT = "   "
+_TAB = '   '
 
 
 class VerifyError(Exception):
@@ -78,34 +78,35 @@ class _ErrList(list):
         list.__init__(self, val)
         self.unit = unit
 
-    def __str__(self, tab=0):
+    def __str__(self):
+        return self._display()
+
+    def _display(self, indent=0):
         """
         Print out nested structure with corresponding indentations.
-
-        # TODO: Is this tab argument actually used anywhere? I think a better
-        # approach would be an indent() wrapper if you want indented output
-        A tricky use of `__str__`, since normally `__str__` has only
-        one argument.
         """
-        result = ""
+
+        result = []
         element = 0
+
+        tab = _TAB * indent
 
         # go through the list twice, first time print out all top level messages
         for item in self:
             if not isinstance(item, _ErrList):
-                result += _INDENT*tab + '%s\n' % item
+                result.append('%s%s\n' % (tab, item))
 
         # second time go through the next level items, each of the next level
         # must present, even it has nothing.
         for item in self:
             if isinstance(item, _ErrList):
-                _dummy = item.__str__(tab=tab+1)
+                tmp = item._display(indent=indent + 1)
 
                 # print out a message only if there is something
-                if _dummy.strip():
+                if tmp.strip():
                     if self.unit:
-                        result += _INDENT*tab+"%s %s:\n" % (self.unit, element)
-                    result += _dummy
+                        result.append('%s%s %s:\n' % (tab, self.unit, element))
+                    result.append(tmp)
                 element += 1
 
-        return result
+        return ''.join(result)

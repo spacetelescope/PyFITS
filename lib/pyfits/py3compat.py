@@ -8,6 +8,7 @@ if sys.version_info[0] >= 3:
     # Make io.FileIO available as the 'file' builtin as Go^H^HPython 2 intended
     builtins.file = io.FileIO
 
+
     # Make the decode_ascii utility function actually work
     import pyfits.util
     import numpy
@@ -40,6 +41,7 @@ if sys.version_info[0] >= 3:
         return s
     pyfits.util.decode_ascii = decode_ascii
 
+
     # Here we monkey patch (yes, I know) numpy to fix a few numpy Python 3
     # bugs.  The only behavior that's modified is that bugs are fixed, so that
     # should be OK.
@@ -66,6 +68,7 @@ if sys.version_info[0] >= 3:
                 return val
     for m in [numpy.char, numpy.core.defchararray, numpy.record, pyfits.rec]:
         m.chararray = chararray
+
 
     # Fix recarrays with sub-array fields.  See
     # http://projects.scipy.org/numpy/ticket/1766
@@ -121,6 +124,7 @@ if sys.version_info[0] >= 3:
                      names, titles, byteorder, aligned, heapoffset, file)
     pyfits.rec.recarray = recarray
 
+
     # We also need to patch pyfits.file._File which can also be affected by the
     # #1766 bug
     old_File = pyfits.file._File
@@ -132,6 +136,19 @@ if sys.version_info[0] >= 3:
             return old_File.readarray(self, size, offset, dtype, shape)
         readarray.__doc__ = old_File.readarray.__doc__
     pyfits.file._File = _File
+
+
+    # Replace pyfits.util.maketrans and translate with versions that work
+    # with Python 3 unicode strings
+    pyfits.util.maketrans = str.maketrans
+
+    def translate(s, table, deletechars):
+        if deletechars:
+            table = table.copy()
+            for c in deletechars:
+                table[ord(c)] = None
+        return s.translate(table)
+    pyfits.util.translate = translate
 else:
     # Stuff to do if not Python 3
 
@@ -140,3 +157,7 @@ else:
     import __builtin__
     if not hasattr(__builtin__, 'bytes'):
         __builtin__.bytes = str
+
+    import string
+    import pyfits.util
+    pyfits.util.maketrans = string.maketrans
