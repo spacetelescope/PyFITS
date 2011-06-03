@@ -570,12 +570,11 @@ def _normalize_slice(input, naxis):
 def _tmp_name(input):
     """
     Create a temporary file name which should not already exist.  Use the
-    directory of the input file and the base name of the mktemp() output.
+    directory of the input file as the base name of the mkstemp() output.
     """
 
-    dirname = os.path.dirname(input)
-    name = os.path.join(dirname, os.path.basename(tempfile.mktemp()))
-    if not os.path.exists(name):
-        return name
-    else:
-        raise IOError('%s exists' % name)
+    if input is not None:
+        input = os.path.dirname(input)
+    f, fn = tempfile.mkstemp(dir=os.path.dirname(input))
+    os.close(f)
+    return fn
