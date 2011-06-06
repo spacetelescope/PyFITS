@@ -326,10 +326,24 @@ def deprecated(message='', name='', alternative='', pending=False):
 
     def deprecate(func):
         if isinstance(func, classmethod):
-            func = func.__func__
+            try:
+                func = func.__func__
+            except AttributeError:
+                # classmethods in Python2.6 and below lack the __func__
+                # attribute so we need to hack around to get it
+                method = func.__get__(None, object)
+                if hasattr(method, '__func__'):
+                    func = method.__func__
+                elif hasattr(method, 'im_func'):
+                    func = method.im_func
+                else:
+                    # Nothing we can do really...  just return the original
+                    # classmethod
+                    return func
             is_classmethod = True
         else:
             is_classmethod = False
+
         @functools.wraps(func)
         def deprecated_func(*args, **kwargs):
             # _message and _name are necessary; otherwise assignments to name

@@ -94,13 +94,20 @@ _formatwarning = warnings.formatwarning
 def showwarning(message, category, filename, lineno, file=None, line=None):
     if file is None:
         file = sys.stdout
-    _showwarning(message, category, filename, lineno, file)
+    if sys.version_info[:2] < (2, 6):
+        _showwarning(message, category, filename, lineno, file)
+    else:
+        _showwarning(message, category, filename, lineno, file, line)
 
 def formatwarning(message, category, filename, lineno, line=None):
     if issubclass(category, UserWarning):
         return unicode(message) + '\n'
     else:
-        return _formatwarning(message, category, filename, lineno, line)
+        if sys.version_info[:2] < (2, 6):
+            # Python versions prior to 2.6 don't support the line argument
+            return _formatwarning(message, category, filename, lineno)
+        else:
+            return _formatwarning(message, category, filename, lineno, line)
 
 warnings.showwarning = showwarning
 warnings.formatwarning = formatwarning
