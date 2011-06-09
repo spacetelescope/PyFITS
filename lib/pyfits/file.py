@@ -27,6 +27,13 @@ class _File(object):
 
     def __init__(self, fileobj=None, mode='copyonwrite', memmap=False):
         if fileobj is None:
+            self.__file = None
+            self.closed = False
+            self.mode = mode
+            self.memmap = memmap
+            self.compressed = False
+            self.readonly = False
+            self.writeonly = False
             self.simulateonly = True
             return
         else:
@@ -68,7 +75,7 @@ class _File(object):
 
         self.compressed = False
         if isinstance(fileobj, (gzip.GzipFile, zipfile.ZipFile)):
-            self.comrpessed = True
+            self.compressed = True
 
         self.readonly = False
         self.writeonly = False
