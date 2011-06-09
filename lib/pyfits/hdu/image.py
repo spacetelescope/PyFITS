@@ -76,7 +76,7 @@ class _ImageBaseHDU(_ValidHDU):
 
             if header is not None:
                 hcopy = header.copy(strip=True)
-                _list.extend(hcopy.ascardlist())
+                _list.extend(hcopy.ascard)
 
             self._header = Header(_list)
 

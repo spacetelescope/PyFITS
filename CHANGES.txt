@@ -10,6 +10,8 @@ Changelog
   has many changes and is not guaranteed to be backwards-compatible).  There
   are a few small public API changes to be aware of:
 
+  * The `Header.ascardlist()` method is deprecated--use the `.ascard`
+    attribute instead.
   * `Card` instances have a new `.cardimage` attribute that should be used
     rather than `.ascardimage()`, which may become deprecated.
   * The `Card.fromstring()` method is now a classmethod.  It returns a new
@@ -28,6 +30,8 @@ Changelog
   * `FITS_record` objects take `start` and `end` as arguments instead of
     `startColumn` and `endColumn` (these are rarely created manually, so it's
     unlikely that this change will affect anyone).
+  * `BinTableHDU.tcreate()` is now a classmethod, and returns a new
+    `BinTableHDU` instance.
   * Possibly others--please report if you find any changes that cause
     difficulties.
 
@@ -59,3 +63,8 @@ Changelog
   the wrong location (#56)
 - `FITS_record` objects (table rows) have full slicing support, including
   stepping, etc. (#59)
+- Fixed a bug where updating multiple files simultaneously (such as when
+  running parallel processes) could lead to a race condition with mktemp()
+  (#61)
+- Fixed a bug where compressed image headers were not in the order expected by
+  the funpack utility (#62)

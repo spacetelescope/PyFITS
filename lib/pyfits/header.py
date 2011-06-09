@@ -8,13 +8,13 @@ except ImportError:
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _ContinueCard, _HierarchCard, create_card, \
                         create_card_from_string, upper_key
-from pyfits.util import BLOCK_SIZE
+from pyfits.util import BLOCK_SIZE, deprecated
 
 
 # TODO: The UserDict documentation recommends using the
 # collections.MutableMapping ABC in Python >= 2.6, but we're not requiring 2.6
 # yet
-class Header(DictMixin):
+class Header(object, DictMixin):
     """
     FITS header class.
 
@@ -256,7 +256,12 @@ class Header(DictMixin):
                 _comment = comment
             else:
                 _comment = self.ascard[j].comment
-            self.ascard[j] = create_card(key, value, _comment)
+            _card = create_card(key, value, comment)
+            if before is not None or after is not None:
+                del self.ascard[j]
+                self.ascard._pos_insert(_card, before=before, after=after)
+            else:
+                self.ascard[j] = _card
         elif before is not None or after is not None:
             _card = create_card(key, value, comment)
             self.ascard._pos_insert(_card, before=before, after=after)
@@ -264,21 +269,6 @@ class Header(DictMixin):
             self.ascard.append(create_card(key, value, comment))
 
         self._mod = True
-
-        # If this header is associated with a compImageHDU then update
-        # the objects underlying header (_table_header) unless the update was
-        # made to a card that describes the data.
-
-        # TODO: Consider creating a separate class for CompImageHDU headers or
-        # somehow moving this functionality into CompImageHDU otherwise
-
-        if hasattr(self, '_table_header') and \
-           key not in ('XTENSION', 'BITPIX', 'PCOUNT', 'GCOUNT', 'TFIELDS',
-                       'ZIMAGE', 'ZBITPIX', 'ZCMPTYPE') and \
-           key[:4] not in ('ZVAL') and \
-           key[:5] not in ('NAXIS', 'TTYPE', 'TFORM', 'ZTILE', 'ZNAME') and \
-           key[:6] not in ('ZNAXIS'):
-            self._table_header.update(key, value, comment, before, after)
 
     def copy(self, strip=False):
         """
@@ -296,6 +286,7 @@ class Header(DictMixin):
             tmp._strip()
         return tmp
 
+    @deprecated(alternative='the ascard attribute')
     def ascardlist(self):
         """
         Returns a `CardList` object.
@@ -358,12 +349,6 @@ class Header(DictMixin):
 
         self._add_commentary('history', value, before=before, after=after)
 
-        # If this header is associated with a compImageHDU then update
-        # the objects underlying header (_table_header).
-
-        if hasattr(self, '_table_header'):
-            self._table_header.add_history(value, before, after)
-
     def add_comment(self, value, before=None, after=None):
         """
         Add a ``COMMENT`` card.
@@ -381,11 +366,6 @@ class Header(DictMixin):
         """
 
         self._add_commentary('comment', value, before=before, after=after)
-
-        # If this header is associated with a compImageHDU then update
-        # the objects underlying header (_table_header).
-        if hasattr(self, '_table_header'):
-            self._table_header.add_comment(value, before, after)
 
     def add_blank(self, value='', before=None, after=None):
         """
@@ -405,25 +385,19 @@ class Header(DictMixin):
 
         self._add_commentary(' ', value, before=before, after=after)
 
-        # If this header is associated with a compImageHDU then update
-        # the objects underlying header (_table_header).
-
-        if hasattr(self, '_table_header'):
-            self._table_header.add_blank(value,before,after)
-
     def get_history(self):
         """
         Get all history cards as a list of string texts.
         """
 
-        return [c for c in self.ascardlist() if c.key == 'HISTORY']
+        return [c for c in self.ascard if c.key == 'HISTORY']
 
     def get_comment(self):
         """
         Get all comment cards as a list of string texts.
         """
 
-        return [c for c in self.ascardlist() if c.key == 'COMMENT']
+        return [c for c in self.ascard if c.key == 'COMMENT']
 
     def toTxtFile(self, fileobj, clobber=False):
         """
@@ -456,8 +430,8 @@ class Header(DictMixin):
 
         # Add the card image for each card in the header to the lines list
 
-        for j in range(len(self.ascardlist())):
-            lines.append(str(self.ascardlist()[j]) + '\n')
+        for j in range(len(self.ascard)):
+            lines.append(str(self.ascard[j]) + '\n')
 
         # Write the header parameter lines out to the ASCII header
         # parameter file
@@ -499,7 +473,7 @@ class Header(DictMixin):
         if closeFile:
             inFile.close()
 
-        if len(self.ascardlist()) > 0 and not replace:
+        if len(self.ascard) > 0 and not replace:
             prevKey = 0
         else:
             if replace:
@@ -512,13 +486,13 @@ class Header(DictMixin):
 
             if card.key == 'SIMPLE':
                 if self.get('EXTENSION'):
-                    del self.ascardlist()['EXTENSION']
+                    del self.ascard['EXTENSION']
 
                 self.update(card.key, card.value, card.comment, before=0)
                 prevKey = 0
             elif card.key == 'EXTENSION':
                 if self.get('SIMPLE'):
-                    del self.ascardlist()['SIMPLE']
+                    del self.ascard['SIMPLE']
 
                 self.update(card.key, card.value, card.comment, before=0)
                 prevKey = 0
@@ -532,7 +506,7 @@ class Header(DictMixin):
                             break
                         idx += 1
 
-                    if idx == len(self.ascardlist()):
+                    if idx == len(self.ascard):
                         self.add_history(card.value, after=prevKey)
                         prevKey += 1
                 else:
@@ -548,7 +522,7 @@ class Header(DictMixin):
                             break
                         idx += 1
 
-                    if idx == len(self.ascardlist()):
+                    if idx == len(self.ascard):
                         self.add_comment(card.value, after=prevKey)
                         prevKey += 1
                 else:
@@ -564,7 +538,7 @@ class Header(DictMixin):
                             break
                         idx += 1
 
-                    if idx == len(self.ascardlist()):
+                    if idx == len(self.ascard):
                         self.add_blank(card.value, after=prevKey)
                         prevKey += 1
                 else:

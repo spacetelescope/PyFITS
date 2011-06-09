@@ -58,7 +58,7 @@ class Delayed(object):
     """Delayed file-reading data."""
 
     def __init__(self, hdu=None, field=None):
-        self.hdu = weakref.ref(hdu)
+        self.hdu = weakref.proxy(hdu)
         self.field = field
 
     def __getitem__(self, key):
@@ -66,7 +66,7 @@ class Delayed(object):
         # the corresponding Delayed objects in the Tables Columns to be
         # transformed into ndarrays.  It will also return the value of the
         # requested data element.
-        return self.hdu().data[key][self.field]
+        return self.hdu.data[key][self.field]
 
 
 class _FormatX(str):

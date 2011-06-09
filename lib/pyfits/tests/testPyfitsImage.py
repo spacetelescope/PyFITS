@@ -708,9 +708,24 @@ class TestPyfitsImageFunctions(unittest.TestCase):
                                        quantizeLevel=-0.01))
         ofd.writeto('test_new.fits')
         ofd.close()
-        fd = pyfits.open('test_new.fits')
-        self.assertEqual(fd[1].data.all(), data.all())
-        os.remove('test_new.fits')
+        try:
+            fd = pyfits.open('test_new.fits')
+            self.assertEqual(fd[1].data.all(), data.all())
+        finally:
+            os.remove('test_new.fits')
+
+        data = np.zeros((100, 100)) + 1
+        chdu = pyfits.CompImageHDU(data)
+        chdu.writeto('test_new.fits', clobber=True)
+        try:
+            fd = pyfits.open('test_new.fits')
+            self.assertEqual(fd[1].header['NAXIS'], chdu.header['NAXIS'])
+            self.assertEqual(fd[1].header['NAXIS1'], chdu.header['NAXIS1'])
+            self.assertEqual(fd[1].header['NAXIS2'], chdu.header['NAXIS2'])
+            self.assertEqual(fd[1].header['BITPIX'], chdu.header['BITPIX'])
+            self.assertEqual(fd[1].data.all(), data.all())
+        finally:
+            os.remove('test_new.fits')
 
     def testDoNotScaleImageData(self):
         hdul = pyfits.open(os.path.join(data_dir, 'scale.fits'),
