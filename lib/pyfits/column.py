@@ -475,7 +475,8 @@ class ColDefs(object):
 
     def _update_listener(self):
         if hasattr(self, '_listener'):
-            delattr(self._listener, 'data')
+            if self._listener._data_loaded:
+                del self._listener.data
             self._listener.columns = self
 
     def add_col(self, column):
