@@ -143,9 +143,14 @@ class _ImageBaseHDU(_ValidHDU):
             # BLANK and convert to NaN in the resulting
             # floating-point arrays.
             if 'BLANK' in self._header:
-                nullDvals = np.array(self._header['BLANK'],
-                                     dtype='int64')
-                blanks = (raw_data == nullDvals)
+                blanks = raw_data.flat == self._header['BLANK']
+                # The size of blanks in bytes is the number of elements in
+                # raw_data.flat.  However, if we use np.where instead we will
+                # only use 8 bytes for each index where the condition is true.
+                # So if the number of blank items is fewer than
+                # len(raw_data.flat) / 8, using np.where will use less memory
+                if blanks.sum() < len(blanks) / 8:
+                    blanks = np.where(raw_data.flat == self._header['BLANK'])
 
             if bitpix > 16:  # scale integers to Float64
                 data = np.array(raw_data, dtype=np.float64)
@@ -158,13 +163,15 @@ class _ImageBaseHDU(_ValidHDU):
                 else:
                     data = raw_data
 
+            del raw_data
+
             if self._bscale != 1:
                 np.multiply(data, self._bscale, data)
             if self._bzero != 0:
                 data += self._bzero
 
-            if self._header.has_key('BLANK'):
-                data = np.where(blanks, np.nan, data)
+            if 'BLANK' in self._header:
+                data.flat[blanks] = np.nan
 
         if not self._do_not_scale_image_data:
            # delete the keywords BSCALE and BZERO after scaling
