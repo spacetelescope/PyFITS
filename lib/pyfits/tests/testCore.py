@@ -1,5 +1,7 @@
 from __future__ import division # confidence high
+from __future__ import with_statement
 
+import gzip
 import os
 import sys
 
@@ -15,6 +17,18 @@ def test_with_statement():
     if sys.hexversion >= 0x02050000:
         exec("""from __future__ import with_statement
 with pyfits.open(os.path.join(data_dir, 'ascii.fits')) as f: pass""")
+
+
+def test_open_gzipped():
+    with open(os.path.join(data_dir, 'test0.fits'), 'rb') as f:
+        gz = gzip.open('test0.fits.gz', 'wb')
+        gz.write(f.read())
+        gz.close()
+    try:
+        hdul = pyfits.open('test0.fits.gz')
+        assert len(hdul) == 5
+    finally:
+        os.remove('test0.fits.gz')
 
 
 def test_naxisj_check():

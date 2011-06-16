@@ -304,7 +304,7 @@ class ColDefs(object):
         self._tbtype = tbtype
 
         if isinstance(input, ColDefs):
-            self.columns = [col.copy() for col in input.data]
+            self.columns = [col.copy() for col in input.columns]
 
         # if the input is a list of Columns
         elif isinstance(input, (list, tuple)):
@@ -411,7 +411,9 @@ class ColDefs(object):
         raise AttributeError(name)
 
     @property
-    @deprecated(alternative='the .columns attribute')
+    @deprecated(message='The %(func)s attribute is deprecated; use the '
+                        '%(alternative)s attribute instead.',
+                alternative='.columns')
     def data(self):
         """
         What was originally self.columns is now self.data; this provides some

@@ -148,7 +148,8 @@ class _File(object):
                     zfile.close()
                 else:
                     self.__file = open(self.name, PYTHON_MODES[mode])
-                    self.__file.seek(0)
+                # Make certain we're back at the beginning of the file
+                self.__file.seek(0)
             else:
                 # We are dealing with a file like object.
                 # Assume it is open.
