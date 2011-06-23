@@ -142,8 +142,8 @@ is regular and the other variable length array.
     >>> import numpy as np
     >>> c1 = pyfits.Column(name='var', format='PJ()',
                            array=np.array([np.array([45., 56]),
-			                   np.array([11, 12, 13])],
-					  dtype=np.object))
+                               np.array([11, 12, 13])],
+                      dtype=np.object))
     >>> c2 = pyfits.Column(name='xyz', format='2I', array=[[11, 3], [12, 4]])
     # the rest is the same as a regular table.
     # Create the table HDU
