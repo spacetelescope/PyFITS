@@ -26,15 +26,16 @@ class _ImageBaseHDU(_ValidHDU):
     """
 
     # mappings between FITS and numpy typecodes
-#    NumCode = {8:'int8', 16:'int16', 32:'int32', 64:'int64', -32:'float32', -64:'float64'}
-#    ImgCode = {'<i2':8, '<i4':16, '<i8':32, '<i16':64, '<f8':-32, '<f16':-64}
-    NumCode = {8:'uint8', 16:'int16', 32:'int32', 64:'int64', -32:'float32', -64:'float64'}
+    # NumCode = {8:'int8', 16:'int16', 32:'int32', 64:'int64', -32:'float32', -64:'float64'}
+    # ImgCode = {'<i2':8, '<i4':16, '<i8':32, '<i16':64, '<f8':-32, '<f16':-64)
+    NumCode = {8:'uint8', 16:'int16', 32:'int32', 64:'int64', -32:'float32',
+               -64:'float64'}
     ImgCode = {'uint8':8, 'int16':16, 'uint16':16, 'int32':32,
                'uint32':32, 'int64':64, 'uint64':64,
                'float32':-32, 'float64':-64}
 
     def __init__(self, data=None, header=None, do_not_scale_image_data=False,
-                 uint=False):
+                 uint=False, **kwargs):
         from pyfits.hdu.groups import GroupsHDU
 
         super(_ImageBaseHDU, self).__init__(data=data, header=header)
@@ -103,6 +104,12 @@ class _ImageBaseHDU(_ValidHDU):
             # delete the keywords BSCALE and BZERO
             del self._header['BSCALE']
             del self._header['BZERO']
+
+        # Set the name attribute if it was provided (if this is an ImageHDU
+        # this will result in setting the EXTNAME keyword of the header as
+        # well)
+        if 'name' in kwargs and kwargs['name']:
+            self.name = kwargs['name']
 
     @classmethod
     def match_header(cls, header):
@@ -717,18 +724,8 @@ class ImageHDU(_ImageBaseHDU, _ExtensionHDU):
         """
 
         super(ImageHDU, self).__init__(
-            data=data, header=header,
+            data=data, header=header, name=name,
             do_not_scale_image_data=do_not_scale_image_data, uint=uint)
-
-        # set extension name; normally this would be done by
-        # _ExtensionHDU.__init__, but we can't send the name argument to
-        # super().__init__ since it's not supported by _ImageBaseHDU.__init__;
-        # the perils of multiple inheritance...
-        if not name and 'EXTNAME' in self._header:
-            name = self._header['EXTNAME']
-        else:
-            name = ''
-        self.name = name
 
     @classmethod
     def match_header(cls, header):

@@ -34,6 +34,31 @@ class TestPyfitsImageFunctions(unittest.TestCase):
         c = pyfits.Card()
         self.assertEqual('', c.key)
 
+    def testConstructorNameArg(self):
+        """testConstructorNameArg
+
+        Like the test of the same name in testPyfitsTable.py
+        """
+
+        hdu = pyfits.ImageHDU()
+        self.assertEqual(hdu.name, '')
+        self.assert_('EXTNAME' not in hdu.header)
+        hdu.name = 'FOO'
+        self.assertEqual(hdu.name, 'FOO')
+        self.assertEqual(hdu.header['EXTNAME'], 'FOO')
+
+        # Passing name to constructor
+        hdu = pyfits.ImageHDU(name='FOO')
+        self.assertEqual(hdu.name, 'FOO')
+        self.assertEqual(hdu.header['EXTNAME'], 'FOO')
+
+        # And overriding a header with a different extname
+        hdr = pyfits.Header()
+        hdr.update('EXTNAME', 'EVENTS')
+        hdu = pyfits.ImageHDU(header=hdr, name='FOO')
+        self.assertEqual(hdu.name, 'FOO')
+        self.assertEqual(hdu.header['EXTNAME'], 'FOO')
+
     def testFromstringSetAttributeAscardimage(self):
         """
         Test fromstring() which will return a new card.

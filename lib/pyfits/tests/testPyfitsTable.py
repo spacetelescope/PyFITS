@@ -102,11 +102,11 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
     def testOpen(self):
         # open some existing FITS files:
-        tt =pyfits.open(os.path.join(data_dir, 'tb.fits'))
-        fd =pyfits.open(os.path.join(data_dir, 'test0.fits'))
+        tt = pyfits.open(os.path.join(data_dir, 'tb.fits'))
+        fd = pyfits.open(os.path.join(data_dir, 'test0.fits'))
 
         # create some local arrays
-        a1 =chararray.array(['abc', 'def', 'xx'])
+        a1 = chararray.array(['abc', 'def', 'xx'])
         r1 = np.array([11.,12.,13.], dtype=np.float32)
 
         # create a table from scratch, using a mixture of columns from existing
@@ -1428,6 +1428,36 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(tbhdu1.columns._arrays[1][0], 800)
         self.assertEqual(tbhdu1.columns.data[1].array[0], 800)
 
+    def testConstructorNameArg(self):
+        """testConstructorNameArg
+
+        Passing name='...' to the BinTableHDU and TableHDU constructors
+        should set the .name attribute and 'EXTNAME' header keyword, and
+        override any name in an existing 'EXTNAME' value.
+        """
+
+        for hducls in [pyfits.BinTableHDU, pyfits.TableHDU]:
+            # First test some default assumptions
+            hdu = hducls()
+            self.assertEqual(hdu.name, '')
+            self.assert_('EXTNAME' not in hdu.header)
+            hdu.name = 'FOO'
+            self.assertEqual(hdu.name, 'FOO')
+            self.assertEqual(hdu.header['EXTNAME'], 'FOO')
+
+            # Passing name to constructor
+            hdu = hducls(name='FOO')
+            self.assertEqual(hdu.name, 'FOO')
+            self.assertEqual(hdu.header['EXTNAME'], 'FOO')
+
+            # And overriding a header with a different extname
+            hdr = pyfits.Header()
+            hdr.update('EXTNAME', 'EVENTS')
+            hdu = hducls(header=hdr, name='FOO')
+            self.assertEqual(hdu.name, 'FOO')
+            self.assertEqual(hdu.header['EXTNAME'], 'FOO')
+
+
     def testBinTableWithLogicalArray(self):
         c1 = pyfits.Column(name='flag', format='2L',
                            array=[[True, False], [False, True]])
@@ -1657,7 +1687,6 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assert_((s1 == s2).all())
         self.assert_((s2 == s3).all())
         self.assert_((s3 == s4).all())
-
 
 if __name__ == '__main__':
     unittest.main()

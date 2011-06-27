@@ -94,7 +94,7 @@ class _BaseHDU(object):
         klass = _hdu_class_from_header(cls, header)
         return super(_BaseHDU, cls).__new__(klass)
 
-    def __init__(self, data=None, header=None):
+    def __init__(self, data=None, header=None, **kwargs):
         self._header = header
         self._file = None
         self._hdrLoc = None

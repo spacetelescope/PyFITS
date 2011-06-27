@@ -107,7 +107,8 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
             name to be populated in ``EXTNAME`` keyword
         """
 
-        super(_TableBaseHDU, self).__init__(data=data, header=header)
+        super(_TableBaseHDU, self).__init__(data=data, header=header,
+                                            name=name)
 
         if header is not None and not isinstance(header, Header):
             raise ValueError('header must be a Header object.')
@@ -181,6 +182,12 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
         if self._header[0].rstrip() != self._extension:
             self._header[0] = self._extension
             self._header.ascard[0].comment = self._ext_comment
+
+        # Ensure that the correct EXTNAME is set on the new header if one was
+        # created, or that it overrides the existing EXTNAME if different
+        if name:
+            self.name = name
+
 
     @classmethod
     def match_header(cls, header):
@@ -370,7 +377,7 @@ class TableHDU(_TableBaseHDU):
         r'(?P<code>[ADEFIJ])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
 
     def __init__(self, data=None, header=None, name=None):
-        super(TableHDU, self).__init__(data, header, name)
+        super(TableHDU, self).__init__(data, header, name=name)
         if self._data_loaded and self.data is not None and \
            not isinstance(self.data._coldefs, _ASCIIColDefs):
             self.data._coldefs = _ASCIIColDefs(self.data._coldefs)
