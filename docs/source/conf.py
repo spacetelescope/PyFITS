@@ -44,8 +44,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'PyFITS'
-copyright = u'2011, J. C. Hsu, Paul Barrett, Christopher Hanley, James Taylor,'
-             'Michael Droettboom, Erik Bray'
+copyright = ( u'2011, J. C. Hsu, Paul Barrett, Christopher Hanley, James Taylor,'
+             'Michael Droettboom, Erik Bray' )
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
