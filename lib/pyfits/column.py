@@ -352,7 +352,7 @@ class ColDefs(object):
             # go through header keywords to pick out column definition keywords
             # definition dictionaries for each field
             col_attributes = [{} for i in range(nfields)]
-            for card in hdr.ascardlist():
+            for card in hdr.ascard:
                 key = TDEF_RE.match(card.key)
                 try:
                     keyword = key.group('label')
@@ -811,8 +811,7 @@ def _unwrapx(input, output, nx):
         _min = i*8
         _max = min((i+1)*8, nx)
         for j in range(_min, _max):
-            np.bitwise_and(input[...,i], pow2[j-i*8],
-                           output[...,j].view('uint8'))
+            output[...,j] = np.bitwise_and(input[...,i], pow2[j-i*8])
 
 
 def _wrapx(input, output, nx):

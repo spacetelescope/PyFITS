@@ -149,7 +149,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
             (1, 'abc', 3.7000002861022949, 0),
             (2, 'xy ', 6.6999998092651367, 1)], names='c1, c2, c3, c4')
 
-        self.assertEqual(comparerecords(t2.data, ra),True)
+        self.assertEqual(comparerecords(t2.data, ra), True)
 
         # the table HDU's data is a subclass of a record array, so we can access
         # one row like this:
@@ -159,7 +159,7 @@ class TestPyfitsTableFunctions(unittest.TestCase):
         self.assertEqual(tbhdu.data[1][2], a3[1])
         self.assertEqual(tbhdu.data[1][3], a4[1])
         self.assertEqual(tbhdu.data[1][4], a5[1])
-        self.assertEqual(tbhdu.data[1][5], a6[1])
+        self.assert_((tbhdu.data[1][5] == a6[1].view('bool')).all())
         self.assertEqual(tbhdu.data[1][6], a7[1])
         self.assertEqual(tbhdu.data[1][7].all(), a8[1].all())
 
@@ -177,8 +177,8 @@ class TestPyfitsTableFunctions(unittest.TestCase):
 
         f2 = pyfits.open('tableout1.fits')
         temp = f2[1].data.field(7)
-        self.assertEqual(str(temp[0]),
-            "[ True  True False  True False  True  True  True False False  True]")
+        self.assert_((temp[0] == [True, True, False, True, False, True, True,
+                                  True, False, False, True]).all())
         f2.close()
         os.remove('tableout1.fits')
 
