@@ -250,13 +250,13 @@ class Header(object, DictMixin):
         else:
             keyword = key
 
-        if self.has_key(keyword):
+        if keyword in self:
             j = self.ascard.index_of(keyword)
             if not savecomment and comment is not None:
                 _comment = comment
             else:
                 _comment = self.ascard[j].comment
-            _card = create_card(key, value, comment)
+            _card = create_card(key, value, _comment)
             if before is not None or after is not None:
                 del self.ascard[j]
                 self.ascard._pos_insert(_card, before=before, after=after)

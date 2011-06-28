@@ -104,6 +104,32 @@ def test_add_del_columns2():
     os.remove('test.fits')
 
 
+def test_update_header_card():
+    """test_update_header_card()
+
+    A very basic test for the Header.update method--I'd like to add a few more
+    cases to this at some point.
+    """
+
+    header = pyfits.Header()
+    header.update('BITPIX', 16, 'number of bits per data pixel')
+    assert 'BITPIX' in header
+    assert header['BITPIX'] == 16
+    assert header.ascard['BITPIX'].comment == 'number of bits per data pixel'
+
+    header.update('BITPIX', 32, savecomment=True)
+    # Make sure the value has been updated, but the comment was preserved
+    assert header['BITPIX'] == 32
+    assert header.ascard['BITPIX'].comment == 'number of bits per data pixel'
+
+    # The comment should still be preserved--savecomment only takes effect if
+    # a new comment is also specified
+    header.update('BITPIX', 16)
+    assert header.ascard['BITPIX'].comment == 'number of bits per data pixel'
+    header.update('BITPIX', 16, 'foobarbaz', savecomment=True)
+    assert header.ascard['BITPIX'].comment == 'number of bits per data pixel'
+
+
 def test_uint():
     hdulist_f = pyfits.open(os.path.join(data_dir, 'o4sp040b0_raw.fits'))
     hdulist_i = pyfits.open(os.path.join(data_dir, 'o4sp040b0_raw.fits'),
