@@ -500,6 +500,7 @@ class FITS_rec(rec.recarray):
 
         _fmap = {'A': 's', 'I': 'd', 'J': 'd', 'F': 'f', 'E': 'E', 'D': 'E'}
         # calculate the starting point and width of each field for ASCII table
+        # TODO: Ick--fix this _tbtype usage eventually...
         if self._coldefs._tbtype == 'TableHDU':
             loc = self._coldefs.starts
             widths = []

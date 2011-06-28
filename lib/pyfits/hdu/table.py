@@ -261,6 +261,7 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
 
     def _writeheader(self, fileobj, checksum=False):
         if self._data_loaded and self.data is not None:
+            self.data._scale_back()
             # check TFIELDS and NAXIS2
             self._header['TFIELDS'] = self.data._nfields
             self._header['NAXIS2'] = self.data.shape[0]
@@ -284,8 +285,6 @@ class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
         return super(_TableBaseHDU, self)._writeheader(fileobj, checksum)
 
     def _writeto(self, fileobj, checksum=False):
-        if self.data is not None:
-            self.data._scale_back()
         return super(_TableBaseHDU, self)._writeto(fileobj, checksum)
 
     def _verify(self, option='warn'):
