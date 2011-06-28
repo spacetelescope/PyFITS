@@ -805,13 +805,14 @@ def _unwrapx(input, output, nx):
         number of bits
     """
 
-    pow2 = [128, 64, 32, 16, 8, 4, 2, 1]
+    pow2 = np.array([128, 64, 32, 16, 8, 4, 2, 1], dtype='uint8')
     nbytes = ((nx-1) // 8) + 1
     for i in range(nbytes):
         _min = i*8
         _max = min((i+1)*8, nx)
         for j in range(_min, _max):
-            np.bitwise_and(input[...,i], pow2[j-i*8], output[...,j])
+            np.bitwise_and(input[...,i], pow2[j-i*8],
+                           output[...,j].view('uint8'))
 
 
 def _wrapx(input, output, nx):

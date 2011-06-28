@@ -409,7 +409,7 @@ class _ImageBaseHDU(_ValidHDU):
                     # of adding because of the way numpy converts
                     # the raw signed array into an unsigned array.
                     data = np.array(data, dtype=dtype)
-                    data -= (1 << (bits - 1))
+                    data -= np.uint64(1 << (bits - 1))
                     return data
 
     def _dimShape(self):
