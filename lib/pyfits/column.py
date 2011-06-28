@@ -1004,8 +1004,9 @@ def _convert_format(format, reverse=False):
 def _convert_ascii_format(input_format):
     """Convert ASCII table format spec to record format spec."""
 
-    ascii2rec = {'A': 'a', 'I': 'i4', 'F': 'f4', 'E': 'f4', 'D': 'f8'}
-    _re = re.compile(r'(?P<dtype>[AIFED])(?P<width>[0-9]*)')
+    ascii2rec = {'A': 'a', 'I': 'i4', 'J': 'i8', 'F': 'f4', 'E': 'f4',
+                 'D': 'f8'}
+    _re = re.compile(r'(?P<dtype>[AIJFED])(?P<width>[0-9]*)')
 
     # Parse the TFORM value into data type and width.
     try:
