@@ -96,6 +96,9 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
         kwargs['uint'] = kwargs['uint16']
         del kwargs['uint16']
 
+    if not name:
+        raise TypeError('Empty filename: %s' % repr(name))
+
     return HDUList.fromfile(name, mode, memmap, **kwargs)
 
 

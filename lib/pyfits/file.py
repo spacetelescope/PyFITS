@@ -210,6 +210,8 @@ class _File(object):
         return self.__file
 
     def read(self, size=None):
+        if not hasattr(self.__file, 'read'):
+            raise EOFError
         return self.__file.read(size)
 
     def readarray(self, size=None, offset=None, dtype=np.uint8, shape=None):
@@ -265,7 +267,8 @@ class _File(object):
             return data
 
     def write(self, string):
-        _write_string(self.__file, string)
+        if hasattr(self.__file, 'write'):
+            _write_string(self.__file, string)
 
     def writearray(self, array):
         """
@@ -275,7 +278,8 @@ class _File(object):
         the file on disk reflects the data written.
         """
 
-        _tofile(array, self.__file)
+        if hasattr(self.__file, 'write'):
+            _tofile(array, self.__file)
 
     def flush(self):
         if hasattr(self.__file, 'flush'):
@@ -285,6 +289,8 @@ class _File(object):
         # In newer Python versions, GzipFiles support the whence argument, but
         # I don't think it was added until 2.6; instead of assuming it's
         # present, we implement our own support for it here
+        if not hasattr(self.__file, 'seek'):
+            return
         if isinstance(self.__file, gzip.GzipFile):
             if whence:
                 if whence == 1:
