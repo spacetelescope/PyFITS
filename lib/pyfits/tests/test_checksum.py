@@ -23,9 +23,11 @@ class TestChecksumFunctions(PyfitsTestCase):
         hdul.close()
 
     def test_nonstandard_checksum(self):
+        old_filters = warnings.filters[:]
+        warnings.resetwarnings()
         warnings.filterwarnings(
             'error',
-             message='"Warning:  Checksum verification failed')
+            message='Warning:  Checksum verification failed')
         warnings.filterwarnings(
             'error',
             message='Warning:  Datasum verification failed')
@@ -34,16 +36,13 @@ class TestChecksumFunctions(PyfitsTestCase):
                     checksum='nonstandard')
         del hdu
         hdul = pyfits.open(self.temp('tmp.fits'), checksum='nonstandard')
-        assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
-                      checksum=True)
-        assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
-                      checksum="standard")
-        warnings.filterwarnings(
-            'default',
-            message='Warning:  Checksum verification failed')
-        warnings.filterwarnings(
-            'default',
-            message='Warning:  Datasum verification failed')
+        try:
+            assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
+                          checksum=True)
+            assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
+                          checksum='standard')
+        finally:
+            warnings.filters = old_filters
 
     def test_scaled_data(self):
         hdul = pyfits.open(self.data('scale.fits'))
