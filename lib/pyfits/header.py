@@ -1,9 +1,9 @@
 try:
-    from UserDict import DictMixin
+    from collections import MutableMapping
+    HEADERBASES = (MutableMapping,)
 except ImportError:
-    # Not necessarily a direct translation, but the Header class has been
-    # written such that it should be fine.
-    from collections import MutableMapping as DictMixin
+    from UserDict import DictMixin
+    HEADERBASES = (object, DictMixin) # object to make a newstyle class
 
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _ContinueCard, _HierarchCard, create_card, \
@@ -11,10 +11,7 @@ from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
 from pyfits.util import BLOCK_SIZE, deprecated
 
 
-# TODO: The UserDict documentation recommends using the
-# collections.MutableMapping ABC in Python >= 2.6, but we're not requiring 2.6
-# yet
-class Header(object, DictMixin):
+class Header(*HEADERBASES):
     """
     FITS header class.
 
