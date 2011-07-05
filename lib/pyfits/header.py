@@ -1,9 +1,9 @@
 try:
-    from collections import MutableMapping
-    HEADERBASES = (MutableMapping,)
+    from collections import MutableMapping as __HEADERBASE
 except ImportError:
     from UserDict import DictMixin
-    HEADERBASES = (object, DictMixin) # object to make a newstyle class
+    class __HEADERBASE(DictMixin, object): # object to make a newstyle class
+        pass
 
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _ContinueCard, _HierarchCard, create_card, \
@@ -11,7 +11,7 @@ from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
 from pyfits.util import BLOCK_SIZE, deprecated
 
 
-class Header(*HEADERBASES):
+class Header(__HEADERBASE):
     """
     FITS header class.
 
