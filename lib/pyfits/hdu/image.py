@@ -578,7 +578,7 @@ class Section(object):
             data = self._getdata(key)
 
         converted_data = self.hdu._convert_pseudo_unsigned(data)
-        if converted_data:
+        if converted_data is not None:
             data = converted_data
 
         return data
