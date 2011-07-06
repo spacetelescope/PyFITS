@@ -8,6 +8,8 @@ import numpy as np
 import pyfits
 from pyfits.tests import PyfitsTestCase
 
+from nose.tools import assert_equal
+
 
 class TestCore(PyfitsTestCase):
     def test_with_statement(self):
@@ -22,7 +24,7 @@ class TestCore(PyfitsTestCase):
             gz.close()
 
         hdul = pyfits.open(gzfile)
-        assert len(hdul) == 5
+        assert_equal(len(hdul), 5)
 
     def test_naxisj_check(self):
         hdulist = pyfits.open(self.data('o4sp040b0_raw.fits'))
@@ -52,45 +54,45 @@ class TestCore(PyfitsTestCase):
         l.writeto(self.temp('test.fits'), clobber=True)
 
         p = pyfits.open(self.temp('test.fits'))
-        assert p[1].data[1]['foo'] == 60000.0
+        assert_equal(p[1].data[1]['foo'], 60000.0)
 
     def test_add_del_columns(self):
         p = pyfits.ColDefs([])
         p.add_col(pyfits.Column(name='FOO', format='3J'))
         p.add_col(pyfits.Column(name='BAR', format='1I'))
-        assert p.names == ['FOO', 'BAR']
+        assert_equal(p.names, ['FOO', 'BAR'])
         p.del_col('FOO')
-        assert p.names == ['BAR']
+        assert_equal(p.names, ['BAR'])
 
     def test_add_del_columns2(self):
         hdulist = pyfits.open(self.data('tb.fits'))
         table = hdulist[1]
-        assert table.data.dtype.names == ('c1', 'c2', 'c3', 'c4')
-        assert table.columns.names == ['c1', 'c2', 'c3', 'c4']
+        assert_equal(table.data.dtype.names, ('c1', 'c2', 'c3', 'c4'))
+        assert_equal(table.columns.names, ['c1', 'c2', 'c3', 'c4'])
         #old_data = table.data.base.copy().view(pyfits.FITS_rec)
         table.columns.del_col('c1')
-        assert table.data.dtype.names == ('c2', 'c3', 'c4')
-        assert table.columns.names == ['c2', 'c3', 'c4']
+        assert_equal(table.data.dtype.names, ('c2', 'c3', 'c4'))
+        assert_equal(table.columns.names, ['c2', 'c3', 'c4'])
 
         #for idx in range(len(old_data)):
-        #    assert np.all(old_data[idx][1:] == table.data[idx])
+        #    assert_equal(np.all(old_data[idx][1:], table.data[idx]))
 
         table.columns.del_col('c3')
-        assert table.data.dtype.names == ('c2', 'c4')
-        assert table.columns.names == ['c2', 'c4']
+        assert_equal(table.data.dtype.names, ('c2', 'c4'))
+        assert_equal(table.columns.names, ['c2', 'c4'])
 
         #for idx in range(len(old_data)):
-        #    assert np.all(old_data[idx][2:] == table.data[idx])
+        #    assert_equal(np.all(old_data[idx][2:], table.data[idx]))
 
         table.columns.add_col(pyfits.Column('foo', '3J'))
-        assert table.data.dtype.names == ('c2', 'c4', 'foo')
-        assert table.columns.names == ['c2', 'c4', 'foo']
+        assert_equal(table.data.dtype.names, ('c2', 'c4', 'foo'))
+        assert_equal(table.columns.names, ['c2', 'c4', 'foo'])
 
         hdulist.writeto(self.temp('test.fits'), clobber=True)
         hdulist = pyfits.open(self.temp('test.fits'))
         table = hdulist[1]
-        assert table.data.dtype.names == ('c1', 'c2', 'c3')
-        assert table.columns.names == ['c1', 'c2', 'c3']
+        assert_equal(table.data.dtype.names, ('c1', 'c2', 'c3'))
+        assert_equal(table.columns.names, ['c1', 'c2', 'c3'])
 
     def test_update_header_card(self):
         """A very basic test for the Header.update method--I'd like to add a
@@ -101,20 +103,20 @@ class TestCore(PyfitsTestCase):
         comment = 'number of bits per data pixel'
         header.update('BITPIX', 16, comment)
         assert 'BITPIX' in header
-        assert header['BITPIX'] == 16
-        assert header.ascard['BITPIX'].comment == comment
+        assert_equal(header['BITPIX'], 16)
+        assert_equal(header.ascard['BITPIX'].comment, comment)
 
         header.update('BITPIX', 32, savecomment=True)
         # Make sure the value has been updated, but the comment was preserved
-        assert header['BITPIX'] == 32
-        assert header.ascard['BITPIX'].comment == comment
+        assert_equal(header['BITPIX'], 32)
+        assert_equal(header.ascard['BITPIX'].comment, comment)
 
         # The comment should still be preserved--savecomment only takes effect if
         # a new comment is also specified
         header.update('BITPIX', 16)
-        assert header.ascard['BITPIX'].comment == comment
+        assert_equal(header.ascard['BITPIX'].comment, comment)
         header.update('BITPIX', 16, 'foobarbaz', savecomment=True)
-        assert header.ascard['BITPIX'].comment == comment
+        assert_equal(header.ascard['BITPIX'].comment, comment)
 
     def test_set_card_value(self):
         """Similar to test_update_header_card(), but tests the the
@@ -129,15 +131,34 @@ class TestCore(PyfitsTestCase):
         header['BITPIX'] = 32
 
         assert 'BITPIX' in header
-        assert header['BITPIX'] == 32
-        assert header.ascard['BITPIX'].key == 'BITPIX'
-        assert header.ascard['BITPIX'].value == 32
-        assert header.ascard['BITPIX'].comment == comment
+        assert_equal(header['BITPIX'], 32)
+        assert_equal(header.ascard['BITPIX'].key, 'BITPIX')
+        assert_equal(header.ascard['BITPIX'].value, 32)
+        assert_equal(header.ascard['BITPIX'].comment, comment)
 
     def test_uint(self):
         hdulist_f = pyfits.open(self.data('o4sp040b0_raw.fits'))
         hdulist_i = pyfits.open(self.data('o4sp040b0_raw.fits'), uint=True)
 
-        assert hdulist_f[1].data.dtype == np.float32
-        assert hdulist_i[1].data.dtype == np.uint16
+        assert_equal(hdulist_f[1].data.dtype, np.float32)
+        assert_equal(hdulist_i[1].data.dtype, np.uint16)
         assert np.all(hdulist_f[1].data == hdulist_i[1].data)
+
+    def test_fix_invalid_keyword_value(self):
+        hdu = pyfits.ImageHDU()
+        hdu.header.update('TESTKW', 'foo')
+        errs = hdu.req_cards('TESTKW', None,
+                             lambda v: v == 'foo', 'foo', 'ignore', [])
+        assert_equal(len(errs), 0)
+
+        # Now try a test that will fail, and ensure that an error will be
+        # raised in 'exception' mode
+        errs = hdu.req_cards('TESTKW', None, lambda v: v == 'bar', 'bar',
+                             'exception', [])
+        assert_equal(len(errs), 1)
+        assert_equal(errs[0], "'TESTKW' card has invalid value 'foo'.")
+
+        # See if fixing will work
+        hdu.req_cards('TESTKW', None, lambda v: v == 'bar', 'bar', 'silentfix',
+                      [])
+        assert_equal(hdu.header['TESTKW'], 'bar')

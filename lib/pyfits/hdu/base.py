@@ -806,7 +806,7 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         return errs
 
-    def req_cards(self, keywd, pos, test, fix_value, option, errlist):
+    def req_cards(self, keyword, pos, test, fix_value, option, errlist):
         """
         Check the existence, location, and value of a required `Card`.
 
@@ -822,7 +822,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         cards = self._header.ascard
 
         try:
-            _index = cards.index_of(keywd)
+            _index = cards.index_of(keyword)
         except:
             _index = None
 
@@ -838,12 +838,12 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         # if the card does not exist
         if _index is None:
-            err_text = "'%s' card does not exist." % keywd
-            fix_text = "Fixed by inserting a new '%s' card." % keywd
+            err_text = "'%s' card does not exist." % keyword
+            fix_text = "Fixed by inserting a new '%s' card." % keyword
             if fixable:
                 # use repr to accomodate both string and non-string types
                 # Boolean is also OK in this constructor
-                card = "Card('%s', %s)" % (keywd, repr(fix_value))
+                card = "Card('%s', %s)" % (keyword, repr(fix_value))
 
                 def fix(self=self, insert_pos=insert_pos, card=card):
                     self._header.ascard.insert(insert_pos, card)
@@ -855,7 +855,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             if pos is not None:
                 if not pos(_index):
                     err_text = "'%s' card at the wrong place (card %d)." \
-                               % (keywd, _index)
+                               % (keyword, _index)
                     fix_text = "Fixed by moving it to the right place " \
                                "(card %d)." % insert_pos
 
@@ -870,15 +870,15 @@ class _ValidHDU(_BaseHDU, _Verify):
 
             # if value checking is specified
             if test:
-                val = self._header[keywd]
+                val = self._header[keyword]
                 if not test(val):
                     err_text = "'%s' card has invalid value '%s'." \
-                               % (keywd, val)
+                               % (keyword, val)
                     fix_text = "Fixed by setting a new value '%s'." % fix_value
 
                     if fixable:
                         def fix(self=self, keyword=keyword, val=fix_value):
-                            self._header[keyword] = repr(fix_value)
+                            self._header[keyword] = fix_value
 
                     errs.append(self.run_option(option, err_text=err_text,
                                 fix_text=fix_text, fix=fix, fixable=fixable))
