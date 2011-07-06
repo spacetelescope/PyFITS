@@ -321,7 +321,7 @@ class Header(__HEADERBASE):
                     oldkey in Card._commentary_keys):
                 raise ValueError('Regular and commentary keys can not be '
                                  'renamed to each other.')
-        elif (force == 0) and self.has_key(newkey):
+        elif (force == 0) and newkey in self:
             raise ValueError('Intended keyword %s already exists in header.'
                              % newkey)
 

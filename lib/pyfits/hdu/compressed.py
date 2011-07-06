@@ -917,7 +917,7 @@ if COMPRESSION_SUPPORTED:
             # the image header.  This allows those blank cards to be carried
             # over to the image header when the hdu is uncompressed.
 
-            if self._header.has_key('ZHECKSUM'):
+            if 'ZHECKSUM' in self._header:
                 image_header.ascard.count_blanks()
                 self._image_header.ascard.count_blanks()
                 self._header.ascard.count_blanks()
@@ -953,11 +953,11 @@ if COMPRESSION_SUPPORTED:
             # ZBLANK column (all null values are the same for each tile)),
             # or from the BLANK header card.
             if not 'ZBLANK' in self.compData.names:
-                if self._header.has_key('ZBLANK'):
+                if 'ZBLANK' in self._header:
                     nullDvals = np.array(self._header['ZBLANK'],
                                          dtype='int32')
                     cn_zblank = -1 # null value is a constant
-                elif self._header.has_key('BLANK'):
+                elif 'BLANK' in self._header:
                     nullDvals = np.array(self._header['BLANK'],
                                          dtype='int32')
                     cn_zblank = -1 # null value is a constant
@@ -978,14 +978,14 @@ if COMPRESSION_SUPPORTED:
             # from the ZSCALE header card (if no ZSCALE column (all
             # linear scale factor values are the same for each tile)).
 
-            if self._header.has_key('BSCALE'):
+            if 'BSCALE' in self._header:
                 self._bscale = self._header['BSCALE']
                 del self._header['BSCALE']
             else:
                 self._bscale = 1.
 
             if not 'ZSCALE' in self.compData.names:
-                if self._header.has_key('ZSCALE'):
+                if 'ZSCALE' in self._header:
                     zScaleVals = np.array(self._header['ZSCALE'],
                                           dtype='float64')
                     cn_zscale = -1 # scale value is a constant
@@ -1006,14 +1006,14 @@ if COMPRESSION_SUPPORTED:
             # from the ZZERO header card (if no ZZERO column (all
             # zero point offset values are the same for each tile)).
 
-            if self._header.has_key('BZERO'):
+            if 'BZERO' in self._header:
                 self._bzero = self._header['BZERO']
                 del self._header['BZERO']
             else:
                 self._bzero = 0.
 
             if not 'ZZERO' in self.compData.names:
-                if self._header.has_key('ZZERO'):
+                if 'ZZERO' in self._header:
                     zZeroVals = np.array(self._header['ZZERO'],
                                          dtype='float64')
                     cn_zzero = -1 # zero value is a constant
@@ -1392,7 +1392,7 @@ if COMPRESSION_SUPPORTED:
             # Remove the EXTNAME card if the value in the table header
             # is the default value of COMPRESSED_IMAGE.
 
-            if self._header.has_key('EXTNAME') and \
+            if 'EXTNAME' in self._header and \
                self._header['EXTNAME'] == 'COMPRESSED_IMAGE':
                    del cardlist['EXTNAME']
 
@@ -1468,7 +1468,7 @@ if COMPRESSION_SUPPORTED:
             # scale value, or not given.
             if 'ZSCALE' in self.compData.names:
                 cn_zscale = 1 # there is a scaled column
-            elif self._header.has_key('ZSCALE'):
+            elif 'ZSCALE' in self._header:
                 cn_zscale = -1 # scale value is a constant
             else:
                 cn_zscale = 0 # no scale value given so don't scale
@@ -1477,7 +1477,7 @@ if COMPRESSION_SUPPORTED:
             # single value, or not given.
             if 'ZZERO' in self.compData.names:
                 cn_zzero = 1 # there is a scaled column
-            elif self._header.has_key('ZZERO'):
+            elif 'ZZERO' in self._header:
                 cn_zzero = -1 # zero value is a constant
             else:
                 cn_zzero = 0 # no zero value given so don't scale
@@ -1562,14 +1562,14 @@ if COMPRESSION_SUPPORTED:
 
             # Indicate if the null value is a constant or if no null value
             # is provided.
-            if self._header.has_key('ZBLANK'):
+            if 'ZBLANK' in self._header:
                 cn_zblank = -1 # null value is a constant
                 zblank = self._header['ZBLANK']
             else:
                 cn_zblank = 0 # no null value so don't use
                 zblank = 0
 
-            if self._header.has_key('BSCALE') and self.data.dtype.str[1] == 'f':
+            if 'BSCALE' in self._header and self.data.dtype.str[1] == 'f':
                 # If this is scaled data (ie it has a BSCALE value and it is
                 # floating point data) then pass in the BSCALE value so the C
                 # code can unscale it before compressing.
@@ -1577,7 +1577,7 @@ if COMPRESSION_SUPPORTED:
             else:
                 cn_bscale = 1.0
 
-            if self._header.has_key('BZERO') and self.data.dtype.str[1] == 'f':
+            if 'BZERO' in self._header and self.data.dtype.str[1] == 'f':
                 cn_bzero = self._header['BZERO']
             else:
                 cn_bzero = 0.0

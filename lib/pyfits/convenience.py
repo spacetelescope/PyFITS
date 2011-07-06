@@ -529,7 +529,7 @@ def info(filename, classExtensions={}, output=None, **kwargs):
 
     mode, closed = _get_file_mode(filename, default='copyonwrite')
     # Set the default value for the ignore_missing_end parameter
-    if not kwargs.has_key('ignore_missing_end'):
+    if not 'ignore_missing_end' in kwargs:
         kwargs['ignore_missing_end'] = True
 
     f = fitsopen(filename, mode=mode, **kwargs)

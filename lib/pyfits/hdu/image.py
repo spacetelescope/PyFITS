@@ -474,7 +474,7 @@ class _ImageBaseHDU(_ValidHDU):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        if self.__dict__.has_key('data') and self.data != None:
+        if self._data_loaded and self.data is not None:
             # We have the data to be used.
             d = self.data
 
