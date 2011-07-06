@@ -94,6 +94,8 @@ class Header(__HEADERBASE):
         if key[:8] == 'HIERARCH':
             key = key[8:].strip()
         return key in self.ascard
+    has_key = deprecated(name='has_key',
+                         alternative='`key in header` syntax')(__contains__)
 
     def __getitem__ (self, key):
         """
