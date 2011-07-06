@@ -116,6 +116,23 @@ class TestCore(PyfitsTestCase):
         header.update('BITPIX', 16, 'foobarbaz', savecomment=True)
         assert header.ascard['BITPIX'].comment == comment
 
+    def test_set_card_value(self):
+        """Similar to test_update_header_card(), but tests the the
+        `header['FOO'] = 'bar'` method of updating card values.
+        """
+
+        header = pyfits.Header()
+        comment = 'number of bits per data pixel'
+        card = pyfits.Card.fromstring('BITPIX  = 32 / %s' % comment)
+        header.ascard.append(card)
+
+        header['BITPIX'] = 32
+
+        assert 'BITPIX' in header
+        assert header['BITPIX'] == 32
+        assert header.ascard['BITPIX'].key == 'BITPIX'
+        assert header.ascard['BITPIX'].value == 32
+        assert header.ascard['BITPIX'].comment == comment
 
     def test_uint(self):
         hdulist_f = pyfits.open(self.data('o4sp040b0_raw.fits'))

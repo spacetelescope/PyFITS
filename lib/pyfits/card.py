@@ -207,6 +207,10 @@ class Card(_Verify):
     def _setvalue(self, val):
         self._update_value(val)
         if hasattr(self, '_cardimage'):
+            # Make sure these are saved from the old cardimage before deleting
+            # it
+            self.key
+            self.comment
             del self._cardimage
 
     value = property(_getvalue, _setvalue, doc='Card value')
@@ -233,6 +237,10 @@ class Card(_Verify):
     def _setcomment(self, val):
         self._update_comment(val)
         if hasattr(self, '_cardimage'):
+            # Make sure these are saved from the old cardimage before deleting
+            # it
+            self.key
+            self.comment
             del self._cardimage
 
     comment = property(_getcomment, _setcomment, doc='Card comment')
