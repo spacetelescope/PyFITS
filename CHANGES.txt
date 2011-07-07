@@ -41,8 +41,8 @@ Changelog
   * `BinTableHDU.tcreate()` is now a classmethod, and returns a new
     `BinTableHDU` instance.
 
-  * Use `ExtensionHDU` and `NonstandardExtensionHDU` for making new extension
-    HDU classes.  They are now public interfaces, wheres previously they were
+  * Use `ExtensionHDU` and `NonstandardExtHDU` for making new extension HDU
+    classes.  They are now public interfaces, wheres previously they were
     private and prefixed with underscores.
 
   * Possibly others--please report if you find any changes that cause

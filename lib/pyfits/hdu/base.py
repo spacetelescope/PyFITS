@@ -1302,7 +1302,7 @@ class ExtensionHDU(_ValidHDU):
         """
         This class should never be instantiated directly.  Either a standard
         extension HDU type should be used for a specific extension, or
-        NonstandardExtensionHDU should be used.
+        NonstandardExtHDU should be used.
         """
 
         raise NotImplementedError
@@ -1380,5 +1380,5 @@ class NonstandardExtHDU(ExtensionHDU):
         self._file.seek(self._datLoc)
         return self._file.read()
 # TODO: Mark this as deprecated
-_NonstandardExtensionHDU = NonstandardExtensionHDU
+_NonstandardExtHDU = NonstandardExtHDU
 
