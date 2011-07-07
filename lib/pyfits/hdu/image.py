@@ -2,7 +2,7 @@ import sys
 import numpy as np
 
 from pyfits.card import Card, CardList
-from pyfits.hdu.base import DELAYED, _ValidHDU, _ExtensionHDU
+from pyfits.hdu.base import DELAYED, _ValidHDU, ExtensionHDU
 from pyfits.header import Header
 from pyfits.util import _is_pseudo_unsigned, _unsigned_zero, _is_int, \
                         _pad_length, _normalize_slice, lazyproperty
@@ -58,7 +58,7 @@ class _ImageBaseHDU(_ValidHDU):
             # TODO: Some of this card manipulation should go into the
             # PrimaryHDU and GroupsHDU subclasses
             # construct a list of cards of minimal header
-            if isinstance(self, _ExtensionHDU):
+            if isinstance(self, ExtensionHDU):
                 c0 = Card('XTENSION', 'IMAGE', 'Image extension')
             else:
                 c0 = Card('SIMPLE', True, 'conforms to FITS standard')
@@ -71,7 +71,7 @@ class _ImageBaseHDU(_ValidHDU):
             if isinstance(self, GroupsHDU):
                 _list.append(Card('GROUPS', True, 'has groups'))
 
-            if isinstance(self, (_ExtensionHDU, GroupsHDU)):
+            if isinstance(self, (ExtensionHDU, GroupsHDU)):
                 _list.append(Card('PCOUNT',    0, 'number of parameters'))
                 _list.append(Card('GCOUNT',    1, 'number of groups'))
 
@@ -687,7 +687,7 @@ class PrimaryHDU(_ImageBaseHDU):
                card.value == True
 
 
-class ImageHDU(_ImageBaseHDU, _ExtensionHDU):
+class ImageHDU(_ImageBaseHDU, ExtensionHDU):
     """
     FITS image extension HDU class.
     """
@@ -741,7 +741,7 @@ class ImageHDU(_ImageBaseHDU, _ExtensionHDU):
         errs = super(ImageHDU, self)._verify(option=option)
         naxis = self._header.get('NAXIS', 0)
         # PCOUNT must == 0, GCOUNT must == 1; the former is verifed in
-        # _ExtensionHDU._verify, however _ExtensionHDU._verify allows PCOUNT
+        # ExtensionHDU._verify, however ExtensionHDU._verify allows PCOUNT
         # to be >= 0, so we need to check it here
         self.req_cards('PCOUNT', naxis + 3, lambda v: (_is_int(v) and v == 0),
                        0, option, errs)

@@ -13,7 +13,7 @@ from pyfits.card import Card
 from pyfits.column import _FormatP
 from pyfits.file import PYTHON_MODES, _File
 from pyfits.hdu import compressed
-from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU, _ExtensionHDU
+from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU, ExtensionHDU
 from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU, ImageHDU
@@ -988,7 +988,7 @@ class HDUList(list, _Verify):
 
         # each element calls their own verify
         for idx, hdu in enumerate(self):
-            if idx > 0 and (not isinstance(hdu, _ExtensionHDU)):
+            if idx > 0 and (not isinstance(hdu, ExtensionHDU)):
                 err_text = "HDUList's element %s is not an extension HDU." \
                            % str(idx)
                 text = self.run_option(option, err_text=err_text, fixable=True)

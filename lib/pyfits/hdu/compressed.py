@@ -5,7 +5,7 @@ import numpy as np
 from pyfits import rec
 from pyfits.column import Column, ColDefs, _FormatP, _makep
 from pyfits.fitsrec import FITS_rec
-from pyfits.hdu.base import DELAYED, _ExtensionHDU
+from pyfits.hdu.base import DELAYED, ExtensionHDU
 from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
 from pyfits.header import Header
@@ -1814,7 +1814,7 @@ if COMPRESSION_SUPPORTED:
             why this class maybe shouldn't inherit directly from BinTableHDU...
             """
 
-            return _ExtensionHDU._writeheader(self, fileobj, checksum)
+            return ExtensionHDU._writeheader(self, fileobj, checksum)
 
         def _writedata_internal(self, fileobj):
             """

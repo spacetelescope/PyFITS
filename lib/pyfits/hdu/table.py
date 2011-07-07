@@ -17,7 +17,7 @@ from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
                           _FormatX, _FormatP, _wrapx, _makep, _VLF, \
                           _parse_tformat, _convert_format
 from pyfits.fitsrec import FITS_rec
-from pyfits.hdu.base import DELAYED, _ValidHDU, _ExtensionHDU
+from pyfits.hdu.base import DELAYED, _ValidHDU, ExtensionHDU
 from pyfits.header import Header
 from pyfits.util import lazyproperty, _is_int, _str_to_num, _pad_length, \
                         deprecated
@@ -88,7 +88,7 @@ class _TableLikeHDU(_ValidHDU):
         del columns._arrays
 
 
-class _TableBaseHDU(_ExtensionHDU, _TableLikeHDU):
+class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
     """
     FITS table extension base HDU class.
     """

@@ -10,7 +10,7 @@ from pyfits.file import _File
 from pyfits.header import Header
 from pyfits.util import Extendable, _with_extensions, lazyproperty, _is_int, \
                         _is_pseudo_unsigned, _unsigned_zero, _pad_length, \
-                        itersubclasses, decode_ascii, BLOCK_SIZE
+                        itersubclasses, decode_ascii, BLOCK_SIZE, deprecated
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -761,7 +761,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         # Verify location and value of mandatory keywords.
         # Do the first card here, instead of in the respective HDU classes,
         # so the checking is in order, in case of required cards in wrong order.
-        if isinstance(self, _ExtensionHDU):
+        if isinstance(self, ExtensionHDU):
             firstkey = 'XTENSION'
             firstval = self._extension
         else:
@@ -1252,7 +1252,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         return decode_ascii(ascii.tostring())
 
 
-class _ExtensionHDU(_ValidHDU):
+class ExtensionHDU(_ValidHDU):
     """
     An extension HDU class.
 
@@ -1263,7 +1263,7 @@ class _ExtensionHDU(_ValidHDU):
     _extension = ''
 
     def __init__(self, data=None, header=None, name=None, **kwargs):
-        super(_ExtensionHDU, self).__init__(data=data, header=header)
+        super(ExtensionHDU, self).__init__(data=data, header=header)
         if header:
             if name is None:
                 if not self.name and 'EXTNAME' in header:
@@ -1295,14 +1295,14 @@ class _ExtensionHDU(_ValidHDU):
                 self._header.ascard.append(
                     Card('EXTNAME', value, 'extension name'))
 
-        super(_ExtensionHDU, self).__setattr__(attr, value)
+        super(ExtensionHDU, self).__setattr__(attr, value)
 
     @classmethod
     def match_header(cls, header):
         """
         This class should never be instantiated directly.  Either a standard
         extension HDU type should be used for a specific extension, or
-        _NonstandardExtensionHDU should be used.
+        NonstandardExtensionHDU should be used.
         """
 
         raise NotImplementedError
@@ -1325,7 +1325,7 @@ class _ExtensionHDU(_ValidHDU):
 
     def _verify(self, option='warn'):
 
-        errs = super(_ExtensionHDU, self)._verify(option=option)
+        errs = super(ExtensionHDU, self)._verify(option=option)
 
         # Verify location and value of mandatory keywords.
         naxis = self._header.get('NAXIS', 0)
@@ -1334,11 +1334,12 @@ class _ExtensionHDU(_ValidHDU):
         self.req_cards('GCOUNT', naxis + 4, lambda v: (_is_int(v) and v == 1),
                        1, option, errs)
         return errs
+# For backwards compatilibity, though this needs to be deprecated
+# TODO: Mark this as deprecated
+_ExtensionHDU = ExtensionHDU
 
 
-# TODO: Drop the underscore from the name of this class--it should be usable by
-# third-parties to implement non-standard extension HDUs.
-class _NonstandardExtHDU(_ExtensionHDU):
+class NonstandardExtHDU(ExtensionHDU):
     """
     A Non-standard Extension HDU class.
 
@@ -1378,3 +1379,6 @@ class _NonstandardExtHDU(_ExtensionHDU):
 
         self._file.seek(self._datLoc)
         return self._file.read()
+# TODO: Mark this as deprecated
+_NonstandardExtensionHDU = NonstandardExtensionHDU
+
