@@ -214,7 +214,7 @@ class _File(object):
             raise EOFError
         return self.__file.read(size)
 
-    def readarray(self, size=None, offset=None, dtype=np.uint8, shape=None):
+    def readarray(self, size=None, offset=0, dtype=np.uint8, shape=None):
         """
         Similar to file.read(), but returns the contents of the underlying
         file as a numpy array (or mmap'd array if memmap=True) rather than a

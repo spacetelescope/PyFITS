@@ -552,7 +552,7 @@ class _NonstandardHDU(_BaseHDU, _Verify):
         """
 
         self._file.seek(self._datLoc)
-        return self._file.read()
+        return self._file.readarray()
 
     def _verify(self, option='warn'):
         errs = _ErrList([], unit='Card')
@@ -1378,7 +1378,7 @@ class NonstandardExtHDU(ExtensionHDU):
         """
 
         self._file.seek(self._datLoc)
-        return self._file.read()
+        return self._file.readarray()
 # TODO: Mark this as deprecated
 _NonstandardExtHDU = NonstandardExtHDU
 
