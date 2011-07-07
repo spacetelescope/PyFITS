@@ -144,6 +144,14 @@ class TestCore(PyfitsTestCase):
         assert_equal(hdulist_i[1].data.dtype, np.uint16)
         assert np.all(hdulist_f[1].data == hdulist_i[1].data)
 
+    def test_fix_missing_card_append(self):
+        hdu = pyfits.ImageHDU()
+        errs = hdu.req_cards('TESTKW', None, None, 'foo', 'silentfix', [])
+        assert_equal(len(errs), 1)
+        assert 'TESTKW' in hdu.header
+        assert_equal(hdu.header['TESTKW'], 'foo')
+        assert_equal(hdu.header.ascard[-1].key, 'TESTKW')
+
     def test_fix_invalid_keyword_value(self):
         hdu = pyfits.ImageHDU()
         hdu.header.update('TESTKW', 'foo')

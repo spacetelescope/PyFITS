@@ -843,7 +843,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             if fixable:
                 # use repr to accomodate both string and non-string types
                 # Boolean is also OK in this constructor
-                card = "Card('%s', %s)" % (keyword, repr(fix_value))
+                card = Card(keyword, fix_value)
 
                 def fix(self=self, insert_pos=insert_pos, card=card):
                     self._header.ascard.insert(insert_pos, card)
