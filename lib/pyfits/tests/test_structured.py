@@ -81,7 +81,7 @@ class TestStructured(PyfitsTestCase):
 
         st = get_test_data()
 
-        outfile = 'test.fits'
+        outfile = self.temp('test.fits')
         print 'Writing to file data1:', outfile
         pyfits.writeto(outfile, data1, clobber=True)
         print 'Appending to file: data2', outfile
