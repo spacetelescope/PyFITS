@@ -982,12 +982,7 @@ class TestTableFunctions(PyfitsTestCase):
         c3 = pyfits.Column(name='notes', format='A10')
         c4 = pyfits.Column(name='spectrum', format='5E')
         c5 = pyfits.Column(name='flag', format='L', array=[1, 0, 1, 1])
-        coldefs=pyfits.ColDefs([c1, c2, c3, c4, c5])
-
-        # Verify that original ColDefs object has independent ndarray from
-        # original array object.
-        assert_not_equal(id(names), id(c1.array))
-        assert_not_equal(id(counts), id(c2.array))
+        coldefs = pyfits.ColDefs([c1, c2, c3, c4, c5])
 
         tbhdu = pyfits.new_table(coldefs)
 
