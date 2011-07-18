@@ -589,6 +589,6 @@ def _tmp_name(input):
 
     if input is not None:
         input = os.path.dirname(input)
-    f, fn = tempfile.mkstemp(dir=os.path.dirname(input))
+    f, fn = tempfile.mkstemp(dir=input)
     os.close(f)
     return fn
