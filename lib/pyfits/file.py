@@ -125,7 +125,7 @@ class _File(object):
                         raise ValueError(
                               "Writing to gzipped fits files is not supported")
                     zfile = gzip.GzipFile(self.name)
-                    self.tfile = tempfile.NamedTemporaryFile('rb+', -1, '.fits')
+                    self.tfile = tempfile.NamedTemporaryFile(suffix='.fits')
                     self.name = self.tfile.name
                     self.__file = self.tfile.file
                     self.__file.write(zfile.read())
@@ -140,8 +140,7 @@ class _File(object):
                     if len(namelist) != 1:
                         raise NotImplementedError(
                           "Zip files with multiple members are not supported.")
-                    self.tfile = tempfile.NamedTemporaryFile('rb+', -1,
-                                                             '.fits')
+                    self.tfile = tempfile.NamedTemporaryFile(suffix='.fits')
                     self.name = self.tfile.name
                     self.__file = self.tfile.file
                     self.__file.write(zfile.read(namelist[0]))
