@@ -256,10 +256,9 @@ class TestTableFunctions(PyfitsTestCase):
         a.close()
 
     def test_variable_length_columns(self):
-        col_list = []
-        col_list.append(pyfits.Column(name='QUAL_SPE', format='PJ()',
-                        array=[[0]*1571]*225))
-        tb_hdu = pyfits.new_table(col_list)
+        col = pyfits.Column(name='QUAL_SPE', format='PJ()',
+                            array=[[0]*1571]*225)
+        tb_hdu = pyfits.new_table([col])
         pri_hdu = pyfits.PrimaryHDU()
         hdu_list = pyfits.HDUList([pri_hdu,tb_hdu])
         hdu_list.writeto(self.temp('toto.fits'), clobber=True)
@@ -268,6 +267,24 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(q[0][4:8].all(),
                          np.array([0, 0, 0, 0],dtype=np.uint8).all())
         toto.close()
+
+    def test_extend_variable_length_array(self):
+        """Regression test for issue #54."""
+
+        arr = [[1] * 10] * 10
+        col1 = pyfits.Column(name='TESTVLF', format='PJ()', array=arr)
+        col2 = pyfits.Column(name='TESTSCA', format='J', array=[1] * 10)
+        tb_hdu = pyfits.new_table([col1, col2], nrows=15)
+        # This asserts that the normal 'scalar' column's length was extended
+        assert_equal(len(tb_hdu.data['TESTSCA']), 15)
+        # And this asserts that the VLF column was extended in the same manner
+        assert_equal(len(tb_hdu.data['TESTVLF']), 15)
+        # We can't compare the whole array since the _VLF is an array of
+        # objects, but comparing just the edge case rows should suffice
+        assert_true((tb_hdu.data['TESTVLF'][0] == arr[0]).all())
+        assert_true((tb_hdu.data['TESTVLF'][9] == arr[9]).all())
+        assert_true((tb_hdu.data['TESTVLF'][10] == ([0] * 10)).all())
+        assert_true((tb_hdu.data['TESTVLF'][-1] == ([0] * 10)).all())
 
     def test_endianness(self):
         x = np.ndarray((1,), dtype=object)

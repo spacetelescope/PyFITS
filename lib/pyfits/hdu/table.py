@@ -1222,8 +1222,8 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                 else: # from a table parent data, just pass it
                     field[:n] = arr[:n]
             elif isinstance(recformat, _FormatP):
-                hdu.data._convert[idx] = _makep(arr[:n], field[:n],
-                                                recformat._dtype)
+                hdu.data._convert[idx] = _makep(arr[:n], field,
+                                                recformat._dtype, nrows=nrows)
             elif recformat[-2:] == FITS2NUMPY['L'] and arr.dtype == bool:
                 # column is boolean
                 field[:n] = np.where(arr == False, ord('F'), ord('T'))

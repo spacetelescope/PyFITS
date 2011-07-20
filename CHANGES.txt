@@ -83,6 +83,9 @@ Changelog
 
 - Add support for forced uint data in image sections (#53)
 
+- Fixed an issue where variable-length array columns were not extended when
+  creating a new table with more rows than the original (#54)
+
 - Fixed tuple and list-based indexing of FITS_rec objects (#55)
 
 - Fixed an issue where BZERO and BSCALE keywords were appended to headers in

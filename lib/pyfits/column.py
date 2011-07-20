@@ -845,7 +845,7 @@ def _wrapx(input, output, nx):
     np.left_shift(output[...,i], unused, output[...,i])
 
 
-def _makep(input, desp_output, dtype):
+def _makep(input, desp_output, dtype, nrows=None):
     """
     Construct the P format column array, both the data descriptors and
     the data.  It returns the output "data" array of data type `dtype`.
@@ -860,14 +860,24 @@ def _makep(input, desp_output, dtype):
         input object array
 
     desp_output
-        output "descriptor" array of data type ``Int32``
+        output "descriptor" array of data type ``Int32``--must be nrows wide in
+        its first dimension
 
     dtype
         data type of the variable array
+
+    nrows : int, optional
+        number of rows to create in the column; defaults to the number of rows
+        in the input array
     """
 
     _offset = 0
-    data_output = _VLF([None]*len(input))
+
+    if not nrows:
+        nrows = len(input)
+    n = min(len(input), nrows)
+
+    data_output = _VLF([None] * nrows)
     data_output._dtype = dtype
 
     if dtype == 'a':
@@ -875,16 +885,23 @@ def _makep(input, desp_output, dtype):
     else:
         _nbytes = np.array([], dtype=np.typeDict[dtype]).itemsize
 
-    for i in range(len(input)):
-        if dtype == 'a':
-            data_output[i] = chararray.array(encode_ascii(input[i]),
-                                             itemsize=1)
+    for idx in range(nrows):
+        if idx < len(input):
+            rowval = input[idx]
         else:
-            data_output[i] = np.array(input[i], dtype=dtype)
+            if dtype == 'a':
+                rowval = ' ' * data_output._max
+            else:
+                rowval = [0] * data_output._max
+        if dtype == 'a':
+            data_output[idx] = chararray.array(encode_ascii(rowval),
+                                               itemsize=1)
+        else:
+            data_output[idx] = np.array(rowval, dtype=dtype)
 
-        desp_output[i,0] = len(data_output[i])
-        desp_output[i,1] = _offset
-        _offset += len(data_output[i]) * _nbytes
+        desp_output[idx,0] = len(data_output[idx])
+        desp_output[idx,1] = _offset
+        _offset += len(data_output[idx]) * _nbytes
 
     return data_output
 
