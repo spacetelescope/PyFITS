@@ -1,3 +1,5 @@
+import os
+
 try:
     from collections import MutableMapping as __HEADERBASE
 except ImportError:
