@@ -1,4 +1,5 @@
 import os
+import warnings
 
 try:
     from collections import MutableMapping as __HEADERBASE
