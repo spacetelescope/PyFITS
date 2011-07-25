@@ -605,7 +605,7 @@ def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
 
     if closed:
         f.close()
-tdump.__doc__ += BinTableHDU.tdump_file_format.replace("\n", "\n    ")
+tdump.__doc__ += BinTableHDU.tdump_file_format.replace('\n', '\n    ')
 
 
 def tcreate(datafile, cdfile, hfile=None):
@@ -640,13 +640,8 @@ def tcreate(datafile, cdfile, hfile=None):
     initial ASCII files.
     """
 
-    # Construct an empty HDU
-    hdu = BinTableHDU()
-
-    # Populate and return that HDU
-    hdu.tcreate(datafile, cdfile, hfile, replace=True)
-    return hdu
-tcreate.__doc__ += BinTableHDU.tdump_file_format.replace("\n", "\n    ")
+    return BinTableHDU.tcreate(datafile, cdfile, hfile, replace=True)
+tcreate.__doc__ += BinTableHDU.tdump_file_format.replace('\n', '\n    ')
 
 
 def _getext(filename, mode, *ext1, **ext2):

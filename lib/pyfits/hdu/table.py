@@ -698,7 +698,7 @@ class BinTableHDU(_TableBaseHDU):
         standard text editor of the table data and parameters.  The
         `tcreate` method can be used to reassemble the table from the
         three ASCII files.
-        """ + tdump_file_format.replace('\n', '\n        ')
+        """
 
         # TODO: This is looking pretty long and complicated--might be a few
         # places we can break this up into smaller functions
@@ -888,8 +888,8 @@ class BinTableHDU(_TableBaseHDU):
 
         if hfile:
             self._header.toTxtFile(hfile)
+    tdump.__doc__ += tdump_file_format.replace('\n', '\n        ')
 
-    @classmethod
     def tcreate(cls, datafile, cdfile=None, hfile=None, replace=False):
         """
         Create a table from the input ASCII files.  The input is from up to
@@ -929,7 +929,7 @@ class BinTableHDU(_TableBaseHDU):
         of ASCII data that was edited in a standard text editor of the
         table data and parameters.  The `tdump` method can be used to
         create the initial ASCII files.
-        """ + tdump_file_format.replace('\n', '\n        ')
+        """
 
         # Process the column definitions file
 
@@ -1096,6 +1096,10 @@ class BinTableHDU(_TableBaseHDU):
                                   array=arrays[i]))
 
         return new_table(columns, self._header)
+    tcreate.__doc__ += tdump_file_format.replace('\n', '\n        ')
+    # We can't do this as a decorator since otherwise the append to __doc__
+    # won't work
+    tcreate = classmethod(tcreate)
 
 
 # TODO: Allow tbtype to be either a string or a class; perhaps eventually
