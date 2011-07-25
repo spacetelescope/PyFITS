@@ -1,5 +1,6 @@
 from __future__ import division # confidence high
 
+import os
 import re
 import sys
 import textwrap
@@ -773,7 +774,7 @@ class BinTableHDU(_TableBaseHDU):
                         if arrayFormat == 'S':
                             # output string
 
-                            if len(string.split(val)) != 1:
+                            if len(val.split()) != 1:
                                 # there is whitespace in the string so put it
                                 # in quotes
                                 width = val.itemsize + 3
@@ -797,7 +798,7 @@ class BinTableHDU(_TableBaseHDU):
                     if arrayFormat == 'S':
                         # output string
 
-                        if len(string.split(self.data.field(name)[i])) != 1:
+                        if len(self.data.field(name)[i].split()) != 1:
                             # there is whitespace in the string so put it
                             # in quotes
                             width = self.data.dtype.fields[name][0].itemsize+3
@@ -935,6 +936,9 @@ class BinTableHDU(_TableBaseHDU):
 
         # TODO: This also might be good to break up a bit.
 
+        # An empty HDU to start with
+        hdu = cls()
+
         if cdfile:
             closeCdfile = False
 
@@ -947,47 +951,47 @@ class BinTableHDU(_TableBaseHDU):
             if closeCdfile:
                 cdfile.close()
 
-            self.columns.names = []
-            self.columns.formats = []
-            self.columns.disps = []
-            self.columns.units = []
-            self.columns.dims = []
-            self.columns.nulls = []
-            self.columns.bscales = []
-            self.columns.bzeros = []
+            hdu.columns.names = []
+            hdu.columns.formats = []
+            hdu.columns.disps = []
+            hdu.columns.units = []
+            hdu.columns.dims = []
+            hdu.columns.nulls = []
+            hdu.columns.bscales = []
+            hdu.columns.bzeros = []
 
             for line in cdlines:
                 words = line[:-1].split()
-                self.columns.names.append(words[0])
-                self.columns.formats.append(words[1])
-                self.columns.disps.append(words[2].replace('""', ''))
-                self.columns.units.append(words[3].replace('""', ''))
-                self.columns.dims.append(words[4].replace('""', ''))
+                hdu.columns.names.append(words[0])
+                hdu.columns.formats.append(words[1])
+                hdu.columns.disps.append(words[2].replace('""', ''))
+                hdu.columns.units.append(words[3].replace('""', ''))
+                hdu.columns.dims.append(words[4].replace('""', ''))
                 null = words[5].replace('""', '')
 
                 if null:
-                    self.columns.nulls.append(_str_to_num(null))
+                    hdu.columns.nulls.append(_str_to_num(null))
                 else:
-                    self.columns.nulls.append(null)
+                    hdu.columns.nulls.append(null)
 
                 bscale = words[6].replace('""', '')
 
                 if bscale:
-                    self.columns.bscales.append(_str_to_num(bscape))
+                    hdu.columns.bscales.append(_str_to_num(bscale))
                 else:
-                    self.columns.bscales.append(bscale)
+                    hdu.columns.bscales.append(bscale)
 
                 bzero = words[7].replace('""', '')
 
                 if bzero:
-                    self.columns.bzeros.append(_str_to_num(bzero))
+                    hdu.columns.bzeros.append(_str_to_num(bzero))
                 else:
-                    self.columns.bzeros.append(bzero)
+                    hdu.columns.bzeros.append(bzero)
 
         # Process the parameter file
 
         if hfile:
-            self._header.fromTxtFile(hfile, replace)
+            hdu._header.fromTxtFile(hfile, replace)
 
         # Process the data file
 
@@ -1007,20 +1011,20 @@ class BinTableHDU(_TableBaseHDU):
         X_format_size = []
         recFmts = []
 
-        for i in range(len(self.columns.names)):
+        for i in range(len(hdu.columns.names)):
             arrayShape = len(dlines)
-            recFmt = _convert_format(self.columns.formats[i])
+            recFmt = _convert_format(hdu.columns.formats[i])
             recFmts.append(recFmt[0])
             X_format_size = X_format_size + [-1]
 
             if isinstance(recFmt, _FormatP):
                 recFmt = 'O'
-                (repeat,dtype,option) = _parse_tformat(self.columns.formats[i])
+                (repeat,dtype,option) = _parse_tformat(hdu.columns.formats[i])
                 VLA_formats = VLA_formats + [FITS2NUMPY[option[0]]]
             elif isinstance(recFmt, _FormatX):
                 recFmt = np.uint8
                 (X_format_size[i],dtype,option) = \
-                                     _parse_tformat(self.columns.formats[i])
+                                     _parse_tformat(hdu.columns.formats[i])
                 arrayShape = (len(dlines), X_format_size[i])
 
             arrays.append(np.empty(arrayShape,recFmt))
@@ -1057,7 +1061,7 @@ class BinTableHDU(_TableBaseHDU):
             idx = 0
             VLA_idx = 0
 
-            for i in range(len(self.columns.names)):
+            for i in range(len(hdu.columns.names)):
 
                 if arrays[i].dtype == 'object':
                     arrays[i][lineNo] = np.array(
@@ -1084,18 +1088,18 @@ class BinTableHDU(_TableBaseHDU):
 
         columns = []
 
-        for i in range(len(self.columns.names)):
-            columns.append(Column(name=self.columns.names[i],
-                                  format=self.columns.formats[i],
-                                  disp=self.columns.disps[i],
-                                  unit=self.columns.units[i],
-                                  null=self.columns.nulls[i],
-                                  bscale=self.columns.bscales[i],
-                                  bzero=self.columns.bzeros[i],
-                                  dim=self.columns.dims[i],
+        for i in range(len(hdu.columns.names)):
+            columns.append(Column(name=hdu.columns.names[i],
+                                  format=hdu.columns.formats[i],
+                                  disp=hdu.columns.disps[i],
+                                  unit=hdu.columns.units[i],
+                                  null=hdu.columns.nulls[i],
+                                  bscale=hdu.columns.bscales[i],
+                                  bzero=hdu.columns.bzeros[i],
+                                  dim=hdu.columns.dims[i],
                                   array=arrays[i]))
 
-        return new_table(columns, self._header)
+        return new_table(columns, hdu._header)
     tcreate.__doc__ += tdump_file_format.replace('\n', '\n        ')
     # We can't do this as a decorator since otherwise the append to __doc__
     # won't work
