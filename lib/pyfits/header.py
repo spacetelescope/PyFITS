@@ -411,19 +411,19 @@ class Header(__HEADERBASE):
             When `True`, overwrite the output file if it exists.
         """
 
-        closeFile = False
+        close_file = False
 
         # check if the output file already exists
-        if isinstance(outFile, basestring):
-            if (os.path.exists(outFile) and os.path.getsize(outFile) != 0):
+        if isinstance(fileobj, basestring):
+            if (os.path.exists(fileobj) and os.path.getsize(fileobj) != 0):
                 if clobber:
-                    warnings.warn("Overwriting existing file '%s'." % outFile)
-                    os.remove(outFile)
+                    warnings.warn("Overwriting existing file '%s'." % fileobj)
+                    os.remove(fileobj)
                 else:
-                    raise IOError("File '%s' already exist." % outFile)
+                    raise IOError("File '%s' already exist." % fileobj)
 
-            outFile = open(outFile, 'w')
-            closeFile = True
+            fileobj = open(fileobj, 'w')
+            close_file = True
 
         lines = []   # lines to go out to the header parameters file
 
@@ -434,12 +434,12 @@ class Header(__HEADERBASE):
 
         # Write the header parameter lines out to the ASCII header
         # parameter file
-        outFile.writelines(lines)
+        fileobj.writelines(lines)
 
-        if closeFile:
-            outFile.close()
+        if close_file:
+            fileobj.close()
 
-    def fromTxtFile(self, inFile, replace=False):
+    def fromTxtFile(self, fileobj, replace=False):
         """
         Input the header parameters from an ASCII file.
 
@@ -452,7 +452,7 @@ class Header(__HEADERBASE):
 
         Parameters
         ----------
-        inFile : file path, file object or file-like object
+        fileobj : file path, file object or file-like object
             Input header parameters file.
 
         replace : bool, optional
@@ -461,16 +461,16 @@ class Header(__HEADERBASE):
             just updating the current header.
         """
 
-        closeFile = False
+        close_file = False
 
-        if isinstance(inFile, basestring):
-            inFile = open(inFile, 'r')
-            closeFile = True
+        if isinstance(fileobj, basestring):
+            fileobj = open(fileobj, 'r')
+            close_file = True
 
-        lines = inFile.readlines()
+        lines = fileobj.readlines()
 
-        if closeFile:
-            inFile.close()
+        if close_file:
+            fileobj.close()
 
         if len(self.ascard) > 0 and not replace:
             prevKey = 0
