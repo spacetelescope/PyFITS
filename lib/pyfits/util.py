@@ -462,9 +462,16 @@ def _write_string(f, s):
     mode, or decoding if the file is open in text mode.
     """
 
-    if 'b' in f.mode and isinstance(s, unicode):
+    # Assume if the file object doesn't have a specific mode, that the mode is
+    # binary
+    if hasattr(f, 'mode'):
+        binmode = 'b' in f.mode
+    else:
+        binmode = True
+
+    if binmode and isinstance(s, unicode):
         s = encode_ascii(s)
-    elif 'b' not in f.mode and not isinstance(f, unicode):
+    elif not binmode and not isinstance(f, unicode):
         s = decode_ascii(s)
     f.write(s)
 
