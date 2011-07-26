@@ -122,27 +122,25 @@ class _File(object):
                 if os.path.splitext(self.name)[1] == '.gz':
                     # Handle gzip files
                     if mode in ['update', 'append']:
-                        raise ValueError(
+                        raise IOError(
                               "Writing to gzipped fits files is not supported")
                     zfile = gzip.GzipFile(self.name)
-                    self.tfile = tempfile.NamedTemporaryFile(suffix='.fits')
-                    self.name = self.tfile.name
-                    self.__file = self.tfile.file
+                    self.__file = tempfile.NamedTemporaryFile(suffix='.fits')
+                    self.name = self.__file.name
                     self.__file.write(zfile.read())
                     zfile.close()
                 elif os.path.splitext(self.name)[1] == '.zip':
                     # Handle zip files
                     if mode in ['update', 'append']:
-                        raise NotImplementedError(
+                        raise IOError(
                               "Writing to zipped fits files is not supported")
                     zfile = zipfile.ZipFile(self.name)
                     namelist = zfile.namelist()
                     if len(namelist) != 1:
-                        raise NotImplementedError(
+                        raise IOError(
                           "Zip files with multiple members are not supported.")
-                    self.tfile = tempfile.NamedTemporaryFile(suffix='.fits')
-                    self.name = self.tfile.name
-                    self.__file = self.tfile.file
+                    self.__file = tempfile.NamedTemporaryFile(suffix='.fits')
+                    self.name = self.__file.name
                     self.__file.write(zfile.read(namelist[0]))
                     zfile.close()
                 else:
@@ -322,9 +320,6 @@ class _File(object):
 
         if hasattr(self.__file, 'close'):
             self.__file.close()
-
-        if hasattr(self, 'tfile'):
-            del self.tfile
 
         self.closed = True
 
