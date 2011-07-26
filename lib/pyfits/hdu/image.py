@@ -346,6 +346,11 @@ class _ImageBaseHDU(_ValidHDU):
         #
         self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
 
+    def _writeheader(self, fileobj, checksum=False):
+        if self._data_loaded and self.data is not None:
+            self.update_header()
+        return super(_ImageBaseHDU, self)._writeheader(fileobj, checksum)
+
     def _writedata_internal(self, fileobj):
         size = 0
 
@@ -381,10 +386,6 @@ class _ImageBaseHDU(_ValidHDU):
             size += output.size * output.itemsize
 
         return size
-
-    def _writeto(self, fileobj, checksum=False):
-        self.update_header()
-        return super(_ImageBaseHDU, self)._writeto(fileobj, checksum)
 
     def _convert_pseudo_unsigned(self, data):
         """

@@ -806,6 +806,8 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         return errs
 
+    # TODO: Improve this API a little bit--for one, most of these arguments
+    # could be optional
     def req_cards(self, keyword, pos, test, fix_value, option, errlist):
         """
         Check the existence, location, and value of a required `Card`.

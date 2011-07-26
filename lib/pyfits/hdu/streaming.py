@@ -4,7 +4,7 @@ import os
 from pyfits.file import _File
 from pyfits.hdu.base import _BaseHDU
 from pyfits.hdu.hdulist import HDUList
-from pyfits.hdu.image import PrimaryHDU
+from pyfits.hdu.image import PrimaryHDU, _ImageBaseHDU
 from pyfits.util import _pad_length
 
 class StreamingHDU(object):
@@ -17,7 +17,7 @@ class StreamingHDU(object):
         header = pyfits.Header()
 
         for all the cards you need in the header:
-            header.update(key,value,comment)
+            header.update(key, value, comment)
 
         shdu = pyfits.StreamingHDU('filename.fits',header)
 
@@ -76,25 +76,26 @@ class StreamingHDU(object):
 #       to prepend a default PrimaryHDU to the file before writing the
 #       given header.
 #
-        newFile = False
+        newfile = False
 
         if filename:
             if not os.path.exists(filename) or os.path.getsize(filename) == 0:
-                newFile = True
+                newfile = True
         elif (hasattr(name, 'len') and name.len == 0):
-            newFile = True
+            newfile = True
 
-        if not 'SIMPLE' in self._header:
-            if newFile:
+        if newfile:
+            if 'SIMPLE' not in self._header:
                 hdulist = HDUList([PrimaryHDU()])
                 hdulist.writeto(name, 'exception')
-            else:
+        else:
 #
 #               This will not be the first extension in the file so we
 #               must change the Primary header provided into an image
 #               extension header.
 #
-                self._header.update('XTENSION','IMAGE','Image extension',
+            if 'SIMPLE' in self._header:
+                self._header.update('XTENSION', 'IMAGE', 'Image extension',
                                     after='SIMPLE')
                 del self._header['SIMPLE']
 
@@ -116,15 +117,19 @@ class StreamingHDU(object):
         self._ffo = _File(name, 'append')
 
         # TODO : Fix this once the HDU writing API is cleaned up
-        tmp_hdu = _BaseHDU(header=self._header)
+        tmp_hdu = _BaseHDU()
+        # Passing self._header as an argument to _BaseHDU() will cause its
+        # values to be modified in undesired ways...need to have a better way
+        # of doing this
+        tmp_hdu._header = self._header
         self._hdrLoc = tmp_hdu._writeheader(self._ffo)[0]
         self._datLoc = self._ffo.tell()
         self._size = self.size()
 
         if self._size != 0:
-            self.writeComplete = 0
+            self.writecomplete = False
         else:
-            self.writeComplete = 1
+            self.writecomplete = True
 
     # Support the 'with' statement
     def __enter__(self):
@@ -144,7 +149,7 @@ class StreamingHDU(object):
 
         Returns
         -------
-        writeComplete : int
+        writecomplete : int
             Flag that when `True` indicates that all of the required
             data has been written to the stream.
 
@@ -165,7 +170,7 @@ class StreamingHDU(object):
 
         curDataSize = self._ffo.tell() - self._datLoc
 
-        if self.writeComplete or curDataSize + data.nbytes > self._size:
+        if self.writecomplete or curDataSize + data.nbytes > self._size:
             raise IOError('Attempt to write more data to the stream than the '
                           'header specified.')
 
@@ -187,12 +192,12 @@ class StreamingHDU(object):
 #
 #           the stream is full so pad the data to the next FITS block
 #
-            self._ffo.file.write(_pad_length(self._size) * '\0')
-            self.writeComplete = 1
+            self._ffo.write(_pad_length(self._size) * '\0')
+            self.writecomplete = True
 
         self._ffo.flush()
 
-        return self.writeComplete
+        return self.writecomplete
 
     def size(self):
         """
@@ -204,16 +209,16 @@ class StreamingHDU(object):
 
         if naxis > 0:
             simple = self._header.get('SIMPLE', 'F')
-            randomGroups = self._header.get('GROUPS', 'F')
+            random_groups = self._header.get('GROUPS', 'F')
 
-            if simple == 'T' and randomGroups == 'T':
+            if simple == 'T' and random_groups == 'T':
                 groups = 1
             else:
                 groups = 0
 
             size = 1
 
-            for idx in range(groups,naxis):
+            for idx in range(groups, naxis):
                 size = size * self._header['NAXIS' + str(idx + 1)]
             bitpix = self._header['BITPIX']
             gcount = self._header.get('GCOUNT', 1)

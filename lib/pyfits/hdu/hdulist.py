@@ -16,7 +16,7 @@ from pyfits.hdu import compressed
 from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU, ExtensionHDU
 from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
-from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU, ImageHDU
+from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
 from pyfits.util import Extendable, _is_int, _tmp_name, _with_extensions, \
                         _pad_length, BLOCK_SIZE
@@ -97,7 +97,7 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
         del kwargs['uint16']
 
     if not name:
-        raise TypeError('Empty filename: %s' % repr(name))
+        raise ValueError('Empty filename: %s' % repr(name))
 
     return HDUList.fromfile(name, mode, memmap, **kwargs)
 
@@ -262,7 +262,7 @@ class HDUList(list, _Verify):
                     if ffo.writeonly:
                         break
                     else:
-                        raise err
+                        raise
 
             # If we're trying to read only and no header units were found,
             # raise and exception
@@ -672,10 +672,7 @@ class HDUList(list, _Verify):
                     hdulist = self.fromfile(name)
                     ffo = self.__file
 
-                    try:
-                        ffo.truncate(0)
-                    except AttributeError:
-                        pass
+                    ffo.truncate(0)
 
                     for hdu in hdulist:
                         # only output the checksum if flagged to do so
@@ -709,11 +706,6 @@ class HDUList(list, _Verify):
                             extver = str(hdu.header['extver'])
                         except KeyError:
                             extver = ''
-
-                    if hdu._data_loaded and isinstance(hdu, _ImageBaseHDU):
-                        # If the data has changed update the image header to
-                        # match the data
-                        hdu.update_header()
 
                     if hdu.header._mod or hdu.header.ascard._mod:
                         # only output the checksum if flagged to do so
@@ -870,6 +862,7 @@ class HDUList(list, _Verify):
         if len(self) > 1:
             self.update_extend()
 
+        mode = 'copyonwrite'
         for key, val in PYTHON_MODES.iteritems():
             if val == fileMode:
                 mode = key
