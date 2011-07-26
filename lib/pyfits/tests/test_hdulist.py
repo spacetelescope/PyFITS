@@ -1,11 +1,17 @@
 from __future__ import division # confidence high
+from __future__ import with_statement
+
+import os
+
+from cStringIO import StringIO
 
 import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
+from pyfits.tests.util import catch_warnings
 
-from nose.tools import assert_equal, assert_raises
+from nose.tools import assert_equal, assert_raises, assert_true
 
 
 class TestHDUListFunctions(PyfitsTestCase):
@@ -113,7 +119,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         """Tests appending a Simple PrimaryHDU to a non-empty HDUList."""
 
         hdul = pyfits.open(self.data('arange.fits'))
-        hdu = pyfits.PrimaryHDU(np.arange(100,dtype=np.int32))
+        hdu = pyfits.PrimaryHDU(np.arange(100, dtype=np.int32))
         hdul.append(hdu)
 
         info = [(0, 'PRIMARY', 'PrimaryHDU', 7, (11, 10, 7), 'int32', ''),
@@ -386,3 +392,36 @@ class TestHDUListFunctions(PyfitsTestCase):
         assert_equal(hdul[1].header['EXTNAME'], 'SCI')
         assert_equal(hdul[1].header['EXTVER'], 1)
         assert_equal(hdul.index_of(('SCI', 1)), 1)
+
+    def test_update_filelike(self):
+        """Test opening a file-like object in update mode and resizing the
+        HDU.
+        """
+
+        sf = StringIO()
+        arr = np.zeros((100, 100))
+        hdu = pyfits.PrimaryHDU(data=arr)
+        hdu.writeto(sf)
+
+        sf.seek(0)
+        arr = np.zeros((200, 200))
+        hdul = pyfits.open(sf, mode='update')
+        hdul[0].data = arr
+        hdul.flush()
+
+        sf.seek(0)
+        hdul = pyfits.open(sf)
+        assert_equal(len(hdul), 1)
+        assert_true((hdul[0].data == arr).all())
+
+    def test_flush_readonly(self):
+        """Test flushing changes to a file opened in a read only mode."""
+
+        oldmtime = os.stat(self.data('test0.fits')).st_mtime
+        hdul = pyfits.open(self.data('test0.fits'))
+        hdul[0].header.update('FOO', 'BAR')
+        with catch_warnings(record=True) as w:
+            hdul.flush()
+            assert_equal(len(w), 1)
+            assert_true('mode is not supported' in str(w[0].message))
+        assert_equal(oldmtime, os.stat(self.data('test0.fits')).st_mtime)

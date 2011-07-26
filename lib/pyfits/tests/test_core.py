@@ -2,29 +2,24 @@ from __future__ import division # confidence high
 from __future__ import with_statement
 
 import gzip
+import warnings
+import zipfile
+
+from cStringIO import StringIO
 
 import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
+from pyfits.tests.util import catch_warnings
 
-from nose.tools import assert_equal
+from nose.tools import assert_equal, assert_raises, assert_true, assert_false
 
 
 class TestCore(PyfitsTestCase):
     def test_with_statement(self):
         with pyfits.open(self.data('ascii.fits')) as f:
             pass
-
-    def test_open_gzipped(self):
-        gzfile = self.temp('test0.fits.gz')
-        with open(self.data('test0.fits'), 'rb') as f:
-            gz = gzip.open(gzfile, 'wb')
-            gz.write(f.read())
-            gz.close()
-
-        hdul = pyfits.open(gzfile)
-        assert_equal(len(hdul), 5)
 
     def test_naxisj_check(self):
         hdulist = pyfits.open(self.data('o4sp040b0_raw.fits'))
@@ -170,3 +165,189 @@ class TestCore(PyfitsTestCase):
         hdu.req_cards('TESTKW', None, lambda v: v == 'bar', 'bar', 'silentfix',
                       [])
         assert_equal(hdu.header['TESTKW'], 'bar')
+
+    def test_unfixable_missing_card(self):
+        class TestHDU(pyfits.hdu.base.NonstandardExtHDU):
+            def _verify(self, option='warn'):
+                errs = super(TestHDU, self)._verify(option)
+                hdu.req_cards('TESTKW', None, None, None, 'fix', errs)
+                return errs
+
+        hdu = TestHDU(header=pyfits.Header())
+        assert_raises(pyfits.VerifyError, hdu.verify, 'fix')
+
+    def test_exception_on_verification_error(self):
+        hdu = pyfits.ImageHDU()
+        del hdu.header['NAXIS']
+        assert_raises(pyfits.VerifyError, hdu.verify, 'exception')
+
+    def test_ignore_verification_error(self):
+        hdu = pyfits.ImageHDU()
+        # The default here would be to issue a warning; ensure that no warnings
+        # or exceptions are raised
+        with catch_warnings():
+            warnings.simplefilter('error')
+            del hdu.header['NAXIS']
+            try:
+                hdu.verify('ignore')
+            except Exception, e:
+                self.fail('An exception occurred when the verification error '
+                          'should have been ignored: %s' % e)
+        # Make sure the error wasn't fixed either, silently or otherwise
+        assert_false('NAXIS' in hdu.header)
+
+    def test_unrecognized_verify_option(self):
+        hdu = pyfits.ImageHDU()
+        assert_raises(ValueError, hdu.verify, 'foobarbaz')
+
+
+class TestFileFunctions(PyfitsTestCase):
+    """Tests various basic I/O operations, specifically in the
+    pyfits.file._File class.
+    """
+
+    def test_open_gzipped(self):
+        assert_equal(len(pyfits.open(self._make_gzip_file())), 5)
+
+    def test_open_gzipped_writeable(self):
+        """Opening gzipped files in a writeable mode should fail."""
+
+        gf = self._make_gzip_file()
+        assert_raises(IOError, pyfits.open, gf, 'update')
+        assert_raises(IOError, pyfits.open, gf, 'append')
+
+    def test_open_zipped(self):
+        assert_equal(len(pyfits.open(self._make_zip_file())), 5)
+
+    def test_open_zipped_writeable(self):
+        """Opening zipped files in a writeable mode should fail."""
+
+        zf = self._make_zip_file()
+        assert_raises(IOError, pyfits.open, zf, 'update')
+        assert_raises(IOError, pyfits.open, zf, 'append')
+
+    def test_open_multipe_member_zipfile(self):
+        """Opening zip files containing more than one member files should fail
+        as there's no obvious way to specify which file is the FITS file to
+        read.
+        """
+
+        zfile = zipfile.ZipFile(self.temp('test0.zip'), 'w')
+        zfile.write(self.data('test0.fits'))
+        zfile.writestr('foo', 'bar')
+        zfile.close()
+
+        assert_raises(IOError, pyfits.open, zfile.filename)
+
+    def test_read_open_file(self):
+        """Read from an existing file object."""
+
+        with open(self.data('test0.fits'), 'rb') as f:
+            assert_equal(len(pyfits.open(f)), 5)
+
+    def test_read_closed_file(self):
+        """Read from an existing file object that's been closed."""
+
+        f = open(self.data('test0.fits'), 'rb')
+        f.close()
+        assert_equal(len(pyfits.open(f)), 5)
+
+    def test_read_open_gzip_file(self):
+        """Read from an open gzip file object."""
+
+        gf = gzip.GzipFile(self._make_gzip_file())
+        try:
+            assert_equal(len(pyfits.open(gf)), 5)
+        finally:
+            gf.close()
+
+    def test_read_file_like_object(self):
+        """Test reading a FITS file from a file-like object."""
+
+        filelike = StringIO()
+        with open(self.data('test0.fits'), 'rb') as f:
+            filelike.write(f.read())
+        filelike.seek(0)
+        assert_equal(len(pyfits.open(filelike)), 5)
+
+    def _make_gzip_file(self):
+        gzfile = self.temp('test0.fits.gz')
+        with open(self.data('test0.fits'), 'rb') as f:
+            gz = gzip.open(gzfile, 'wb')
+            gz.write(f.read())
+            gz.close()
+
+        return gzfile
+
+    def _make_zip_file(self, mode='copyonwrite'):
+        zfile = zipfile.ZipFile(self.temp('test0.fits.zip'), 'w')
+        zfile.write(self.data('test0.fits'))
+        zfile.close()
+
+        return zfile.filename
+
+
+class TestStreamingFunctions(PyfitsTestCase):
+    """Test functionality of the StreamingHDU class."""
+
+    def test_streaming_hdu(self):
+        shdu = self._make_streaming_hdu(self.temp('new.fits'))
+        assert_true(isinstance(shdu.size(), int))
+        assert_equal(shdu.size(), 100)
+
+    def test_streaming_hdu_file_wrong_mode(self):
+        """Test that streaming an HDU to a file opened in the wrong mode
+        fails as expected.
+        """
+
+        with open(self.temp('new.fits'), 'wb') as f:
+            header = pyfits.Header()
+            assert_raises(ValueError, pyfits.StreamingHDU, f, header)
+
+    def test_streaming_hdu_write_file(self):
+        """Test streaming an HDU to an open file object."""
+
+        arr = np.zeros((5, 5), dtype=np.int32)
+        with open(self.temp('new.fits'), 'ab+') as f:
+            shdu = self._make_streaming_hdu(f)
+            shdu.write(arr)
+            assert_true(shdu.writecomplete)
+            assert_equal(shdu.size(), 100)
+        hdul = pyfits.open(self.temp('new.fits'))
+        assert_equal(len(hdul), 1)
+        assert_true((hdul[0].data == arr).all())
+
+    def test_streaming_hdu_write_file_like(self):
+        """Test streaming an HDU to an open file-like object."""
+
+        arr = np.zeros((5, 5), dtype=np.int32)
+        sf = StringIO()
+        shdu = self._make_streaming_hdu(sf)
+        shdu.write(arr)
+        assert_true(shdu.writecomplete)
+        assert_equal(shdu.size(), 100)
+
+        sf.seek(0)
+        hdul = pyfits.open(sf)
+        assert_equal(len(hdul), 1)
+        assert_true((hdul[0].data == arr).all())
+
+    def test_streaming_hdu_append_extension(self):
+        arr = np.zeros((5, 5), dtype=np.int32)
+        with open(self.temp('new.fits'), 'ab+') as f:
+            shdu = self._make_streaming_hdu(f)
+            shdu.write(arr)
+        # Doing this again should update the file with an extension
+        with open(self.temp('new.fits'), 'ab+') as f:
+            shdu = self._make_streaming_hdu(f)
+            shdu.write(arr)
+
+    def _make_streaming_hdu(self, fileobj):
+        hd = pyfits.Header()
+        hd.update('SIMPLE', True, 'conforms to FITS standard')
+        hd.update('BITPIX', 32, 'array data type')
+        hd.update('NAXIS', 2, 'number of array dimensions')
+        hd.update('NAXIS1', 5)
+        hd.update('NAXIS2', 5)
+        hd.update('EXTEND', True)
+        return pyfits.StreamingHDU(fileobj, hd)

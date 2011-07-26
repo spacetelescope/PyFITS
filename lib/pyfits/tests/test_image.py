@@ -745,3 +745,32 @@ class TestImageFunctions(PyfitsTestCase):
         pyfits.append(self.temp('test_new.fits'), data=d)
         f = pyfits.open(self.temp('test_new.fits'), uint=True)
         assert_equal(f[1].data.dtype, 'uint16')
+
+    def test_blanks(self):
+        """Test image data with blank spots in it (which should show up as
+        NaNs in the data array.
+        """
+
+        arr = np.zeros((10, 10), dtype=np.int32)
+        # One row will be blanks
+        arr[1] = 999
+        hdu = pyfits.ImageHDU(data=arr)
+        hdu.header.update('BLANK', 999)
+        hdu.writeto(self.temp('test_new.fits'))
+
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        assert_true(np.isnan(hdul[1].data[1]).all())
+
+    def test_bzero_with_floats(self):
+        """Test use of the BZERO keyword in an image HDU containing float
+        data.
+        """
+
+        arr = np.zeros((10, 10)) - 1
+        hdu = pyfits.ImageHDU(data=arr)
+        hdu.header.update('BZERO', 1.0)
+        hdu.writeto(self.temp('test_new.fits'))
+
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        arr += 1
+        assert_true((hdul[1].data == arr).all())

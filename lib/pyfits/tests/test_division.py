@@ -1,6 +1,8 @@
 from __future__ import division # confidence high
 from __future__ import with_statement
 
+from cStringIO import StringIO
+
 import numpy as np
 
 import pyfits
@@ -11,6 +13,8 @@ from nose.tools import assert_equal
 
 
 class TestDivisionFunctions(PyfitsTestCase):
+    """Test code units that rely on correct integer division."""
+
     def test_rec_from_string(self):
         t1 = pyfits.open(self.data('tb.fits'))
         s = t1[1].data.tostring()
@@ -44,15 +48,3 @@ class TestDivisionFunctions(PyfitsTestCase):
         with CaptureStdout() as f:
             assert_equal(fs[0].section[3,2,5], np.array([357]))
             assert_equal(f.getvalue(), '')
-
-    def test_streaming_hdu(self):
-        hd = pyfits.Header()
-        hd.update('SIMPLE', True, 'conforms to FITS standard')
-        hd.update('BITPIX', 32, 'array data type')
-        hd.update('NAXIS', 2, 'number of array dimensions')
-        hd.update('NAXIS1', 5)
-        hd.update('NAXIS2', 5)
-        hd.update('EXTEND', True)
-        shdu = pyfits.StreamingHDU(self.temp('new.fits'), hd)
-
-        assert_equal(type(shdu.size()), type(1))

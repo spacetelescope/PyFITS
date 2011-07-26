@@ -1,4 +1,4 @@
-from __future__ import division # confidence high
+from __future__ import division, with_statement # confidence high
 
 import warnings
 
@@ -6,6 +6,7 @@ import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
+from pyfits.tests.util import catch_warnings
 
 from nose.tools import assert_equal, assert_raises, assert_true
 
@@ -23,26 +24,22 @@ class TestChecksumFunctions(PyfitsTestCase):
         hdul.close()
 
     def test_nonstandard_checksum(self):
-        old_filters = warnings.filters[:]
-        warnings.resetwarnings()
-        warnings.filterwarnings(
-            'error',
-            message='Warning:  Checksum verification failed')
-        warnings.filterwarnings(
-            'error',
-            message='Warning:  Datasum verification failed')
-        hdu = pyfits.PrimaryHDU(np.arange(10.**6))
-        hdu.writeto(self.temp('tmp.fits'), clobber=True,
-                    checksum='nonstandard')
-        del hdu
-        hdul = pyfits.open(self.temp('tmp.fits'), checksum='nonstandard')
-        try:
+        with catch_warnings():
+            warnings.filterwarnings(
+                'error',
+                 message='Warning:  Checksum verification failed')
+            warnings.filterwarnings(
+                'error',
+                message='Warning:  Datasum verification failed')
+            hdu = pyfits.PrimaryHDU(np.arange(10.**6))
+            hdu.writeto(self.temp('tmp.fits'), clobber=True,
+                        checksum='nonstandard')
+            del hdu
+            hdul = pyfits.open(self.temp('tmp.fits'), checksum='nonstandard')
             assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
                           checksum=True)
             assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
                           checksum='standard')
-        finally:
-            warnings.filters = old_filters
 
     def test_scaled_data(self):
         hdul = pyfits.open(self.data('scale.fits'))
