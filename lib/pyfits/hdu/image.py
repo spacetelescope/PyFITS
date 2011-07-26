@@ -138,10 +138,14 @@ class _ImageBaseHDU(_ValidHDU):
                                         shape=dims)
         raw_data.dtype = raw_data.dtype.newbyteorder('>')
 
-        if (self._bzero == 0 and self._bscale == 1):
+        if (self._bzero == 0 and self._bscale == 1 and
+            'BLANK' not in self._header):
+            # No further conversion of the data is necessary
             return raw_data
 
-        data = self._convert_pseudo_unsigned(raw_data)
+        data = None
+        if not (self._bzero == 0 and self._bscale == 1):
+            data = self._convert_pseudo_unsigned(raw_data)
 
         if data is None:
             # In these cases, we end up with
@@ -157,7 +161,7 @@ class _ImageBaseHDU(_ValidHDU):
                 # So if the number of blank items is fewer than
                 # len(raw_data.flat) / 8, using np.where will use less memory
                 if blanks.sum() < len(blanks) / 8:
-                    blanks = np.where(raw_data.flat == self._header['BLANK'])
+                    blanks = np.where(blanks)
 
             if bitpix > 16:  # scale integers to Float64
                 data = np.array(raw_data, dtype=np.float64)
@@ -305,17 +309,13 @@ class _ImageBaseHDU(_ValidHDU):
                 _scale = self._bscale
                 _zero = self._bzero
             elif option == 'minmax':
-                if isinstance(_type, np.floating):
+                if issubclass(_type, np.floating):
                     _scale = 1
                     _zero = 0
                 else:
 
-                    # flat the shape temporarily to save memory
-                    dims = self.data.shape
-                    self.data.shape = self.data.size
-                    min = np.minimum.reduce(self.data)
-                    max = np.maximum.reduce(self.data)
-                    self.data.shape = dims
+                    min = np.minimum.reduce(self.data.flat)
+                    max = np.maximum.reduce(self.data.flat)
 
                     if _type == np.uint8:  # uint8 case
                         _zero = min
@@ -324,7 +324,7 @@ class _ImageBaseHDU(_ValidHDU):
                         _zero = (max + min) / 2.
 
                         # throw away -2^N
-                        _scale = (max - min) / (2.**(8*_type.bytes) - 2)
+                        _scale = (max - min) / (2.**(8*_type().itemsize) - 2)
 
         # Do the scaling
         if _zero != 0:
@@ -333,7 +333,7 @@ class _ImageBaseHDU(_ValidHDU):
         else:
             del self._header['BZERO']
 
-        if _scale != 1:
+        if _scale and _scale != 1:
             self.data /= _scale
             self._header.update('BSCALE', _scale)
         else:
