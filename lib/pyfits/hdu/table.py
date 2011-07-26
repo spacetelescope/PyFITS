@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import textwrap
+import warnings
 
 import numpy as np
 from numpy import char as chararray
