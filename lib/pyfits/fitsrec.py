@@ -4,7 +4,6 @@ import warnings
 
 import numpy as np
 
-from pyfits import rec
 from pyfits.column import ASCIITNULL, FITS2NUMPY, TDIM_RE, Column, ColDefs, \
                           _FormatX, _FormatP, _VLF, _get_index, _wrapx, \
                           _unwrapx, _convert_format, _convert_ascii_format
@@ -148,7 +147,7 @@ class FITS_record(object):
         return indices[indx]
 
 
-class FITS_rec(rec.recarray):
+class FITS_rec(np.recarray):
     """
     FITS record array class.
 
@@ -165,18 +164,16 @@ class FITS_rec(rec.recarray):
 
         # input should be a record array
         if input.dtype.subdtype is None:
-            self = rec.recarray.__new__(subtype, input.shape, input.dtype,
-                                        buf=input.data,
-                                        heapoffset=input._heapoffset,
-                                        file=input._file)
+            self = np.recarray.__new__(subtype, input.shape, input.dtype,
+                                       buf=input.data)
         else:
-            self = rec.recarray.__new__(subtype, input.shape, input.dtype,
-                                        buf=input.data, strides=input.strides,
-                                        heapoffset=input._heapoffset,
-                                        file=input._file)
+            self = np.recarray.__new__(subtype, input.shape, input.dtype,
+                                       buf=input.data, strides=input.strides)
 
         self._nfields = len(self.dtype.names)
         self._convert = [None] * len(self.dtype.names)
+        self._heapoffset = 0
+        self._file = None
         self._coldefs = None
         self._gap = 0
         self.names = list(self.dtype.names)
@@ -189,6 +186,8 @@ class FITS_rec(rec.recarray):
 
         if isinstance(obj, FITS_rec):
             self._convert = obj._convert
+            self._heapoffset = obj._heapoffset
+            self._file = obj._file
             self._coldefs = obj._coldefs
             self._nfields = obj._nfields
             self.names = obj.names
@@ -221,7 +220,7 @@ class FITS_rec(rec.recarray):
                 self.formats = self._coldefs.formats
 
     def __repr__(self):
-        return rec.recarray.__repr__(self)
+        return np.recarray.__repr__(self)
 
     def __getitem__(self, key):
         if isinstance(key, basestring):
@@ -230,7 +229,7 @@ class FITS_rec(rec.recarray):
             # Have to view as a recarray then back as a FITS_rec, otherwise the
             # circular reference fix/hack in FITS_rec.field() won't preserve
             # the slice
-            out = self.view(rec.recarray).__getitem__(key).view(FITS_rec)
+            out = self.view(np.recarray).__getitem__(key).view(FITS_rec)
             out._coldefs = ColDefs(self._coldefs)
             arrays = []
             out._convert = [None] * len(self.dtype.names)
@@ -315,12 +314,12 @@ class FITS_rec(rec.recarray):
         # this can lead to a circular reference; see ticket #49
         base = self
         while isinstance(base, FITS_rec) and \
-              isinstance(base.base, rec.recarray):
+              isinstance(base.base, np.recarray):
             base = base.base
         # base could still be a FITS_rec in some cases, so take care to
         # use rec.recarray.field to avoid a potential infinite
         # recursion
-        field = rec.recarray.field(base, indx)
+        field = np.recarray.field(base, indx)
 
         if (self._convert[indx] is None):
             # for X format

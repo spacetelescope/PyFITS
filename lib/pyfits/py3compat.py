@@ -52,7 +52,6 @@ if sys.version_info[0] >= 3:
     # TODO: Maybe do a version check on numpy for this?  (Note: the fix for
     # this hasn't been accepted in Numpy yet, so a version number check would
     # not be helpful yet...)
-    import pyfits.rec
     import pyfits.file
 
     _chararray = numpy.char.chararray
@@ -66,7 +65,7 @@ if sys.version_info[0] >= 3:
                     else:
                         val = temp
                 return val
-    for m in [numpy.char, numpy.core.defchararray, numpy.record, pyfits.rec]:
+    for m in [numpy.char, numpy.core.defchararray, numpy.record]:
         m.chararray = chararray
 
 
@@ -100,29 +99,14 @@ if sys.version_info[0] >= 3:
     class recarray(_recarray):
          def __new__(subtype, shape, dtype=None, buf=None, offset=0,
                      strides=None, formats=None, names=None, titles=None,
-                     byteorder=None, aligned=False, heapoffset=0, file=None):
+                     byteorder=None, aligned=False, order='C'):
              if dtype is not None:
                  dtype = _fix_dtype(dtype)
 
              return _recarray.__new__(
                      subtype, shape, dtype, buf, offset, strides, formats,
-                     names, titles, byteorder, aligned, heapoffset, file)
+                     names, titles, byteorder, aligned, order)
     numpy.recarray = recarray
-
-    # Do the same for the rec.recarray that comes with PyFITS (can this go
-    # away yet?)
-    _recarray = pyfits.rec.recarray
-    class recarray(_recarray):
-         def __new__(subtype, shape, dtype=None, buf=None, offset=0,
-                     strides=None, formats=None, names=None, titles=None,
-                     byteorder=None, aligned=False, heapoffset=0, file=None):
-             if dtype is not None:
-                 dtype = _fix_dtype(dtype)
-
-             return _recarray.__new__(
-                     subtype, shape, dtype, buf, offset, strides, formats,
-                     names, titles, byteorder, aligned, heapoffset, file)
-    pyfits.rec.recarray = recarray
 
 
     # We also need to patch pyfits.file._File which can also be affected by the

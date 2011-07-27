@@ -9,7 +9,6 @@ import warnings
 import numpy as np
 from numpy import char as chararray
 
-from pyfits import rec
 from pyfits.card import Card, CardList
 # This module may have many dependencies on pyfits.column, but pyfits.column
 # has fewer dependencies overall, so it's easier to keep table/column-related
@@ -59,10 +58,10 @@ class _TableLikeHDU(_ValidHDU):
         formats = ','.join(recformats)
         names = [n for idx, n in enumerate(columns.names)
                  if not columns[idx]._phantom]
-        dtype = rec.format_parser(formats, names, None)._descr
+        dtype = np.rec.format_parser(formats, names, None)._descr
         raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
                                         shape=columns._shape)
-        data = raw_data.view(rec.recarray)
+        data = raw_data.view(np.rec.recarray)
         self._init_tbdata(data)
         return data.view(FITS_rec)
 
@@ -147,7 +146,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             if isinstance(data, np.ndarray) and data.dtype.fields is not None:
                 if isinstance(data, FITS_rec):
                     self.data = data
-                elif isinstance(data, rec.recarray):
+                elif isinstance(data, np.rec.recarray):
                     self.data = FITS_rec(data)
                 else:
                     self.data = data.view(FITS_rec)
@@ -396,7 +395,7 @@ class TableHDU(_TableBaseHDU):
 
         # determine if there are duplicate field names and if there
         # are throw an exception
-        dup = rec.find_duplicate(names)
+        dup = np.rec.find_duplicate(names)
 
         if dup:
             raise ValueError("Duplicate field names: %s" % dup)
@@ -416,7 +415,7 @@ class TableHDU(_TableBaseHDU):
 
         raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
                                         shape=columns._shape)
-        data = raw_data.view(rec.recarray)
+        data = raw_data.view(np.rec.recarray)
         self._init_tbdata(data)
         return data.view(FITS_rec)
 
@@ -492,8 +491,7 @@ class BinTableHDU(_TableBaseHDU):
                                 if d.dtype.str[0] != '>':
                                     d[:] = d.byteswap()
                                     d.dtype = d.dtype.newbyteorder('>')
-                        # TODO: Any reason this isn't just data.field(i)?
-                        field = rec.recarray.field(data, i)[j:j + 1]
+                        field = np.rec.recarray.field(data, i)[j:j + 1]
                         if field.dtype.str[0] != '>':
                             field.byteswap(True)
                 else:
@@ -553,19 +551,19 @@ class BinTableHDU(_TableBaseHDU):
                         continue
                     # only swap unswapped
                     # deal with var length table
+                    field = np.rec.recarray.field(self.data, idx)
                     if isinstance(coldata, _VLF):
                         for jdx, c in enumerate(coldata):
                             if (not isinstance(c, chararray.chararray) and
                                 c.itemsize > 1 and
                                 c.dtype.str[0] in swap_types):
                                 swapped.append(c)
-                            field = rec.recarray.field(self.data, idx)
                             if (field[jdx:jdx+1].dtype.str[0] in swap_types):
                                 swapped.append(field[jdx:jdx+1])
                     else:
                         if (coldata.itemsize > 1 and
                             self.data.dtype.descr[idx][1][0] in swap_types):
-                            swapped.append(rec.recarray.field(self.data, idx))
+                            swapped.append(field)
 
                 for obj in swapped:
                     obj.byteswap(True)
@@ -1159,8 +1157,8 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
             if arr.hdu.data is None:
                 columns._arrays[idx] = None
             else:
-                columns._arrays[idx] = rec.recarray.field(arr.hdu.data,
-                                                          arr.field)
+                columns._arrays[idx] = np.rec.recarray.field(arr.hdu.data,
+                                                             arr.field)
 
     # use the largest column shape as the shape of the record
     if nrows == 0:
@@ -1182,13 +1180,13 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
            dtype[columns.names[j]] = (data_type, columns.starts[j] - 1)
 
         hdu.data = FITS_rec(
-                rec.array((' ' * _itemsize * nrows).encode('ascii'),
-                          dtype=dtype, shape=nrows))
+                np.rec.array((' ' * _itemsize * nrows).encode('ascii'),
+                             dtype=dtype, shape=nrows))
         hdu.data.setflags(write=True)
     else:
         formats = ','.join(columns._recformats)
-        hdu.data = FITS_rec(rec.array(None, formats=formats,
-                            names=columns.names, shape=nrows))
+        hdu.data = FITS_rec(np.rec.array(None, formats=formats,
+                                         names=columns.names, shape=nrows))
 
     hdu.data._coldefs = hdu.columns
     hdu.data.formats = hdu.columns.formats
@@ -1218,7 +1216,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
         # Get any scale factors from the FITS_rec
         scale, zero, bscale, bzero, dim = hdu.data._get_scale_factors(idx)[3:]
 
-        field = rec.recarray.field(hdu.data, idx)
+        field = np.rec.recarray.field(hdu.data, idx)
 
         if n > 0:
             # Only copy data if there is input data to copy

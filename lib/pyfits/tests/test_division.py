@@ -18,7 +18,7 @@ class TestDivisionFunctions(PyfitsTestCase):
     def test_rec_from_string(self):
         t1 = pyfits.open(self.data('tb.fits'))
         s = t1[1].data.tostring()
-        a1 = pyfits.rec.array(
+        a1 = np.rec.array(
                 s,
                 dtype=np.dtype([('c1', '>i4'), ('c2', '|S3'),
                                 ('c3', '>f4'), ('c4', '|i1')]))

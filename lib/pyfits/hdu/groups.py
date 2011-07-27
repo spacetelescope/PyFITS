@@ -1,7 +1,6 @@
 import sys
 import numpy as np
 
-from pyfits import rec
 from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
@@ -293,10 +292,10 @@ class GroupData(FITS_rec):
             _coldefs = ColDefs(_cols)
 
             self = FITS_rec.__new__(subtype,
-                                    rec.array(None,
-                                              formats=_formats,
-                                              names=_coldefs.names,
-                                              shape=gcount))
+                                    np.rec.array(None,
+                                                 formats=_formats,
+                                                 names=_coldefs.names,
+                                                 shape=gcount))
             self._coldefs = _coldefs
             self.parnames = parnames
 
@@ -305,12 +304,12 @@ class GroupData(FITS_rec):
                 if _scale or _zero:
                     self._convert[idx] = pardata[idx]
                 else:
-                    rec.recarray.field(self,idx)[:] = pardata[idx]
+                    np.rec.recarray.field(self,idx)[:] = pardata[idx]
             (_scale, _zero)  = self._get_scale_factors(npars)[3:5]
             if _scale or _zero:
                 self._convert[npars] = input
             else:
-                rec.recarray.field(self, npars)[:] = input
+                np.rec.recarray.field(self, npars)[:] = input
         else:
              self = FITS_rec.__new__(subtype, input)
         return self

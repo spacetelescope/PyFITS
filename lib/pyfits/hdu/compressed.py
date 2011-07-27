@@ -2,7 +2,6 @@ import warnings
 
 import numpy as np
 
-from pyfits import rec
 from pyfits.column import Column, ColDefs, _FormatP, _makep
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import DELAYED, ExtensionHDU
@@ -644,8 +643,8 @@ class CompImageHDU(BinTableHDU):
         # Create the record array to be used for the table data.
         self.columns = cols
         self.compData = FITS_rec(
-                rec.array(None, formats=','.join(cols._recformats),
-                          names=cols.names, shape=nrows))
+                np.rec.array(None, formats=','.join(cols._recformats),
+                             names=cols.names, shape=nrows))
         self.compData._coldefs = self.columns
         self.compData.formats = self.columns.formats
 
@@ -656,11 +655,11 @@ class CompImageHDU(BinTableHDU):
         # length columns.
         for idx in range(min(2, len(cols))):
             self.columns._arrays[idx] = \
-                rec.recarray.field(self.compData, idx)
-            rec.recarray.field(self.compData, idx)[0:] = 0
+                np.rec.recarray.field(self.compData, idx)
+            np.rec.recarray.field(self.compData, idx)[0:] = 0
             self.compData._convert[idx] = \
                 _makep(self.columns._arrays[idx],
-                       rec.recarray.field(self.compData, idx),
+                       np.rec.recarray.field(self.compData, idx),
                        self.columns._recformats[idx]._dtype)
 
         # Set the compression parameters in the table header.

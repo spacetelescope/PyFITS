@@ -3,7 +3,6 @@ import os
 
 import numpy as np
 
-from pyfits import rec
 from pyfits.file import PYTHON_MODES, _File
 from pyfits.hdu.base import _BaseHDU
 from pyfits.hdu.hdulist import fitsopen
@@ -704,8 +703,7 @@ def _getext(filename, mode, *ext1, **ext2):
 def _makehdu(data, header, classExtensions={}):
     if header is None:
         if ((isinstance(data, np.ndarray) and data.dtype.fields is not None)
-            or isinstance(data, np.recarray)
-            or isinstance(data, rec.recarray)):
+            or isinstance(data, np.recarray)):
             hdu = BinTableHDU(data)
         elif isinstance(data, np.ndarray):
             hdu = ImageHDU(data)

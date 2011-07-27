@@ -5,7 +5,6 @@ import numpy as np
 from numpy import char as chararray
 
 import pyfits
-from pyfits import rec
 from pyfits.util import decode_ascii
 from pyfits.tests import PyfitsTestCase
 
@@ -129,7 +128,7 @@ class TestTableFunctions(PyfitsTestCase):
 
         x2 = pyfits.ColDefs(tt[1])
         t2 = pyfits.new_table(x2, nrows=2)
-        ra = rec.array([
+        ra = np.rec.array([
             (1, 'abc', 3.7000002861022949, 0),
             (2, 'xy ', 6.6999998092651367, 1)], names='c1, c2, c3, c4')
 
@@ -190,7 +189,7 @@ class TestTableFunctions(PyfitsTestCase):
 
         assert_equal(t[1].columns.info(output=False), info)
 
-        ra = rec.array([
+        ra = np.rec.array([
             (1, 'abc', 3.7000002861022949, 0),
             (2, 'xy ', 6.6999998092651367, 1)], names='c1, c2, c3, c4')
 
@@ -199,7 +198,7 @@ class TestTableFunctions(PyfitsTestCase):
         # Change scaled field and scale back to the original array
         t[1].data.field('c4')[0] = 1
         t[1].data._scale_back()
-        assert_equal(str(rec.recarray.field(t[1].data,'c4')), "[84 84]")
+        assert_equal(str(np.rec.recarray.field(t[1].data,'c4')), "[84 84]")
 
         # look at data column-wise
         assert_equal(t[1].data.field(0).all(), np.array([1, 2]).all())
@@ -211,7 +210,7 @@ class TestTableFunctions(PyfitsTestCase):
     def test_ascii_table(self):
         # ASCII table
         a = pyfits.open(self.data('ascii.fits'))
-        ra1 = rec.array([
+        ra1 = np.rec.array([
             (10.123000144958496, 37),
             (5.1999998092651367, 23),
             (15.609999656677246, 17),
@@ -221,13 +220,13 @@ class TestTableFunctions(PyfitsTestCase):
 
         # Test slicing
         a2 = a[1].data[2:][2:]
-        ra2 = rec.array([(345.0,345)],names='c1, c2')
+        ra2 = np.rec.array([(345.0,345)],names='c1, c2')
 
         assert_equal(comparerecords(a2, ra2), True)
 
         assert_equal(a2.field(1).all(),np.array([345]).all())
 
-        ra3 = rec.array([
+        ra3 = np.rec.array([
             (10.123000144958496, 37),
             (15.609999656677246, 17),
             (345.0, 345)
@@ -302,12 +301,12 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(channelsIn.all(),channelsOut.all())
         hduL.close()
 
-    def test_pyfits_recarray_to_bintablehdu(self):
-        bright=rec.array([(1,'Serius',-1.45,'A1V'),\
-                          (2,'Canopys',-0.73,'F0Ib'),\
-                          (3,'Rigil Kent',-0.1,'G2V')],\
-                         formats='int16,a20,float32,a10',\
-                         names='order,name,mag,Sp')
+    def test_recarray_to_bintablehdu(self):
+        bright=np.rec.array([(1,'Serius',-1.45,'A1V'),\
+                             (2,'Canopys',-0.73,'F0Ib'),\
+                             (3,'Rigil Kent',-0.1,'G2V')],\
+                            formats='int16,a20,float32,a10',\
+                            names='order,name,mag,Sp')
         hdu=pyfits.BinTableHDU(bright)
         assert_equal(comparerecords(hdu.data, bright), True)
         hdu.writeto(self.temp('toto.fits'), clobber=True)
@@ -330,8 +329,8 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(comparerecords(hdu.data,hdul[1].data),True)
         hdul.close()
 
-    def test_new_table_from_pyfits_recarray(self):
-        bright = rec.array([(1,'Serius',-1.45,'A1V'),
+    def test_new_table_from_recarray(self):
+        bright = np.rec.array([(1,'Serius',-1.45,'A1V'),
                             (2,'Canopys',-0.73,'F0Ib'),
                             (3,'Rigil Kent',-0.1,'G2V')],
                            formats='int16,a20,float32,a10',
@@ -408,10 +407,10 @@ class TestTableFunctions(PyfitsTestCase):
         hdul.close()
 
         hdu=pyfits.new_table(bright,nrows=2)
-        tmp=rec.array([(1,'Serius',-1.45,'A1V'),
-                       (2,'Canopys',-0.73,'F0Ib')],
-                      formats='int16,a20,float32,a10',
-                      names='order,name,mag,Sp')
+        tmp=np.rec.array([(1,'Serius',-1.45,'A1V'),
+                          (2,'Canopys',-0.73,'F0Ib')],
+                         formats='int16,a20,float32,a10',
+                         names='order,name,mag,Sp')
         assert_equal(comparerecords(hdu.data,tmp), True)
         hdu.writeto(self.temp('toto.fits'), clobber=True)
         hdul = pyfits.open(self.temp('toto.fits'))
@@ -1580,7 +1579,7 @@ class TestTableFunctions(PyfitsTestCase):
         arrays and string arrays.
         """
 
-        data = pyfits.rec.array(
+        data = np.rec.array(
             [([1, 2, 3, 4], 'row1' * 2),
              ([5, 6, 7, 8], 'row2' * 2),
              ([9, 1, 2, 3], 'row3' * 2)], formats='4i4,a8')
