@@ -8,9 +8,6 @@ try:
 except:
     __version__ = ''
 
-    # bug: take this out when the new install works
-    __version__ = '3.0.1dev'
-
 # Import the pyfits core module.
 import pyfits.core
 import pyfits.util
