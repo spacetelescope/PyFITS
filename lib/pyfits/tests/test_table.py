@@ -1663,24 +1663,3 @@ class TestTableFunctions(PyfitsTestCase):
         assert_true((s1 == s2).all())
         assert_true((s2 == s3).all())
         assert_true((s3 == s4).all())
-
-    def test_dump_load_round_trip(self):
-        """
-        A simple test of the dump/load methods; dump the data, column, and
-        header files and try to reload the table from them.
-        """
-
-        hdul = pyfits.open(self.data('table.fits'))
-        tbhdu = hdul[1]
-        datafile = self.temp('data.txt')
-        cdfile = self.temp('coldefs.txt')
-        hfile = self.temp('header.txt')
-
-        tbhdu.dump(datafile, cdfile, hfile)
-
-        new_tbhdu = pyfits.BinTableHDU.load(datafile, cdfile, hfile)
-
-        assert_true(compare_records(tbhdu.data, new_tbhdu.data))
-
-        # Double check that the headers are equivalent
-        assert_equal(str(tbhdu.header.ascard), str(new_tbhdu.header.ascard))
