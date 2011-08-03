@@ -1,6 +1,16 @@
 Changelog
 ===========
 
+3.1.0 (unreleased)
+--------------------
+
+- `BinTableHDU.tdump` and `BinTableHDU.tcreate` are deprecated--use
+  `BinTableHDU.dump` and `BinTableHDU.load` instead.  The new methods output
+  the table data in a slightly different format from previous versions, which
+  places quotes around each value.  This format is compatible with data dumps
+  from previous versions of PyFITS, but not vice-versa due to a parsing bug in
+  older versions.
+
 3.0.0 (unreleased)
 --------------------
 

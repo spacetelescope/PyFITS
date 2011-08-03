@@ -408,7 +408,7 @@ class FITS_rec(np.recarray):
                         actual_nitems = dummy.shape[1]
                     if nitems != actual_nitems:
                         warnings.warn(
-                            'TDIM%d value %s does not fit with the size of '
+                        'TDIM%d value %s does not fit with the size of '
                             'the array items (%d).  TDIM%d will be ignored.'
                             % (indx + 1, self._coldefs.dims[indx],
                                actual_nitems, indx + 1))
@@ -599,5 +599,5 @@ class FITS_rec(np.recarray):
             elif _bool:
                 field[:] = np.choose(self._convert[indx],
                                      (np.array([ord('F')], dtype=np.int8)[0],
-                                      np.array([ord('T')],dtype=np.int8)[0]))
+                                      np.array([ord('T')], dtype=np.int8)[0]))
 

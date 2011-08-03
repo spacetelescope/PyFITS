@@ -31,6 +31,10 @@ FITS2NUMPY = {'L': 'i1', 'B': 'u1', 'I': 'i2', 'J': 'i4', 'K': 'i8', 'E': 'f4',
 # the inverse dictionary of the above
 NUMPY2FITS = dict([(val, key) for key, val in FITS2NUMPY.iteritems()])
 
+# This is the order in which values are converted to FITS types
+# Note that only double precision floating point/complex are supported
+FORMATORDER = ['L', 'B', 'I', 'J', 'K', 'D', 'M', 'A']
+
 # lists of column/field definition common names and keyword names, make
 # sure to preserve the one-to-one correspondence when updating the list(s).
 # Use lists, instead of dictionaries so the names can be displayed in a
@@ -203,7 +207,6 @@ class Column(object):
 
             # boolean needs to be scaled too
             if recfmt[-2:] == FITS2NUMPY['L']:
-                _out = np.zeros(array.shape, dtype=recfmt)
                 array = np.where(array==0, ord('F'), ord('T'))
 
             # make a copy if scaled, so as not to corrupt the original array
@@ -923,6 +926,53 @@ def _parse_tformat(tform):
     return (repeat, dtype, option)
 
 
+def _scalar_to_format(value):
+    """
+    Given a scalar value or string, returns the minimum FITS column format
+    that can represent that value.  'minimum' is defined by the order given in
+    FORMATORDER.
+    """
+
+    # TODO: Numpy 1.6 and up has a min_scalar_type() function that can handle
+    # this; in the meantime we have to use our own implementation (which for
+    # now is pretty naive)
+
+    # First, if value is a string, try to convert to the appropriate scalar
+    # value
+    for type_ in (int, float, complex):
+        try:
+            value = type_(value)
+            break
+        except ValueError:
+            continue
+
+    if isinstance(value, int) and value in (0, 1):
+        # Could be a boolean
+        return 'L'
+    elif isinstance(value, int):
+        for char in ('B', 'I', 'J', 'K'):
+            type_ = np.dtype(FITS2NUMPY[char]).type
+            if type_(value) == value:
+                return char
+    elif isinstance(value, float):
+        # For now just assume double precision
+        return 'D'
+    elif isinstance(value, complex):
+        return 'M'
+    else:
+        return 'A' + str(len(value))
+
+def _cmp_recformats(f1, f2):
+    """
+    Compares two numpy recformats using the ordering given by FORMATORDER.
+    """
+
+    if f1[0] == 'a' and f2[0] == 'a':
+        return cmp(int(f1[1:]), int(f2[1:]))
+    else:
+        f1, f2 = NUMPY2FITS[f1], NUMPY2FITS[f2]
+        return cmp(FORMATORDER.index(f1), FORMATORDER.index(f2))
+
 def _convert_fits2record(format):
     """
     Convert FITS format spec to record format spec.
@@ -940,10 +990,10 @@ def _convert_fits2record(format):
                  # make sure option is integer
                 output_format = FITS2NUMPY[dtype] + str(int(option))
         else:
-            _repeat = ''
-            if _repeat != 1:
-                _repeat = str(repeat)
-            output_format = _repeat + FITS2NUMPY[dtype]
+            repeat_str = ''
+            if repeat != 1:
+                repeat_str = str(repeat)
+            output_format = repeat_str + FITS2NUMPY[dtype]
 
     elif dtype == 'X':
         nbytes = ((repeat-1) // 8) + 1

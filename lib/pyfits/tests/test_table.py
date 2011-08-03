@@ -73,6 +73,13 @@ def comparerecords(a, b):
                 print "fieldb: ",fieldb
                 print 'field %d differs' % i
                 return False
+        elif (isinstance(fielda, pyfits.column._VLF) or
+              isinstance(fieldb, pyfits.column._VLF)):
+            for row in range(len(fielda)):
+                if np.any(fielda[row] != fieldb[row]):
+                    print 'fielda[%d]: %s' % (row, fielda[row])
+                    print 'fieldb[%d]: %s' % (row, fieldb[row])
+                    print 'field %d differs in row %d' (i, row)
         else:
             if np.any(fielda != fieldb):
                 print "fielda: ",fielda
@@ -1663,3 +1670,65 @@ class TestTableFunctions(PyfitsTestCase):
         assert_true((s1 == s2).all())
         assert_true((s2 == s3).all())
         assert_true((s3 == s4).all())
+
+    def test_dump_load_round_trip(self):
+        """
+        A simple test of the dump/load methods; dump the data, column, and
+        header files and try to reload the table from them.
+        """
+
+        hdul = pyfits.open(self.data('table.fits'))
+        tbhdu = hdul[1]
+        datafile = self.temp('data.txt')
+        cdfile = self.temp('coldefs.txt')
+        hfile = self.temp('header.txt')
+
+        tbhdu.dump(datafile, cdfile, hfile)
+
+        new_tbhdu = pyfits.BinTableHDU.load(datafile, cdfile, hfile)
+
+        assert_true(comparerecords(tbhdu.data, new_tbhdu.data))
+
+        # Double check that the headers are equivalent
+        assert_equal(str(tbhdu.header.ascard), str(new_tbhdu.header.ascard))
+
+    def test_load_guess_format(self):
+        """
+        Tests loading a table dump with no supplied coldefs or header, so that
+        the table format has to be guessed at.  There is of course no exact
+        science to this; the table that's produced simply uses sensible guesses
+        for that format.  Ideally this should never have to be used.
+        """
+
+        # Create a table containing a variety of data types.
+        a0 = np.array([False, True, False], dtype=np.bool)
+        c0 = pyfits.Column(name='c0', format='L', array=a0)
+
+        # Format X currently not supported by the format
+        #a1 = np.array([[0], [1], [0]], dtype=np.uint8)
+        #c1 = pyfits.Column(name='c1', format='X', array=a1)
+
+        a2 = np.array([1, 128, 255], dtype=np.uint8)
+        c2 = pyfits.Column(name='c2', format='B', array=a2)
+        a3 = np.array([-30000, 1, 256], dtype=np.int16)
+        c3 = pyfits.Column(name='c3', format='I', array=a3)
+        a4 = np.array([-123123123, 1234, 123123123], dtype=np.int32)
+        c4 = pyfits.Column(name='c4', format='J', array=a4)
+        a5 = np.array(['a', 'abc', 'ab'])
+        c5 = pyfits.Column(name='c5', format='A3', array=a5)
+        a6 = np.array([1.1, 2.2, 3.3], dtype=np.float64)
+        c6 = pyfits.Column(name='c6', format='D', array=a6)
+        a7 = np.array([1.1+2.2j, 3.3+4.4j, 5.5+6.6j], dtype=np.complex128)
+        c7 = pyfits.Column(name='c7', format='M', array=a7)
+        a8 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.int32)
+        c8 = pyfits.Column(name='c8', format='PJ()', array=a8)
+
+        tbhdu = pyfits.new_table([c0, c2, c3, c4, c5, c6, c7, c8])
+
+        datafile = self.temp('data.txt')
+        tbhdu.dump(datafile)
+
+        new_tbhdu = pyfits.BinTableHDU.load(datafile)
+
+        # In this particular case the record data at least should be equivalent
+        assert_true(comparerecords(tbhdu.data, new_tbhdu.data))

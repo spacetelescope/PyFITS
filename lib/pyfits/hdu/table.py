@@ -1,5 +1,6 @@
 from __future__ import division # confidence high
 
+import csv
 import os
 import re
 import sys
@@ -13,15 +14,28 @@ from pyfits.card import Card, CardList
 # This module may have many dependencies on pyfits.column, but pyfits.column
 # has fewer dependencies overall, so it's easier to keep table/column-related
 # utilities in pyfits.column
-from pyfits.column import FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, \
-                          TDEF_RE, Delayed, Column, ColDefs, _ASCIIColDefs, \
-                          _FormatX, _FormatP, _wrapx, _makep, _VLF, \
-                          _parse_tformat, _convert_format
+from pyfits.column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES,
+                           TDEF_RE, Delayed, Column, ColDefs, _ASCIIColDefs,
+                           _FormatX, _FormatP, _wrapx, _makep, _VLF,
+                           _parse_tformat, _scalar_to_format, _convert_format,
+                           _cmp_recformats)
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import DELAYED, _ValidHDU, ExtensionHDU
 from pyfits.header import Header
-from pyfits.util import lazyproperty, _is_int, _str_to_num, _pad_length, \
-                        deprecated
+from pyfits.util import (lazyproperty, _is_int, _str_to_num, _pad_length,
+                         deprecated)
+
+
+class FITSTableDumpDialect(csv.excel):
+    """
+    A CSV dialect for the PyFITS format of ASCII dumps of FITS tables.
+    """
+
+    delimiter = ' '
+    lineterminator = '\n'
+    quotechar = '"'
+    quoting = csv.QUOTE_ALL
+    skipinitialspace = True
 
 
 class _TableLikeHDU(_ValidHDU):
@@ -58,7 +72,7 @@ class _TableLikeHDU(_ValidHDU):
         formats = ','.join(recformats)
         names = [n for idx, n in enumerate(columns.names)
                  if not columns[idx]._phantom]
-        dtype = np.rec.format_parser(formats, names, None)._descr
+        dtype = np.rec.format_parser(formats, names, None).dtype
         raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
                                         shape=columns._shape)
         data = raw_data.view(np.rec.recarray)
@@ -668,7 +682,7 @@ class BinTableHDU(_TableBaseHDU):
           image.
       """)
 
-    def tdump(self, datafile=None, cdfile=None, hfile=None, clobber=False):
+    def dump(self, datafile=None, cdfile=None, hfile=None, clobber=False):
         """
         Dump the table HDU to a file in ASCII format.  The table may be dumped
         in three separate files, one containing column definitions, one
@@ -694,10 +708,10 @@ class BinTableHDU(_TableBaseHDU):
 
         Notes
         -----
-        The primary use for the `tdump` method is to allow editing in a
-        standard text editor of the table data and parameters.  The
-        `tcreate` method can be used to reassemble the table from the
-        three ASCII files.
+        The primary use for the `dump` method is to allow viewing and editing
+        the table data and parameters in a standard text editor.
+        The `load` method can be used to create a new table from the three
+        plain text (ASCII) files.
         """
 
         # TODO: This is looking pretty long and complicated--might be a few
@@ -712,7 +726,6 @@ class BinTableHDU(_TableBaseHDU):
                 if os.path.exists(f) and os.path.getsize(f) != 0:
                     if clobber:
                         warnings.warn("Overwriting existing file '%s'." % f)
-                        os.remove(f)
                     else:
                         exist.append(f)
 
@@ -721,183 +734,30 @@ class BinTableHDU(_TableBaseHDU):
                                      for f in exist]))
 
         # Process the data
-
-        if not datafile:
-            root, ext = os.path.splitext(self._file.name)
-            datafile = root + '.txt'
-
-        closeDfile = False
-
-        if isinstance(datafile, basestring):
-            datafile = open(datafile, 'w')
-            closeDfile = True
-
-        dlines = []   # lines to go out to the data file
-
-        # Process each row of the table and output the result to the dlines
-        # list.
-
-        for i in range(len(self.data)):
-            line = ''   # the line for this row of the table
-
-            # Process each column of the row.
-
-            for name in self.columns.names:
-                VLA_format = None   # format of data in a variable length array
-                                    # where None means it is not a VLA
-                fmt = _convert_format(
-                      self.columns.formats[self.columns.names.index(name)])
-
-                if isinstance(fmt, _FormatP):
-                    # P format means this is a variable length array so output
-                    # the length of the array for this row and set the format
-                    # for the VLA data
-                    line = line + "VLA_Length= %-21d " % \
-                                  len(self.data.field(name)[i])
-                    (repeat,dtype,option) = _parse_tformat(
-                         self.columns.formats[self.columns.names.index(name)])
-                    VLA_format =  FITS2NUMPY[option[0]][0]
-
-                if self.data.dtype.fields[name][0].subdtype:
-                    # The column data is an array not a single element
-
-                    if VLA_format:
-                        arrayFormat = VLA_format
-                    else:
-                        arrayFormat = \
-                              self.data.dtype.fields[name][0].subdtype[0].char
-
-                    # Output the data for each element in the array
-
-                    for val in self.data.field(name)[i].flat:
-                        if arrayFormat == 'S':
-                            # output string
-
-                            if len(val.split()) != 1:
-                                # there is whitespace in the string so put it
-                                # in quotes
-                                width = val.itemsize + 3
-                                str = '"' + val + '" '
-                            else:
-                                # no whitespace
-                                width = val.itemsize + 1
-                                str = val
-
-                            line = line + '%-*s' % (width, str)
-                        elif arrayFormat in np.typecodes['AllInteger']:
-                            # output integer
-                            line = line + '%21d ' % val
-                        elif arrayFormat in np.typecodes['AllFloat']:
-                            # output floating point
-                            line = line + '%#21.15g ' % val
-                else:
-                    # The column data is a single element
-                    arrayFormat = self.data.dtype.fields[name][0].char
-
-                    if arrayFormat == 'S':
-                        # output string
-
-                        if len(self.data.field(name)[i].split()) != 1:
-                            # there is whitespace in the string so put it
-                            # in quotes
-                            width = self.data.dtype.fields[name][0].itemsize+3
-                            str = '"' + self.data.field(name)[i] + '" '
-                        else:
-                            # no whitespace
-                            width = self.data.dtype.fields[name][0].itemsize+1
-                            str = self.data.field(name)[i]
-
-                        line = line + '%-*s'%(width,str)
-                    elif arrayFormat in np.typecodes['AllInteger']:
-                        # output integer
-                        line = line + '%21d ' % self.data.field(name)[i]
-                    elif arrayFormat in np.typecodes['AllFloat']:
-                        # output floating point
-                        line = line + '%21.15g ' % self.data.field(name)[i]
-
-            # Replace the trailing blank in the line with a new line
-            # and append the line for this row to the list of data lines
-            line = line[:-1] + '\n'
-            dlines.append(line)
-
-        # Write the data lines out to the ASCII data file
-        datafile.writelines(dlines)
-
-        if closeDfile:
-            datafile.close()
+        self._dump_data(datafile)
 
         # Process the column definitions
-
         if cdfile:
-            closeCdfile = False
-
-            if isinstance(cdfile, basestring):
-                cdfile = open(cdfile, 'w')
-                closeCdfile = True
-
-            cdlines = []   # lines to go out to the column definitions file
-
-            # Process each column of the table and output the result to the
-            # cdlines list
-
-            for j in range(len(self.columns.formats)):
-                disp = self.columns.disps[j]
-
-                if disp == '':
-                    disp = '""'  # output "" if value is not set
-
-                unit = self.columns.units[j]
-
-                if unit == '':
-                    unit = '""'
-
-                dim = self.columns.dims[j]
-
-                if dim == '':
-                    dim = '""'
-
-                null = self.columns.nulls[j]
-
-                if null == '':
-                    null = '""'
-
-                bscale = self.columns.bscales[j]
-
-                if bscale == '':
-                    bscale = '""'
-
-                bzero = self.columns.bzeros[j]
-
-                if bzero == '':
-                    bzero = '""'
-
-                #Append the line for this column to the list of output lines
-                cdlines.append(
-                   "%-16s %-16s %-16s %-16s %-16s %-16s %-16s %-16s\n" %
-                   (self.columns.names[j], self.columns.formats[j],
-                    disp, unit, dim, null, bscale, bzero))
-
-            # Write the column definition lines out to the ASCII column
-            # definitions file
-            cdfile.writelines(cdlines)
-
-            if closeCdfile:
-                cdfile.close()
+            self._dump_coldefs(cdfile)
 
         # Process the header parameters
-
         if hfile:
             self._header.toTxtFile(hfile)
-    tdump.__doc__ += tdump_file_format.replace('\n', '\n        ')
 
-    def tcreate(cls, datafile, cdfile=None, hfile=None, replace=False):
+    dump.__doc__ += tdump_file_format.replace('\n', '\n        ')
+    tdump = deprecated(name='tdump')(dump)
+
+    def load(cls, datafile, cdfile=None, hfile=None, replace=False,
+             header=None):
         """
         Create a table from the input ASCII files.  The input is from up to
         three separate files, one containing column definitions, one containing
-        header parameters, and one containing column data.  The column
-        definition and header parameters files are not required.  When absent
-        the column definitions and/or header parameters are taken from the
-        current values in this HDU.
+        header parameters, and one containing column data.
+
+        The column definition and header parameters files are not required.
+        When absent the column definitions and/or header parameters are taken
+        from the header object given in the header argument; otherwise sensible
+        defaults are inferred (though this mode is not recommended).
 
         Parameters
         ----------
@@ -923,186 +783,300 @@ class BinTableHDU(_TableBaseHDU):
             replaced with the contents of the ASCII file instead of
             just updating the current header.
 
+        header : Header object
+            When the cdfile and hfile are missing, use this Header object in
+            the creation of the new table and HDU.  Otherwise this Header
+            supercedes the keywords from hfile, which is only used to update
+            values not present in this Header, unless replace=True in which
+            this Header's values are completely replaced with the values from
+            hfile.
+
         Notes
         -----
-        The primary use for the `tcreate` method is to allow the input
-        of ASCII data that was edited in a standard text editor of the
-        table data and parameters.  The `tdump` method can be used to
-        create the initial ASCII files.
+        The primary use for the `load` method is to allow the input of ASCII
+        data that was edited in a standard text editor of the table data and
+        parameters.  The `dump` method can be used to create the initial ASCII
+        files.
         """
 
-        # Process the column definitions file
-
-        # TODO: This also might be good to break up a bit.
-
-        # An empty HDU to start with
-        hdu = cls()
-
-        if cdfile:
-            closeCdfile = False
-
-            if isinstance(cdfile, basestring):
-                cdfile = open(cdfile, 'r')
-                closeCdfile = True
-
-            cdlines = cdfile.readlines()
-
-            if closeCdfile:
-                cdfile.close()
-
-            hdu.columns.names = []
-            hdu.columns.formats = []
-            hdu.columns.disps = []
-            hdu.columns.units = []
-            hdu.columns.dims = []
-            hdu.columns.nulls = []
-            hdu.columns.bscales = []
-            hdu.columns.bzeros = []
-
-            for line in cdlines:
-                words = line[:-1].split()
-                hdu.columns.names.append(words[0])
-                hdu.columns.formats.append(words[1])
-                hdu.columns.disps.append(words[2].replace('""', ''))
-                hdu.columns.units.append(words[3].replace('""', ''))
-                hdu.columns.dims.append(words[4].replace('""', ''))
-                null = words[5].replace('""', '')
-
-                if null:
-                    hdu.columns.nulls.append(_str_to_num(null))
-                else:
-                    hdu.columns.nulls.append(null)
-
-                bscale = words[6].replace('""', '')
-
-                if bscale:
-                    hdu.columns.bscales.append(_str_to_num(bscale))
-                else:
-                    hdu.columns.bscales.append(bscale)
-
-                bzero = words[7].replace('""', '')
-
-                if bzero:
-                    hdu.columns.bzeros.append(_str_to_num(bzero))
-                else:
-                    hdu.columns.bzeros.append(bzero)
 
         # Process the parameter file
+        if header is None:
+            header = Header()
 
         if hfile:
-            hdu._header.fromTxtFile(hfile, replace)
+            header.fromTxtFile(hfile, replace)
+
+        coldefs = None
+        # Process the column definitions file
+        if cdfile:
+            coldefs = cls._load_coldefs(cdfile)
 
         # Process the data file
+        data = cls._load_data(datafile, coldefs)
+        if coldefs is None:
+            coldefs = ColDefs(data)
 
-        closeDfile = False
+        # Create a new HDU using the supplied header and data
+        hdu = cls(data=data, header=header)
+        hdu.columns = coldefs
+        return hdu
+    load.__doc__ += tdump_file_format.replace('\n', '\n        ')
+    load = classmethod(load)
+    # Have to create a classmethod from this here instead of as a decorator;
+    # otherwise we can't update __doc__
+    tcreate = deprecated(name='tcreate')(load)
 
-        if isinstance(datafile, basestring):
-            datafile = open(datafile, 'r')
-            closeDfile = True
+    def _dump_data(self, fileobj):
+        """
+        Write the table data in the ASCII format read by BinTableHDU.load()
+        to fileobj.
+        """
 
-        dlines = datafile.readlines()
+        if not fileobj and self._file:
+            root, ext = os.path.splitext(self._file.name)
+            fileobj = root + '.txt'
 
-        if closeDfile:
-            datafile.close()
+        close_file = False
 
-        arrays = []
-        VLA_formats = []
-        X_format_size = []
-        recFmts = []
+        if isinstance(fileobj, basestring):
+            fileobj = open(fileobj, 'w')
+            close_file = True
 
-        for i in range(len(hdu.columns.names)):
-            arrayShape = len(dlines)
-            recFmt = _convert_format(hdu.columns.formats[i])
-            recFmts.append(recFmt[0])
-            X_format_size = X_format_size + [-1]
+        linewriter = csv.writer(fileobj, dialect=FITSTableDumpDialect)
 
-            if isinstance(recFmt, _FormatP):
-                recFmt = 'O'
-                (repeat,dtype,option) = _parse_tformat(hdu.columns.formats[i])
-                VLA_formats = VLA_formats + [FITS2NUMPY[option[0]]]
-            elif isinstance(recFmt, _FormatX):
-                recFmt = np.uint8
-                (X_format_size[i],dtype,option) = \
-                                     _parse_tformat(hdu.columns.formats[i])
-                arrayShape = (len(dlines), X_format_size[i])
+        # Process each row of the table and output one row at a time
+        def format_value(val, format):
+            if format[0] == 'S':
+                itemsize = int(format[1:])
+                return '%-*s' % (itemsize, val)
+            elif format in np.typecodes['AllInteger']:
+                # output integer
+                return '%21d' % val
+            elif format in np.typecodes['Complex']:
+                return '%21.15g+%.15gj' % (val.real, val.imag)
+            elif format in np.typecodes['Float']:
+                # output floating point
+                return '%#21.15g' % val
 
-            arrays.append(np.empty(arrayShape,recFmt))
 
-        lineNo = 0
+        for row in self.data:
+            line = []   # the line for this row of the table
 
-        for line in dlines:
-            words = []
-            idx = 0
-            VLA_Lengths = []
+            # Process each column of the row.
+            for column in self.columns:
+                vla_format = None   # format of data in a variable length array
+                                    # where None means it is not a VLA
+                format = _convert_format(column.format)
 
-            while idx < len(line):
-                if line[idx:idx+12] == 'VLA_Length= ':
-                    VLA_Lengths = VLA_Lengths + [int(line[idx+12:idx+34])]
-                    idx += 34
+                if isinstance(format, _FormatP):
+                    # P format means this is a variable length array so output
+                    # the length of the array for this row and set the format
+                    # for the VLA data
+                    line.append('VLA_Length=')
+                    line.append('%-21d' % len(row[column.name]))
+                    repeat, dtype, option = _parse_tformat(column.format)
+                    vla_format = FITS2NUMPY[option[0]][0]
 
-                idx1 = line[idx:].find('"')
-
-                if idx1 >=0:
-                    words = words + line[idx:idx+idx1].split()
-                    idx2 = line[idx+idx1+1:].find('"')
-                    words = words + [line[idx1+1:idx1+idx2+1]]
-                    idx = idx + idx1 + idx2 + 2
+                if vla_format:
+                    # Output the data for each element in the array
+                    for val in row[column.name].flat:
+                        line.append(format_value(val, vla_format))
                 else:
-                    idx2 = line[idx:].find('VLA_Length= ')
+                    # The column data is a single element
+                    dtype = self.data.dtype.fields[column.name][0]
+                    array_format = dtype.char
+                    if array_format == 'S':
+                        array_format += str(dtype.itemsize)
+                    line.append(format_value(row[column.name], array_format))
+            linewriter.writerow(line)
+        if close_file:
+            fileobj.close()
 
-                    if idx2 < 0:
-                        words = words + line[idx:].split()
-                        idx = len(line)
-                    else:
-                        words = words + line[idx:idx+idx2].split()
-                        idx = idx + idx2
+    def _dump_coldefs(self, fileobj):
+        """
+        Write the column definition parameters in the ASCII format read by
+        BinTableHDU.load() to fileobj.
+        """
 
+        close_file = False
+
+        if isinstance(fileobj, basestring):
+            fileobj = open(fileobj, 'w')
+            close_file = True
+
+        # Process each column of the table and output the result to the
+        # file one at a time
+        for column in self.columns:
+            line = [column.name, column.format]
+            attrs = ['disp', 'unit', 'dim', 'null', 'bscale', 'bzero']
+            line += ['%-16s' % (value if value else '""')
+                     for value in (getattr(column, attr) for attr in attrs)]
+            fileobj.write(' '.join(line))
+            fileobj.write('\n')
+
+        if close_file:
+            fileobj.close()
+
+    @classmethod
+    def _load_data(cls, fileobj, coldefs=None):
+        """
+        Read the table data from the ASCII file output by BinTableHDU.dump().
+        """
+
+        close_file = False
+
+        if isinstance(fileobj, basestring):
+            fileobj = open(fileobj, 'r')
+            close_file = True
+
+        initialpos = fileobj.tell() # We'll be returning here later
+        linereader = csv.reader(fileobj, dialect=FITSTableDumpDialect)
+
+        # First we need to do some preprocessing on the file to find out how
+        # much memory we'll need to reserve for the table.  This is necessary
+        # even if we already have the coldefs in order to determine how many
+        # rows to reserve memory for
+        vla_lengths = []
+        recformats = []
+        names = []
+        nrows = 0
+        if coldefs is not None:
+            recformats = coldefs._recformats
+            names = coldefs.names
+
+        def update_recformats(value, idx):
+            fitsformat = _scalar_to_format(value)
+            recformat = _convert_format(fitsformat)
+            if idx >= len(recformats):
+                recformats.append(recformat)
+            else:
+                if _cmp_recformats(recformats[idx], recformat) < 0:
+                    recformats[idx] = recformat
+
+        # TODO: The handling of VLAs could probably be simplified a bit
+        for row in linereader:
+            nrows += 1
+            if coldefs is not None:
+                continue
+            col = 0
             idx = 0
-            VLA_idx = 0
-
-            for i in range(len(hdu.columns.names)):
-
-                if arrays[i].dtype == 'object':
-                    arrays[i][lineNo] = np.array(
-                     words[idx:idx+VLA_Lengths[VLA_idx]],VLA_formats[VLA_idx])
-                    idx += VLA_Lengths[VLA_idx]
-                    VLA_idx += 1
-                elif X_format_size[i] >= 0:
-                    arrays[i][lineNo] = words[idx:idx+X_format_size[i]]
-                    idx += X_format_size[i]
-                elif isinstance(arrays[i][lineNo], np.ndarray):
-                    arrays[i][lineNo] = words[idx:idx+arrays[i][lineNo].size]
-                    idx += arrays[i][lineNo].size
-                else:
-                    if recFmts[i] == 'a':
-                        # make sure character arrays are blank filled
-                        arrays[i][lineNo] = words[idx]+(arrays[i].itemsize-
-                                                        len(words[idx]))*' '
+            while idx < len(row):
+                if row[idx] == 'VLA_Length=':
+                    if col < len(vla_lengths):
+                        vla_length = vla_lengths[col]
                     else:
-                        arrays[i][lineNo] = words[idx]
-
+                        vla_length = int(row[idx + 1])
+                        vla_lengths.append(vla_length)
+                    idx += 2
+                    while vla_length:
+                        update_recformats(row[idx], col)
+                        vla_length -= 1
+                        idx += 1
+                    col += 1
+                else:
+                    if col >= len(vla_lengths):
+                        vla_lengths.append(None)
+                    update_recformats(row[idx], col)
+                    col += 1
                     idx += 1
 
-            lineNo += 1
+        # Update the recformats for any VLAs
+        for idx, length in enumerate(vla_lengths):
+            if length is not None:
+                recformat = _FormatP(str(length) + recformats[idx])
+                # TODO: I shouldn't have to set this magic attribute, but
+                # _convert_fits2record does it and apparently _makep requires
+                # this.  This spaghetti code needs fixing
+                recformat._dtype = recformats[idx]
+                recformats[idx] = recformat
+
+        dtype = np.rec.format_parser(recformats, names, None).dtype
+
+        # TODO: In the future maybe enable loading a bit at a time so that we
+        # can convert from this format to an actual FITS file on disk without
+        # needing enough physical memory to hold the entire thing at once;
+        # new_table() could use a similar feature.
+        hdu = new_table(np.recarray(shape=1, dtype=dtype), nrows=nrows,
+                        fill=True)
+        data = hdu.data
+        # Unfortunately, the fact that some columns are VLAs is not preserved
+        # through the call to new_table(), so we need to fix that up after the
+        # fact.
+        # TODO: new_table really needs to be fixed so that this mess is
+        # unnecessary
+        for idx, recformat in enumerate(recformats):
+            if not isinstance(recformat, _FormatP):
+                continue
+            arr = data.columns._arrays[idx]
+            hdu.data._convert[idx] = _makep(arr, arr, recformat._dtype)
+
+        # Jump back to the start of the data and create a new line reader
+        fileobj.seek(initialpos)
+        linereader = csv.reader(fileobj, dialect=FITSTableDumpDialect)
+        for row, line in enumerate(linereader):
+            col = 0
+            idx = 0
+            while idx < len(line):
+                if line[idx] == 'VLA_Length=':
+                    vla_len = vla_lengths[col]
+                    idx += 2
+                    data[row][col][:] = line[idx:idx + vla_len]
+                    idx += vla_len
+                else:
+                    # TODO: This won't work for complex-valued types; fix this
+                    # Kind of silly special handling for bools
+                    val = line[idx]
+                    if recformats[col] == FITS2NUMPY['L']:
+                        val = bool(int(val))
+                    elif recformats[col] == FITS2NUMPY['M']:
+                        # For some reason, in arrays/fields where numpy expects
+                        # a complex it's not happy to take a string
+                        # representation (though it's happy to do that in other
+                        # contexts), so we have to convert the string
+                        # representation for it:
+                        val = complex(val)
+                    data[row][col] = val
+                    idx += 1
+                col += 1
+
+        if close_file:
+            fileobj.close()
+
+        return data
+
+    @classmethod
+    def _load_coldefs(cls, fileobj):
+        """
+        Read the table column definitions from the ASCII file output by
+        BinTableHDU.dump().
+        """
+
+        close_file = False
+
+        if isinstance(fileobj, basestring):
+            fileobj = open(fileobj, 'r')
+            close_file = True
 
         columns = []
 
-        for i in range(len(hdu.columns.names)):
-            columns.append(Column(name=hdu.columns.names[i],
-                                  format=hdu.columns.formats[i],
-                                  disp=hdu.columns.disps[i],
-                                  unit=hdu.columns.units[i],
-                                  null=hdu.columns.nulls[i],
-                                  bscale=hdu.columns.bscales[i],
-                                  bzero=hdu.columns.bzeros[i],
-                                  dim=hdu.columns.dims[i],
-                                  array=arrays[i]))
+        for line in fileobj:
+            words = line[:-1].split()
+            kwargs = {}
+            for key in ['name', 'format', 'disp', 'unit', 'dim']:
+                kwargs[key] = words.pop(0).replace('""', '')
 
-        return new_table(columns, hdu._header)
-    tcreate.__doc__ += tdump_file_format.replace('\n', '\n        ')
-    # We can't do this as a decorator since otherwise the append to __doc__
-    # won't work
-    tcreate = classmethod(tcreate)
+            for key in ['null', 'bscale', 'bzero']:
+                word = words.pop(0).replace('""', '')
+                if word:
+                    word = _str_to_num(word)
+                kwargs[key] = word
+            columns.append(Column(**kwargs))
+
+        if close_file:
+            fileobj.close()
+
+        return ColDefs(columns)
 
 
 # TODO: Allow tbtype to be either a string or a class; perhaps eventually
