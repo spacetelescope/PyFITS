@@ -9,11 +9,12 @@ from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU, _TableBaseHDU
 from pyfits.header import Header
-from pyfits.util import _with_extensions
+from pyfits.util import _with_extensions, deprecated
 
 
 __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
-           'append', 'update', 'info', 'tdump', 'tcreate']
+           'append', 'update', 'info', 'tdump', 'tcreate', 'tabledump',
+           'tableload']
 
 """Convenience functions"""
 
@@ -541,8 +542,8 @@ def info(filename, classExtensions={}, output=None, **kwargs):
 
 
 @_with_extensions
-def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
-          clobber=False, classExtensions={}):
+def tabledump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
+              clobber=False, classExtensions={}):
     """
     Dump a table HDU to a file in ASCII format.  The table may be
     dumped in three separate files, one containing column definitions,
@@ -580,7 +581,7 @@ def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
 
     Notes
     -----
-    The primary use for the `tdump` function is to allow editing in a
+    The primary use for the `tabledump` function is to allow editing in a
     standard text editor of the table data and parameters.  The
     `tcreate` function can be used to reassemble the table from the
     three ASCII files.
@@ -600,14 +601,15 @@ def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
         datafile = root + '_' + repr(ext) + '.txt'
 
     # Dump the data from the HDU to the files
-    f[ext].tdump(datafile, cdfile, hfile, clobber)
+    f[ext].dump(datafile, cdfile, hfile, clobber)
 
     if closed:
         f.close()
-tdump.__doc__ += BinTableHDU.tdump_file_format.replace('\n', '\n    ')
+dump.__doc__ += BinTableHDU.dump_file_format.replace('\n', '\n    ')
+tdump = deprecated(name='tdump')(dump)
 
 
-def tcreate(datafile, cdfile, hfile=None):
+def tableload(datafile, cdfile, hfile=None):
     """
     Create a table from the input ASCII files.  The input is from up
     to three separate files, one containing column definitions, one
@@ -633,14 +635,15 @@ def tcreate(datafile, cdfile, hfile=None):
 
     Notes
     -----
-    The primary use for the `tcreate` function is to allow the input of
+    The primary use for the `tableload` function is to allow the input of
     ASCII data that was edited in a standard text editor of the table
-    data and parameters.  The tdump function can be used to create the
+    data and parameters.  The tabledump function can be used to create the
     initial ASCII files.
     """
 
-    return BinTableHDU.tcreate(datafile, cdfile, hfile, replace=True)
-tcreate.__doc__ += BinTableHDU.tdump_file_format.replace('\n', '\n    ')
+    return BinTableHDU.load(datafile, cdfile, hfile, replace=True)
+tableload.__doc__ += BinTableHDU.tdump_file_format.replace('\n', '\n    ')
+tcreate = deprecated(name='tcreate')(tableload)
 
 
 def _getext(filename, mode, *ext1, **ext2):
