@@ -605,8 +605,8 @@ def tabledump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
 
     if closed:
         f.close()
-dump.__doc__ += BinTableHDU.dump_file_format.replace('\n', '\n    ')
-tdump = deprecated(name='tdump')(dump)
+tabledump.__doc__ += BinTableHDU.tdump_file_format.replace('\n', '\n    ')
+tdump = deprecated(name='tdump')(tabledump)
 
 
 def tableload(datafile, cdfile, hfile=None):

@@ -476,22 +476,6 @@ def _write_string(f, s):
     f.write(s)
 
 
-def _chunk_array(arr, CHUNK_SIZE=2 ** 25):
-    """
-    Yields subviews of the given array.  The number of rows is
-    selected so it is as close to CHUNK_SIZE (bytes) as possible.
-    """
-
-    if len(arr) == 0:
-        return
-    if isinstance(arr, FITS_rec):
-        arr = np.asarray(arr)
-    row_size = arr[0].size
-    rows_per_chunk = max(min(CHUNK_SIZE // row_size, len(arr)), 1)
-    for idx in range(0, len(arr), rows_per_chunk):
-        yield arr[idx:idx + rows_per_chunk,...]
-
-
 def _convert_array(array, dtype):
     """
     Converts an array to a new dtype--if the itemsize of the new dtype is
