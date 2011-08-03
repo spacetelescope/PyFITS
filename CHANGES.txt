@@ -21,6 +21,10 @@ Changelog
   has many changes and is not guaranteed to be backwards-compatible).  There
   are a few small public API changes to be aware of:
 
+  * The pyfits.rec module has been removed completely.  If your version of
+    numpy does not have the numpy.core.records module it is too old to be used
+    with PyFITS.
+
   * The `Header.ascardlist()` method is deprecated--use the `.ascard`
     attribute instead.
 
