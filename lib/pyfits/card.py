@@ -1490,6 +1490,28 @@ class CardList(list):
                 del self[-1] # it also delete the keylist item
 
 
+class CardList(list):
+    # TODO: Implement some approximation of the old CardList API for
+    # deprecation support
+    pass
+
+
+class Card(tuple):
+        # TODO: This class might still be useful for the Header class
+        # internally; consider moving this to pyfits.header and leaving an
+        # alias in pyfits.card for backwards-compat
+
+    length = 80
+
+    def __new__(cls, keyword, value='', comment=''):
+        return super(Card, cls).__new__(cls, (keyword, value, comment))
+
+    def __repr__(self):
+        # TODO: Have this return the actual representation of a card in a FITS
+        # header, including CONTINUE cards if necessary
+        pass
+
+
 def create_card(key='', value='', comment=''):
     return RecordValuedKeywordCard.create(key, value, comment)
 create_card.__doc__ = RecordValuedKeywordCard.create.__doc__

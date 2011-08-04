@@ -398,6 +398,21 @@ def pairwise(iterable):
     return itertools.izip(a, b)
 
 
+def isiterable(obj):
+    """Returns true of the given object is iterable."""
+
+    # In Python2.6 and up this is simply a matter of checking isinstance
+    # collections.Iterable, but this unavailable in Python 2.5 and below
+    try:
+        from collections import Iterable
+        return isinstance(obj, Iterable)
+    except ImportError:
+        try:
+            iter(obj)
+            return True
+        except TypeError:
+            return False
+
 def encode_ascii(s):
     """
     In Python 2 this is a no-op.  Strings are left alone.  In Python 3 this

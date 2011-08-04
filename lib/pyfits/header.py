@@ -1,50 +1,38 @@
 import os
 import warnings
 
-try:
-    from collections import MutableMapping as __HEADERBASE
-except ImportError:
-    from UserDict import DictMixin
-    class __HEADERBASE(DictMixin, object): # object to make a newstyle class
-        pass
+from collections import defaultdict
 
 from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _ContinueCard, _HierarchCard, create_card, \
                         create_card_from_string, upper_key
-from pyfits.util import BLOCK_SIZE, deprecated
+from pyfits.util import BLOCK_SIZE, deprecated, isiterable
 
 
-class Header(__HEADERBASE):
+class Header(object):
+    # TODO: Fix up this docstring and all other docstrings in the class
     """
     FITS header class.
 
     The purpose of this class is to present the header like a
     dictionary as opposed to a list of cards.
 
-    The attribute `ascard` supplies the header like a list of cards.
-
     The header class uses the card's keyword as the dictionary key and
     the cards value is the dictionary value.
 
-    The `has_key`, `get`, and `keys` methods are implemented to
-    provide the corresponding dictionary functionality.  The header
-    may be indexed by keyword value and like a dictionary, the
+    The header may be indexed by keyword value and like a dictionary, the
     associated value will be returned.  When the header contains cards
     with duplicate keywords, only the value of the first card with the
-    given keyword will be returned.
+    given keyword will be returned.  It is also possible to use a 2-tuple as
+    the index in the form (keyword, n)--this returns the n-th value with that
+    keyword, in the case where there are duplicate keywords.
 
     The header may also be indexed by card list index number.  In that
     case, the value of the card at the given index in the card list
     will be returned.
-
-    A delete method has been implemented to allow deletion from the
-    header.  When `del` is called, all cards with the given keyword
-    are deleted from the header.
-
-    The `Header` class has an associated iterator class `_Header_iter`
-    which will allow iteration over the unique keywords in the header
-    dictionary.
     """
+
+    _commentary_keywords = ['', 'COMMENT', 'HISTORY']
 
     # TODO: Allow the header to take a few other types of inputs, for example
     # a list of (key, value) tuples, (key, value, comment) tuples, or a dict
@@ -52,7 +40,7 @@ class Header(__HEADERBASE):
     # be handled by the underlying CardList I suppose.
     def __init__(self, cards=[], txtfile=None):
         """
-        Construct a `Header` from a `CardList` and/or text file.
+        Construct a `Header` from an iterable and/or text file.
 
         Parameters
         ----------
@@ -63,16 +51,24 @@ class Header(__HEADERBASE):
             Input ASCII header parameters file.
         """
 
-        # populate the cardlist
-        self.ascard = CardList(cards)
+        self._modified = False
+        self._cards = []
+        self._keyword_counts = defaultdict(lambda: 0)
+        self._keyword_indices = {}
 
         if txtfile:
+            warnings.warn(
+                'The txtfile argument is deprecated.  Use Header.fromfile to '
+                'create a new Header object from a text file.',
+                DeprecationWarning)
             # get the cards from the input ASCII file
-            self.fromTxtFile(txtfile, not len(self.ascard))
-        self._mod = False
+            self.update(self.fromfile(txtfile))
+            return
+
+        self.update(cards)
 
     def __len__(self):
-        return len(self.ascard)
+        return len(self._cards)
 
     def __iter__(self):
         for card in self.ascard:
@@ -96,7 +92,7 @@ class Header(__HEADERBASE):
         key = upper_key(key)
         if key[:8] == 'HIERARCH':
             key = key[8:].strip()
-        return key in self.ascard
+        return key in self._keyword_counts
     has_key = deprecated(name='has_key',
                          alternative='`key in header` syntax')(__contains__)
 
@@ -121,7 +117,7 @@ class Header(__HEADERBASE):
         """
 
         self.ascard[key].value = value
-        self._mod = 1
+        self._modified = 1
 
     def __delitem__(self, key):
         """
@@ -133,14 +129,14 @@ class Header(__HEADERBASE):
             while True:
                 try:
                     del self.ascard[key]
-                    self._mod = True
+                    self._modified = True
                 except:
                     return
 
         # for integer key only delete once
         else:
             del self.ascard[key]
-            self._mod = True
+            self._modified = True
 
     def __str__(self):
         return str(self.ascard)
@@ -206,8 +202,8 @@ class Header(__HEADERBASE):
 
         return retval
 
-    def update(self, key, value, comment=None, before=None, after=None,
-               savecomment=False):
+    def update(self, key=None, value=None, comment=None, before=None,
+               after=None, savecomment=False, **kwargs):
         """
         Update one header card.
 
@@ -245,32 +241,94 @@ class Header(__HEADERBASE):
             preserved.
         """
 
-        keylist = RecordValuedKeywordCard.valid_key_value(key, value)
+        # TODO: Restore temporary support for old-style update method
+        if key is not None:
+            if isinstance(key, basestring):
+                # Old-style update; ignore for now
+                # TODO: Restore support for this
+                pass
+            # The rest of this should work similarly to dict.update()
+            elif hasattr(key, 'keys') or kwargs:
+                # If this is a dict, just update with tuples created by joining
+                # the key and the value--the value may either be a single item
+                # representing the value of the card, or it may be a 2-tuple if
+                # the value and a comment
+                # If this is not an ordered dict, the order in which new
+                # keywords are appended is of course unpredictable, so this
+                # method should not be used for adding new cards
 
-        if keylist:
-            keyword = keylist[0] + '.' + keylist[1]
+                # If both a dictionary and keyword arguments are provided, they
+                # keyword arguments take precendence
+                key.update(kwargs)
+
+                for k in key:
+                    val = key[k]
+                    if not isinstance(val, tuple):
+                        val = (k, val)
+                    elif 0 < len(val) <= 2:
+                        val = (k,) + val
+                    else:
+                        raise ValueError(
+                                'Header update value for key %r is invalid; '
+                                'the value must be either a scalar, a '
+                                '1-tuple containing the scalar value, or a '
+                                '2-tuple containing the value and a comment '
+                                'string.' % k)
+                    self._update(*val)
+            elif isiterable(key):
+                for idx, val in enumerate(key):
+                    if isinstance(val, tuple) and (1 < len(val) <= 3):
+                        self._update(*val)
+                    else:
+                        raise ValueError(
+                                'Header update sequence item #%d is invalid; '
+                                'the item must either be a 2-tuple containing '
+                                'a keyword and value, or a 3-tuple containing '
+                                'a keyword, value, and comment string.' % idx)
+
+    def append(self, card):
+        keyword, value, comment = card
+        self._cards.append(card)
+        self._keyword_counts[keyword] += 1
+        count = self._keyword_counts[keyword]
+        keyword_n = (keyword, count)
+        # TODO: This is not thread-safe; do we care?
+        if keyword_n not in self._keyword_indices:
+            self._keyword_indices[keyword_n] = len(self._cards)
+        self._modified = True
+
+    def _update(self, keyword, value='', comment=''):
+        """
+        The real update code.  If keyword already exists, its value and/or
+        comment will be updated.  Otherwise a new card will be appended.
+
+        This will not create a duplicate keyword except in the case of
+        commentary cards.  The only other way to force creation of a duplicate
+        is to use the insert(), append(), or extend() methods.
+        """
+
+        # TODO: Handle RVKCs at some point; right now for simplicity's sake
+        # we're ignoring them
+
+        # TODO: Obviously commentary keywords aren't really properly supported
+        # yet
+
+        if keyword in self._keyword_indices:
+            # Easy; just update the value/comment
+            # TODO: Once we start worrying about the string representation of
+            # the entire header, we should probably touch something here to
+            # ensure that it's updated
+            # TODO: Implement some modicum of value validation; if the value
+            # type is not supported by the FITS standard a warning should be
+            # issued and it should be converted to a string as a fallback
+            idx = self._keyword_indices[keyword]
+            _, oldvalue, oldcomment = self._cards[idx]
+            if value != oldvalue or comment != oldcomment:
+                self._cards[idx] = (keyword, value, comment)
+                self._modified = True
         else:
-            keyword = key
-
-        if keyword in self:
-            j = self.ascard.index_of(keyword)
-            if not savecomment and comment is not None:
-                _comment = comment
-            else:
-                _comment = self.ascard[j].comment
-            _card = create_card(key, value, _comment)
-            if before is not None or after is not None:
-                del self.ascard[j]
-                self.ascard._pos_insert(_card, before=before, after=after)
-            else:
-                self.ascard[j] = _card
-        elif before is not None or after is not None:
-            _card = create_card(key, value, comment)
-            self.ascard._pos_insert(_card, before=before, after=after)
-        else:
-            self.ascard.append(create_card(key, value, comment))
-
-        self._mod = True
+            # A new keyword! self.append() will handle updating _modified
+            self.append((keyword, value, comment))
 
     def copy(self, strip=False):
         """
@@ -581,7 +639,7 @@ class Header(__HEADERBASE):
                 except:
                     self.ascard.append(new_card, bottom=1)
 
-        self._mod = True
+        self._modified = True
 
     def _strip(self):
         """
