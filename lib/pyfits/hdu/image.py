@@ -59,27 +59,27 @@ class _ImageBaseHDU(_ValidHDU):
             # PrimaryHDU and GroupsHDU subclasses
             # construct a list of cards of minimal header
             if isinstance(self, ExtensionHDU):
-                c0 = Card('XTENSION', 'IMAGE', 'Image extension')
+                c0 = ('XTENSION', 'IMAGE', 'Image extension')
             else:
-                c0 = Card('SIMPLE', True, 'conforms to FITS standard')
+                c0 = ('SIMPLE', True, 'conforms to FITS standard')
 
-            _list = CardList([
+            cards = [
                 c0,
-                Card('BITPIX',    8, 'array data type'),
-                Card('NAXIS',     0, 'number of array dimensions'),
-                ])
+                ('BITPIX',    8, 'array data type'),
+                ('NAXIS',     0, 'number of array dimensions')]
+
             if isinstance(self, GroupsHDU):
-                _list.append(Card('GROUPS', True, 'has groups'))
+                cards.append(('GROUPS', True, 'has groups'))
 
             if isinstance(self, (ExtensionHDU, GroupsHDU)):
-                _list.append(Card('PCOUNT',    0, 'number of parameters'))
-                _list.append(Card('GCOUNT',    1, 'number of groups'))
+                cards.append(('PCOUNT',    0, 'number of parameters'))
+                cards.append(('GCOUNT',    1, 'number of groups'))
 
             if header is not None:
                 hcopy = header.copy(strip=True)
-                _list.extend(hcopy.ascard)
+                cards.extend(hcopy.cards)
 
-            self._header = Header(_list)
+            self._header = Header(cards)
 
         self._do_not_scale_image_data = do_not_scale_image_data
         self._uint = uint

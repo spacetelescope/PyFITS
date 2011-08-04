@@ -792,7 +792,7 @@ class _ValidHDU(_BaseHDU, _Verify):
                     except ValueError:
                         err_text = "NAXISj keyword out of range ('%s' when " \
                                    "NAXIS == %d)" % (card.key, naxis)
- 
+
                         def fix(self=self, card=card):
                             del self._header[card.key]
 

@@ -138,22 +138,21 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                 self._header = header
         else:
             # construct a list of cards of minimal header
-            cards = CardList([
-                Card('XTENSION',      '', ''),
-                Card('BITPIX',         8, 'array data type'),
-                Card('NAXIS',          2, 'number of array dimensions'),
-                Card('NAXIS1',         0, 'length of dimension 1'),
-                Card('NAXIS2',         0, 'length of dimension 2'),
-                Card('PCOUNT',         0, 'number of group parameters'),
-                Card('GCOUNT',         1, 'number of groups'),
-                Card('TFIELDS',        0, 'number of table fields')
-                ])
+            cards = [
+                ('XTENSION',      '', ''),
+                ('BITPIX',         8, 'array data type'),
+                ('NAXIS',          2, 'number of array dimensions'),
+                ('NAXIS1',         0, 'length of dimension 1'),
+                ('NAXIS2',         0, 'length of dimension 2'),
+                ('PCOUNT',         0, 'number of group parameters'),
+                ('GCOUNT',         1, 'number of groups'),
+                ('TFIELDS',        0, 'number of table fields')]
 
             if header is not None:
                 # Make a "copy" (not just a view) of the input header, since it
                 # may get modified.  the data is still a "view" (for now)
                 hcopy = header.copy(strip=True)
-                cards.extend(hcopy.ascard)
+                cards.extend(hcopy.cards)
 
             self._header = Header(cards)
 

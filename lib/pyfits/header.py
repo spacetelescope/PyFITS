@@ -32,8 +32,6 @@ class Header(object):
     will be returned.
     """
 
-    _commentary_keywords = ['', 'COMMENT', 'HISTORY']
-
     # TODO: Allow the header to take a few other types of inputs, for example
     # a list of (key, value) tuples, (key, value, comment) tuples, or a dict
     # of either key: value or key: (value, comment) mappings.  This could all
@@ -51,8 +49,8 @@ class Header(object):
             Input ASCII header parameters file.
         """
 
-        self._modified = False
         self._cards = []
+        self._modified = False
         self._keyword_counts = defaultdict(lambda: 0)
         self._keyword_indices = {}
 
@@ -71,8 +69,8 @@ class Header(object):
         return len(self._cards)
 
     def __iter__(self):
-        for card in self.ascard:
-            yield card.key
+        for card in self._cards:
+            yield card.keyword
 
     def __contains__(self, key):
         """
@@ -101,23 +99,25 @@ class Header(object):
         Get a header keyword value.
         """
 
-        card = self.ascard[key]
-
-        if isinstance(card, RecordValuedKeywordCard) and \
-           (not isinstance(key, basestring) or '.' not in key):
-            return card.strvalue()
-        elif isinstance(card, CardList):
-            return card
-        else:
-            return card.value
+#         card = self.ascard[key]
+# 
+#         if isinstance(card, RecordValuedKeywordCard) and \
+#            (not isinstance(key, basestring) or '.' not in key):
+#             return card.strvalue()
+#         elif isinstance(card, CardList):
+#             return card
+#         else:
+#             return card.value
+        # TODO: Implement the filterstring capability of CardList
+        return self._cards[self._cardindex(key)].value
 
     def __setitem__ (self, key, value):
         """
         Set a header keyword value.
         """
 
-        self.ascard[key].value = value
-        self._modified = 1
+        self._cards[self._cardindex(key)].value = value
+        self._modified = True
 
     def __delitem__(self, key):
         """
@@ -141,6 +141,25 @@ class Header(object):
     def __str__(self):
         return str(self.ascard)
 
+    @property
+    def cards(self):
+        """
+        The underlying physical cards that make up this Header; it can be
+        looked at, but it should not be modified directly.
+        """
+
+        return tuple(self._cards)
+
+    @property
+    def ascard(self):
+        """
+        Returns a CardList object wrapping this Header; provided for
+        backwards compatibility for the old API (where Headers had an
+        underlying CardList).
+        """
+
+        return CardList(self)
+
     @classmethod
     def fromstring(cls, data):
         """
@@ -158,47 +177,51 @@ class Header(object):
                              % (BLOCK_SIZE, len(data)))
 
         cards = []
-        keys = []
 
         # Split the header into individual cards
-        for idx in range(0, len(data), Card.length):
-            card = create_card_from_string(data[idx:idx + Card.length])
-            key = card.key
+        idx = 0
 
-            if key == 'END':
-                break
+        def peeknext():
+            if idx + Card.length < len(data):
+                return data[idx + Card.length:idx + Card.length * 2]
             else:
-                cards.append(card)
-                keys.append(key)
+                return None
 
-        # Deal with CONTINUE cards
-        # if a long string has CONTINUE cards, the "Card" is considered
-        # to be more than one 80-char "physical" cards.
-        idx = len(cards)
-        continueimg = []
-        for card in reversed(cards):
-            idx -= 1
-            if idx != 0 and card.key == 'CONTINUE':
-                continueimg.append(card._cardimage)
-                del cards[idx]
-            elif continueimg:
-                continueimg.append(card._cardimage)
-                continueimg = ''.join(reversed(continueimg))
-                cards[idx] = _ContinueCard.fromstring(continueimg)
-                continueimg = []
+        while idx < len(data):
+            image = [data[idx:idx + Card.length]]
+            next = peeknext()
+            while next and next[:8] == 'CONTINUE':
+                image.append(next)
+                idx += Card.length
+                next = peeknext()
+            card = Card.fromstring(''.join(image))
+            if card.key == 'END':
+                break
+            cards.append(card)
+            idx += Card.length
 
-        return cls(CardList(cards, keylist=keys))
+        return cls(cards)
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except (KeyError, IndexError):
+            return default
 
     def keys(self):
         """
         Return a list of keys with duplicates removed.
         """
 
+        seen = set()
         retval = []
 
-        for key in self.ascard.keys():
-            if not key in retval:
-                retval.append(key)
+        for card in self._cards:
+            # Blank keywords are ignored
+            keyword = card.keyword
+            if keyword and keyword not in seen:
+                seen.add(keyword)
+                retval.append(keyword)
 
         return retval
 
@@ -241,60 +264,65 @@ class Header(object):
             preserved.
         """
 
+        if key is None:
+            # Key will be an empty dict to be filled by any keyword arguments
+            key = {}
+
         # TODO: Restore temporary support for old-style update method
-        if key is not None:
-            if isinstance(key, basestring):
-                # Old-style update; ignore for now
-                # TODO: Restore support for this
-                pass
-            # The rest of this should work similarly to dict.update()
-            elif hasattr(key, 'keys') or kwargs:
-                # If this is a dict, just update with tuples created by joining
-                # the key and the value--the value may either be a single item
-                # representing the value of the card, or it may be a 2-tuple if
-                # the value and a comment
-                # If this is not an ordered dict, the order in which new
-                # keywords are appended is of course unpredictable, so this
-                # method should not be used for adding new cards
+        if isinstance(key, basestring):
+            # Old-style update; ignore for now
+            # TODO: Restore support for this
+            pass
+        # The rest of this should work similarly to dict.update()
+        elif hasattr(key, 'keys'):
+            # If this is a dict, just update with tuples created by joining the
+            # key and the value--the value may either be a single item
+            # representing the value of the card, or it may be a 2-tuple if the
+            # value and a comment If this is not an ordered dict, the order in
+            # which new keywords are appended is of course unpredictable, so
+            # this method should not be used for adding new cards
 
-                # If both a dictionary and keyword arguments are provided, they
-                # keyword arguments take precendence
-                key.update(kwargs)
+            # If both a dictionary and keyword arguments are provided, they
+            # keyword arguments take precendence
+            key.update(kwargs)
 
-                for k in key:
-                    val = key[k]
-                    if not isinstance(val, tuple):
-                        val = (k, val)
-                    elif 0 < len(val) <= 2:
-                        val = (k,) + val
-                    else:
-                        raise ValueError(
-                                'Header update value for key %r is invalid; '
-                                'the value must be either a scalar, a '
-                                '1-tuple containing the scalar value, or a '
-                                '2-tuple containing the value and a comment '
-                                'string.' % k)
+            for k in key:
+                val = key[k]
+                if not isinstance(val, tuple):
+                    val = (k, val)
+                elif 0 < len(val) <= 2:
+                    val = (k,) + val
+                else:
+                    raise ValueError(
+                            'Header update value for key %r is invalid; the '
+                            'value must be either a scalar, a 1-tuple '
+                            'containing the scalar value, or a 2-tuple '
+                            'containing the value and a comment string.' % k)
+                self._update(*val)
+        elif isiterable(key):
+            for idx, val in enumerate(key):
+                if isinstance(val, (tuple, Card)) and (1 < len(val) <= 3):
                     self._update(*val)
-            elif isiterable(key):
-                for idx, val in enumerate(key):
-                    if isinstance(val, tuple) and (1 < len(val) <= 3):
-                        self._update(*val)
-                    else:
-                        raise ValueError(
-                                'Header update sequence item #%d is invalid; '
-                                'the item must either be a 2-tuple containing '
-                                'a keyword and value, or a 3-tuple containing '
-                                'a keyword, value, and comment string.' % idx)
+                else:
+                    raise ValueError(
+                            'Header update sequence item #%d is invalid; the '
+                            'item must either be a 2-tuple containing a '
+                            'keyword and value, or a 3-tuple containing a '
+                            'keyword, value, and comment string.' % idx)
 
     def append(self, card):
         keyword, value, comment = card
-        self._cards.append(card)
+        if isinstance(card, tuple):
+            self._cards.append(Card(*card))
+        else:
+            self._cards.append(card)
+        keyword = keyword.upper()
         self._keyword_counts[keyword] += 1
         count = self._keyword_counts[keyword]
-        keyword_n = (keyword, count)
+        keyword_n = (keyword, count - 1)
         # TODO: This is not thread-safe; do we care?
         if keyword_n not in self._keyword_indices:
-            self._keyword_indices[keyword_n] = len(self._cards)
+            self._keyword_indices[keyword_n] = len(self._cards) - 1
         self._modified = True
 
     def _update(self, keyword, value='', comment=''):
@@ -313,6 +341,8 @@ class Header(object):
         # TODO: Obviously commentary keywords aren't really properly supported
         # yet
 
+        keyword = keyword.upper()
+
         if keyword in self._keyword_indices:
             # Easy; just update the value/comment
             # TODO: Once we start worrying about the string representation of
@@ -329,6 +359,29 @@ class Header(object):
         else:
             # A new keyword! self.append() will handle updating _modified
             self.append((keyword, value, comment))
+
+    def _cardindex(self, key):
+        """Returns an index into the ._cards list given a valid lookup key."""
+
+        if isinstance(key, (int, slice)):
+            return key
+
+        if isinstance(key, basestring):
+            key = (key.upper(), 0)
+
+        if isinstance(key, tuple):
+            if (len(key) != 2 or not isinstance(key[0], basestring) or
+                    not isinstance(key[1], int)):
+                raise ValueError(
+                        'Tuple indices must be 2-tuples consisting of a '
+                        'keyword string and an integer index.')
+            return self._keyword_indices[key]
+        else:
+            raise ValueError(
+                    'Header indices must be either a string, a 2-tuple, or '
+                    'an integer.')
+        # TODO: Handle and reraise key/index errors as well.
+
 
     def copy(self, strip=False):
         """
