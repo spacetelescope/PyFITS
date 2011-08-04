@@ -63,6 +63,9 @@ class Header(object):
             self.update(self.fromfile(txtfile))
             return
 
+        if isinstance(cards, Header):
+            cards = cards.cards
+
         self.update(cards)
 
     def __len__(self):
@@ -72,7 +75,7 @@ class Header(object):
         for card in self._cards:
             yield card.keyword
 
-    def __contains__(self, key):
+    def __contains__(self, keyword):
         """
         Check for existence of a keyword.
 
@@ -87,10 +90,10 @@ class Header(object):
             Returns `True` if found, otherwise, `False`.
         """
 
-        key = upper_key(key)
-        if key[:8] == 'HIERARCH':
-            key = key[8:].strip()
-        return key in self._keyword_counts
+        #key = upper_key(key)
+        #if key[:8] == 'HIERARCH':
+        #    key = key[8:].strip()
+        return keyword.upper() in self._keyword_counts
     has_key = deprecated(name='has_key',
                          alternative='`key in header` syntax')(__contains__)
 
@@ -116,8 +119,36 @@ class Header(object):
         Set a header keyword value.
         """
 
-        self._cards[self._cardindex(key)].value = value
-        self._modified = True
+        if isinstance(value, tuple):
+            if not (0 < len(value) <= 2):
+                raise ValueError(
+                    'A Header item may be set with either a scalar value, '
+                    'a 1-tuple containing a scalar value, or a 2-tuple '
+                    'containing a scalar value and comment string.')
+            if len(value) == 1:
+                value, comment = value, None
+                if value is None:
+                    value = ''
+            elif len(value) == 2:
+                value, comment = value
+                if value is None:
+                    value = ''
+                if comment is None:
+                    comment = ''
+        else:
+            comment = None
+
+        try:
+            idx = self._cardindex(key)
+            card = self._cards[idx]
+            card.value = value
+            if comment is not None:
+                self._cards[idx].comment = comment
+            if card._modified:
+                self._modified = True
+        except (KeyError, IndexError):
+            self._update(key, value, comment)
+            self._modified = True
 
     def __delitem__(self, key):
         """
@@ -139,7 +170,7 @@ class Header(object):
             self._modified = True
 
     def __str__(self):
-        return str(self.ascard)
+        return ''.join(str(card) for card in self._cards)
 
     @property
     def cards(self):
@@ -227,6 +258,9 @@ class Header(object):
 
     def update(self, key=None, value=None, comment=None, before=None,
                after=None, savecomment=False, **kwargs):
+
+        # TODO: Update this docstring
+
         """
         Update one header card.
 
@@ -268,13 +302,17 @@ class Header(object):
             # Key will be an empty dict to be filled by any keyword arguments
             key = {}
 
-        # TODO: Restore temporary support for old-style update method
         if isinstance(key, basestring):
-            # Old-style update; ignore for now
-            # TODO: Restore support for this
-            pass
+            # Old-style update
+            # TODO: Issue a deprecation warning for this
+            if not before or after:
+                if comment is None or savecomment:
+                    self[key] = value
+                else:
+                    self[key] = (value, comment)
+
         # The rest of this should work similarly to dict.update()
-        elif hasattr(key, 'keys'):
+        elif hasattr(key, 'iteritems') and hasattr(key, 'update'):
             # If this is a dict, just update with tuples created by joining the
             # key and the value--the value may either be a single item
             # representing the value of the card, or it may be a 2-tuple if the
@@ -283,11 +321,15 @@ class Header(object):
             # this method should not be used for adding new cards
 
             # If both a dictionary and keyword arguments are provided, they
-            # keyword arguments take precendence
+            # keyword arguments take precendence; also add the
+            # value/comment/before/after/savecomment keywords in case someone
+            # actually wants to use those as the names of cards
+            kwargs.update([('value', value), ('comment', comment),
+                           ('before', before), ('after', after),
+                           ('savecomment', savecomment)])
             key.update(kwargs)
 
-            for k in key:
-                val = key[k]
+            for k, val in key.iteritems():
                 if not isinstance(val, tuple):
                     val = (k, val)
                 elif 0 < len(val) <= 2:

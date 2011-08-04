@@ -1,3 +1,4 @@
+import copy
 import re
 import string
 import sys
@@ -1019,7 +1020,7 @@ class RecordValuedKeywordCard(Card):
         slashloc = self._cardimage.find('/')
 
         if hasattr(self, '_value_modified') and self._value_modified:
-            val_str = _float_format(self.value)
+            val_str = _format_float(self.value)
         else:
             val_str = self._valuestring
 
@@ -1146,7 +1147,7 @@ class RecordValuedKeywordCard(Card):
                     self._check_text(_str)
 
 
-class CardList(list):
+class _CardList(list):
     """FITS header card list class."""
 
     def __init__(self, cards=[], keylist=None):
@@ -1578,12 +1579,12 @@ class CardList(list):
 
     def __str__(self):
         """Format a list of cards into a printable string."""
-        return '\n'.join(map(str, self))
+        return '\n'.join(str(card) for card in self)
 
     def copy(self):
         """Make a (deep)copy of the `CardList`."""
 
-        return CardList([create_card_from_string(repr(c)) for c in self])
+        return CardList([copy.copy(card) for card in self])
 
     def keys(self):
         """
@@ -1604,6 +1605,53 @@ class CardList(list):
             retval.append(key)
 
         return retval
+
+    def append(self, card, useblanks=True, bottom=False):
+        """
+        Append a `Card` to the `CardList`.
+
+        Parameters
+        ----------
+        card : `Card` object
+            The `Card` to be appended.
+
+        useblanks : bool, optional
+            Use any *extra* blank cards?
+
+            If `useblanks` is `True`, and if there are blank cards
+            directly before ``END``, it will use this space first,
+            instead of appending after these blank cards, so the total
+            space will not increase.  When `useblanks` is `False`, the
+            card will be appended at the end, even if there are blank
+            cards in front of ``END``.
+
+        bottom : bool, optional
+           If `False` the card will be appended after the last
+           non-commentary card.  If `True` the card will be appended
+           after the last non-blank card.
+        """
+
+        #if isinstance(card, Card):
+        #    nc = len(self) - self._blanks
+        #    idx = nc - 1
+        #    if not bottom:
+        #        # locate last non-commentary card
+        #        for idx in range(nc - 1, -1, -1): 
+        #            if self[idx].key not in Card._commentary_keys:
+        #                break
+
+        #    super(CardList, self).insert(idx + 1, card)
+        #    self._keys.insert(idx + 1, card.key.upper())
+        #    if useblanks:
+        #        self._use_blanks(card._ncards())
+        #    self.count_blanks()
+        #    self._mod = True
+        #else:
+        #    raise ValueError("%s is not a Card" % str(card))
+        # TODO: Implement blanks handling at the Header level; the useblanks
+        # and bottom arguments could also be useful...
+        # TODO: Issue a deprecation warning to use Header.append instead
+        self._header.append(card)
 
     def values(self):
         """
@@ -1649,49 +1697,6 @@ class CardList(list):
             self._mod = True
         else:
             raise ValueError('%s is not a Card' % str(card))
-
-    def append(self, card, useblanks=True, bottom=False):
-        """
-        Append a `Card` to the `CardList`.
-
-        Parameters
-        ----------
-        card : `Card` object
-            The `Card` to be appended.
-
-        useblanks : bool, optional
-            Use any *extra* blank cards?
-
-            If `useblanks` is `True`, and if there are blank cards
-            directly before ``END``, it will use this space first,
-            instead of appending after these blank cards, so the total
-            space will not increase.  When `useblanks` is `False`, the
-            card will be appended at the end, even if there are blank
-            cards in front of ``END``.
-
-        bottom : bool, optional
-           If `False` the card will be appended after the last
-           non-commentary card.  If `True` the card will be appended
-           after the last non-blank card.
-        """
-
-        if isinstance(card, Card):
-            nc = len(self) - self._blanks
-            idx = nc - 1
-            if not bottom:
-                # locate last non-commentary card
-                for idx in range(nc - 1, -1, -1): 
-                    if self[idx].key not in Card._commentary_keys:
-                        break
-
-            super(CardList, self).insert(idx + 1, card)
-            self._keys.insert(idx + 1, card.key.upper())
-            if useblanks:
-                self._use_blanks(card._ncards())
-            self.count_blanks()
-            self._mod = True
-        else:
-            raise ValueError("%s is not a Card" % str(card))
 
     def index_of(self, key, backward=False):
         """
@@ -1913,7 +1918,7 @@ class Card(object):
     def __str__(self):
         # TODO: Have this return the actual representation of a card in a FITS
         # header, including CONTINUE cards if necessary
-        pass
+        return self.image
 
     def __len__(self):
         return 3
@@ -1925,7 +1930,7 @@ class Card(object):
         if self._keyword is not None:
             return self._keyword
         elif self._image:
-            keyword = self._extractkeyword()
+            keyword = self._parsekeyword()
             self._setkeyword(keyword)
             return keyword
         else:
@@ -1951,7 +1956,7 @@ class Card(object):
             self._setvalue(self._valuestring)
             return self._valuestring
         elif self._image:
-            value = self._extractvalue()
+            value = self._parsevalue()
             self._setvalue(value)
             return value
         else:
@@ -1976,7 +1981,7 @@ class Card(object):
         if self._comment is not None:
             return self._comment
         elif self._image:
-            comment = self._extractcomment()
+            comment = self._parsecomment()
             self._setcomment(comment)
             return comment
         else:
@@ -1994,6 +1999,14 @@ class Card(object):
         self._setcomment('')
 
     comment = property(_getcomment, _setcomment, _delcomment)
+
+    @property
+    def image(self):
+        if self._image is None or self._modified:
+            self._image = self._formatimage()
+        return self._image
+    # TODO: Mark .cardimage as deprecated for .image
+    cardimage = image
 
     @classmethod
     def fromstring(cls, image):
@@ -2017,7 +2030,7 @@ class Card(object):
         card._image = image
         return card
 
-    def _extractkeyword(self):
+    def _parsekeyword(self):
         keyword = self._image[:8].strip()
         if keyword in self._commentary_keywords:
             return keyword
@@ -2029,7 +2042,7 @@ class Card(object):
                 'Invalid card string: %r; could not extract a valid '
                 'keyword' % self._image)
 
-    def _extractvalue(self):
+    def _parsevalue(self):
         """Extract the keyword value from the card image."""
 
         # for commentary cards, no need to parse further
@@ -2050,7 +2063,7 @@ class Card(object):
             value = re.sub("''", "'", m.group('strg'))
         elif m.group('numr') is not None:
             #  Check for numbers with leading 0s.
-            numr = Card._number_NFSC_RE.match(m.group('numr'))
+            numr = self._number_NFSC_RE.match(m.group('numr'))
             digt = translate(numr.group('digt'), FIX_FP_TABLE2, ' ')
             if numr.group('sign') is None:
                 sign = ''
@@ -2060,14 +2073,14 @@ class Card(object):
 
         elif m.group('cplx') is not None:
             #  Check for numbers with leading 0s.
-            real = Card._number_NFSC_RE.match(m.group('real'))
+            real = self._number_NFSC_RE.match(m.group('real'))
             rdigt = translate(real.group('digt'), FIX_FP_TABLE2, ' ')
             if real.group('sign') is None:
                 rsign = ''
             else:
                 rsign = real.group('sign')
             value = _str_to_num(rsign + rdigt)
-            imag = Card._number_NFSC_RE.match(m.group('imag'))
+            imag = self._number_NFSC_RE.match(m.group('imag'))
             idigt = translate(imag.group('digt'), FIX_FP_TABLE2, ' ')
             if imag.group('sign') is None:
                 isign = ''
@@ -2081,7 +2094,7 @@ class Card(object):
         self._valuemodified = False
         return value
 
-    def _extractcomment(self):
+    def _parsecomment(self):
         """Extract the keyword value from the card image."""
 
         # for commentary cards, no need to parse further
@@ -2098,9 +2111,190 @@ class Card(object):
                 return comment.rstrip()
         return ''
 
+    def _splitkeyword(self):
+        """
+        Split the card image between the keyword and the rest of the card.
+        """
+
+        if self.keyword in self._commentary_keywords:
+            delimiter = ' '
+        else:
+            delimiter = '='
+
+        keyword, valuecomment = self.image.split(delimiter, 1)
+        return keyword.strip(), valuecomment.strip()
+
+    def _fixvalue(self):
+        """Fix the card image for fixable non-standard compliance."""
+
+        value = None
+        keyword, valuecomment = self._splitkeyword()
+        m = self._value_NFSC_RE.match(valuecomment)
+
+        # for the unparsable case
+        if m is None:
+            try:
+                value, comment = valuecomment.split('/', 1)
+                self._setvalue(value)
+                self._setcomment(comment)
+            except (ValueError, IndexError):
+                self._setvalue(valuecomment)
+            self._valuestring = self._value
+            self._valuemodified = False
+            return
+        # TODO: How much of this is redundant with _parsevalue?
+        elif m.group('numr') is not None:
+            numr = self._number_NFSC_RE.match(m.group('numr'))
+            value = translate(numr.group('digt'), FIX_FP_TABLE, ' ')
+            if numr.group('sign') is not None:
+                value = numr.group('sign') + value
+
+        elif m.group('cplx') is not None:
+            real = self._number_NFSC_RE.match(m.group('real'))
+            rdigt = translate(real.group('digt'), FIX_FP_TABLE, ' ')
+            if real.group('sign') is not None:
+                rdigt = real.group('sign') + rdigt
+
+            imag = self._number_NFSC_RE.match(m.group('imag'))
+            idigt = translate(imag.group('digt'), FIX_FP_TABLE, ' ')
+            if imag.group('sign') is not None:
+                idigt = imag.group('sign') + idigt
+            value = '(%s, %s)' % (rdigt, idigt)
+        self._setvalue(value)
+        self._valuestring = self._value
+        self._valuemodified = False
+
+    def _formatkeyword(self):
+        if self.keyword:
+            if len(self.keyword) <= 8:
+                return '%-8s' % self.keyword
+            else:
+                return 'HIERARCH %s' % self.keyword
+        else:
+            return ' ' * 8
+
+    def _formatvalue(self):
+        # value string
+        float_types = (float, np.floating, complex, np.complexfloating)
+        if self._value is None:
+            return ''
+        elif (self._valuestring and not self._valuemodified and
+                not isinstance(self.value, float_types)):
+            # Keep the existing formatting for float/complex numbers
+            return '%20s' % self._valuestring
+        else:
+            return _format_value(self.value)
+
+    def _formatcomment(self):
+        if self._comment is None:
+            return ''
+        else:
+            return ' / %s' % self._comment
+
+    def _formatimage(self):
+        keyword = self._formatkeyword()
+        value = self._formatvalue()
+        is_commentary = keyword.strip() in self._commentary_keywords
+        if is_commentary:
+            comment = ''
+        else:
+            comment = self._formatcomment()
+
+        # equal sign string
+        delimiter = '= '
+        if is_commentary:
+            delimiter = ' '
+
+        # put all parts together
+        output = ''.join([keyword, delimiter, value, comment])
+
+        keyword_value_len = len(keyword) + len(delimiter) + len(value)
+        if keyword_value_len > Card.length:
+            # TODO: Create CONTINUE card
+            pass
+
+
+        # need this in case card-with-continue's value is shortened
+#         if not isinstance(self, _HierarchCard) and \
+#            not isinstance(self, RecordValuedKeywordCard):
+#             self.__class__ = Card
+#         else:
+#             key_val_len = len(key_str) + len(eq_str) + len(val_str)
+#             if key_val_len > Card.length:
+#                 if isinstance(self, _HierarchCard) and \
+#                    key_val_len == Card.length + 1 and \
+#                    key_str[-1] == ' ':
+#                     output = ''.join([key_str[:-1], eq_str, val_str,
+#                                       comment_str])
+#                 else:
+#                     raise ValueError('The keyword %s with its value is too '
+#                                      'long.' % self.key)
+
+        if len(output) <= Card.length:
+            output = '%-80s' % output
+
+        # longstring case (CONTINUE card)
+        else:
+            # try not to use CONTINUE if the string value can fit in one line.
+            # Instead, just truncate the comment
+            #if isinstance(self.value, str) and \
+            #   len(val_str) > (Card.length - 10):
+            #    self.__class__ = _ContinueCard
+            #    output = self._breakup_strings()
+            #else:
+            #    warnings.warn('Card is too long, comment is truncated.')
+            #    output = output[:Card.length]
+            pass
+        return output
+
     def _verify(self, option='warn'):
-        # TODO: This would be worth filling in at some point...
-        return []
+        errs = _ErrList([])
+        err_text = ''
+        fix_text = ''
+        fixable = True
+        # verify the equal sign position
+        if (self.keyword not in self._commentary_keywords and
+            self.image.find('=') != 8):
+            err_text = (
+                'Card image is not FITS standard (equal sign not at '
+                'column 8).')
+
+        # verify the key, it is never fixable
+        # always fix silently the case where "=" is before column 9,
+        # since there is no way to communicate back to the _keys.
+        # TODO: I think this will break for hierarch cards...
+        if not self._keywd_FSC_RE.match(self.key):
+            err_text = 'Illegal keyword name %s' % repr(key)
+            fixable = False
+
+        # verify the value, it may be fixable
+        keyword, valuecomment = self._splitkeyword()
+        m = self._value_FSC_RE.match(valuecomment)
+        if m or self.keyword in self._commentary_keywords:
+            return m
+        else:
+            err_text = (
+                'Card image is not FITS standard (unparsable value string: '
+                '%s).' % valuecomment)
+
+        # verify the comment (string), it is never fixable
+        if m is not None:
+            comment = result.group('comm')
+            if comment is not None:
+                if not self._comment_FSC_RE.match(comment):
+                    err_text = 'Unprintable string %r' % comment
+                    fixable = False
+
+        if err_text and fixable and option in ['fix', 'silentfix']:
+            self._fixvalue()
+            if option == 'fix':
+                fix_text = ('Fixed card to meet the FITS standard: %s' %
+                            self.keyword)
+
+        errs.append(self.run_option(option, err_text=self._err_text,
+                    fix_text=self._fix_text, fixable=self._fixable))
+
+        return errs
 
 def create_card(key='', value='', comment=''):
     return RecordValuedKeywordCard.create(key, value, comment)
@@ -2286,8 +2480,9 @@ class _ContinueCard(Card):
         return lst
 
 
-def _value_to_string(value):
-    """Converts a card value to its appropriate string representation as
+def _format_value(value):
+    """
+    Converts a card value to its appropriate string representation as
     defined by the FITS format.
     """
 
@@ -2310,11 +2505,11 @@ def _value_to_string(value):
 
     # XXX need to consider platform dependence of the format (e.g. E-009 vs. E-09)
     elif isinstance(value, (float, np.floating)):
-        return '%20s' % _float_format(value)
+        return '%20s' % _format_float(value)
 
     elif isinstance(value, (complex, np.complexfloating)):
-        val_str = '(%s, %s)' % (_float_format(value.real),
-                                _float_format(value.imag))
+        val_str = '(%s, %s)' % (_format_float(value.real),
+                                _format_float(value.imag))
         return '%20s' % val_str
 
     elif isinstance(value, Undefined):
@@ -2323,7 +2518,7 @@ def _value_to_string(value):
         return ''
 
 
-def _float_format(value):
+def _format_float(value):
     """Format a floating number to make sure it gets the decimal point."""
 
     value_str = '%.16G' % value
