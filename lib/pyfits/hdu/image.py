@@ -223,14 +223,15 @@ class _ImageBaseHDU(_ValidHDU):
 
         # add NAXISi if it does not exist
         for idx, axis in enumerate(axes):
-            try:
-                self._header['NAXIS'+ str(idx + 1)] = axis
-            except KeyError:
+            naxisn = 'NAXIS' + str(idx + 1)
+            if naxisn in self._header:
+                self._header[naxisn] = axis
+            else:
                 if (idx == 0):
                     after = 'naxis'
                 else :
                     after = 'naxis' + str(idx)
-                self._header.update('naxis' + str(idx + 1), axis, after=after)
+                self._header.update(naxisn, axis, after=after)
 
         # delete extra NAXISi's
         for idx in range(len(axes)+1, old_naxis+1):

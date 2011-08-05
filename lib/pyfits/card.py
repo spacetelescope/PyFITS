@@ -1517,7 +1517,15 @@ class CardList(list):
         if keylist is not None:
             raise ValueError(
                 'The keylist argument to CardList() is no longer supported.')
-        self._header = Header(cards)
+
+        if isinstance(cards, Header):
+            self._header = cards
+        else:
+            self._header = Header(cards)
+
+        # TODO: _blanks should get the blanks count from the Header object,
+        # which will handle blank rows
+        self._blanks = 0
 
         super(CardList, self).__init__(self._header.cards)
 
@@ -1549,25 +1557,33 @@ class CardList(list):
     def __delitem__(self, key):
         """Delete a `Card` from the `CardList`."""
 
-        if self._has_filter_char(key):
-            cardlist = self.filter_list(key)
+        # TODO: Handle filter characters in the Header
 
-            if len(cardlist) == 0:
-                raise KeyError("Keyword '%s' not found." % key)
+#        if self._has_filter_char(key):
+#            cardlist = self.filter_list(key)
 
-            for card in cardlist:
-                if isinstance(card, RecordValuedKeywordCard):
-                    key = card.key + '.' + card.field_specifier
-                else:
-                    key = card.key
+#            if len(cardlist) == 0:
+#                raise KeyError("Keyword '%s' not found." % key)
 
-                super(CardList, self).__delitem__(key)
-        else:
-            idx = self.index_of(key)
-            super(CardList, self).__delitem__(idx)
-            del self._keys[idx]  # update the keylist
-            self.count_blanks()
-            self._mod = True
+#            for card in cardlist:
+#                if isinstance(card, RecordValuedKeywordCard):
+#                    key = card.key + '.' + card.field_specifier
+#                else:
+#                    key = card.key
+
+#                super(CardList, self).__delitem__(key)
+#        else:
+#            idx = self.index_of(key)
+#            super(CardList, self).__delitem__(idx)
+#            del self._keys[idx]  # update the keylist
+#            self.count_blanks()
+#            self._mod = True
+        # TODO: This original CardList implementation would raise an exception
+        # when a card is not found, which differs from Header; eventually the
+        # new Header class should have the behavior of the old CardList class
+        if key not in self._header._keyword_indices:
+            raise KeyError("Keyword '%s' not found." % key)
+        del self._header[key]
 
     def __getslice__(self, start, end):
         return self[slice(start, end)]
@@ -1653,18 +1669,7 @@ class CardList(list):
         # TODO: Issue a deprecation warning to use Header.append instead
         self._header.append(card)
 
-    def values(self):
-        """
-        Return a list of the values of all cards in the `CardList`.
-
-        For `RecordValuedKeywordCard` objects, the value returned is
-        the floating point value, exclusive of the
-        ``field_specifier``.
-        """
-
-        return [c.value for c in self]
-
-    def insert(self, pos, card, useblanks=True):
+    def insert(self, idx, card, useblanks=True):
         """
         Insert a `Card` to the `CardList`.
 
@@ -1686,17 +1691,31 @@ class CardList(list):
             cards in front of ``END``.
         """
 
-        if isinstance(card, Card):
-            super(CardList, self).insert(pos, card)
-            self._keys.insert(pos, card.key.upper())  # update the keylist
-            self.count_blanks()
-            if useblanks:
-                self._use_blanks(card._ncards())
+        #if isinstance(card, Card):
+        #    super(CardList, self).insert(pos, card)
+        #    self._keys.insert(pos, card.key.upper())  # update the keylist
+        #    self.count_blanks()
+        #    if useblanks:
+        #        self._use_blanks(card._ncards())
 
-            self.count_blanks()
-            self._mod = True
-        else:
-            raise ValueError('%s is not a Card' % str(card))
+        #    self.count_blanks()
+        #    self._mod = True
+        #else:
+        #    raise ValueError('%s is not a Card' % str(card))
+        # TODO: Issue warning to use Header.insert instead
+        # TODO: Implement blanks handling in the Header class
+        self._header.insert(idx, card)
+
+    def values(self):
+        """
+        Return a list of the values of all cards in the `CardList`.
+
+        For `RecordValuedKeywordCard` objects, the value returned is
+        the floating point value, exclusive of the
+        ``field_specifier``.
+        """
+
+        return [c.value for c in self]
 
     def index_of(self, key, backward=False):
         """
@@ -1808,7 +1827,7 @@ class CardList(list):
     pass
 
 
-class Card(object):
+class Card(_Verify):
     # TODO: This class might still be useful for the Header class
     # internally; consider moving this to pyfits.header and leaving an
     # alias in pyfits.card for backwards-compat
@@ -1902,12 +1921,19 @@ class Card(object):
     def __init__(self, keyword=None, value=None, comment=None):
         # TODO: A Card with a value and comment but no keyword should not be
         # allowed
-        self._keyword = keyword
-        self._value = value
-        self._comment = comment
+        self._keyword = None
+        self._value = None
+        self._comment = None
         self._image = None
-        self._modified = False
 
+        if keyword is not None:
+            self._setkeyword(keyword)
+        if value is not None:
+            self._setvalue(value)
+        if comment is not None:
+            self._setcomment(comment)
+
+        self._modified = False
         self._valuestring = None
         self._valuemodified = False
 
@@ -1941,6 +1967,10 @@ class Card(object):
         if self._keyword is not None:
             raise AttributeError(
                 'Once set, the Card keyword may not be modified')
+        if len(keyword) <= 8:
+            # For keywords with length > 8 they will be HIERARCH cards, and can
+            # have arbitrary case keywords
+            keyword = keyword.upper()
         self._keyword = keyword
         self._modified = True
 
@@ -2005,8 +2035,15 @@ class Card(object):
         if self._image is None or self._modified:
             self._image = self._formatimage()
         return self._image
-    # TODO: Mark .cardimage as deprecated for .image
-    cardimage = image
+
+    @property
+    @deprecated(alternative='the .image attribute')
+    def cardimage(self):
+        return self.image
+
+    @deprecated(alternative='the .image attribute')
+    def ascardimage(self, option='silentfix'):
+        return self.image
 
     @classmethod
     def fromstring(cls, image):
@@ -2270,16 +2307,14 @@ class Card(object):
         # verify the value, it may be fixable
         keyword, valuecomment = self._splitkeyword()
         m = self._value_FSC_RE.match(valuecomment)
-        if m or self.keyword in self._commentary_keywords:
-            return m
-        else:
+        if not (m or self.keyword in self._commentary_keywords):
             err_text = (
                 'Card image is not FITS standard (unparsable value string: '
                 '%s).' % valuecomment)
 
         # verify the comment (string), it is never fixable
         if m is not None:
-            comment = result.group('comm')
+            comment = m.group('comm')
             if comment is not None:
                 if not self._comment_FSC_RE.match(comment):
                     err_text = 'Unprintable string %r' % comment
@@ -2291,8 +2326,8 @@ class Card(object):
                 fix_text = ('Fixed card to meet the FITS standard: %s' %
                             self.keyword)
 
-        errs.append(self.run_option(option, err_text=self._err_text,
-                    fix_text=self._fix_text, fixable=self._fixable))
+        errs.append(self.run_option(option, err_text=err_text,
+                                    fix_text=fix_text, fixable=fixable))
 
         return errs
 

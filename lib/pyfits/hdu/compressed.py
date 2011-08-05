@@ -40,8 +40,9 @@ class CompImageHeader(Header):
     def __init__(self, table_header, image_header=None):
         if image_header is None:
             image_header = Header()
-        self.ascard = image_header.ascard
-        self._mod = image_header._mod
+        self._cards = image_header._cards
+        self._keyword_indices = image_header._keyword_indices
+        self._modified = image_header._modified
         self._table_header = table_header
 
     def update(self, key, value, comment=None, before=None, after=None,

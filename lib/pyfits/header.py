@@ -51,8 +51,7 @@ class Header(object):
 
         self._cards = []
         self._modified = False
-        self._keyword_counts = defaultdict(lambda: 0)
-        self._keyword_indices = {}
+        self._keyword_indices = defaultdict(list)
 
         if txtfile:
             warnings.warn(
@@ -93,7 +92,7 @@ class Header(object):
         #key = upper_key(key)
         #if key[:8] == 'HIERARCH':
         #    key = key[8:].strip()
-        return keyword.upper() in self._keyword_counts
+        return keyword.upper() in self._keyword_indices
     has_key = deprecated(name='has_key',
                          alternative='`key in header` syntax')(__contains__)
 
@@ -143,7 +142,7 @@ class Header(object):
             card = self._cards[idx]
             card.value = value
             if comment is not None:
-                self._cards[idx].comment = comment
+                card.comment = comment
             if card._modified:
                 self._modified = True
         except (KeyError, IndexError):
@@ -155,19 +154,32 @@ class Header(object):
         Delete card(s) with the name `key`.
         """
 
+        # TODO: Handle slices both here and in __set/getitem__
         # delete ALL cards with the same keyword name
         if isinstance(key, basestring):
-            while True:
-                try:
-                    del self.ascard[key]
-                    self._modified = True
-                except:
-                    return
+            key = key.upper()
+            if key not in self._keyword_indices:
+                # TODO: The old Header implementation allowed deletes of
+                # nonexistent keywords to pass; this behavior should be warned
+                # against and eventually changed to raise a KeyError
+                #raise KeyError("Keyword '%s' not found." % key)
+                return
+            for idx in self._keyword_indices[key][:]:
+                # Have to copy the indices list since it will be modified below
+                del self[idx]
+            return
 
-        # for integer key only delete once
-        else:
-            del self.ascard[key]
-            self._modified = True
+        idx = self._cardindex(key)
+        keyword = self._cards[idx].keyword.upper()
+        del self._cards[idx]
+        indices = self._keyword_indices[keyword]
+        indices.remove(idx)
+        if not indices:
+            del self._keyword_indices[keyword]
+
+        # We also need to update all other indices
+        self._updateindices(idx, increment=False)
+        self._modified = True
 
     def __str__(self):
         return ''.join(str(card) for card in self._cards)
@@ -305,11 +317,24 @@ class Header(object):
         if isinstance(key, basestring):
             # Old-style update
             # TODO: Issue a deprecation warning for this
-            if not before or after:
+            if key in self:
                 if comment is None or savecomment:
-                    self[key] = value
+                    updateval = value
                 else:
-                    self[key] = (value, comment)
+                    updateval = (value, comment)
+                if before is None and after is None:
+                    self[key] = updateval
+                else:
+                    self[key] = updateval
+                    idx = self._cardindex(key)
+                    card = self._cards[idx]
+                    del self[idx]
+                    self._relativeinsert(card, before=before, after=after)
+            elif before is not None or after is not None:
+                self._relativeinsert((key, value, comment), before=before,
+                                     after=after)
+            else:
+                self[key] = (value, comment)
 
         # The rest of this should work similarly to dict.update()
         elif hasattr(key, 'iteritems') and hasattr(key, 'update'):
@@ -353,19 +378,42 @@ class Header(object):
                             'keyword, value, and comment string.' % idx)
 
     def append(self, card):
-        keyword, value, comment = card
         if isinstance(card, tuple):
-            self._cards.append(Card(*card))
+            card = Card(*card)
+            self._cards.append(card)
         else:
             self._cards.append(card)
-        keyword = keyword.upper()
-        self._keyword_counts[keyword] += 1
-        count = self._keyword_counts[keyword]
-        keyword_n = (keyword, count - 1)
+        keyword = card.keyword.upper()
         # TODO: This is not thread-safe; do we care?
-        if keyword_n not in self._keyword_indices:
-            self._keyword_indices[keyword_n] = len(self._cards) - 1
+        self._keyword_indices[keyword].append(len(self._cards) - 1)
         self._modified = True
+
+    def insert(self, idx, card):
+        if isinstance(card, tuple):
+            card = Card(*card)
+            self._cards.insert(idx, card)
+        else:
+            self._cards.insert(idx, card)
+
+        keyword = card.keyword.upper()
+
+        # If idx was < 0, determine the actual index according to the rules
+        # used by list.insert()
+        if idx < 0:
+            idx += len(self._cards) - 1
+            if idx < 0:
+                idx = 0
+
+        # All the keyword indices above the insertion point must be updated
+        self._updateindices(idx)
+
+        self._keyword_indices[keyword].append(idx)
+        count = len(self._keyword_indices[keyword])
+        if count > 1:
+            # There were already keywords with this same name
+            # TODO: Maybe issue a warning when this occurs (and the keyword is
+            # non-commentary)
+            self._keyword_indices[keyword].sort()
 
     def _update(self, keyword, value='', comment=''):
         """
@@ -390,13 +438,11 @@ class Header(object):
             # TODO: Once we start worrying about the string representation of
             # the entire header, we should probably touch something here to
             # ensure that it's updated
-            # TODO: Implement some modicum of value validation; if the value
-            # type is not supported by the FITS standard a warning should be
-            # issued and it should be converted to a string as a fallback
-            idx = self._keyword_indices[keyword]
-            _, oldvalue, oldcomment = self._cards[idx]
-            if value != oldvalue or comment != oldcomment:
-                self._cards[idx] = (keyword, value, comment)
+            idx = self._keyword_indices[keyword][0]
+            card = self._cards[idx]
+            card.value = value
+            card.comment = comment
+            if card._modified:
                 self._modified = True
         else:
             # A new keyword! self.append() will handle updating _modified
@@ -417,12 +463,42 @@ class Header(object):
                 raise ValueError(
                         'Tuple indices must be 2-tuples consisting of a '
                         'keyword string and an integer index.')
-            return self._keyword_indices[key]
+            keyword, n = key
+            keyword = keyword.upper()
+            # Returns the index into _cards for the n-th card with the given
+            # keyword (where n is 0-based)
+            if keyword not in self._keyword_indices:
+                raise KeyError("Keyword '%s' not found." % keyword)
+            return self._keyword_indices[keyword][n]
         else:
             raise ValueError(
                     'Header indices must be either a string, a 2-tuple, or '
                     'an integer.')
         # TODO: Handle and reraise key/index errors as well.
+
+    def _relativeinsert(self, card, before=None, after=None):
+        if before is None:
+            insertionkey = after
+        else:
+            insertionkey = before
+        idx = self._cardindex(insertionkey)
+        if before is not None:
+            self.insert(idx, card)
+        else:
+            self.insert(idx + 1, card)
+
+    def _updateindices(self, idx, increment=True):
+        """
+        For all cards with index above idx, increment or decrement its index
+        value in the keyword_indices dict.
+        """
+
+        increment = 1 if increment else -1
+
+        for indices in self._keyword_indices.itervalues():
+            for jdx, keyword_index in enumerate(indices):
+                if keyword_index >= idx:
+                    indices[jdx] += increment
 
 
     def copy(self, strip=False):
