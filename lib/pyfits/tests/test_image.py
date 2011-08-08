@@ -220,13 +220,13 @@ class TestImageFunctions(PyfitsTestCase):
             hdu = pyfits.HDUList(x) # HDUList can take a list or one single HDU
             hdu.verify()
             assert_equal(f.getvalue(),
-                "Output verification result:\n"
+                "Output verification result:\n  "
                 "HDUList's 0th element is not a primary HDU.\n")
 
         with CaptureStdout() as f:
             hdu.writeto(self.temp('test_new2.fits'), 'fix')
             assert_equal(f.getvalue(),
-                "Output verification result:\n"
+                "Output verification result:\n  "
                 "HDUList's 0th element is not a primary HDU.  "
                 "Fixed by inserting one as 0th HDU.\n")
 

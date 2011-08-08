@@ -1836,8 +1836,7 @@ class Card(_Verify):
     length = 80
 
     # String for a FITS standard compliant (FSC) keyword.
-    _keywd_FSC = r'[A-Z0-9_-]{0,8}'
-    _keywd_FSC_RE = re.compile(_keywd_FSC)
+    _keywd_FSC_RE = re.compile(r'^[A-Z0-9_-]{0,8}$')
 
     # A number sub-string, either an integer or a float in fixed or
     # scientific notation.  One for FSC and one for non-FSC (NFSC) format:
@@ -1967,7 +1966,15 @@ class Card(_Verify):
                 # For keywords with length > 8 they will be HIERARCH cards,
                 # and can have arbitrary case keywords
                 keyword = keyword.upper()
+                if not self._keywd_FSC_RE.match(keyword):
+                    raise ValueError('Illegal keyword name: %r.' % keyword)
             else:
+                # In prior versions of PyFITS HIERARCH cards would only be
+                # created if the user-supplied keyword explicitly started with
+                # 'HIERARCH '.  Now we will create them automtically for long
+                # keywords, but we still want to support the old behavior too:
+                if keyword[:9].upper() == 'HIERARCH ':
+                    keyword = keyword[9:]
                 # We'll gladly create a HIERARCH card, but a warning is also
                 # displayed
                 warnings.warn(
@@ -2002,11 +2009,16 @@ class Card(_Verify):
         oldvalue = self._value
         if oldvalue is None:
             oldvalue = ''
-        if value != oldvalue:
-            self._value = value
-            self._modified = True
-            self._valuestring = None
-            self._valuemodified = True
+        if isinstance(value, (basestring, int, long, float, complex, bool,
+                              Undefined, np.floating, np.integer,
+                              np.complexfloating)):
+            if value != oldvalue:
+                self._value = value
+                self._modified = True
+                self._valuestring = None
+                self._valuemodified = True
+        else:
+            raise ValueError('Illegal value: %r.' % value)
 
     def _delvalue(self):
         self._setvalue('')
@@ -2066,25 +2078,16 @@ class Card(_Verify):
         contains ``CONTINUE`` card(s).
         """
 
-        image = _pad(image)
-
-        #if image[:8].upper() == 'HIERARCH':
-        #    card = _HierarchCard()
-        # for card image longer than 80, assume it contains CONTINUE card(s).
-        #elif len(image) > Card.length:
-        #    card = _ContinueCard()
-        #else:
-        #    card = cls()
         card = cls()
-        card._image = image
+        card._image = _pad(image)
         card._parsed = False
         return card
 
     def _parsekeyword(self):
         if self._value is not None and self._comment is not None:
             self._parsed = False
-        keyword = self._image[:8].strip().upper()
-        if keyword in self._commentary_keywords:
+        keyword = self._image[:8].strip()
+        if keyword.upper() in self._commentary_keywords:
             return keyword
         if '=' in self._image:
             keyword = self._image.split('=', 1)[0].strip()
@@ -2097,7 +2100,7 @@ class Card(_Verify):
                     'keywords longer than 8 characters must use the HIERARCH '
                     'keyword.' % self._image)
         else:
-            return keyword.upper().strip()
+            return keyword.strip()
 
     def _parsevalue(self):
         """Extract the keyword value from the card image."""
@@ -2106,10 +2109,10 @@ class Card(_Verify):
             self._parsed = False
 
         # for commentary cards, no need to parse further
-        if self.keyword in self._commentary_keywords:
+        if self.keyword.upper() in self._commentary_keywords:
             return self._image[8:].rstrip()
 
-        if len(self._image) > Card.length:
+        if len(self._image) > self.length:
             values = []
             for card in self._itersubcards():
                 value = card.value.rstrip().replace("''", "'")
@@ -2173,7 +2176,7 @@ class Card(_Verify):
         if self.keyword in Card._commentary_keywords:
             return ''
 
-        if len(self._image) > Card.length:
+        if len(self._image) > self.length:
             comments = []
             for card in self._itersubcards():
                 if card.comment:
@@ -2201,22 +2204,29 @@ class Card(_Verify):
         else:
             image = self.image
 
-        if self.keyword in self._commentary_keywords + ['CONTINUE']:
+        if self.keyword.upper() in self._commentary_keywords + ['CONTINUE']:
             keyword, valuecomment = image.split(' ', 1)
         else:
             try:
                 delim_index = image.index('=')
             except ValueError:
-                delim_index = 11
+                delim_index = None
 
             # The equal sign may not be any higher than column 10; anything
             # past that must be considered part of the card value
-            if delim_index > 10:
+            if delim_index is None:
+                keyword = image[:8]
+                valuecomment = image[8:]
+            elif delim_index > 10:
                 keyword = image[:8]
                 valuecomment = image[10:]
             else:
                 keyword, valuecomment = image.split('=', 1)
         return keyword.strip(), valuecomment.strip()
+
+    def _fixkeyword(self):
+        self._keyword = self._keyword.upper()
+        self._modified = True
 
     def _fixvalue(self):
         """Fix the card image for fixable non-standard compliance."""
@@ -2229,8 +2239,8 @@ class Card(_Verify):
         if m is None:
             try:
                 value, comment = valuecomment.split('/', 1)
-                self._setvalue(value)
-                self._setcomment(comment)
+                self._setvalue(value.strip())
+                self._setcomment(comment.strip())
             except (ValueError, IndexError):
                 self._setvalue(valuecomment)
             self._valuestring = self._value
@@ -2254,17 +2264,15 @@ class Card(_Verify):
             if imag.group('sign') is not None:
                 idigt = imag.group('sign') + idigt
             value = '(%s, %s)' % (rdigt, idigt)
-        self._setvalue(value)
-        self._valuestring = self._value
+        self._valuestring = value
         self._valuemodified = False
-        self._image = self._formatimage()
 
     def _formatkeyword(self):
         if self.keyword:
             if len(self.keyword) <= 8:
                 return '%-8s' % self.keyword
             else:
-                return 'HIERARCH %s' % self.keyword
+                return 'HIERARCH %s ' % self.keyword
         else:
             return ' ' * 8
 
@@ -2274,17 +2282,23 @@ class Card(_Verify):
         value = self.value # Force the value to be parsed out first
         if not self.keyword:
             # Blank cards must have blank values
-            return ''
+            value = ''
         elif self.keyword in self._commentary_keywords:
             # The value of a commentary card must be just a raw unprocessed
             # string
-            return str(value)
+            value = str(value)
         elif (self._valuestring and not self._valuemodified and
                 isinstance(self.value, float_types)):
             # Keep the existing formatting for float/complex numbers
-            return '%20s' % self._valuestring
+            value = '%20s' % self._valuestring
         else:
-            return _format_value(value)
+            value = _format_value(value)
+
+        # For HIERARCH cards the value should be shortened to conserve space
+        if len(self.keyword) > 8:
+            value = value.strip()
+
+        return value
 
     def _formatcomment(self):
         if not self.comment:
@@ -2310,30 +2324,28 @@ class Card(_Verify):
         # put all parts together
         output = ''.join([keyword, delimiter, value, comment])
 
-#         if not isinstance(self, _HierarchCard) and \
-#            not isinstance(self, RecordValuedKeywordCard):
-#             self.__class__ = Card
-#         else:
-#             key_val_len = len(key_str) + len(eq_str) + len(val_str)
-#             if key_val_len > Card.length:
-#                 if isinstance(self, _HierarchCard) and \
-#                    key_val_len == Card.length + 1 and \
-#                    key_str[-1] == ' ':
-#                     output = ''.join([key_str[:-1], eq_str, val_str,
-#                                       comment_str])
-#                 else:
-#                     raise ValueError('The keyword %s with its value is too '
-#                                      'long.' % self.key)
+        # For HIERARCH cards we can save a bit of space if necessary by
+        # removing the space between the keyword and the equals sign; I'm
+        # guessing this is part of the HIEARCH card specification
+        keywordvalue_length = len(keyword) + len(delimiter) + len(value)
+        if (keywordvalue_length > self.length and
+                keyword.startswith('HIERARCH')):
+            if (keywordvalue_length == self.length + 1 and keyword[-1] == ' '):
+                output = ''.join([keyword[:-1], delimiter, value, comment])
+            else:
+                # I guess the HIERARCH card spec is incompatible with CONTINUE
+                # cards
+                raise ValueError('The keyword %s with its value is too long' %
+                                 self.keyword)
 
-        if len(output) <= Card.length:
+        if len(output) <= self.length:
             output = '%-80s' % output
-
-        # longstring case (CONTINUE card)
         else:
+            # longstring case (CONTINUE card)
             # try not to use CONTINUE if the string value can fit in one line.
             # Instead, just truncate the comment
             if (isinstance(self.value, str) and 
-                len(value) > (Card.length - 10)):
+                len(value) > (self.length - 10)):
                 output = self._formatlongimage()
             else:
                 warnings.warn('Card is too long, comment is truncated.')
@@ -2378,49 +2390,56 @@ class Card(_Verify):
 
     def _verify(self, option='warn'):
         errs = _ErrList([])
-        err_text = ''
-        fix_text = ''
-        fixable = True
+        fix_text = 'Fixed card to meet the FITS standard: %s' % self.keyword
         # verify the equal sign position
-        if (self.keyword not in self._commentary_keywords and self._image and
-            self._image.find('=') != 8):
-            err_text = (
-                'Card image is not FITS standard (equal sign not at '
-                'column 8).')
+        if (self.keyword.upper() not in self._commentary_keywords and
+                self._image and self._image.find('=') != 8):
+            errs.append(self.run_option(
+                option,
+                err_text='Card image is not FITS standard (equal sign not '
+                         'at column 8).',
+                fix_text=fix_text,
+                fix=self._fixvalue))
 
         # verify the key, it is never fixable
         # always fix silently the case where "=" is before column 9,
         # since there is no way to communicate back to the _keys.
         # TODO: I think this will break for hierarch cards...
-        elif not self._keywd_FSC_RE.match(self.key):
-            err_text = 'Illegal keyword name %s' % repr(key)
-            fixable = False
+        if (self.keyword != self.keyword.upper() and not
+            (self._image and self._image[:8].upper() == 'HIERARCH')):
+            # Keyword should be uppercase unless it's a HIERARCH card
+            errs.append(self.run_option(
+                option,
+                err_text='Card keyword is not upper case.',
+                fix_text=fix_text,
+                fix=self._fixkeyword))
+        elif not self._keywd_FSC_RE.match(self.keyword):
+            errs.append(self.run_option(
+                option,
+                err_text='Illegal keyword name %s' % repr(self.keyword),
+                fixable=False))
 
-        else:
-            # verify the value, it may be fixable
-            keyword, valuecomment = self._split()
-            m = self._value_FSC_RE.match(valuecomment)
-            if not (m or self.keyword in self._commentary_keywords):
-                err_text = (
-                    'Card image is not FITS standard (unparsable value '
-                    'string: %s).' % valuecomment)
+        # verify the value, it may be fixable
+        keyword, valuecomment = self._split()
+        m = self._value_FSC_RE.match(valuecomment)
+        if not (m or self.keyword in self._commentary_keywords):
+            errs.append(self.run_option(
+                option,
+                err_text='Card image is not FITS standard (unparsable value '
+                         'string: %s).' % valuecomment,
+                fix_text=fix_text,
+                fix=self._fixvalue))
 
-            # verify the comment (string), it is never fixable
-            elif m is not None:
-                comment = m.group('comm')
-                if comment is not None:
-                    if not self._comment_FSC_RE.match(comment):
-                        err_text = 'Unprintable string %r' % comment
-                        fixable = False
-
-        if err_text and fixable and option in ['fix', 'silentfix']:
-            self._fixvalue()
-            if option == 'fix':
-                fix_text = ('Fixed card to meet the FITS standard: %s' %
-                            self.keyword)
-
-        errs.append(self.run_option(option, err_text=err_text,
-                                    fix_text=fix_text, fixable=fixable))
+        # verify the comment (string), it is never fixable
+        m = self._value_NFSC_RE.match(valuecomment)
+        if m is not None:
+            comment = m.group('comm')
+            if comment is not None:
+                if not self._comment_FSC_RE.match(comment):
+                    errs.append(self.run_option(
+                        option,
+                        err_text='Unprintable string %r' % comment,
+                        fixable=False))
 
         return errs
 
@@ -2435,7 +2454,7 @@ class Card(_Verify):
 
         for idx in xrange(0, Card.length * ncards, Card.length):
             card = Card.fromstring(self._image[idx:idx + Card.length])
-            if idx > 0 and card.keyword != 'CONTINUE':
+            if idx > 0 and card.keyword.upper() != 'CONTINUE':
                 raise ValueError(
                         'Long card images must have CONTINUE cards after '
                         'the first card.')

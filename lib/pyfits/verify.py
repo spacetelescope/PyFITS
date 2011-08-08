@@ -62,7 +62,7 @@ class _Verify(object):
             raise VerifyError('\n' + x)
         if opt not in ['silentfix', 'exception'] and x:
             warnings.warn('Output verification result:')
-            warnings.warn(x)
+            warnings.warn('  %s' % x)
         if opt == 'exception' and x:
             raise VerifyError('\n' + x)
 
