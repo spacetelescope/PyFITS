@@ -146,7 +146,7 @@ class Header(object):
             if card._modified:
                 self._modified = True
         except (KeyError, IndexError):
-            self._update(key, value, comment)
+            self._update(Card(key, value, comment))
             self._modified = True
 
     def __delitem__(self, key):
@@ -365,11 +365,13 @@ class Header(object):
                             'value must be either a scalar, a 1-tuple '
                             'containing the scalar value, or a 2-tuple '
                             'containing the value and a comment string.' % k)
-                self._update(*val)
+                self._update(Card(*val))
         elif isiterable(key):
             for idx, val in enumerate(key):
-                if isinstance(val, (tuple, Card)) and (1 < len(val) <= 3):
-                    self._update(*val)
+                if isinstance(val, Card):
+                    self._update(val)
+                elif isinstance(val, tuple) and (1 < len(val) <= 3):
+                    self._update(Card(*val))
                 else:
                     raise ValueError(
                             'Header update sequence item #%d is invalid; the '
@@ -421,7 +423,7 @@ class Header(object):
             self._keyword_indices[keyword].sort()
         self._modified = True
 
-    def _update(self, keyword, value='', comment=''):
+    def _update(self, card):
         """
         The real update code.  If keyword already exists, its value and/or
         comment will be updated.  Otherwise a new card will be appended.
@@ -437,22 +439,23 @@ class Header(object):
         # TODO: Obviously commentary keywords aren't really properly supported
         # yet
 
-        keyword = keyword.upper()
+        keyword = card.keyword
 
-        if keyword in self._keyword_indices:
+        if (keyword not in Card._commentary_keywords and
+                keyword in self._keyword_indices):
             # Easy; just update the value/comment
             # TODO: Once we start worrying about the string representation of
             # the entire header, we should probably touch something here to
             # ensure that it's updated
             idx = self._keyword_indices[keyword][0]
-            card = self._cards[idx]
-            card.value = value
-            card.comment = comment
-            if card._modified:
+            existing_card = self._cards[idx]
+            existing_card.value = card.value
+            existing_card.comment = card.comment
+            if existing_card._modified:
                 self._modified = True
         else:
             # A new keyword! self.append() will handle updating _modified
-            self.append((keyword, value, comment))
+            self.append(card)
 
     def _cardindex(self, key):
         """Returns an index into the ._cards list given a valid lookup key."""
@@ -554,9 +557,10 @@ class Header(object):
         if newkey == 'CONTINUE':
             raise ValueError('Can not rename to CONTINUE')
 
-        if newkey in Card._commentary_keys or oldkey in Card._commentary_keys:
-            if not (newkey in Card._commentary_keys and 
-                    oldkey in Card._commentary_keys):
+        if (newkey in Card._commentary_keywords or
+                oldkey in Card._commentary_keywords):
+            if not (newkey in Card._commentary_keywords and
+                    oldkey in Card._commentary_keywords):
                 raise ValueError('Regular and commentary keys can not be '
                                  'renamed to each other.')
         elif (force == 0) and newkey in self:

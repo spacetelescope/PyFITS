@@ -34,7 +34,7 @@ class TestHDUListFunctions(PyfitsTestCase):
 
         def test_fileinfo(**kwargs):
             assert_equal(res['datSpan'], kwargs.get('datSpan', 2880))
-            assert_equal(res['resized'], kwargs.get('resized', 0))
+            assert_equal(res['resized'], kwargs.get('resized', False))
             assert_equal(res['filename'], self.data('checksum.fits'))
             assert_equal(res['datLoc'], kwargs.get('datLoc', 8640))
             assert_equal(res['hdrLoc'], kwargs.get('hdrLoc', 0))
@@ -47,10 +47,10 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdul.insert(1, hdu)
 
         res = hdul.fileinfo(0)
-        test_fileinfo(resized=1)
+        test_fileinfo(resized=True)
 
         res = hdul.fileinfo(1)
-        test_fileinfo(datSpan=None, resized=1, datLoc=None, hdrLoc=None)
+        test_fileinfo(datSpan=None, resized=True, datLoc=None, hdrLoc=None)
 
         res = hdul.fileinfo(2)
         test_fileinfo(resized=1, datLoc=17280, hdrLoc=11520)

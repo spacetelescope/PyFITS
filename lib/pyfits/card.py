@@ -1587,7 +1587,7 @@ class CardList(list):
         del self._header[key]
 
     def __getslice__(self, start, end):
-        return self[slice(start, end)]
+        return CardList(self[slice(start, end)])
 
     def __repr__(self):
         """Format a list of cards into a string."""
@@ -1920,6 +1920,9 @@ class Card(_Verify):
         self._value = None
         self._comment = None
         self._image = None
+        # This attribute is set to False when reading the card image from a
+        # to ensure that the contents of the image get verified at some point
+        self._parsed = True
 
         if keyword is not None:
             self._setkeyword(keyword)
@@ -1937,8 +1940,6 @@ class Card(_Verify):
         return repr((self.keyword, self.value, self.comment))
 
     def __str__(self):
-        # TODO: Have this return the actual representation of a card in a FITS
-        # header, including CONTINUE cards if necessary
         return self.image
 
     def __len__(self):
@@ -1951,9 +1952,8 @@ class Card(_Verify):
         if self._keyword is not None:
             return self._keyword
         elif self._image:
-            keyword = self._parsekeyword()
-            self._setkeyword(keyword)
-            return keyword
+            self._keyword = self._parsekeyword()
+            return self._keyword
         else:
             self._setkeyword('')
             return ''
@@ -1990,9 +1990,8 @@ class Card(_Verify):
             self._setvalue(self._valuestring)
             return self._valuestring
         elif self._image:
-            value = self._parsevalue()
-            self._setvalue(value)
-            return value
+            self._value = self._parsevalue()
+            return self._value
         else:
             self._setvalue('')
             return ''
@@ -2000,7 +1999,10 @@ class Card(_Verify):
     def _setvalue(self, value):
         if value is None:
             value = ''
-        if value != self._value:
+        oldvalue = self._value
+        if oldvalue is None:
+            oldvalue = ''
+        if value != oldvalue:
             self._value = value
             self._modified = True
             self._valuestring = None
@@ -2015,9 +2017,8 @@ class Card(_Verify):
         if self._comment is not None:
             return self._comment
         elif self._image:
-            comment = self._parsecomment()
-            self._setcomment(comment)
-            return comment
+            self._comment = self._parsecomment()
+            return self._comment
         else:
             self._setcomment('')
             return ''
@@ -2025,7 +2026,10 @@ class Card(_Verify):
     def _setcomment(self, comment):
         if comment is None:
             comment = ''
-        if comment != self._comment:
+        oldcomment = self._comment
+        if oldcomment is None:
+            oldcomment = ''
+        if comment != oldcomment:
             self._comment = comment
             self._modified = True
 
@@ -2036,6 +2040,8 @@ class Card(_Verify):
 
     @property
     def image(self):
+        if not self._parsed:
+            self.verify('silentfix')
         if self._image is None or self._modified:
             self._image = self._formatimage()
         return self._image
@@ -2047,6 +2053,8 @@ class Card(_Verify):
 
     @deprecated(alternative='the .image attribute')
     def ascardimage(self, option='silentfix'):
+        if not self._parsed:
+            self.verify(option)
         return self.image
 
     @classmethod
@@ -2069,14 +2077,17 @@ class Card(_Verify):
         #    card = cls()
         card = cls()
         card._image = image
+        card._parsed = False
         return card
 
     def _parsekeyword(self):
+        if self._value is not None and self._comment is not None:
+            self._parsed = False
         keyword = self._image[:8].strip().upper()
         if keyword in self._commentary_keywords:
             return keyword
         if '=' in self._image:
-            keyword = self._image.split('=', 1)[0]
+            keyword = self._image.split('=', 1)[0].strip()
         if len(keyword) > 8:
             if keyword[:8].upper() == 'HIERARCH':
                 return keyword[9:].strip()
@@ -2090,6 +2101,9 @@ class Card(_Verify):
 
     def _parsevalue(self):
         """Extract the keyword value from the card image."""
+
+        if self._keyword is not None and self._comment is not None:
+            self._parsed = False
 
         # for commentary cards, no need to parse further
         if self.keyword in self._commentary_keywords:
@@ -2105,7 +2119,6 @@ class Card(_Verify):
 
             value = ''.join(values).rstrip()
             self._valuestring = value
-            self._valuemodified = False
             return value
 
         m = self._value_NFSC_RE.match(self._split()[1])
@@ -2143,16 +2156,18 @@ class Card(_Verify):
                 isign = ''
             else:
                 isign = imag.group('sign')
-            value += _str_to_num(isign + _digt)*1j
+            value += _str_to_num(isign + idigt) * 1j
         else:
             value = UNDEFINED
 
         self._valuestring = m.group('valu')
-        self._valuemodified = False
         return value
 
     def _parsecomment(self):
         """Extract the keyword value from the card image."""
+
+        if self._keyword is not None and self._value is not None:
+            self._parsed = False
 
         # for commentary cards, no need to parse further
         if self.keyword in Card._commentary_keywords:
@@ -2179,15 +2194,28 @@ class Card(_Verify):
         Split the card image between the keyword and the rest of the card.
         """
 
-        if self.keyword in self._commentary_keywords + ['CONTINUE']:
-            delimiter = ' '
-        else:
-            delimiter = '='
-
         if self._image is not None:
-            keyword, valuecomment = self._image.split(delimiter, 1)
+            # If we already have a card image, don't try to rebuild a new card
+            # image, which self.image would do
+            image = self._image
         else:
-            keyword, valuecomment = self.image.split(delimiter, 1)
+            image = self.image
+
+        if self.keyword in self._commentary_keywords + ['CONTINUE']:
+            keyword, valuecomment = image.split(' ', 1)
+        else:
+            try:
+                delim_index = image.index('=')
+            except ValueError:
+                delim_index = 11
+
+            # The equal sign may not be any higher than column 10; anything
+            # past that must be considered part of the card value
+            if delim_index > 10:
+                keyword = image[:8]
+                valuecomment = image[10:]
+            else:
+                keyword, valuecomment = image.split('=', 1)
         return keyword.strip(), valuecomment.strip()
 
     def _fixvalue(self):
@@ -2229,6 +2257,7 @@ class Card(_Verify):
         self._setvalue(value)
         self._valuestring = self._value
         self._valuemodified = False
+        self._image = self._formatimage()
 
     def _formatkeyword(self):
         if self.keyword:
@@ -2242,14 +2271,20 @@ class Card(_Verify):
     def _formatvalue(self):
         # value string
         float_types = (float, np.floating, complex, np.complexfloating)
-        if self._value is None:
+        value = self.value # Force the value to be parsed out first
+        if not self.keyword:
+            # Blank cards must have blank values
             return ''
+        elif self.keyword in self._commentary_keywords:
+            # The value of a commentary card must be just a raw unprocessed
+            # string
+            return str(value)
         elif (self._valuestring and not self._valuemodified and
-                not isinstance(self.value, float_types)):
+                isinstance(self.value, float_types)):
             # Keep the existing formatting for float/complex numbers
             return '%20s' % self._valuestring
         else:
-            return _format_value(self.value)
+            return _format_value(value)
 
     def _formatcomment(self):
         if not self.comment:
@@ -2259,6 +2294,7 @@ class Card(_Verify):
 
     def _formatimage(self):
         keyword = self._formatkeyword()
+
         value = self._formatvalue()
         is_commentary = keyword.strip() in self._commentary_keywords
         if is_commentary:
@@ -2269,7 +2305,7 @@ class Card(_Verify):
         # equal sign string
         delimiter = '= '
         if is_commentary:
-            delimiter = ' '
+            delimiter = ''
 
         # put all parts together
         output = ''.join([keyword, delimiter, value, comment])

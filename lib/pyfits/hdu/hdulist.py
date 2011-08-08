@@ -693,8 +693,7 @@ class HDUList(list, _Verify):
                 self._resize = False
                 self._truncate = False
                 for hdu in self:
-                    hdu.header._mod = False
-                    hdu.header.ascard._mod = False
+                    hdu.header._modified = False
                     hdu._new = False
                     hdu._file = ffo
 
@@ -707,7 +706,7 @@ class HDUList(list, _Verify):
                         except KeyError:
                             extver = ''
 
-                    if hdu.header._mod or hdu.header.ascard._mod:
+                    if hdu.header._modified:
                         # only output the checksum if flagged to do so
                         if hasattr(hdu, '_output_checksum'):
                             checksum = hdu._output_checksum
@@ -735,8 +734,7 @@ class HDUList(list, _Verify):
 
                 # reset the modification attributes after updating
                 for hdu in self:
-                    hdu.header._mod = False
-                    hdu.header.ascard._mod = False
+                    hdu.header._modified = False
 
         if single_thread:
             if keyboard_interrupt_sent:
@@ -1022,6 +1020,7 @@ class HDUList(list, _Verify):
                 # Data:
                 if not hdu._data_loaded or hdu.data is None:
                     continue
+
                 nbytes = hdu.data.nbytes
                 nbytes = nbytes + _pad_length(nbytes)
                 if nbytes != hdu._datSpan:
