@@ -389,6 +389,11 @@ class Header(object):
         self._modified = True
 
     def insert(self, idx, card):
+        if idx >= len(self._cards):
+            # This is just an append
+            self.append(card)
+            return
+
         if isinstance(card, tuple):
             card = Card(*card)
             self._cards.insert(idx, card)
@@ -414,6 +419,7 @@ class Header(object):
             # TODO: Maybe issue a warning when this occurs (and the keyword is
             # non-commentary)
             self._keyword_indices[keyword].sort()
+        self._modified = True
 
     def _update(self, keyword, value='', comment=''):
         """

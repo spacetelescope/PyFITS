@@ -587,6 +587,48 @@ def _normalize_slice(input, naxis):
     return slice(_start, _stop, _step)
 
 
+
+# TODO: Revisit this and see if there isn't an easier implementation (I think
+# there might already be something for this in the stdlib)
+def _words_group(input, strlen):
+    """
+    Split a long string into parts where each part is no longer
+    than `strlen` and no word is cut into two pieces.  But if
+    there is one single word which is longer than `strlen`, then
+    it will be split in the middle of the word.
+    """
+
+    words = []
+    nblanks = input.count(' ')
+    nmax = max(nblanks, len(input) // strlen + 1)
+    arr = np.fromstring((input + ' '), dtype=(np.bytes_, 1))
+
+    # locations of the blanks
+    blank_loc = np.nonzero(arr == np.bytes_(' '))[0]
+    offset = 0
+    xoffset = 0
+    for idx in range(nmax):
+        try:
+            loc = np.nonzero(blank_loc >= strlen + offset)[0][0]
+            offset = blank_loc[loc-1] + 1
+            if loc == 0:
+                offset = -1
+        except:
+            offset = len(input)
+
+        # check for one word longer than strlen, break in the middle
+        if offset <= xoffset:
+            offset = xoffset + strlen
+
+        # collect the pieces in a list
+        words.append(input[xoffset:offset])
+        if len(input) == offset:
+            break
+        xoffset = offset
+
+    return words
+
+
 def _tmp_name(input):
     """
     Create a temporary file name which should not already exist.  Use the

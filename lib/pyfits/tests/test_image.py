@@ -2,12 +2,13 @@ from __future__ import division # confidence high
 from __future__ import with_statement
 
 import os
+import warnings
 
 import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import CaptureStdout
+from pyfits.tests.util import CaptureStdout, catch_warnings
 
 from nose.tools import assert_equal, assert_raises, assert_true
 
@@ -117,8 +118,10 @@ class TestImageFunctions(PyfitsTestCase):
         assert_raises(ValueError, pyfits.Card, 'key', [], 'comment')
 
     def test_keyword_too_long(self):
-        #keywords too long
-        assert_raises(ValueError, pyfits.Card, 'abcdefghi', 'long')
+        """Long keywords should be allowed, but a warning should be issued."""
+        with catch_warnings():
+            warnings.simplefilter('error')
+            assert_raises(UserWarning, pyfits.Card, 'abcdefghi', 'long')
 
 
     def test_illegal_characters_in_key(self):

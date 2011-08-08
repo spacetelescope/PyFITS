@@ -1007,11 +1007,12 @@ class HDUList(list, _Verify):
             for hdu in self:
 
                 # Header:
-                # Add 1 to .ascard to include the END card
-                _nch80 = sum([card._ncards() for card in hdu.header.ascard])
-                _bytes = (_nch80+1) * Card.length
-                _bytes = _bytes + _pad_length(_bytes)
-                if _bytes != (hdu._datLoc-hdu._hdrLoc):
+                nbytes = len(str(hdu.header))
+                # Add +80 for the END card
+                nbytes += Card.length
+                # Add padding
+                nbytes += _pad_length(nbytes)
+                if nbytes != (hdu._datLoc - hdu._hdrLoc):
                     self._resize = True
                     self._truncate = False
                     if verbose:
@@ -1021,9 +1022,9 @@ class HDUList(list, _Verify):
                 # Data:
                 if not hdu._data_loaded or hdu.data is None:
                     continue
-                _bytes = hdu.data.nbytes
-                _bytes = _bytes + _pad_length(_bytes)
-                if _bytes != hdu._datSpan:
+                nbytes = hdu.data.nbytes
+                nbytes = nbytes + _pad_length(nbytes)
+                if nbytes != hdu._datSpan:
                     self._resize = True
                     self._truncate = False
                     if verbose:
