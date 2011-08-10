@@ -1,11 +1,11 @@
+import copy
 import os
 import warnings
 
 from collections import defaultdict
 
-from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
-                        _ContinueCard, _HierarchCard, create_card, \
-                        create_card_from_string, upper_key
+from pyfits.card import (Card, CardList, RecordValuedKeywordCard,
+                         create_card, create_card_from_string, upper_key)
 from pyfits.util import BLOCK_SIZE, deprecated, isiterable
 
 
@@ -42,16 +42,15 @@ class Header(object):
 
         Parameters
         ----------
-        cards : A list of `Card` objects, optional
+        cards : A list of `Card` objects, (optional)
             The cards to initialize the header with.
 
-        txtfile : file path, file object or file-like object, optional
+        txtfile : file path, file object or file-like object (optional)
             Input ASCII header parameters file.
         """
 
-        self._cards = []
+        self.clear()
         self._modified = False
-        self._keyword_indices = defaultdict(list)
 
         if txtfile:
             warnings.warn(
@@ -65,7 +64,8 @@ class Header(object):
         if isinstance(cards, Header):
             cards = cards.cards
 
-        self.update(cards)
+        for card in cards:
+            self.append(card, end=True)
 
     def __len__(self):
         return len(self._cards)
@@ -89,28 +89,20 @@ class Header(object):
             Returns `True` if found, otherwise, `False`.
         """
 
-        #key = upper_key(key)
-        #if key[:8] == 'HIERARCH':
-        #    key = key[8:].strip()
-        return keyword.upper() in self._keyword_indices
-    has_key = deprecated(name='has_key',
-                         alternative='`key in header` syntax')(__contains__)
+        try:
+            self._cardindex(keyword)
+        except (KeyError, IndexError):
+            return False
+        return True
 
     def __getitem__ (self, key):
         """
-        Get a header keyword value.
+        Get a header keyword value.  Slices return a new header.
         """
 
-#         card = self.ascard[key]
-# 
-#         if isinstance(card, RecordValuedKeywordCard) and \
-#            (not isinstance(key, basestring) or '.' not in key):
-#             return card.strvalue()
-#         elif isinstance(card, CardList):
-#             return card
-#         else:
-#             return card.value
-        # TODO: Implement the filterstring capability of CardList
+        if isinstance(key, slice):
+            return Header([copy.copy(c) for c in self._cards[key]])
+
         return self._cards[self._cardindex(key)].value
 
     def __setitem__ (self, key, value):
@@ -125,7 +117,7 @@ class Header(object):
                     'a 1-tuple containing a scalar value, or a 2-tuple '
                     'containing a scalar value and comment string.')
             if len(value) == 1:
-                value, comment = value, None
+                value, comment = value[0], None
                 if value is None:
                     value = ''
             elif len(value) == 2:
@@ -154,7 +146,6 @@ class Header(object):
         Delete card(s) with the name `key`.
         """
 
-        # TODO: Handle slices both here and in __set/getitem__
         # delete ALL cards with the same keyword name
         if isinstance(key, basestring):
             key = key.upper()
@@ -181,6 +172,8 @@ class Header(object):
         self._updateindices(idx, increment=False)
         self._modified = True
 
+    # TODO: Provide a nice, informative __repr__
+
     def __str__(self):
         return ''.join(str(card) for card in self._cards)
 
@@ -194,14 +187,10 @@ class Header(object):
         return tuple(self._cards)
 
     @property
-    def ascard(self):
-        """
-        Returns a CardList object wrapping this Header; provided for
-        backwards compatibility for the old API (where Headers had an
-        underlying CardList).
-        """
+    def comments(self):
+        """View the comments associated with each keyword, if any."""
 
-        return CardList(self)
+        return _HeaderComments(self)
 
     @classmethod
     def fromstring(cls, data):
@@ -245,11 +234,62 @@ class Header(object):
 
         return cls(cards)
 
+    def clear(self):
+        """
+        Remove all cards from the header.
+        """
+
+        self._cards = []
+        self._keyword_indices = defaultdict(list)
+
+    def copy(self, strip=False):
+        """
+        Make a copy of the `Header`.
+
+        Parameters
+        ----------
+        strip : bool (optional)
+           If True, strip any headers that are specific to one of the standard
+           HDU types, so that this header can be used in a different HDU.
+        """
+
+        tmp = Header([copy.copy(card) for card in self._cards])
+        if strip:
+            tmp._strip()
+        return tmp
+
+    @classmethod
+    def fromkeys(cls, iterable, value=None):
+        d = cls()
+        if not isinstance(value, tuple):
+            value = (value,)
+        for key in iterable:
+            d.append((key,) + value)
+        return d
+
     def get(self, key, default=None):
         try:
             return self[key]
         except (KeyError, IndexError):
             return default
+
+    @deprecated(alternative='`key in header` syntax')
+    def has_key(self, key):
+        return key in self
+
+    def items(self):
+        return list(self.iteritems())
+
+    def iteritems(self):
+        for card in self._cards:
+            yield (card.keyword, card.value)
+
+    def iterkeys(self):
+        return self.__iter__()
+
+    def itervalues(self):
+        for _, v in self.iteritems():
+            yield v
 
     def keys(self):
         """
@@ -268,12 +308,73 @@ class Header(object):
 
         return retval
 
-    def update(self, key=None, value=None, comment=None, before=None,
-               after=None, savecomment=False, **kwargs):
-
-        # TODO: Update this docstring
-
+    def pop(self, *args):
         """
+        Works like list.pop() if no arguments or an index argument are
+        supplied; otherwise works like dict.pop().
+        """
+
+        if len(args) > 2:
+            raise TypeError('Header.pop expected at most 2 arguments, got '
+                            '%d' % len(args))
+
+        if len(args) == 0:
+            key = -1
+        else:
+            key = args[0]
+
+        try:
+            value = self[key]
+        except (KeyError, IndexError):
+            if len(args) == 2:
+                return args[1]
+            raise
+
+        del self[key]
+        return value
+
+    def popitem(self):
+        try:
+            k, v = self.iteritems().next()
+        except StopIteration:
+            raise KeyError('Header is empty')
+        del self[k]
+        return k, v
+
+    def setdefault(self, key, default=None):
+        try:
+            return self[key]
+        except (KeyError, IndexError):
+            self[key] = default
+        return default
+
+    def update(self, *args, **kwargs):
+        """
+        Update the Header with new keyword values, updating the values of
+        existing keywords and appending new keywords otherwise; similar to
+        dict.update().
+
+        update() accepts either a dict-like object or an iterable.  In the
+        former case the keys must be header keywords and the values may be
+        either scalar values or (value, comment) tuples.  In the case of an
+        iterable the items must be (keyword, value) tuples or
+        (keyword, value, comment) tuples.
+
+        Arbitrary arguments are also accepted, in which case the update() is
+        called again with the kwargs dict as its only argument.
+
+        Parameters
+        ----------
+        other : dict, iterable (optional)
+            The dict or iterable from which to update the Header
+
+        Note: As this method works similarly to dict.update() it is very
+        different from the Header.update() method in PyFITS versions prior to
+        3.1.0.  However, support for the old API is also maintained for
+        backwards compatibility.  If update() is called with at least two
+        positional arguments then it can be assumed that the old API is being
+        used.  For reference, the old documentation is provided below:
+
         Update one header card.
 
         If the keyword already exists, it's value and/or comment will
@@ -290,117 +391,298 @@ class Header(object):
         value : str
             value to be used for updating
 
-        comment : str, optional
+        comment : str (optional)
             to be used for updating, default=None.
 
-        before : str or int, optional
+        before : str, int (optional)
             name of the keyword, or index of the `Card` before which
             the new card will be placed.  The argument `before` takes
             precedence over `after` if both specified.
 
-        after : str or int, optional
+        after : str, int (optional)
             name of the keyword, or index of the `Card` after which
             the new card will be placed.
 
-        savecomment : bool, optional
+        savecomment : bool (optional)
             When `True`, preserve the current comment for an existing
             keyword.  The argument `savecomment` takes precedence over
             `comment` if both specified.  If `comment` is not
             specified then the current comment will automatically be
             preserved.
+
         """
 
-        if key is None:
-            # Key will be an empty dict to be filled by any keyword arguments
-            key = {}
+        legacy_kwargs = ['comment', 'before', 'after', 'savecomment']
 
-        if isinstance(key, basestring):
-            # Old-style update
+        if len(args) >= 2:
+            # This must be a legacy update()
             # TODO: Issue a deprecation warning for this
-            if key in self:
+            keyword = args[0]
+            value = args[1]
+            for k, v in zip(legacy_kwargs, args[2:]):
+                if k in kwargs:
+                    raise TypeError(
+                        '%s.update() got multiple values for keyword '
+                        'argument %r' % (self.__class__.__name__, k))
+                kwargs[k] = v
+
+            comment = kwargs.get('comment')
+            before = kwargs.get('before')
+            after = kwargs.get('after')
+            savecomment = kwargs.get('savecomment')
+
+            if keyword in self:
                 if comment is None or savecomment:
-                    updateval = value
+                    setval = value
                 else:
-                    updateval = (value, comment)
+                    setval = (value, comment)
                 if before is None and after is None:
-                    self[key] = updateval
+                    self[keyword] = setval
                 else:
-                    self[key] = updateval
-                    idx = self._cardindex(key)
+                    self[keyword] = setval
+                    idx = self._cardindex(keyword)
                     card = self._cards[idx]
                     del self[idx]
                     self._relativeinsert(card, before=before, after=after)
             elif before is not None or after is not None:
-                self._relativeinsert((key, value, comment), before=before,
+                self._relativeinsert((keyword, value, comment), before=before,
                                      after=after)
             else:
-                self[key] = (value, comment)
+                self[keyword] = (value, comment)
+        else:
+            # The rest of this should work similarly to dict.update()
+            if args:
+                other = args[0]
+            else:
+                other = None
 
-        # The rest of this should work similarly to dict.update()
-        elif hasattr(key, 'iteritems') and hasattr(key, 'update'):
-            # If this is a dict, just update with tuples created by joining the
-            # key and the value--the value may either be a single item
-            # representing the value of the card, or it may be a 2-tuple if the
-            # value and a comment If this is not an ordered dict, the order in
-            # which new keywords are appended is of course unpredictable, so
-            # this method should not be used for adding new cards
-
-            # If both a dictionary and keyword arguments are provided, they
-            # keyword arguments take precendence; also add the
-            # value/comment/before/after/savecomment keywords in case someone
-            # actually wants to use those as the names of cards
-            kwargs.update([('value', value), ('comment', comment),
-                           ('before', before), ('after', after),
-                           ('savecomment', savecomment)])
-            key.update(kwargs)
-
-            for k, val in key.iteritems():
-                if not isinstance(val, tuple):
-                    val = (k, val)
-                elif 0 < len(val) <= 2:
-                    val = (k,) + val
+            def update_from_dict(k, v):
+                if not isinstance(v, tuple):
+                    card = Card(k, v)
+                elif 0 < len(v) <= 2:
+                    card = Card(*((k,) + v))
                 else:
                     raise ValueError(
                             'Header update value for key %r is invalid; the '
                             'value must be either a scalar, a 1-tuple '
                             'containing the scalar value, or a 2-tuple '
                             'containing the value and a comment string.' % k)
-                self._update(Card(*val))
-        elif isiterable(key):
-            for idx, val in enumerate(key):
-                if isinstance(val, Card):
-                    self._update(val)
-                elif isinstance(val, tuple) and (1 < len(val) <= 3):
-                    self._update(Card(*val))
-                else:
-                    raise ValueError(
-                            'Header update sequence item #%d is invalid; the '
-                            'item must either be a 2-tuple containing a '
-                            'keyword and value, or a 3-tuple containing a '
-                            'keyword, value, and comment string.' % idx)
+                self._update(card)
 
-    def append(self, card):
-        if isinstance(card, tuple):
+            if other is None:
+                pass
+            elif hasattr(other, 'iteritems'):
+                for k, v in other.iteritems():
+                    update_from_dict(k, v)
+            elif hasattr(other, 'keys'):
+                for k in other.keys():
+                    update_from_dict(k, other[k])
+            else:
+                for idx, card in enumerate(other):
+                    if isinstance(card, Card):
+                        self._update(card)
+                    elif isinstance(card, tuple) and (1 < len(card) <= 3):
+                        self._update(Card(*card))
+                    else:
+                        raise ValueError(
+                                'Header update sequence item #%d is invalid; '
+                                'the item must either be a 2-tuple containing '
+                                'a keyword and value, or a 3-tuple containing '
+                                'a keyword, value, and comment string.' % idx)
+            if kwargs:
+                self.update(kwargs)
+
+    def values(self):
+        """Returns a list of the values of all cards in the header."""
+
+        return [v for _, v in self.iteritems()]
+
+    def append(self, card=None, useblanks=True, bottom=False, end=False):
+        """
+        Appends a new keyword+value card to the end of the Header, similar
+        to list.append().
+
+        By default if the last cards in the Header have commentary keywords,
+        this will append the new keyword before the commentary.
+
+        Also differs from list.append() in that it can be called with no
+        arguments: In this case a blank card is appended to the end of the
+        Header.  In the case all the keyword arguments are ignored.
+
+        Paramters
+        ---------
+        card : str, tuple
+            A keyword or a (keyword, value, [comment]) tuple representing a
+            single header card; the comment is optional in which case a
+            2-tuple may be used
+
+        useblanks : bool (optional)
+            If there are blank cards at the end of the Header, replace the
+            first blank card so that the total number of cards in the Header
+            does not increase.  Otherwise preserve the number of blank cards.
+
+        bottom : bool (optional)
+            If True, instead of appending after the last non-commentary card,
+            append after the last non-blank card.
+
+        end : bool (optional):
+            If True, ignore the useblanks and bottom options, and append at the
+            very end of the Header.
+
+        """
+
+        if isinstance(card, basestring):
+            card = Card(card)
+            self._cards.append(card)
+        elif isinstance(card, tuple):
             card = Card(*card)
+        elif card is None:
+            card = Card()
+        elif not isinstance(card, Card):
+            raise ValueError(
+                'The value appended to a Header must be either a keyword or '
+                '(keyword, value, [comment]) tuple; got: %r' % card)
+
+        blank = ' ' * Card.length
+        if str(card) == blank:
+            # Blank cards should always just be appended to the end
+            end = True
+
+        if end:
             self._cards.append(card)
+            idx = len(self._cards) - 1
         else:
-            self._cards.append(card)
+            idx = len(self._cards) - 1
+            while idx >=0 and str(self._cards[idx]) == blank:
+                idx -= 1
+
+            if not bottom:
+                while (idx >= 0 and
+                       self._cards[idx].keyword in Card._commentary_keywords):
+                    idx -= 1
+
+            idx += 1
+            self._cards.insert(idx, card)
+            self._updateindices(idx)
+
         keyword = card.keyword.upper()
-        # TODO: This is not thread-safe; do we care?
-        self._keyword_indices[keyword].append(len(self._cards) - 1)
+        self._keyword_indices[keyword].append(idx)
+
+        if not end:
+            # If the appended card was a commentary card, and it was appended
+            # before existing cards with the same keyword, the indices for
+            # cards with that keyword may have changed
+            if not bottom and card.keyword in Card._commentary_keywords:
+                self._keyword_indices[keyword].sort()
+
+            # Finally, if useblanks, delete a blank cards from the end
+            if useblanks:
+                ncards = len(str(card)) // Card.length
+                for _ in range(ncards):
+                    if str(self._cards[-1]) == blank:
+                        del self[-1]
+                    else:
+                        break
+
         self._modified = True
 
+    def extend(self, cards):
+        """
+        Appends multiple keyword+value cards to the end of the header, similar
+        to list.extend().
+
+        Parameters
+        ----------
+        cards : iterable
+            An iterable of (keyword, value, [comment]) tuples; see
+            Header.append()
+
+        """
+
+        for card in cards:
+            self.append(card)
+
+    def count(self, keyword):
+        """
+        Returns the count of the given keyword in the header, similar to
+        list.count() if the Header object is treated as a list of keywords.
+
+        Parameters
+        ----------
+        keyword : str
+            The keyword to count instances of in the header
+
+        """
+
+        # We have to look before we leap, since otherwise _keyword_indices,
+        # being a defaultdict, will create an entry for the nonexistent keyword
+        if keyword not in self._keyword_indices:
+            raise KeyError("Keyword %r not found." % keyword)
+        return len(self._keyword_indices[keyword])
+
+    def index(self, keyword, start=None, stop=None):
+        """
+        Returns the index if the first instance of the given keyword in the
+        header, similar to list.index() if the Header object is treated as a
+        list of keywords.
+
+        Parameters
+        ----------
+        keyword : str
+            The keyword to look up in the list of all keywords in the header
+
+        start : int (optional)
+            The lower bound for the index
+
+        stop : int (optional)
+            The upper bound for the index
+
+        """
+
+        if start is None:
+            start = 0
+
+        if stop is None:
+            stop = len(self._cards)
+
+        for idx in xrange(start, stop):
+            if self._cards[idx].keyword == keyword:
+                return idx
+        else:
+            raise ValueError('The keyword %r is not in the header.' % keyword)
+
     def insert(self, idx, card):
+        """
+        Inserts a new keyword+value card into the Header at a given location,
+        similar to list.insert().
+
+        Parameters
+        ----------
+        idx : int
+            The index into the the list of header keywords before which the
+            new keyword should be inserted
+
+        card : str, tuple
+            A keyword or a (keyword, value, [comment]) tuple; see
+            Header.append()
+
+        """
+
         if idx >= len(self._cards):
             # This is just an append
             self.append(card)
             return
 
-        if isinstance(card, tuple):
+        if isinstance(card, basestring):
+            card = Card(card)
+        elif isinstance(card, tuple):
             card = Card(*card)
-            self._cards.insert(idx, card)
-        else:
-            self._cards.insert(idx, card)
+        elif not isinstance(card, Card):
+            raise ValueError(
+                'The value inserted into a Header must be either a keyword or '
+                '(keyword, value, [comment]) tuple; got: %r' % card)
+
+        self._cards.insert(idx, card)
 
         keyword = card.keyword.upper()
 
@@ -422,6 +704,21 @@ class Header(object):
             # non-commentary)
             self._keyword_indices[keyword].sort()
         self._modified = True
+
+    def remove(self, keyword):
+        """
+        Removes the first instance of the given keyword from the header
+        similar to list.remove() if the Header object is treated as a list of
+        keywords.
+
+        Parameters
+        ----------
+        value : str
+            The keyword of which to remove the first instance in the header
+
+        """
+
+        del self[self.index(keyword)]
 
     def _update(self, card):
         """
@@ -460,8 +757,16 @@ class Header(object):
     def _cardindex(self, key):
         """Returns an index into the ._cards list given a valid lookup key."""
 
-        if isinstance(key, (int, slice)):
+        if isinstance(key, slice):
             return key
+        elif isinstance(key, int):
+            # If < 0, determine the actual index
+            if key < 0:
+                key += len(self._cards)
+                if key < 0:
+                    key = 0
+            return key
+
 
         if isinstance(key, basestring):
             key = (key.upper(), 0)
@@ -477,8 +782,13 @@ class Header(object):
             # Returns the index into _cards for the n-th card with the given
             # keyword (where n is 0-based)
             if keyword not in self._keyword_indices:
-                raise KeyError("Keyword '%s' not found." % keyword)
-            return self._keyword_indices[keyword][n]
+                raise KeyError("Keyword %r not found." % keyword)
+            try:
+                return self._keyword_indices[keyword][n]
+            except IndexError:
+                raise IndexError('There are only %d %r cards in the header.' %
+                                 (len(self._keyword_indices[keyword]),
+                                  keyword))
         else:
             raise ValueError(
                     'Header indices must be either a string, a 2-tuple, or '
@@ -486,6 +796,12 @@ class Header(object):
         # TODO: Handle and reraise key/index errors as well.
 
     def _relativeinsert(self, card, before=None, after=None):
+        """
+        Inserts a new card before or after an existing card; used to
+        implement support for the legacy before/after keyword arguments to
+        Header.update().
+        """
+
         if before is None:
             insertionkey = after
         else:
@@ -502,6 +818,10 @@ class Header(object):
         value in the keyword_indices dict.
         """
 
+        if idx > len(self._cards):
+            # Save us some effort
+            return
+
         increment = 1 if increment else -1
 
         for indices in self._keyword_indices.itervalues():
@@ -509,22 +829,60 @@ class Header(object):
                 if keyword_index >= idx:
                     indices[jdx] += increment
 
-
-    def copy(self, strip=False):
+    def _strip(self):
         """
-        Make a copy of the `Header`.
+        Strip cards specific to a certain kind of header.
 
-        Parameters
-        ----------
-        strip : bool, optional
-           If True, strip any headers that are specific to one of the standard
-           HDU types, so that this header can be used in a different HDU.
+        Strip cards like ``SIMPLE``, ``BITPIX``, etc. so the rest of
+        the header can be used to reconstruct another kind of header.
         """
 
-        tmp = Header(self.ascard.copy())
-        if strip:
-            tmp._strip()
-        return tmp
+        # TODO: Previously this only deleted some cards specific to an HDU if
+        # _hdutype matched that type.  But it seemed simple enough to just
+        # delete all desired cards anyways, and just ignore the KeyErrors if
+        # they don't exist.
+        # However, it might be desirable to make this extendable somehow--have
+        # a way for HDU classes to specify some headers that are specific only
+        # to that type, and should be removed otherwise.
+
+        try:
+            if 'NAXIS' in self:
+                naxis = self['NAXIS']
+            else:
+                naxis = 0
+
+            if 'TFIELDS' in self:
+                tfields = self['TFIELDS']
+            else:
+                tfields = 0
+
+            for idx in range(naxis):
+                del self['NAXIS' + str(idx + 1)]
+
+            for name in ('TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE',
+                         'TUNIT', 'TDISP', 'TDIM', 'THEAP', 'TBCOL'):
+                for idx in range(tfields):
+                    del self[name + str(idx + 1)]
+
+            for name in ('SIMPLE', 'XTENSION', 'BITPIX', 'NAXIS', 'EXTEND',
+                         'PCOUNT', 'GCOUNT', 'GROUPS', 'BSCALE', 'TFIELDS'):
+                del self[name]
+        except KeyError:
+            pass
+
+
+    # The following properties/methods are for legacy API backwards
+    # compatibility
+
+    @property
+    def ascard(self):
+        """
+        Returns a CardList object wrapping this Header; provided for
+        backwards compatibility for the old API (where Headers had an
+        underlying CardList).
+        """
+
+        return CardList(self)
 
     @deprecated(alternative='the ascard attribute')
     def ascardlist(self):
@@ -786,15 +1144,10 @@ class Header(object):
                     self.add_blank(card.value, after=prevKey)
                     prevKey += 1
             else:
-                if isinstance(card, _HierarchCard):
-                    prefix = 'hierarch '
-                else:
-                    prefix = ''
-
-                self.update(prefix + card.key,
-                                     card.value,
-                                     card.comment,
-                                     after=prevKey)
+                self.update(card.key,
+                            card.value,
+                            card.comment,
+                            after=prevKey)
                 prevKey += 1
 
     def _add_commentary(self, key, value, before=None, after=None):
@@ -822,43 +1175,44 @@ class Header(object):
 
         self._modified = True
 
-    def _strip(self):
+
+class _HeaderComments(object):
+    """
+    A class used internally by the Header class for the Header.comments
+    attribute access.
+
+    This object can be used to display all the keyword comments in the Header,
+    or look up the comments on specific keywords.  It allows all the same forms
+    of keyword lookup as the Header class itself, but returns comments instead
+    of values.
+    """
+
+    # TODO: Consider giving this dict/list methods like Header itself
+
+    def __init__(self, header):
+        self._header = header
+
+    def __repr__(self):
+        """Returns a simple list of all keywords and their comments."""
+
+        # TODO: Fix Card class so that cards containing 'only' a comment have
+        # that comment in card.comment instead of card.value
+        keyword_width = 8
+        for card in self._header._cards:
+            keyword_width = max(keyword_width, len(card.keyword))
+        return '\n'.join('%*s  %s' % (keyword_width, c.keyword, c.comment)
+                         for c in self._header._cards)
+
+    def __getitem__(self, item):
         """
-        Strip cards specific to a certain kind of header.
-
-        Strip cards like ``SIMPLE``, ``BITPIX``, etc. so the rest of
-        the header can be used to reconstruct another kind of header.
+        Slices and filter strings return a new _HeaderComments containing the
+        returned cards.  Otherwise the comment of a single card is returned.
         """
 
-        # TODO: Previously this only deleted some cards specific to an HDU if
-        # _hdutype matched that type.  But it seemed simple enough to just
-        # delete all desired cards anyways, and just ignore the KeyErrors if
-        # they don't exist.
-        # However, it might be desirable to make this extendable somehow--have
-        # a way for HDU classes to specify some headers that are specific only
-        # to that type, and should be removed otherwise.
+        # TODO: Implement filter string support
 
-        try:
-            if 'NAXIS' in self:
-                naxis = self['NAXIS']
-            else:
-                naxis = 0
+        if isinstance(item, slice):
+            return _HeaderComments(self._header[item])
 
-            if 'TFIELDS' in self:
-                tfields = self['TFIELDS']
-            else:
-                tfields = 0
-
-            for idx in range(naxis):
-                del self['NAXIS' + str(idx + 1)]
-
-            for name in ('TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE',
-                         'TUNIT', 'TDISP', 'TDIM', 'THEAP', 'TBCOL'):
-                for idx in range(tfields):
-                    del self[name + str(idx + 1)]
-
-            for name in ('SIMPLE', 'XTENSION', 'BITPIX', 'NAXIS', 'EXTEND',
-                         'PCOUNT', 'GCOUNT', 'GROUPS', 'BSCALE', 'TFIELDS'):
-                del self[name]
-        except KeyError:
-            pass
+        idx = self._header._cardindex(item)
+        return self._header._cards[idx].comment

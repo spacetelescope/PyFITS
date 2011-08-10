@@ -10,38 +10,51 @@ from pyfits.tests.util import CaptureStdout, catch_warnings
 from nose.tools import assert_equal, assert_raises, assert_true
 
 
+class TestOldApiHeaderFunctions(PyfitsTestCase):
+    """
+    Tests that specifically use attributes and methods from the old
+    Header/CardList API from PyFITS 3.0 and prior.
+
+    This tests backward compatibility support for those interfaces.
+    """
+
+    def test_ascardimage_verifies_the_comment_string_to_be_ascii_text(self):
+        # the ascardimage() verifies the comment string to be ASCII text
+        c = pyfits.Card.fromstring('abc     = +  2.1   e + 12 / abcde\0')
+        assert_raises(Exception, c.ascardimage)
+
+    def test_rename_key(self):
+        """Test backwards compatibility support for Header.rename_key()"""
+        header = pyfits.Header([('A', 'B', 'C'), ('D', 'E', 'F')])
+        header.rename_key('A', 'B')
+        assert_true('A' not in header)
+        assert_true('B' in header)
+        assert_equal(header[0], 'B')
+        assert_equal(header['B'], 'B')
+        assert_equal(header.comments['B'], 'C')
+
+
 class TestHeaderFunctions(PyfitsTestCase):
     """Test PyFITS Header and Card objects."""
 
     def test_card_constructor_default_args(self):
-        """Test the constructor with default argument values."""
+        """Test Card constructor with default argument values."""
 
         c = pyfits.Card()
         assert_equal('', c.key)
 
-    def test_fromstring_set_attribute_ascardimage(self):
-        """Test fromstring() which will return a new card."""
-
-        c = pyfits.Card('abc', 99).fromstring('xyz     = 100')
-        assert_equal(100, c.value)
-
-        # test set attribute and  ascardimage() using the most updated attributes
-        c.value = 200
-        assert_equal(c.ascardimage(),
-                     "XYZ     =                  200                                                  ")
-
     def test_string_value_card(self):
-        """Test string value"""
+        """Test Card constructor with string value"""
 
         c = pyfits.Card('abc', '<8 ch')
-        assert_equal(str(c), 
+        assert_equal(str(c),
                      "ABC     = '<8 ch   '                                                            ")
         c = pyfits.Card('nullstr', '')
         assert_equal(str(c),
                      "NULLSTR = ''                                                                    ")
 
     def test_boolean_value_card(self):
-        """Boolean value card"""
+        """Test Card constructor with boolean value"""
 
         c = pyfits.Card("abc", True)
         assert_equal(str(c),
@@ -51,14 +64,14 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(c.value, False)
 
     def test_long_integer_value_card(self):
-        """long integer number"""
+        """Test Card constructor with long integer value"""
 
         c = pyfits.Card('long_int', -467374636747637647347374734737437)
         assert_equal(str(c),
                      "LONG_INT= -467374636747637647347374734737437                                    ")
 
     def test_floating_point_value_card(self):
-        """ floating point number"""
+        """Test Card constructor with floating point value"""
 
         c = pyfits.Card('floatnum', -467374636747637647347374734737437.)
 
@@ -68,7 +81,7 @@ class TestHeaderFunctions(PyfitsTestCase):
                          "FLOATNUM= -4.6737463674763E+32                                                  ")
 
     def test_complex_value_card(self):
-        """complex value"""
+        """Test Card constructor with complex value"""
 
         c = pyfits.Card('abc',
                         1.2345377437887837487e88+6324767364763746367e-33j)
@@ -79,37 +92,37 @@ class TestHeaderFunctions(PyfitsTestCase):
                          "ABC     = (1.23453774378878E+88, 6.32476736476374E-15)                          ")
 
     def test_card_image_constructed_too_long(self):
-        with CaptureStdout():
-            # card image constructed from key/value/comment is too long
-            # (non-string value)
-            c = pyfits.Card('abc', 9, 'abcde'*20)
-            assert_equal(str(c),
-                         "ABC     =                    9 / abcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeab")
-            c = pyfits.Card('abc', 'a'*68, 'abcdefg')
-            assert_equal(str(c),
-                         "ABC     = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'")
+        """Test that over-long cards truncate the comment"""
+
+        # card image constructed from key/value/comment is too long
+        # (non-string value)
+        c = pyfits.Card('abc', 9, 'abcde'*20)
+        assert_equal(str(c),
+                     "ABC     =                    9 / abcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeab")
+        c = pyfits.Card('abc', 'a'*68, 'abcdefg')
+        assert_equal(str(c),
+                     "ABC     = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'")
 
     def test_constructor_filter_illegal_data_structures(self):
-        # the constrctor will filter out illegal data structures...
+        """Test that Card constructor raises exceptions on bad arguments"""
+
         assert_raises(ValueError, pyfits.Card, ('abc',), {'value': (2, 3)})
         assert_raises(ValueError, pyfits.Card, 'key', [], 'comment')
 
     def test_keyword_too_long(self):
-        """Long keywords should be allowed, but a warning should be issued."""
+        """Test that long Card keywords are allowed, but with a warning"""
+
         with catch_warnings():
             warnings.simplefilter('error')
             assert_raises(UserWarning, pyfits.Card, 'abcdefghi', 'long')
 
 
     def test_illegal_characters_in_key(self):
-        # will not allow illegal characters in key when using constructor
+        """
+        Test that Card constructor disallows illegal characters in the keyword
+        """
+
         assert_raises(ValueError, pyfits.Card, 'abc+', 9)
-
-
-    def test_ascardiage_verifies_the_comment_string_to_be_ascii_text(self):
-        # the ascardimage() verifies the comment string to be ASCII text
-        c = pyfits.Card.fromstring('abc     = +  2.1   e + 12 / abcde\0')
-        assert_raises(Exception, c.ascardimage)
 
     def test_commentary_cards(self):
         # commentary cards
@@ -132,13 +145,13 @@ class TestHeaderFunctions(PyfitsTestCase):
     def test_commentary_card_will_not_parse_numerical_value(self):
         # commentary card will not parse the numerical value
         c = pyfits.Card.fromstring("history  (1, 2)")
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
                      "HISTORY  (1, 2)                                                                 ")
 
     def test_equal_sign_after_column8(self):
         # equal sign after column 8 of a commentary card will be part ofthe string value
         c = pyfits.Card.fromstring("history =   (1, 2)")
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
                      "HISTORY =   (1, 2)                                                              ")
 
     def test_specify_undefined_value(self):
@@ -150,14 +163,14 @@ class TestHeaderFunctions(PyfitsTestCase):
     def test_complex_number_using_string_input(self):
         # complex number using string input
         c = pyfits.Card.fromstring('abc     = (8, 9)')
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
                      "ABC     =               (8, 9)                                                  ")
 
     def test_fixable_non_standard_fits_card(self):
         # fixable non-standard FITS card will keep the original format
         c = pyfits.Card.fromstring('abc     = +  2.1   e + 12')
         assert_equal(c.value,2100000000000.0)
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
                      "ABC     =             +2.1E+12                                                  ")
 
     def test_fixable_non_fsc(self):
@@ -165,13 +178,13 @@ class TestHeaderFunctions(PyfitsTestCase):
         # assumed
         # to be a string and everything after the first slash will be comment
         c = pyfits.Card.fromstring("no_quote=  this card's value has no quotes / let's also try the comment")
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
                      "NO_QUOTE= 'this card''s value has no quotes' / let's also try the comment       ")
 
     def test_undefined_value_using_string_input(self):
         # undefined value using string input
         c = pyfits.Card.fromstring('abc     =    ')
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
                      "ABC     =                                                                       ")
 
     def test_misalocated_equal_sign(self):
@@ -179,16 +192,16 @@ class TestHeaderFunctions(PyfitsTestCase):
         c = pyfits.Card.fromstring('xyz= 100')
         assert_equal(c.key, 'xyz')
         assert_equal(c.value, 100)
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
                      "XYZ     =                  100                                                  ")
 
     def test_equal_only_up_to_column_10(self):
         # the test of "=" location is only up to column 10
         c = pyfits.Card.fromstring("histo       =   (1, 2)")
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
                      "HISTO   = '=   (1, 2)'                                                          ")
         c = pyfits.Card.fromstring("   history          (1, 2)")
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
                      "HISTO   = 'ry          (1, 2)'                                                  ")
 
     def test_verify_invalid_equal_sign(self):
@@ -223,7 +236,7 @@ class TestHeaderFunctions(PyfitsTestCase):
     def test_long_string_from_file(self):
         c = pyfits.Card('abc', 'long string value '*10, 'long comment '*10)
         hdu = pyfits.PrimaryHDU()
-        hdu.header.ascard.append(c)
+        hdu.header.append(c)
         hdu.writeto(self.temp('test_new.fits'))
 
         hdul = pyfits.open(self.temp('test_new.fits'))
@@ -254,16 +267,163 @@ class TestHeaderFunctions(PyfitsTestCase):
             pyfits.card._pad("abc     = 'longstring''s testing  &  ' / comments in line 1") +
             pyfits.card._pad("continue  'continue with long string but without the ampersand at the end' /") +
             pyfits.card._pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
             "ABC     = 'longstring''s testing  continue with long string but without the &'  "
             "CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  "
             "CONTINUE  '&' / comments in line 1 comments with ''.                            ")
 
     def test_hierarch_card(self):
         c = pyfits.Card('hierarch abcdefghi', 10)
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
             "HIERARCH abcdefghi = 10                                                         ")
         c = pyfits.Card('HIERARCH ESO INS SLIT2 Y1FRML', 'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)')
-        assert_equal(str(c.ascardimage()),
+        assert_equal(str(c),
             "HIERARCH ESO INS SLIT2 Y1FRML= 'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)'")
 
+    def test_header_setitem_invalid(self):
+        header = pyfits.Header()
+        def test():
+            header['FOO'] = ('bar', 'baz', 'qux')
+        assert_raises(ValueError, test)
+
+    def test_header_setitem_1tuple(self):
+        header = pyfits.Header()
+        header['FOO'] = ('BAR',)
+        assert_equal(header['FOO'], 'BAR')
+        assert_equal(header[0], 'BAR')
+        assert_equal(header.comments[0], '')
+        assert_equal(header.comments['FOO'], '')
+
+    def test_header_setitem_2tuple(self):
+        header = pyfits.Header()
+        header['FOO'] = ('BAR', 'BAZ')
+        assert_equal(header['FOO'], 'BAR')
+        assert_equal(header[0], 'BAR')
+        assert_equal(header.comments[0], 'BAZ')
+        assert_equal(header.comments['FOO'], 'BAZ')
+
+    def test_header_set_value_to_none(self):
+        """
+        Setting the value of a card to None should simply give that card a
+        blank value.
+        """
+
+        header = pyfits.Header()
+        header['FOO'] = 'BAR'
+        assert_equal(header['FOO'], 'BAR')
+        header['FOO'] = None
+        assert_equal(header['FOO'], '')
+
+    def test_header_iter(self):
+        header = pyfits.Header([('A', 'B'), ('C', 'D')])
+        assert_equal(list(header), ['A', 'C'])
+
+    def test_header_slice(self):
+        header = pyfits.Header([('A', 'B'), ('C', 'D'), ('E', 'F')])
+        newheader = header[1:]
+        assert_equal(len(newheader), 2)
+        assert_true('A' not in newheader)
+        assert_true('C' in newheader)
+        assert_true('E' in newheader)
+
+        newheader = header[::-1]
+        assert_equal(len(newheader), 3)
+        assert_equal(newheader[0], 'F')
+        assert_equal(newheader[1], 'D')
+        assert_equal(newheader[2], 'B')
+
+        newheader = header[::2]
+        assert_equal(len(newheader), 2)
+        assert_true('A' in newheader)
+        assert_true('C' not in newheader)
+        assert_true('E' in newheader)
+
+    def test_header_clear(self):
+        header = pyfits.Header([('A', 'B'), ('C', 'D')])
+        header.clear()
+        assert_true('A' not in header)
+        assert_true('C' not in header)
+        assert_equal(len(header), 0)
+
+    def test_header_fromkeys(self):
+        header = pyfits.Header.fromkeys(['A', 'B'])
+        assert_true('A' in header)
+        assert_equal(header['A'], '')
+        assert_equal(header.comments['A'], '')
+        assert_true('B' in header)
+        assert_equal(header['B'], '')
+        assert_equal(header.comments['B'], '')
+
+    def test_header_fromkeys_with_value(self):
+        header = pyfits.Header.fromkeys(['A', 'B'], 'C')
+        assert_true('A' in header)
+        assert_equal(header['A'], 'C')
+        assert_equal(header.comments['A'], '')
+        assert_true('B' in header)
+        assert_equal(header['B'], 'C')
+        assert_equal(header.comments['B'], '')
+
+    def test_header_fromkeys_with_value_and_comment(self):
+        header = pyfits.Header.fromkeys(['A'], ('B', 'C'))
+        assert_true('A' in header)
+        assert_equal(header['A'], 'B')
+        assert_equal(header.comments['A'], 'C')
+
+    def test_header_fromkeys_with_duplicates(self):
+        header = pyfits.Header.fromkeys(['A', 'B', 'A'], 'C')
+        assert_true('A' in header)
+        assert_true(('A', 0) in header)
+        assert_true(('A', 1) in header)
+        assert_true(('A', 2) not in header)
+        assert_equal(header[0], 'C')
+        assert_equal(header['A'], 'C')
+        assert_equal(header[('A', 0)], 'C')
+        assert_equal(header[2], 'C')
+        assert_equal(header[('A', 1)], 'C')
+
+    def test_header_keys(self):
+        hdul = pyfits.open(self.data('arange.fits'))
+        assert_equal(hdul[0].header.keys(),
+                     ['SIMPLE', 'BITPIX', 'NAXIS', 'NAXIS1', 'NAXIS2',
+                      'NAXIS3', 'EXTEND'])
+
+    def test_update_from_dict(self):
+        """
+        Test adding new cards and updating existing cards from a dict using
+        Header.update()
+        """
+
+        header = pyfits.Header([('A', 'B'), ('C', 'D')])
+        header.update({'A': 'E', 'F': 'G'})
+        assert_equal(header['A'], 'E')
+        assert_equal(header[0], 'E')
+        assert_true('F' in header)
+        assert_equal(header['F'], 'G')
+        assert_equal(header[-1], 'G')
+
+    def test_header_use_blanks(self):
+        """
+        Tests that blank cards can be appended, and that future appends will
+        use blank cards when available (unless useblanks=False)
+        """
+
+        header = pyfits.Header([('A', 'B'), ('C', 'D')])
+
+        # Append a couple blanks
+        header.append()
+        header.append()
+        assert_equal(len(header), 4)
+        assert_equal(header[-1], '')
+        assert_equal(header[-2], '')
+
+        # New card should fill the first blank by default
+        header.append(('E', 'F'))
+        assert_equal(len(header), 4)
+        assert_equal(header[-2], 'F')
+        assert_equal(header[-1], '')
+
+        # This card should not use up a blank spot
+        header.append(('G', 'H'), useblanks=False)
+        assert_equal(len(header), 5)
+        assert_equal(header[-1], '')
+        assert_equal(header[-2], 'H')
