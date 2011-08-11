@@ -864,19 +864,16 @@ class CompImageHDU(BinTableHDU):
         # over to the image header when the hdu is uncompressed.
 
         if 'ZHECKSUM' in self._header:
-            image_header.ascard.count_blanks()
-            self._image_header.ascard.count_blanks()
-            self._header.ascard.count_blanks()
-            requiredBlankCount = image_header.ascard._blanks
-            imageBlankCount = self._image_header.ascard._blanks
-            tableBlankCount = self._header.ascard._blanks
+            required_blanks = image_header._countblanks()
+            image_blanks = self._image_header._countblanks()
+            table_blanks = self._header._countblanks()
 
-            for i in range(requiredBlankCount - imageBlankCount):
-                self._image_header.add_blank()
-                tableBlankCount = tableBlankCount + 1
+            for _ in range(required_blanks - image_blanks):
+                self._image_header.append()
+                table_blanks += 1
 
-            for i in range(requiredBlankCount - tableBlankCount):
-                self._header.add_blank()
+            for _ in range(required_blanks - table_blanks):
+                self._header.append()
 
     def data(self):
         # The data attribute is the image data (not the table data).
@@ -1346,13 +1343,11 @@ class CompImageHDU(BinTableHDU):
         # header.  If there are, there should be the same number
         # of blank cards in the image header.  Add blank cards to
         # the image header to make it so.
-        self._header.ascard.count_blanks()
-        tableHeaderBlankCount = self._header.ascard._blanks
-        self._image_header.ascard.count_blanks()
-        image_headerBlankCount=self._image_header.ascard._blanks
+        table_blanks = self._header._countblanks()
+        image_blanks = self._image_header._countblanks()
 
-        for i in range(tableHeaderBlankCount-image_headerBlankCount):
-            self._image_header.add_blank()
+        for _ in range(table_blanks - image_blanks):
+            self._image_header.append()
 
         return self._image_header
 

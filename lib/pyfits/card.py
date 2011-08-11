@@ -29,354 +29,8 @@ class Undefined:
 UNDEFINED = Undefined()
 
 
-class _CardList(list):
-    """FITS header card list class."""
-
-    def __init__(self, cards=[], keylist=None):
-        """
-        Construct the `CardList` object from a list of `Card` objects.
-
-        Parameters
-        ----------
-        cards
-            A list of `Card` objects.
-        """
-
-        super(CardList, self).__init__(cards)
-
-        # if the key list is not supplied (as in reading in the FITS file),
-        # it will be constructed from the card list.
-        if keylist is None:
-            self._keys = [c.key.upper() for c in self]
-        else:
-            self._keys = keylist
-
-        # find out how many blank cards are *directly* before the END card
-        self._blanks = 0
-        self.count_blanks()
-        self._mod = False
-
-    def __contains__(self, key):
-        return upper_key(key) in self._keys
-
-    def __getitem__(self, key):
-        """Get a `Card` by indexing or by the keyword name."""
-
-        if isinstance(key, slice):
-            return CardList(super(CardList, self).__getitem__(key),
-                            self._keys[key])
-        elif isinstance(key, basestring) and self._has_filter_char(key):
-            return self.filter_list(key)
-        else:
-            idx = self.index_of(key)
-            return super(CardList, self).__getitem__(idx)
-
-    def __setitem__(self, key, value):
-        """Set a `Card` by indexing or by the keyword name."""
-
-        if isinstance(value, Card):
-            idx = self.index_of(key)
-
-            # only set if the value is different from the old one
-            if str(self[idx]) != str(value):
-                super(CardList, self).__setitem__(idx, value)
-                self._keys[idx] = value.key.upper()
-                self.count_blanks()
-                self._mod = True
-        else:
-            raise ValueError('%s is not a Card' % str(value))
-
-    def __delitem__(self, key):
-        """Delete a `Card` from the `CardList`."""
-
-        if self._has_filter_char(key):
-            cardlist = self.filter_list(key)
-
-            if len(cardlist) == 0:
-                raise KeyError("Keyword '%s' not found." % key)
-
-            for card in cardlist:
-                if isinstance(card, RecordValuedKeywordCard):
-                    key = card.key + '.' + card.field_specifier
-                else:
-                    key = card.key
-
-                super(CardList, self).__delitem__(key)
-        else:
-            idx = self.index_of(key)
-            super(CardList, self).__delitem__(idx)
-            del self._keys[idx]  # update the keylist
-            self.count_blanks()
-            self._mod = True
-
-    def __getslice__(self, start, end):
-        return self[slice(start, end)]
-
-    def __repr__(self):
-        """Format a list of cards into a string."""
-
-        return ''.join(map(repr, self))
-
-    def __str__(self):
-        """Format a list of cards into a printable string."""
-        return '\n'.join(map(str, self))
-
-    def copy(self):
-        """Make a (deep)copy of the `CardList`."""
-
-        return CardList([create_card_from_string(repr(c)) for c in self])
-
-    def keys(self):
-        """
-        Return a list of all keywords from the `CardList`.
-
-        Keywords include ``field_specifier`` for
-        `RecordValuedKeywordCard` objects.
-        """
-
-        retval = []
-
-        for card in self:
-            if isinstance(card, RecordValuedKeywordCard):
-                key = card.key + '.' + card.field_specifier
-            else:
-                key = card.key
-
-            retval.append(key)
-
-        return retval
-
-    def values(self):
-        """
-        Return a list of the values of all cards in the `CardList`.
-
-        For `RecordValuedKeywordCard` objects, the value returned is
-        the floating point value, exclusive of the
-        ``field_specifier``.
-        """
-
-        return [c.value for c in self]
-
-    def insert(self, pos, card, useblanks=True):
-        """
-        Insert a `Card` to the `CardList`.
-
-        Parameters
-        ----------
-        pos : int
-            The position (index, keyword name will not be allowed) to
-            insert. The new card will be inserted before it.
-
-        card : `Card` object
-            The card to be inserted.
-
-        useblanks : bool, optional
-            If `useblanks` is `True`, and if there are blank cards
-            directly before ``END``, it will use this space first,
-            instead of appending after these blank cards, so the total
-            space will not increase.  When `useblanks` is `False`, the
-            card will be appended at the end, even if there are blank
-            cards in front of ``END``.
-        """
-
-        if isinstance(card, Card):
-            super(CardList, self).insert(pos, card)
-            self._keys.insert(pos, card.key.upper())  # update the keylist
-            self.count_blanks()
-            if useblanks:
-                self._use_blanks(card._ncards())
-
-            self.count_blanks()
-            self._mod = True
-        else:
-            raise ValueError('%s is not a Card' % str(card))
-
-    def append(self, card, useblanks=True, bottom=False):
-        """
-        Append a `Card` to the `CardList`.
-
-        Parameters
-        ----------
-        card : `Card` object
-            The `Card` to be appended.
-
-        useblanks : bool, optional
-            Use any *extra* blank cards?
-
-            If `useblanks` is `True`, and if there are blank cards
-            directly before ``END``, it will use this space first,
-            instead of appending after these blank cards, so the total
-            space will not increase.  When `useblanks` is `False`, the
-            card will be appended at the end, even if there are blank
-            cards in front of ``END``.
-
-        bottom : bool, optional
-           If `False` the card will be appended after the last
-           non-commentary card.  If `True` the card will be appended
-           after the last non-blank card.
-        """
-
-        if isinstance(card, Card):
-            nc = len(self) - self._blanks
-            idx = nc - 1
-            if not bottom:
-                # locate last non-commentary card
-                for idx in range(nc - 1, -1, -1): 
-                    if self[idx].key not in Card._commentary_keys:
-                        break
-
-            super(CardList, self).insert(idx + 1, card)
-            self._keys.insert(idx + 1, card.key.upper())
-            if useblanks:
-                self._use_blanks(card._ncards())
-            self.count_blanks()
-            self._mod = True
-        else:
-            raise ValueError("%s is not a Card" % str(card))
-
-    def index_of(self, key, backward=False):
-        """
-        Get the index of a keyword in the `CardList`.
-
-        Parameters
-        ----------
-        key : str or int
-            The keyword name (a string) or the index (an integer).
-
-        backward : bool, optional
-            When `True`, search the index from the ``END``, i.e.,
-            backward.
-
-        Returns
-        -------
-        index : int
-            The index of the `Card` with the given keyword.
-        """
-
-        if _is_int(key):
-            return key
-        elif isinstance(key, basestring):
-            _key = key.strip().upper()
-            if _key[:8] == 'HIERARCH':
-                _key = _key[8:].strip()
-            keys = self._keys
-            if backward:
-                # We have to search backwards through they key list
-                keys = reversed(keys)
-            try:
-                idx = keys.index(_key)
-            except ValueError:
-                reqkey = RecordValuedKeywordCard.valid_key_value(key)
-                idx = 0
-
-                while reqkey:
-                    try:
-                        jdx = keys[idx:].index(reqkey[0].upper())
-                        idx += jdx
-                        card = self[idx]
-                        if isinstance(card, RecordValuedKeywordCard) and \
-                           reqkey[1] == card.field_specifier:
-                            break
-                    except ValueError:
-                        raise KeyError('Keyword %s not found.' % repr(key))
-
-                    idx += 1
-                else:
-                    raise KeyError('Keyword %s not found.' % repr(key))
-
-            if backward:
-                idx = len(keys) - idx - 1
-            return idx
-        else:
-            raise KeyError('Illegal key data type %s' % type(key))
-
-    def filter_list(self, key):
-        """
-        Construct a `CardList` that contains references to all of the cards in
-        this `CardList` that match the input key value including any special
-        filter keys (``*``, ``?``, and ``...``).
-
-        Parameters
-        ----------
-        key : str
-            key value to filter the list with
-
-        Returns
-        -------
-        cardlist :
-            A `CardList` object containing references to all the
-            requested cards.
-        """
-
-        out_cl = CardList()
-
-        mykey = upper_key(key)
-        re_str = mykey.replace('*', '\w*') + '$'
-        re_str = re_str.replace('?', '\w')
-        re_str = re_str.replace('...', '\S*')
-        match_RE = re.compile(re_str)
-
-        for card in self:
-            if isinstance(card, RecordValuedKeywordCard):
-                match_str = card.key + '.' + card.field_specifier
-            else:
-                match_str = card.key
-
-            if match_RE.match(match_str):
-                out_cl.append(card)
-
-        return out_cl
-    filterList = filter_list # For API backwards-compatibility
-
-    def count_blanks(self):
-        """
-        Returns how many blank cards are *directly* before the ``END``
-        card.
-        """
-
-        blank = ' ' * Card.length
-        for idx in range(1, len(self)):
-            if str(self[-idx]) != blank:
-                self._blanks = idx - 1
-                break
-
-    def _has_filter_char(self, key):
-        """
-        Return `True` if the input key contains one of the special filtering
-        characters (``*``, ``?``, or ...).
-        """
-
-        if isinstance(key, basestring) and \
-           (key.endswith('...') or key.find('*') > 0 or key.find('?') > 0):
-            return True
-        else:
-            return False
-
-    def _pos_insert(self, card, before, after, useblanks=True):
-        """
-        Insert a `Card` to the location specified by before or after.
-
-        The argument `before` takes precedence over `after` if both
-        specified.  They can be either a keyword name or index.
-        """
-
-        if before is not None:
-            loc = self.index_of(before)
-            self.insert(loc, card, useblanks=useblanks)
-        elif after is not None:
-            loc = self.index_of(after)
-            self.insert(loc + 1, card, useblanks=useblanks)
-
-    def _use_blanks(self, how_many):
-        if self._blanks > 0:
-            for idx in range(min(self._blanks, how_many)):
-                del self[-1] # it also delete the keylist item
-
-
 class CardList(list):
-    # TODO: Make sure to raise some kind of deprecation warning if one of these
-    # is created directly
-
+    # TODO: Add some kind of docstring for this class
     def __init__(self, cards=[], keylist=None):
         """
         Construct the `CardList` object from a list of `Card` objects.
@@ -389,6 +43,13 @@ class CardList(list):
         cards
             A list of `Card` objects.
         """
+
+        warnings.warn(
+                'The CardList class has been deprecated; all its former '
+                'functionality has been subsumed by the Header class, so '
+                'CardList objects should not be directly created.  See the '
+                'PyFITS 3.1.0 CHANGELOG for more details.',
+                DeprecationWarning)
 
         # TODO: Rearrange the header and card modules so that this import
         # doesn't have to be here
@@ -404,10 +65,6 @@ class CardList(list):
             self._header = cards
         else:
             self._header = Header(cards)
-
-        # TODO: _blanks should get the blanks count from the Header object,
-        # which will handle blank rows
-        self._blanks = 0
 
         super(CardList, self).__init__(self._header.cards)
 
@@ -439,27 +96,6 @@ class CardList(list):
     def __delitem__(self, key):
         """Delete a `Card` from the `CardList`."""
 
-        # TODO: Handle filter characters in the Header
-
-#        if self._has_filter_char(key):
-#            cardlist = self.filter_list(key)
-
-#            if len(cardlist) == 0:
-#                raise KeyError("Keyword '%s' not found." % key)
-
-#            for card in cardlist:
-#                if isinstance(card, RecordValuedKeywordCard):
-#                    key = card.key + '.' + card.field_specifier
-#                else:
-#                    key = card.key
-
-#                super(CardList, self).__delitem__(key)
-#        else:
-#            idx = self.index_of(key)
-#            super(CardList, self).__delitem__(idx)
-#            del self._keys[idx]  # update the keylist
-#            self.count_blanks()
-#            self._mod = True
         # TODO: This original CardList implementation would raise an exception
         # when a card is not found, which differs from Header; eventually the
         # new Header class should have the behavior of the old CardList class
@@ -477,33 +113,24 @@ class CardList(list):
 
     def __str__(self):
         """Format a list of cards into a printable string."""
+
         return '\n'.join(str(card) for card in self)
 
+    @deprecated(alternative='Header.copy()', pending=False)
     def copy(self):
         """Make a (deep)copy of the `CardList`."""
 
-        return CardList([copy.copy(card) for card in self])
+        return CardList(self._header.copy())
 
+    @deprecated(alternative='Header.keys()', pending=False)
     def keys(self):
         """
         Return a list of all keywords from the `CardList`.
-
-        Keywords include ``field_specifier`` for
-        `RecordValuedKeywordCard` objects.
         """
 
-        retval = []
+        return self._header.keys()
 
-        for card in self:
-            if isinstance(card, RecordValuedKeywordCard):
-                key = card.key + '.' + card.field_specifier
-            else:
-                key = card.key
-
-            retval.append(key)
-
-        return retval
-
+    @deprecated(alternative='Header.append()', pending=False)
     def append(self, card, useblanks=True, bottom=False):
         """
         Append a `Card` to the `CardList`.
@@ -529,28 +156,9 @@ class CardList(list):
            after the last non-blank card.
         """
 
-        #if isinstance(card, Card):
-        #    nc = len(self) - self._blanks
-        #    idx = nc - 1
-        #    if not bottom:
-        #        # locate last non-commentary card
-        #        for idx in range(nc - 1, -1, -1): 
-        #            if self[idx].key not in Card._commentary_keys:
-        #                break
+        self._header.append(card, useblanks=useblanks, bottom=bottom)
 
-        #    super(CardList, self).insert(idx + 1, card)
-        #    self._keys.insert(idx + 1, card.key.upper())
-        #    if useblanks:
-        #        self._use_blanks(card._ncards())
-        #    self.count_blanks()
-        #    self._mod = True
-        #else:
-        #    raise ValueError("%s is not a Card" % str(card))
-        # TODO: Implement blanks handling at the Header level; the useblanks
-        # and bottom arguments could also be useful...
-        # TODO: Issue a deprecation warning to use Header.append instead
-        self._header.append(card)
-
+    @deprecated(alternative='Header.insert()', pending=False)
     def insert(self, idx, card, useblanks=True):
         """
         Insert a `Card` to the `CardList`.
@@ -573,21 +181,9 @@ class CardList(list):
             cards in front of ``END``.
         """
 
-        #if isinstance(card, Card):
-        #    super(CardList, self).insert(pos, card)
-        #    self._keys.insert(pos, card.key.upper())  # update the keylist
-        #    self.count_blanks()
-        #    if useblanks:
-        #        self._use_blanks(card._ncards())
+        self._header.insert(idx, card, useblanks=useblanks)
 
-        #    self.count_blanks()
-        #    self._mod = True
-        #else:
-        #    raise ValueError('%s is not a Card' % str(card))
-        # TODO: Issue warning to use Header.insert instead
-        # TODO: Implement blanks handling in the Header class
-        self._header.insert(idx, card)
-
+    @deprecated(alternative='Header.values()', pending=False)
     def values(self):
         """
         Return a list of the values of all cards in the `CardList`.
@@ -597,8 +193,9 @@ class CardList(list):
         ``field_specifier``.
         """
 
-        return [c.value for c in self]
+        return self._header.values()
 
+    @deprecated(alternative='Header.index()', pending=False)
     def index_of(self, key, backward=False):
         """
         Get the index of a keyword in the `CardList`.
@@ -643,70 +240,21 @@ class CardList(list):
             requested cards.
         """
 
-        out_cl = CardList()
+        return CardList(self._header[key])
 
-        mykey = upper_key(key)
-        re_str = mykey.replace('*', '\w*') + '$'
-        re_str = re_str.replace('?', '\w')
-        re_str = re_str.replace('...', '\S*')
-        match_RE = re.compile(re_str)
+    # For API backwards-compatibility
+    @deprecated(alternative='filter_list', pending=False)
+    def filterList(self, key):
+        return self.filter_list(key)
 
-        for card in self:
-            if isinstance(card, RecordValuedKeywordCard):
-                match_str = card.key + '.' + card.field_specifier
-            else:
-                match_str = card.key
-
-            if match_RE.match(match_str):
-                out_cl.append(card)
-
-        return out_cl
-    filterList = filter_list # For API backwards-compatibility
-
+    @deprecated(pending=False)
     def count_blanks(self):
         """
         Returns how many blank cards are *directly* before the ``END``
         card.
         """
 
-        blank = ' ' * Card.length
-        for idx in range(1, len(self)):
-            if str(self[-idx]) != blank:
-                self._blanks = idx - 1
-                break
-
-    def _has_filter_char(self, key):
-        """
-        Return `True` if the input key contains one of the special filtering
-        characters (``*``, ``?``, or ...).
-        """
-
-        if isinstance(key, basestring) and \
-           (key.endswith('...') or key.find('*') > 0 or key.find('?') > 0):
-            return True
-        else:
-            return False
-
-    def _pos_insert(self, card, before, after, useblanks=True):
-        """
-        Insert a `Card` to the location specified by before or after.
-
-        The argument `before` takes precedence over `after` if both
-        specified.  They can be either a keyword name or index.
-        """
-
-        if before is not None:
-            loc = self.index_of(before)
-            self.insert(loc, card, useblanks=useblanks)
-        elif after is not None:
-            loc = self.index_of(after)
-            self.insert(loc + 1, card, useblanks=useblanks)
-
-    def _use_blanks(self, how_many):
-        if self._blanks > 0:
-            for idx in range(min(self._blanks, how_many)):
-                del self[-1] # it also delete the keylist item
-    pass
+        return self._header._countblanks()
 
 
 class Card(_Verify):

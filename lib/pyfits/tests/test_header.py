@@ -1,4 +1,5 @@
 from __future__ import division # confidence high
+from __future__ import with_statement
 
 import warnings
 
@@ -338,6 +339,70 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_true('C' not in newheader)
         assert_true('E' in newheader)
 
+    def test_header_slice_assignment(self):
+        """
+        Assigning to a slice should just assign new values to the cards
+        included in the slice.
+        """
+
+        header = pyfits.Header([('A', 'B'), ('C', 'D'), ('E', 'F')])
+
+        # Test assigning slice to the same value; this works similarly to numpy
+        # arrays
+        header[1:] = 1
+        assert_equal(header[1], 1)
+        assert_equal(header[2], 1)
+
+        # Though strings are iterable they should be treated as a scalar value
+        header[1:] = 'GH'
+        assert_equal(header[1], 'GH')
+        assert_equal(header[2], 'GH')
+
+        # Now assign via an iterable
+        header[1:] = ['H', 'I']
+        assert_equal(header[1], 'H')
+        assert_equal(header[2], 'I')
+
+    def test_header_slice_delete(self):
+        """Test deleting a slice of cards from the header."""
+
+        header = pyfits.Header([('A', 'B'), ('C', 'D'), ('E', 'F')])
+        del header[1:]
+        assert_equal(len(header), 1)
+        assert_equal(header[0], 'B')
+        del header[:]
+        assert_equal(len(header), 0)
+
+    def test_wildcard_slice(self):
+        """Test selecting a subsection of a header via wildcard matching."""
+
+        header = pyfits.Header([('ABC', 0), ('DEF', 1), ('ABD', 2)])
+        newheader = header['AB*']
+        assert_equal(len(newheader), 2)
+        assert_equal(newheader[0], 0)
+        assert_equal(newheader[1], 2)
+
+    def test_wildcard_slice_assignment(self):
+        """Test assigning to a header slice selected via wildcard matching."""
+
+        header = pyfits.Header([('ABC', 0), ('DEF', 1), ('ABD', 2)])
+
+        # Test assigning slice to the same value; this works similarly to numpy
+        # arrays
+        header['AB*'] = 1
+        assert_equal(header[0], 1)
+        assert_equal(header[2], 1)
+
+        # Though strings are iterable they should be treated as a scalar value
+        header['AB*'] = 'GH'
+        assert_equal(header[0], 'GH')
+        assert_equal(header[2], 'GH')
+
+        # Now assign via an iterable
+        header['AB*'] = ['H', 'I']
+        assert_equal(header[0], 'H')
+        assert_equal(header[2], 'I')
+
     def test_header_clear(self):
         header = pyfits.Header([('A', 'B'), ('C', 'D')])
         header.clear()
@@ -401,7 +466,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(header['F'], 'G')
         assert_equal(header[-1], 'G')
 
-    def test_header_use_blanks(self):
+    def test_header_append_use_blanks(self):
         """
         Tests that blank cards can be appended, and that future appends will
         use blank cards when available (unless useblanks=False)
@@ -427,3 +492,23 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(len(header), 5)
         assert_equal(header[-1], '')
         assert_equal(header[-2], 'H')
+
+    def test_header_insert_use_blanks(self):
+        header = pyfits.Header([('A', 'B'), ('C', 'D')])
+
+        # Append a couple blanks
+        header.append()
+        header.append()
+
+        # Insert a new card; should use up one of the blanks
+        header.insert(1, ('E', 'F'))
+        assert_equal(len(header), 4)
+        assert_equal(header[1], 'F')
+        assert_equal(header[-1], '')
+        assert_equal(header[-2], 'D')
+
+        # Insert a new card without using blanks
+        header.insert(1, ('G', 'H'), useblanks=False)
+        assert_equal(len(header), 5)
+        assert_equal(header[1], 'H')
+        assert_equal(header[-1], '')

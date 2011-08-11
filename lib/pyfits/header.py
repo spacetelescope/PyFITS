@@ -1,5 +1,7 @@
 import copy
+import itertools
 import os
+import re
 import warnings
 
 from collections import defaultdict
@@ -102,6 +104,9 @@ class Header(object):
 
         if isinstance(key, slice):
             return Header([copy.copy(c) for c in self._cards[key]])
+        elif self._haswildcard(key):
+            return Header([copy.copy(self._cards[idx])
+                           for idx in self._wildcardmatch(key)])
 
         return self._cards[self._cardindex(key)].value
 
@@ -109,6 +114,18 @@ class Header(object):
         """
         Set a header keyword value.
         """
+
+        if isinstance(key, slice) or self._haswildcard(key):
+            if isinstance(key, slice):
+                indices = xrange(*key.indices(len(self)))
+            else:
+                indices = self._wildcardmatch(key)
+            if isinstance(value, basestring) or not isiterable(value):
+                value = itertools.repeat(value, len(indices))
+            for idx, val in itertools.izip(indices, value):
+                self[idx] = val
+            return
+
 
         if isinstance(value, tuple):
             if not (0 < len(value) <= 2):
@@ -137,7 +154,9 @@ class Header(object):
                 card.comment = comment
             if card._modified:
                 self._modified = True
-        except (KeyError, IndexError):
+        except KeyError:
+            # If we get an IndexError that should be raised; we don't allow
+            # assignment to non-existing indices
             self._update(Card(key, value, comment))
             self._modified = True
 
@@ -146,8 +165,22 @@ class Header(object):
         Delete card(s) with the name `key`.
         """
 
-        # delete ALL cards with the same keyword name
-        if isinstance(key, basestring):
+        if isinstance(key, slice) or self._haswildcard(key):
+            # This is very inefficient but it's not a commonly used feature.
+            # If someone out there complains that they make heavy use of slice
+            # deletions and it's too slow, well, we can worry about it then
+            # [the solution is not too complicated--it would be wait 'til all
+            # the cards are deleted before updating _keyword_indices rather
+            # than updating it once for each card that gets deleted]
+            if isinstance(key, slice):
+                indices = xrange(*key.indices(len(self)))
+            else:
+                indices = self._wildcardmatch(key)
+            for idx in reversed(indices):
+                del self[idx]
+            return
+        elif isinstance(key, basestring):
+            # delete ALL cards with the same keyword name
             key = key.upper()
             if key not in self._keyword_indices:
                 # TODO: The old Header implementation allowed deletes of
@@ -155,7 +188,7 @@ class Header(object):
                 # against and eventually changed to raise a KeyError
                 #raise KeyError("Keyword '%s' not found." % key)
                 return
-            for idx in self._keyword_indices[key][:]:
+            for idx in reversed(self._keyword_indices[key]):
                 # Have to copy the indices list since it will be modified below
                 del self[idx]
             return
@@ -577,12 +610,7 @@ class Header(object):
 
             # Finally, if useblanks, delete a blank cards from the end
             if useblanks:
-                ncards = len(str(card)) // Card.length
-                for _ in range(ncards):
-                    if str(self._cards[-1]) == blank:
-                        del self[-1]
-                    else:
-                        break
+                self._useblanks(len(str(card)) // Card.length)
 
         self._modified = True
 
@@ -651,7 +679,7 @@ class Header(object):
         else:
             raise ValueError('The keyword %r is not in the header.' % keyword)
 
-    def insert(self, idx, card):
+    def insert(self, idx, card, useblanks=True):
         """
         Inserts a new keyword+value card into the Header at a given location,
         similar to list.insert().
@@ -665,6 +693,11 @@ class Header(object):
         card : str, tuple
             A keyword or a (keyword, value, [comment]) tuple; see
             Header.append()
+
+        useblanks : bool (optional)
+            If there are blank cards at the end of the Header, replace the
+            first blank card so that the total number of cards in the Header
+            does not increase.  Otherwise preserve the number of blank cards.
 
         """
 
@@ -703,6 +736,10 @@ class Header(object):
             # TODO: Maybe issue a warning when this occurs (and the keyword is
             # non-commentary)
             self._keyword_indices[keyword].sort()
+
+        if useblanks:
+            self._useblanks(len(str(card)) // Card.length)
+
         self._modified = True
 
     def remove(self, keyword):
@@ -763,8 +800,8 @@ class Header(object):
             # If < 0, determine the actual index
             if key < 0:
                 key += len(self._cards)
-                if key < 0:
-                    key = 0
+            if key < 0 or key >= len(self._cards):
+                raise IndexError('Header index out of range.')
             return key
 
 
@@ -806,7 +843,14 @@ class Header(object):
             insertionkey = after
         else:
             insertionkey = before
-        idx = self._cardindex(insertionkey)
+        if not (isinstance(insertionkey, int) and
+                insertionkey >= len(self._cards)):
+            # Don't bother looking up the card index if idx is above the last
+            # card--this just means append to the end, and would otherwise
+            # result in an IndexError
+            idx = self._cardindex(insertionkey)
+        else:
+            idx = insertionkey
         if before is not None:
             self.insert(idx, card)
         else:
@@ -828,6 +872,46 @@ class Header(object):
             for jdx, keyword_index in enumerate(indices):
                 if keyword_index >= idx:
                     indices[jdx] += increment
+
+    def _countblanks(self):
+        """Returns the number of blank cards at the end of the Header."""
+
+        blank = ' ' * 80
+        for idx in xrange(1, len(self._cards)):
+            if str(self._cards[-idx]) != blank:
+                return idx - 1
+        return 0
+
+    def _useblanks(self, count):
+        blank = ' ' * 80
+        for _ in range(count):
+            if str(self._cards[-1]) == blank:
+                del self[-1]
+            else:
+                break
+
+    def _haswildcard(self, keyword):
+        """Return `True` if the input keyword contains a wildcard pattern."""
+
+        return (isinstance(keyword, basestring) and
+                (keyword.endswith('...') or '*' in keyword or '?' in keyword))
+
+    def _wildcardmatch(self, pattern):
+        """
+        Returns a list of indices of the cards matching the given wildcard
+        pattern.
+
+         * '*' matches 0 or more alphanumeric characters or _
+         * '?' matches a single alphanumeric character or _
+         * '...' matches 0 or more of any non-whitespace character
+        """
+
+        pattern = pattern.replace('*', r'\w*').replace('?', r'\w')
+        pattern = pattern.replace('...', r'\S*') + '$'
+        pattern_re = re.compile(pattern, re.I)
+
+        return [idx for idx, card in enumerate(self._cards)
+                if pattern_re.match(card.keyword)]
 
     def _strip(self):
         """
