@@ -270,9 +270,6 @@ class HDUList(list, _Verify):
                 raise IOError('Empty FITS file')
 
             # initialize/reset attributes to be used in "update/append" mode
-            # CardList needs its own _mod attribute since it has methods to change
-            # the content of header without being able to pass it to the header
-            # object
             hdulist._resize = False
             hdulist._truncate = False
 

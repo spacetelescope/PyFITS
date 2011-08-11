@@ -1,7 +1,6 @@
 import sys
 import numpy as np
 
-from pyfits.card import Card, CardList
 from pyfits.hdu.base import DELAYED, _ValidHDU, ExtensionHDU
 from pyfits.header import Header
 from pyfits.util import _is_pseudo_unsigned, _unsigned_zero, _is_int, \
@@ -102,8 +101,11 @@ class _ImageBaseHDU(_ValidHDU):
 
         if not do_not_scale_image_data:
             # delete the keywords BSCALE and BZERO
-            del self._header['BSCALE']
-            del self._header['BZERO']
+            for keyword in ('BSCALE', 'BZERO'):
+                try:
+                    del self._header[keyword]
+                except KeyError:
+                    pass
 
         # Set the name attribute if it was provided (if this is an ImageHDU
         # this will result in setting the EXTNAME keyword of the header as
@@ -186,8 +188,11 @@ class _ImageBaseHDU(_ValidHDU):
 
         if not self._do_not_scale_image_data:
            # delete the keywords BSCALE and BZERO after scaling
-           del self._header['BSCALE']
-           del self._header['BZERO']
+            for keyword in ('BSCALE', 'BZERO'):
+                try:
+                    del self._header[keyword]
+                except KeyError:
+                    pass
 
         self._header['BITPIX'] = _ImageBaseHDU.ImgCode[data.dtype.name]
 
@@ -332,13 +337,19 @@ class _ImageBaseHDU(_ValidHDU):
             self.data += -_zero # 0.9.6.3 to avoid out of range error for BZERO = +32768
             self._header.update('BZERO', _zero)
         else:
-            del self._header['BZERO']
+            try:
+                del self._header['BZERO']
+            except KeyError:
+                pass
 
         if _scale and _scale != 1:
             self.data /= _scale
             self._header.update('BSCALE', _scale)
         else:
-            del self._header['BSCALE']
+            try:
+                del self._header['BSCALE']
+            except KeyError:
+                pass
 
         if self.data.dtype.type != _type:
             self.data = np.array(np.around(self.data), dtype=_type) #0.7.7.1

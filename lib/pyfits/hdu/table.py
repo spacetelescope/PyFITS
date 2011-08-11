@@ -10,7 +10,6 @@ import warnings
 import numpy as np
 from numpy import char as chararray
 
-from pyfits.card import Card, CardList
 # This module may have many dependencies on pyfits.column, but pyfits.column
 # has fewer dependencies overall, so it's easier to keep table/column-related
 # utilities in pyfits.column
@@ -193,9 +192,9 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             else:
                 raise TypeError('Table data has incorrect type.')
 
-        if self._header[0].rstrip() != self._extension:
-            self._header[0] = self._extension
-            self._header.ascard[0].comment = self._ext_comment
+        if not (isinstance(self._header[0], basestring) and
+                self._header[0].rstrip() == self._extension):
+            self._header[0] = (self._extension, self._ext_comment)
 
         # Ensure that the correct EXTNAME is set on the new header if one was
         # created, or that it overrides the existing EXTNAME if different
@@ -353,14 +352,14 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         """Wipe out any existing table definition keywords from the header."""
 
         # Go in reverse so as to not confusing indexing while deleting.
-        for idx, card in enumerate(reversed(self._header.ascard)):
-            key = TDEF_RE.match(card.key)
+        for idx, keyword in enumerate(reversed(self._header.keys())):
+            keyword = TDEF_RE.match(keyword)
             try:
-                keyword = key.group('label')
+                keyword = keyword.group('label')
             except:
                 continue                # skip if there is no match
             if (keyword in KEYWORD_NAMES):
-                del self._header.ascard[idx]
+                del self._header[idx]
 
     def _populate_table_keywords(self):
         """Populate the new table definition keywords from the header."""
@@ -373,7 +372,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                 val = getattr(cols, attr + 's')[idx]
                 if val:
                     keyword = keyword + str(idx + 1)
-                    append(Card(keyword, val))
+                    append((keyword, val))
 
 
 class TableHDU(_TableBaseHDU):
@@ -633,7 +632,7 @@ class BinTableHDU(_TableBaseHDU):
                             val = 'P%s(%d)' % (fmt, VLdata._max)
                         else:
                             val = _convert_format(val, reverse=True)
-                    append(Card(keyword, val))
+                    append((keyword, val))
 
     tdump_file_format = textwrap.dedent("""
 

@@ -403,6 +403,14 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(header[0], 'H')
         assert_equal(header[2], 'I')
 
+    def test_wildcard_slice_deletion(self):
+        """Test deleting cards from a header that match a wildcard pattern."""
+
+        header = pyfits.Header([('ABC', 0), ('DEF', 1), ('ABD', 2)])
+        del header['AB*']
+        assert_equal(len(header), 1)
+        assert_equal(header[0], 1)
+
     def test_header_clear(self):
         header = pyfits.Header([('A', 'B'), ('C', 'D')])
         header.clear()

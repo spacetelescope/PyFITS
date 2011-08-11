@@ -174,6 +174,10 @@ class Header(object):
             # than updating it once for each card that gets deleted]
             if isinstance(key, slice):
                 indices = xrange(*key.indices(len(self)))
+                # If the slice step is backwards we want to reverse it, because
+                # it will be reversed in a few lines...
+                if slice.step < 0:
+                    indicies = reversed(indices)
             else:
                 indices = self._wildcardmatch(key)
             for idx in reversed(indices):
@@ -184,10 +188,10 @@ class Header(object):
             key = key.upper()
             if key not in self._keyword_indices:
                 # TODO: The old Header implementation allowed deletes of
-                # nonexistent keywords to pass; this behavior should be warned
-                # against and eventually changed to raise a KeyError
-                #raise KeyError("Keyword '%s' not found." % key)
-                return
+                # nonexistent keywords to pass
+                # There needs to be a note in the documentation that this
+                # behavior has changed
+                raise KeyError("Keyword '%s' not found." % key)
             for idx in reversed(self._keyword_indices[key]):
                 # Have to copy the indices list since it will be modified below
                 del self[idx]
@@ -929,30 +933,36 @@ class Header(object):
         # a way for HDU classes to specify some headers that are specific only
         # to that type, and should be removed otherwise.
 
-        try:
-            if 'NAXIS' in self:
-                naxis = self['NAXIS']
-            else:
-                naxis = 0
+        if 'NAXIS' in self:
+            naxis = self['NAXIS']
+        else:
+            naxis = 0
 
-            if 'TFIELDS' in self:
-                tfields = self['TFIELDS']
-            else:
-                tfields = 0
+        if 'TFIELDS' in self:
+            tfields = self['TFIELDS']
+        else:
+            tfields = 0
 
-            for idx in range(naxis):
+        for idx in range(naxis):
+            try:
                 del self['NAXIS' + str(idx + 1)]
+            except KeyError:
+                pass
 
-            for name in ('TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE',
-                         'TUNIT', 'TDISP', 'TDIM', 'THEAP', 'TBCOL'):
-                for idx in range(tfields):
+        for name in ('TFORM', 'TSCAL', 'TZERO', 'TNULL', 'TTYPE',
+                     'TUNIT', 'TDISP', 'TDIM', 'THEAP', 'TBCOL'):
+            for idx in range(tfields):
+                try:
                     del self[name + str(idx + 1)]
+                except KeyError:
+                    pass
 
-            for name in ('SIMPLE', 'XTENSION', 'BITPIX', 'NAXIS', 'EXTEND',
-                         'PCOUNT', 'GCOUNT', 'GROUPS', 'BSCALE', 'TFIELDS'):
+        for name in ('SIMPLE', 'XTENSION', 'BITPIX', 'NAXIS', 'EXTEND',
+                     'PCOUNT', 'GCOUNT', 'GROUPS', 'BSCALE', 'TFIELDS'):
+            try:
                 del self[name]
-        except KeyError:
-            pass
+            except KeyError:
+                pass
 
 
     # The following properties/methods are for legacy API backwards
@@ -1293,9 +1303,7 @@ class _HeaderComments(object):
         returned cards.  Otherwise the comment of a single card is returned.
         """
 
-        # TODO: Implement filter string support
-
-        if isinstance(item, slice):
+        if isinstance(item, slice) or self._header._haswildcard(item):
             return _HeaderComments(self._header[item])
 
         idx = self._header._cardindex(item)

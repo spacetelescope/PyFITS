@@ -5,7 +5,7 @@ import warnings
 
 import numpy as np
 
-from pyfits.card import Card, _pad
+from pyfits.card import _pad
 from pyfits.file import _File
 from pyfits.header import Header
 from pyfits.util import Extendable, _with_extensions, lazyproperty, _is_int, \
@@ -335,8 +335,11 @@ class _BaseHDU(object):
         # BSCALE/BZERO cards
         if self._data_loaded and self.data is not None and \
            self._standard and _is_pseudo_unsigned(self.data.dtype):
-            del self._header['BSCALE']
-            del self._header['BZERO']
+            for keyword in ('BSCALE', 'BZERO'):
+                try:
+                    del self._header[keyword]
+                except KeyError:
+                    pass
 
         return offset, size
 
@@ -845,7 +848,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             if fixable:
                 # use repr to accomodate both string and non-string types
                 # Boolean is also OK in this constructor
-                card = Card(keyword, fix_value)
+                card = (keyword, fix_value)
 
                 def fix(self=self, insert_pos=insert_pos, card=card):
                     self._header.ascard.insert(insert_pos, card)
@@ -1294,8 +1297,7 @@ class ExtensionHDU(_ValidHDU):
             if 'EXTNAME' in self._header:
                 self._header['EXTNAME'] = value
             else:
-                self._header.ascard.append(
-                    Card('EXTNAME', value, 'extension name'))
+                self._header.ascard.append(('EXTNAME', value, 'extension name'))
 
         super(ExtensionHDU, self).__setattr__(attr, value)
 
