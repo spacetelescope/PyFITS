@@ -355,8 +355,8 @@ class ColDefs(object):
             # go through header keywords to pick out column definition keywords
             # definition dictionaries for each field
             col_attributes = [{} for i in range(nfields)]
-            for card in hdr.ascard:
-                key = TDEF_RE.match(card.key)
+            for keyword, value in hdr.iteritems():
+                key = TDEF_RE.match(keyword)
                 try:
                     keyword = key.group('label')
                 except:
@@ -366,7 +366,7 @@ class ColDefs(object):
                     if col <= nfields and col > 0:
                         idx = KEYWORD_NAMES.index(keyword)
                         attr = KEYWORD_ATTRIBUTES[idx]
-                        col_attributes[col - 1][attr] = card.value
+                        col_attributes[col - 1][attr] = value
 
             # data reading will be delayed
             for col in range(nfields):

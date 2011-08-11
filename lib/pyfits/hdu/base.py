@@ -312,7 +312,7 @@ class _BaseHDU(object):
         elif checksum:
             self.add_checksum(blocking='standard')
 
-        blocks = repr(self._header.ascard) + _pad('END')
+        blocks = str(self._header) + _pad('END')
         blocks = blocks + _pad_length(len(blocks)) * ' '
 
         offset = 0
@@ -499,11 +499,11 @@ class _NonstandardHDU(_BaseHDU, _Verify):
         """
 
         # The SIMPLE keyword must be in the first card
-        card = header.ascard[0]
+        card = header.cards[0]
 
         # The check that 'GROUPS' is missing is a bit redundant, since the
         # match_header for GroupsHDU will always be called before this one.
-        if card.key == 'SIMPLE':
+        if card.keyword == 'SIMPLE':
             if 'GROUPS' not in header and card.value == False:
                 return True
             else:
@@ -546,7 +546,7 @@ class _NonstandardHDU(_BaseHDU, _Verify):
         return offset, size
 
     def _summary(self):
-        return (self.name, 'NonstandardHDU', len(self._header.ascard))
+        return (self.name, 'NonstandardHDU', len(self._header))
 
     @lazyproperty
     def data(self):
@@ -561,7 +561,7 @@ class _NonstandardHDU(_BaseHDU, _Verify):
         errs = _ErrList([], unit='Card')
 
         # verify each card
-        for card in self._header.ascard:
+        for card in self._header.cards:
             errs.append(card._verify(option))
 
         return errs
@@ -583,8 +583,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         case?  Not sure...
         """
 
-        card = header.ascard[0]
-        return card.key not in ('SIMPLE', 'XTENSION')
+        return header.keys()[0] not in ('SIMPLE', 'XTENSION')
 
     # 0.6.5.5
     def size(self):
@@ -786,25 +785,25 @@ class _ValidHDU(_BaseHDU, _Verify):
                                errs)
 
             # Remove NAXISj cards where j is not in range 1, naxis inclusive.
-            for card in self._header.ascard:
-                if card.key.startswith('NAXIS') and len(card.key) > 5:
+            for keyword in self._header:
+                if keyword.startswith('NAXIS') and len(keyword) > 5:
                     try:
-                        number = int(card.key[5:])
+                        number = int(keyword[5:])
                         if number <= 0 or number > naxis:
                             raise ValueError
                     except ValueError:
-                        err_text = "NAXISj keyword out of range ('%s' when " \
-                                   "NAXIS == %d)" % (card.key, naxis)
+                        err_text = ("NAXISj keyword out of range ('%s' when "
+                                    "NAXIS == %d)" % (keyword, naxis))
 
-                        def fix(self=self, card=card):
-                            del self._header[card.key]
+                        def fix(self=self, keyword=keyword):
+                            del self._header[keyword]
 
                         errs.append(
                             self.run_option(option=option, err_text=err_text,
                                             fix=fix, fix_text="Deleted."))
 
         # verify each card
-        for card in self._header.ascard:
+        for card in self._header.cards:
             errs.append(card._verify(option))
 
         return errs
@@ -824,16 +823,15 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         errs = errlist
         fix = None
-        cards = self._header.ascard
 
         try:
-            _index = cards.index_of(keyword)
-        except:
-            _index = None
+            index = self._header.index(keyword)
+        except ValueError:
+            index = None
 
         fixable = fix_value is not None
 
-        insert_pos = len(cards) + 1
+        insert_pos = len(self._header) + 1
 
         # If pos is an int, insert at the given position (and convert it to a
         # lambda)
@@ -842,7 +840,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             pos = lambda x: x == insert_pos
 
         # if the card does not exist
-        if _index is None:
+        if index is None:
             err_text = "'%s' card does not exist." % keyword
             fix_text = "Fixed by inserting a new '%s' card." % keyword
             if fixable:
@@ -851,24 +849,23 @@ class _ValidHDU(_BaseHDU, _Verify):
                 card = (keyword, fix_value)
 
                 def fix(self=self, insert_pos=insert_pos, card=card):
-                    self._header.ascard.insert(insert_pos, card)
+                    self._header.insert(insert_pos, card)
 
             errs.append(self.run_option(option, err_text=err_text,
                         fix_text=fix_text, fix=fix, fixable=fixable))
         else:
             # if the supposed location is specified
             if pos is not None:
-                if not pos(_index):
-                    err_text = "'%s' card at the wrong place (card %d)." \
-                               % (keyword, _index)
-                    fix_text = "Fixed by moving it to the right place " \
-                               "(card %d)." % insert_pos
+                if not pos(index):
+                    err_text = ("'%s' card at the wrong place (card %d)." %
+                                (keyword, index))
+                    fix_text = ("Fixed by moving it to the right place "
+                                "(card %d)." % insert_pos)
 
-                    def fix(self=self, index=_index, insert_pos=insert_pos):
-                        cards = self._header.ascard
-                        dummy = cards[index]
-                        del cards[index]
-                        cards.insert(insert_pos, dummy)
+                    def fix(self=self, index=index, insert_pos=insert_pos):
+                        card = self._header.cards[index]
+                        del self._header[index]
+                        self._header.insert(insert_pos, card)
 
                     errs.append(self.run_option(option, err_text=err_text,
                                 fix_text=fix_text, fix=fix))
@@ -877,8 +874,8 @@ class _ValidHDU(_BaseHDU, _Verify):
             if test:
                 val = self._header[keyword]
                 if not test(val):
-                    err_text = "'%s' card has invalid value '%s'." \
-                               % (keyword, val)
+                    err_text = ("'%s' card has invalid value '%s'." %
+                                (keyword, val))
                     fix_text = "Fixed by setting a new value '%s'." % fix_value
 
                     if fixable:
@@ -1046,7 +1043,7 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         if 'CHECKSUM' in self._header:
             self._checksum = self._header['CHECKSUM']
-            self._checksum_comment = self._header.ascard['CHECKSUM'].comment
+            self._checksum_comment = self._header.comments['CHECKSUM']
             if not self.verify_checksum(blocking):
                  warnings.warn('Warning:  Checksum verification failed for '
                                'HDU %s.\n' % ((self.name, self._extver),))
@@ -1057,7 +1054,7 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         if 'DATASUM' in self._header:
              self._datasum = self._header['DATASUM']
-             self._datasum_comment = self._header.ascard['DATASUM'].comment
+             self._datasum_comment = self._header.comments['DATASUM']
 
              if not self.verify_datasum(blocking):
                  warnings.warn('Warning:  Datasum verification failed for '
@@ -1110,7 +1107,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         self._header.update('CHECKSUM', '0'*16);
 
         # Convert the header to a string.
-        s = repr(self._header.ascard) + _pad('END')
+        s = str(self._header) + _pad('END')
         s = s + _pad_length(len(s))*' '
 
         # Calculate the checksum of the Header and data.
@@ -1297,7 +1294,7 @@ class ExtensionHDU(_ValidHDU):
             if 'EXTNAME' in self._header:
                 self._header['EXTNAME'] = value
             else:
-                self._header.ascard.append(('EXTNAME', value, 'extension name'))
+                self._header.append(('EXTNAME', value, 'extension name'))
 
         super(ExtensionHDU, self).__setattr__(attr, value)
 
@@ -1364,16 +1361,17 @@ class NonstandardExtHDU(ExtensionHDU):
         types.
         """
 
-        card = header.ascard[0]
+        card = header.cards[0]
         xtension = card.value.rstrip()
         standard_xtensions = ('IMAGE', 'TABLE', 'BINTABLE', 'A3DTABLE')
         # The check that xtension is not one of the standard types should be
         # redundant.
-        return card.key == 'XTENSION' and xtension not in standard_xtensions
+        return (card.keyword == 'XTENSION' and
+                xtension not in standard_xtensions)
 
 
     def _summary(self):
-        return (self.name, 'NonstandardExtHDU', len(self._header.ascard))
+        return (self.name, 'NonstandardExtHDU', len(self._header))
 
     @lazyproperty
     def data(self):

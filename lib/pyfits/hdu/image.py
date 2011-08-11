@@ -241,7 +241,7 @@ class _ImageBaseHDU(_ValidHDU):
         # delete extra NAXISi's
         for idx in range(len(axes)+1, old_naxis+1):
             try:
-                del self._header.ascard['NAXIS' + str(idx)]
+                del self._header['NAXIS' + str(idx)]
             except KeyError:
                 pass
 
@@ -479,7 +479,7 @@ class _ImageBaseHDU(_ValidHDU):
                       % (self._header['GCOUNT'], self._header['PCOUNT'])
         else:
             _gcount = ''
-        return (self.name, class_name, len(self._header.ascard), _shape,
+        return (self.name, class_name, len(self._header), _shape,
                 _format, _gcount)
 
     def _calculate_datasum(self, blocking):
@@ -694,10 +694,10 @@ class PrimaryHDU(_ImageBaseHDU):
 
     @classmethod
     def match_header(cls, header):
-        card = header.ascard[0]
-        return card.key == 'SIMPLE' and \
-               ('GROUPS' not in header or header['GROUPS'] != True) and \
-               card.value == True
+        card = header.cards[0]
+        return (card.keyword == 'SIMPLE' and
+                ('GROUPS' not in header or header['GROUPS'] != True) and
+                card.value == True)
 
 
 class ImageHDU(_ImageBaseHDU, ExtensionHDU):
@@ -742,9 +742,9 @@ class ImageHDU(_ImageBaseHDU, ExtensionHDU):
 
     @classmethod
     def match_header(cls, header):
-        card = header.ascard[0]
+        card = header.cards[0]
         xtension = card.value.rstrip()
-        return card.key == 'XTENSION' and xtension == cls._extension
+        return card.keyword == 'XTENSION' and xtension == cls._extension
 
     def _verify(self, option='warn'):
         """

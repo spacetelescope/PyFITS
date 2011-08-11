@@ -344,7 +344,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                                 for j in range(ncols)])
             format = '[%s]' % format
         dims = "%dR x %dC" % (nrows, ncols)
-        ncards = len(self._header.ascard)
+        ncards = len(self._header)
 
         return (self.name, class_name, ncards, dims, format)
 
@@ -365,7 +365,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         """Populate the new table definition keywords from the header."""
 
         cols = self.columns
-        append = self._header.ascard.append
+        append = self._header.append
 
         for idx, col in enumerate(cols):
             for attr, keyword in zip(KEYWORD_ATTRIBUTES, KEYWORD_NAMES):
@@ -396,7 +396,7 @@ class TableHDU(_TableBaseHDU):
 
     @classmethod
     def match_header(cls, header):
-        card = header.ascard[0]
+        card = header.cards[0]
         xtension = card.value.rstrip()
         return card.key == 'XTENSION' and xtension == cls._extension
 
@@ -480,7 +480,7 @@ class BinTableHDU(_TableBaseHDU):
 
     @classmethod
     def match_header(cls, header):
-        card = header.ascard[0]
+        card = header.cards[0]
         xtension = card.value.rstrip()
         return card.key == 'XTENSION' and \
                xtension in (cls._extension, 'A3DTABLE')
@@ -611,7 +611,7 @@ class BinTableHDU(_TableBaseHDU):
         """Populate the new table definition keywords from the header."""
 
         cols = self.columns
-        append = self._header.ascard.append
+        append = self._header.append
 
         for idx, col in enumerate(cols):
             for attr, keyword in zip(KEYWORD_ATTRIBUTES, KEYWORD_NAMES):
