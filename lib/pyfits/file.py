@@ -92,23 +92,22 @@ class _File(object):
         else:
             # Initialize the internal self.__file object
             if isinstance(fileobj, (file, gzip.GzipFile)):
-                if hasattr(fileobj, 'closed'):
+                if hasattr(fileobj, 'fileobj'):
+                    closed = fileobj.fileobj.closed
+                    fileobj_mode = fileobj.fileobj.mode
+                elif hasattr(fileobj, 'closed'):
                     closed = fileobj.closed
-                    foMode = fileobj.mode
+                    fileobj_mode = fileobj.mode
                 else:
-                    if fileobj.fileobj is not None:
-                        closed = fileobj.fileobj.closed
-                        foMode = fileobj.fileobj.mode
-                    else:
-                        closed = True
-                        foMode = PYTHON_MODES[mode]
+                    closed = True
+                    fileobj_mode = PYTHON_MODES[mode]
 
                 if not closed:
-                    if PYTHON_MODES[mode] != foMode:
+                    if PYTHON_MODES[mode] != fileobj_mode:
                         raise ValueError(
                             "Input mode '%s' (%s) does not match mode of the "
                             "input file (%s)." % (mode, PYTHON_MODES[mode],
-                                                  fileobj.mode))
+                                                  fileobj_mode))
                     self.__file = fileobj
                 elif isinstance(fileobj, file):
                     self.__file = open(self.name, PYTHON_MODES[mode])
