@@ -47,7 +47,7 @@ class Card(_Verify):
 
     # This regex helps delete leading zeros from numbers, otherwise
     # Python might evaluate them as octal values.
-    _number_FSC_RE = re.compile(r'(?P<sign>[+-])?0*(?P<digt>%s)' 
+    _number_FSC_RE = re.compile(r'(?P<sign>[+-])?0*(?P<digt>%s)'
                                 % _digits_FSC)
     _number_NFSC_RE = re.compile(r'(?P<sign>[+-])? *0*(?P<digt>%s)'
                                  % _digits_NFSC)
@@ -240,7 +240,7 @@ class Card(_Verify):
             # Make sure these are saved from the old cardimage before deleting
             # it
             self.key
-            self.comment
+            self.value
             del self._cardimage
 
     comment = property(_getcomment, _setcomment, doc='Card comment')
@@ -337,7 +337,7 @@ class Card(_Verify):
         # value string
         if not (hasattr(self, '_value') or hasattr(self, '_cardimage')):
             return ''
-        elif (not hasattr(self, '_value_modified') or 
+        elif (not hasattr(self, '_value_modified') or
               not self._value_modified) and \
              isinstance(self.value, (float, np.floating, complex,
                                      np.complexfloating)):
@@ -1338,7 +1338,7 @@ class CardList(list):
             idx = nc - 1
             if not bottom:
                 # locate last non-commentary card
-                for idx in range(nc - 1, -1, -1): 
+                for idx in range(nc - 1, -1, -1):
                     if self[idx].key not in Card._commentary_keys:
                         break
 
