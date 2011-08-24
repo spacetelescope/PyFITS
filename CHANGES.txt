@@ -11,7 +11,15 @@ Changelog
   from previous versions of PyFITS, but not vice-versa due to a parsing bug in
   older versions.
 
-3.0.0 (unreleased)
+
+3.0.1 (unreleased)
+--------------------
+
+- Fixed a bug where updating a header card comment could cause the value to be
+  lost if it had not already been read from the card image string.
+
+
+3.0.0 (2011-08-23)
 --------------------
 
 - Contains major changes, bumping the version to 3.0
