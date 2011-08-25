@@ -1308,3 +1308,27 @@ class _HeaderComments(object):
 
         idx = self._header._cardindex(item)
         return self._header._cards[idx].comment
+
+    def __setitem__(self, item, comment):
+        """
+        Set the comment on specified card or cards.
+
+        Slice/filter updates work similarly to how Header.__setitem__ works.
+        """
+
+        if isinstance(item, slice) or self._header._haswildcard(item):
+            if isinstance(item, slice):
+                indices = xrange(*item.indices(len(self._header)))
+            else:
+                indices = self._header._wildcardmatch(item)
+            if isinstance(comment, basestring) or not isiterable(comment):
+                value = itertools.repeat(comment, len(indices))
+            for idx, val in itertools.izip(indices, comment):
+                self[idx] = val
+            return
+
+        # In this case, key/index errors should be raised; don't update
+        # comments of nonexistent cards
+        idx = self._header._cardindex(item)
+        value = self._header[idx]
+        self._header[idx] = (value, comment)

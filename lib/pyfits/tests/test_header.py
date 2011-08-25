@@ -76,7 +76,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         c = pyfits.Card('floatnum', -467374636747637647347374734737437.)
 
-        if (str(c) != "FLOATNUM= -4.6737463674763E+32                                                  " and 
+        if (str(c) != "FLOATNUM= -4.6737463674763E+32                                                  " and
             str(c) != "FLOATNUM= -4.6737463674763E+032                                                 "):
             assert_equal(str(c),
                          "FLOATNUM= -4.6737463674763E+32                                                  ")
@@ -520,3 +520,15 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(len(header), 5)
         assert_equal(header[1], 'H')
         assert_equal(header[-1], '')
+
+    def test_update_comment(self):
+        hdul = pyfits.open(self.data('arange.fits'))
+        hdul[0].header['FOO'] = ('BAR', 'BAZ')
+        hdul.writeto(self.temp('test.fits'))
+
+        hdul = pyfits.open(self.temp('test.fits'), mode='update')
+        hdul[0].header.comments['FOO'] = 'QUX'
+        hdul.close()
+
+        hdul = pyfits.open(self.temp('test.fits'))
+        assert_equal(hdul[0].header.comments['FOO'], 'QUX')
