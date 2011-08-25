@@ -256,7 +256,9 @@ def setval(filename, key, value="", comment=None, before=None, after=None,
     """
 
     hdulist, ext = _getext(filename, mode='update', *ext, **extkeys)
-    hdulist[ext].header.update(key, value, comment, before, after, savecomment)
+    if key in hdulist[ext].header and savecomment:
+        comment = None
+    hdulist[ext].header.set(key, value, comment, before, after)
 
     # Ensure that data will not be scaled when the file is closed
 

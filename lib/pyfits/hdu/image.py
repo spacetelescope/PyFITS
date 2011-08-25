@@ -236,7 +236,7 @@ class _ImageBaseHDU(_ValidHDU):
                     after = 'naxis'
                 else :
                     after = 'naxis' + str(idx)
-                self._header.update(naxisn, axis, after=after)
+                self._header.set(naxisn, axis, after=after)
 
         # delete extra NAXISi's
         for idx in range(len(axes)+1, old_naxis+1):
@@ -247,29 +247,26 @@ class _ImageBaseHDU(_ValidHDU):
 
         # TODO: This needs to be moved into the GroupHDU class
         if isinstance(self.data, GroupData):
-            self._header.update('GROUPS', True, after='NAXIS' + str(len(axes)))
-            self._header.update('PCOUNT', len(self.data.parnames),
-                                after='GROUPS')
-            self._header.update('GCOUNT', len(self.data), after='PCOUNT')
+            self._header.set('GROUPS', True, after='NAXIS' + str(len(axes)))
+            self._header.set('PCOUNT', len(self.data.parnames), after='GROUPS')
+            self._header.set('GCOUNT', len(self.data), after='PCOUNT')
             npars = len(self.data.parnames)
             (_scale, _zero)  = self.data._get_scale_factors(npars)[3:5]
             if _scale:
-                self._header.update('BSCALE',
-                                    self.data._coldefs.bscales[npars])
+                self._header['BSCALE'] = self.data._coldefs.bscales[npars]
             if _zero:
-                self._header.update('BZERO', self.data._coldefs.bzeros[npars])
+                self._header['BZERO'] = self.data._coldefs.bzeros[npars]
             for idx in range(npars):
-                self._header.update('PTYPE' + str(idx + 1),
-                                    self.data.parnames[idx])
+                self._header['PTYPE' + str(idx + 1)] = self.data.parnames[idx]
                 (_scale, _zero)  = self.data._get_scale_factors(idx)[3:5]
                 if _scale:
-                    self._header.update('PSCAL' + str(idx + 1),
-                                        self.data._coldefs.bscales[idx])
+                    self._header['PSCAL' + str(idx + 1)] = \
+                                        self.data._coldefs.bscales[idx]
                 if _zero:
-                    self._header.update('PZERO' + str(idx + 1),
-                                        self.data._coldefs.bzeros[idx])
+                    self._header['PZERO' + str(idx + 1)] = \
+                                        self.data._coldefs.bzeros[idx]
 
-    def scale(self, type=None, option="old", bscale=1, bzero=0):
+    def scale(self, type=None, option='old', bscale=1, bzero=0):
         """
         Scale image data by using ``BSCALE``/``BZERO``.
 
@@ -335,7 +332,7 @@ class _ImageBaseHDU(_ValidHDU):
         # Do the scaling
         if _zero != 0:
             self.data += -_zero # 0.9.6.3 to avoid out of range error for BZERO = +32768
-            self._header.update('BZERO', _zero)
+            self._header['BZERO'] = _zero
         else:
             try:
                 del self._header['BZERO']
@@ -344,7 +341,7 @@ class _ImageBaseHDU(_ValidHDU):
 
         if _scale and _scale != 1:
             self.data /= _scale
-            self._header.update('BSCALE', _scale)
+            self._header['BSCALE'] = _scale
         else:
             try:
                 del self._header['BSCALE']
@@ -690,7 +687,7 @@ class PrimaryHDU(_ImageBaseHDU):
             dim = repr(self._header['NAXIS'])
             if dim == '0':
                 dim = ''
-            self._header.update('EXTEND', True, after='NAXIS' + dim)
+            self._header.set('EXTEND', True, after='NAXIS' + dim)
 
     @classmethod
     def match_header(cls, header):

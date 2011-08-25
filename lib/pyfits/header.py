@@ -310,6 +310,69 @@ class Header(object):
         except (KeyError, IndexError):
             return default
 
+    def set(self, keyword, value=None, comment=None, before=None, after=None):
+        """
+        Set the value and/or comment and/or position of a specified keyword.
+
+        If the keyword does not already exist in the header, a new keyword is
+        created in the specified position, or appended to the end of the header
+        if no position is specified.
+
+        This method is similar to `Header.update()` prior to PyFITS 3.1.
+
+        It should be noted that header.set(keyword, value) and
+        header.set(keyword, value, comment) are equivalent to
+        header[keyword] = value and header[keyword] = (value, comment)
+        respectfully.  The main advantage to using `Header.set()` is that it
+        may also specify the required location of the keyword using the before
+        or after arguments.
+
+        Parameters
+        ----------
+        keyword : str
+            A header keyword
+
+        value : str (optional)
+            The value to set for the given keyword; if None the existing value
+            is kept, but '' may be used to set a blank value
+
+        comment : str (optional)
+            The comment to set for the given keyword; if None the existing
+            comment is kept, but '' may be used to set a blank comment
+
+        before : str, int (optional)
+            Name of the keyword, or index of the `Card` before which
+            this card should be located in the header.  The argument `before`
+            takes precedence over `after` if both specified.
+
+        after : str, int (optional)
+            Name of the keyword, or index of the `Card` after which this card
+            should be located in the header.
+
+        """
+
+        if keyword in self:
+            if comment is None:
+                comment = self.comments[keyword]
+            if value is None:
+                value = self[keyword]
+
+            setval = (value, comment)
+
+            if before is None and after is None:
+                self[keyword] = setval
+            else:
+                self[keyword] = setval
+                idx = self._cardindex(keyword)
+                card = self._cards[idx]
+                del self[idx]
+                self._relativeinsert(card, before=before, after=after)
+        elif before is not None or after is not None:
+            self._relativeinsert((keyword, value, comment), before=before,
+                                 after=after)
+        else:
+            self[keyword] = (value, comment)
+
     @deprecated(alternative='`key in header` syntax')
     def has_key(self, key):
         return key in self
@@ -453,7 +516,8 @@ class Header(object):
 
         if len(args) >= 2:
             # This must be a legacy update()
-            # TODO: Issue a deprecation warning for this
+            # TODO: Issue a deprecation warning for this; tell the user to use
+            # Header.set() instead
             keyword = args[0]
             value = args[1]
             for k, v in zip(legacy_kwargs, args[2:]):
@@ -468,24 +532,12 @@ class Header(object):
             after = kwargs.get('after')
             savecomment = kwargs.get('savecomment')
 
-            if keyword in self:
-                if comment is None or savecomment:
-                    setval = value
-                else:
-                    setval = (value, comment)
-                if before is None and after is None:
-                    self[keyword] = setval
-                else:
-                    self[keyword] = setval
-                    idx = self._cardindex(keyword)
-                    card = self._cards[idx]
-                    del self[idx]
-                    self._relativeinsert(card, before=before, after=after)
-            elif before is not None or after is not None:
-                self._relativeinsert((keyword, value, comment), before=before,
-                                     after=after)
-            else:
-                self[keyword] = (value, comment)
+            # Handle the savecomment argument which is not currently used by
+            # Header.set()
+            if keyword in self and savecomment:
+                comment = None
+
+            self.set(keyword, value, comment, before, after)
         else:
             # The rest of this should work similarly to dict.update()
             if args:
@@ -1177,25 +1229,25 @@ class Header(object):
             card = Card.fromstring(line[:min(80, len(line)-1)])
             card.verify('silentfix')
 
-            if card.key == 'SIMPLE':
+            if card.keyword == 'SIMPLE':
                 if self.get('EXTENSION'):
                     del self.ascard['EXTENSION']
 
-                self.update(card.key, card.value, card.comment, before=0)
+                self.set(card.keyword, card.value, card.comment, before=0)
                 prevKey = 0
-            elif card.key == 'EXTENSION':
+            elif card.keyword == 'EXTENSION':
                 if self.get('SIMPLE'):
                     del self.ascard['SIMPLE']
 
-                self.update(card.key, card.value, card.comment, before=0)
+                self.set(card.keyword, card.value, card.comment, before=0)
                 prevKey = 0
-            elif card.key == 'HISTORY':
+            elif card.keyword == 'HISTORY':
                 if not replace:
                     items = self.items()
                     idx = 0
 
                     for item in items:
-                        if item[0] == card.key and item[1] == card.value:
+                        if item[0] == card.keyword and item[1] == card.value:
                             break
                         idx += 1
 
@@ -1205,13 +1257,13 @@ class Header(object):
                 else:
                     self.add_history(card.value, after=prevKey)
                     prevKey += 1
-            elif card.key == 'COMMENT':
+            elif card.keyword == 'COMMENT':
                 if not replace:
                     items = self.items()
                     idx = 0
 
                     for item in items:
-                        if item[0] == card.key and item[1] == card.value:
+                        if item[0] == card.keyword and item[1] == card.value:
                             break
                         idx += 1
 
@@ -1221,13 +1273,13 @@ class Header(object):
                 else:
                     self.add_comment(card.value, after=prevKey)
                     prevKey += 1
-            elif card.key == '        ':
+            elif card.keyword == '        ':
                 if not replace:
                     items = self.items()
                     idx = 0
 
                     for item in items:
-                        if item[0] == card.key and item[1] == card.value:
+                        if item[0] == card.keyword and item[1] == card.value:
                             break
                         idx += 1
 
@@ -1238,10 +1290,8 @@ class Header(object):
                     self.add_blank(card.value, after=prevKey)
                     prevKey += 1
             else:
-                self.update(card.key,
-                            card.value,
-                            card.comment,
-                            after=prevKey)
+                self.set(card.keyword, card.value, card.comment,
+                         after=prevKey)
                 prevKey += 1
 
     def _add_commentary(self, key, value, before=None, after=None):

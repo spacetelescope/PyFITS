@@ -253,10 +253,9 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         Update header keywords to reflect recent changes of columns.
         """
 
-        update = self._header.update
-        update('naxis1', self.data.itemsize, after='naxis')
-        update('naxis2', self.data.shape[0], after='naxis1')
-        update('tfields', len(self.columns), after='gcount')
+        self._header.set('naxis1', self.data.itemsize, after='naxis')
+        self._header.set('naxis2', self.data.shape[0], after='naxis1')
+        self._header.set('tfields', len(self.columns), after='gcount')
 
         self._clear_table_keywords()
         self._populate_table_keywords()

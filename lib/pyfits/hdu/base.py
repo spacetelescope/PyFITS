@@ -287,11 +287,11 @@ class _BaseHDU(object):
         if self._data_loaded and self.data is not None and \
            self._standard and _is_pseudo_unsigned(self.data.dtype):
             if 'GCOUNT' in self._header:
-                self._header.update('BSCALE', 1, after='GCOUNT')
+                self._header.set('BSCALE', 1, after='GCOUNT')
             else:
-                self._header.update('BSCALE', 1)
-            self._header.update('BZERO', _unsigned_zero(self.data.dtype),
-                                after='BSCALE')
+                self._header.set('BSCALE', 1)
+            self._header.set('BZERO', _unsigned_zero(self.data.dtype),
+                             after='BSCALE')
 
         # Handle checksum
         if 'CHECKSUM' in self._header:
@@ -672,7 +672,10 @@ class _ValidHDU(_BaseHDU, _Verify):
             data = None
         return self.__class__(data=data, header=self._header.copy())
 
-
+    # TODO: self.name should be a property that updates the EXTNAME keyword
+    # automatically; likewise for self.version.  Likewise it should
+    # automatically get its value from the Header keyword.  This method should
+    # just be deprecated, as should update_ext_version
     def update_ext_name(self, value, comment=None, before=None,
                         after=None, savecomment=False):
         """
@@ -709,8 +712,10 @@ class _ValidHDU(_BaseHDU, _Verify):
             preserved.
         """
 
-        self._header.update('extname', value, comment, before, after,
-                            savecomment)
+        if 'extname' in self._header and savecomment:
+            comment = None
+
+        self._header.set('extname', value, comment, before, after)
         self.name = value
 
 
@@ -750,8 +755,10 @@ class _ValidHDU(_BaseHDU, _Verify):
             preserved.
         """
 
-        self._header.update('extver', value, comment, before, after,
-                            savecomment)
+        if 'extver' in self._header and savecomment:
+            comment = None
+
+        self._header.set('extver', value, comment, before, after)
         self._extver = value
 
 
@@ -919,7 +926,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         if when is None:
            when = 'data unit checksum updated %s' % self._get_timestamp()
 
-        self._header.update('DATASUM', str(cs), when);
+        self._header['DATASUM'] = (str(cs), when)
         return cs
 
     def add_checksum(self, when=None, override_datasum=False,
@@ -963,14 +970,11 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         # Add the CHECKSUM card to the header with a value of all zeros.
         if 'DATASUM' in self._header:
-            self._header.update('CHECKSUM', '0'*16, when, before='DATASUM')
+            self._header.set('CHECKSUM', '0'*16, when, before='DATASUM')
         else:
-            self._header.update('CHECKSUM', '0'*16, when)
+            self._header.set('CHECKSUM', '0'*16, when)
 
-        s = self._calculate_checksum(data_cs, blocking)
-
-        # Update the header card.
-        self._header.update('CHECKSUM', s, when);
+        self._header['CHECKSUM'] = self._calculate_checksum(data_cs, blocking)
 
     def verify_datasum(self, blocking='standard'):
         """
@@ -1104,7 +1108,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         """
 
         oldChecksum = self._header['CHECKSUM']
-        self._header.update('CHECKSUM', '0'*16);
+        self._header['CHECKSUM'] = '0' * 16
 
         # Convert the header to a string.
         s = str(self._header) + _pad('END')
@@ -1118,7 +1122,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         s = self._char_encode(~cs)
 
         # Return the header card value.
-        self._header.update("CHECKSUM", oldChecksum);
+        self._header['CHECKSUM'] = oldChecksum
 
         return s
 

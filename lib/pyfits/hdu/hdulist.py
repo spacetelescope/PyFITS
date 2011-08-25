@@ -753,10 +753,10 @@ class HDUList(list, _Verify):
                 hdr['extend'] = True
         else:
             if hdr['naxis'] == 0:
-                hdr.update('extend', True, after='naxis')
+                hdr.set('extend', True, after='naxis')
             else:
                 n = hdr['naxis']
-                hdr.update('extend', True, after='naxis' + str(n))
+                hdr.set('extend', True, after='naxis' + str(n))
 
     @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,
