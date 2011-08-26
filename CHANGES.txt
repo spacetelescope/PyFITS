@@ -18,6 +18,9 @@ Changelog
 - Fixed a bug where updating a header card comment could cause the value to be
   lost if it had not already been read from the card image string.
 
+- The `.key` attribute of RecordValuedKeywordCards now returns the full
+  keyword+field-specifier value, instead of just the plain keyword (#46)
+
 - Fixed a related bug where changes made directly to Card object in a header
   (i.e. assigning directly to card.value or card.comment) would not propagate
   when flushing changes to the file (#69)
