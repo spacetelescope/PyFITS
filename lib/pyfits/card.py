@@ -799,6 +799,24 @@ class RecordValuedKeywordCard(Card):
        self._extract_value()
        return self._field_specifier
 
+    @property
+    def raw(self):
+        """
+        Return this card as a normal Card object not parsed as a record-valued
+        keyword card.  Note that this returns a copy, so that modifications to
+        it do not update the original record-valued keyword card.
+        """
+
+        key = super(RecordValuedKeywordCard, self)._getkey()
+        return Card(key, self.strvalue(), self.comment)
+
+    def _getkey(self):
+        key = super(RecordValuedKeywordCard, self)._getkey()
+        if not hasattr(self, '_field_specifier'):
+            return key
+        return '%s.%s' % (key, self._field_specifier)
+
+    key = property(_getkey, Card.key.fset, doc=Card.key.__doc__)
 
     def _setvalue(self, val):
         if not isinstance(val, float):
@@ -1094,6 +1112,27 @@ class RecordValuedKeywordCard(Card):
             self._update_cardimage()
 
 
+    def _check_key(self, key):
+        """
+        Verify the keyword to be FITS standard and that it matches the
+        standard for record-valued keyword cards.
+        """
+
+        if '.' in key:
+            keyword, field_specifier = key.split('.', 1)
+        else:
+            keyword, field_specifier = key, None
+
+        super(RecordValuedKeywordCard, self)._check_key(keyword)
+
+        if field_specifier:
+            if not self.field_specifier_s.match(key):
+                self._err_text = 'Illegal keyword name %s' % repr(key)
+                # TODO: Maybe fix by treating as normal card and not RVKC?
+                self._fixable = False
+                raise ValueError(self._err_text)
+
+
     def _check(self, option='ignore'):
         """Verify the card image with the specified `option`."""
 
@@ -1127,7 +1166,7 @@ class RecordValuedKeywordCard(Card):
 
             # verify the value
             result = \
-              self.keyword_val_comm_RE.match (self._get_value_comment_string())
+              self.keyword_val_comm_RE.match(self._get_value_comment_string())
 
             if result is not None:
                 return result
@@ -1170,7 +1209,12 @@ class CardList(list):
         # if the key list is not supplied (as in reading in the FITS file),
         # it will be constructed from the card list.
         if keylist is None:
-            self._keys = [c.key.upper() for c in self]
+            self._keys = []
+            for c in self:
+                if isinstance(c, RecordValuedKeywordCard):
+                    self._keys.append(c.raw.key)
+                else:
+                    self._keys.append(c.key)
         else:
             self._keys = keylist
 
@@ -1203,7 +1247,10 @@ class CardList(list):
             # only set if the value is different from the old one
             if str(self[idx]) != str(value):
                 super(CardList, self).__setitem__(idx, value)
-                self._keys[idx] = value.key.upper()
+                if isinstance(value, RecordValuedKeywordCard):
+                    self._keys[idx] = value.raw.key.upper()
+                else:
+                    self._keys[idx] = value.key.upper()
                 self.count_blanks()
                 self._mod = True
         else:
@@ -1219,10 +1266,7 @@ class CardList(list):
                 raise KeyError("Keyword '%s' not found." % key)
 
             for card in cardlist:
-                if isinstance(card, RecordValuedKeywordCard):
-                    key = card.key + '.' + card.field_specifier
-                else:
-                    key = card.key
+                key = card.key
 
                 super(CardList, self).__delitem__(key)
         else:
@@ -1278,17 +1322,7 @@ class CardList(list):
         `RecordValuedKeywordCard` objects.
         """
 
-        retval = []
-
-        for card in self:
-            if isinstance(card, RecordValuedKeywordCard):
-                key = card.key + '.' + card.field_specifier
-            else:
-                key = card.key
-
-            retval.append(key)
-
-        return retval
+        return [card.key for card in self]
 
     def values(self):
         """
@@ -1325,7 +1359,10 @@ class CardList(list):
 
         if isinstance(card, Card):
             super(CardList, self).insert(pos, card)
-            self._keys.insert(pos, card.key.upper())  # update the keylist
+            if isinstance(card, RecordValuedKeywordCard):
+                self._keys.insert(pos, card.raw.key.upper())
+            else:
+                self._keys.insert(pos, card.key.upper())  # update the keylist
             self.count_blanks()
             if useblanks:
                 self._use_blanks(card._ncards())
@@ -1370,7 +1407,10 @@ class CardList(list):
                         break
 
             super(CardList, self).insert(idx + 1, card)
-            self._keys.insert(idx + 1, card.key.upper())
+            if isinstance(card, RecordValuedKeywordCard):
+                self._keys.insert(idx + 1, card.raw.key.upper())
+            else:
+                self._keys.insert(idx + 1, card.key.upper())
             if useblanks:
                 self._use_blanks(card._ncards())
             self.count_blanks()
@@ -1461,10 +1501,7 @@ class CardList(list):
         match_RE = re.compile(re_str)
 
         for card in self:
-            if isinstance(card, RecordValuedKeywordCard):
-                match_str = card.key + '.' + card.field_specifier
-            else:
-                match_str = card.key
+            match_str = card.key
 
             if match_RE.match(match_str):
                 out_cl.append(card)
