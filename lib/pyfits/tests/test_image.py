@@ -31,7 +31,7 @@ class TestImageFunctions(PyfitsTestCase):
 
         # And overriding a header with a different extname
         hdr = pyfits.Header()
-        hdr.update('EXTNAME', 'EVENTS')
+        hdr['EXTNAME'] = 'EVENTS'
         hdu = pyfits.ImageHDU(header=hdr, name='FOO')
         assert_equal(hdu.name, 'FOO')
         assert_equal(hdu.header['EXTNAME'], 'FOO')
@@ -75,7 +75,7 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(r['sci',1].header['detector'], 1)
 
         # append (using "update()") a new card
-        r[0].header.update('xxx', 1.234e56)
+        r[0].header['xxx'] = 1.234e56
 
         if str(r[0].header.ascard[-3:]) != \
            "EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                \n" \
@@ -500,7 +500,7 @@ class TestImageFunctions(PyfitsTestCase):
         # One row will be blanks
         arr[1] = 999
         hdu = pyfits.ImageHDU(data=arr)
-        hdu.header.update('BLANK', 999)
+        hdu.header['BLANK'] = 999
         hdu.writeto(self.temp('test_new.fits'))
 
         hdul = pyfits.open(self.temp('test_new.fits'))
@@ -513,7 +513,7 @@ class TestImageFunctions(PyfitsTestCase):
 
         arr = np.zeros((10, 10)) - 1
         hdu = pyfits.ImageHDU(data=arr)
-        hdu.header.update('BZERO', 1.0)
+        hdu.header['BZERO'] = 1.0
         hdu.writeto(self.temp('test_new.fits'))
 
         hdul = pyfits.open(self.temp('test_new.fits'))

@@ -419,7 +419,7 @@ class TestHDUListFunctions(PyfitsTestCase):
 
         oldmtime = os.stat(self.data('test0.fits')).st_mtime
         hdul = pyfits.open(self.data('test0.fits'))
-        hdul[0].header.update('FOO', 'BAR')
+        hdul[0].header['FOO'] = 'BAR'
         with catch_warnings(record=True) as w:
             hdul.flush()
             assert_equal(len(w), 1)

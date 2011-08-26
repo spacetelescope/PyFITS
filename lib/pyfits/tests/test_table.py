@@ -695,7 +695,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(hdu.data[0][1], 80)
 
         info = [(0, 'PRIMARY', 'PrimaryHDU', 4, (), 'uint8', ''),
-                (1, '', 'BinTableHDU', 30, '4R x 10C', 
+                (1, '', 'BinTableHDU', 30, '4R x 10C',
                  '[10A, J, 10A, 5E, L, 10A, J, 10A, 5E, L]', '')]
 
         assert_equal(pyfits.info(self.temp('newtable.fits'), output=False), info)
@@ -1443,7 +1443,7 @@ class TestTableFunctions(PyfitsTestCase):
 
             # And overriding a header with a different extname
             hdr = pyfits.Header()
-            hdr.update('EXTNAME', 'EVENTS')
+            hdr['EXTNAME'] = 'EVENTS'
             hdu = hducls(header=hdr, name='FOO')
             assert_equal(hdu.name, 'FOO')
             assert_equal(hdu.header['EXTNAME'], 'FOO')
@@ -1593,8 +1593,8 @@ class TestTableFunctions(PyfitsTestCase):
 
         thdu = pyfits.new_table(data)
         # Modify the TDIM fields to my own specification
-        thdu.header.update('TDIM1', '(2,2)')
-        thdu.header.update('TDIM2', '(4,2)')
+        thdu.header['TDIM1'] = '(2,2)'
+        thdu.header['TDIM2'] = '(4,2)'
 
         thdu.writeto(self.temp('newtable.fits'))
 

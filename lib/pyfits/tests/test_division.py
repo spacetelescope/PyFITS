@@ -26,7 +26,7 @@ class TestDivisionFunctions(PyfitsTestCase):
     def test_card_with_continue(self):
         h = pyfits.PrimaryHDU()
         with CaptureStdout() as f:
-            h.header.update('abc', 'abcdefg'*20)
+            h.header['abc'] = 'abcdefg' * 20
             assert_equal(f.getvalue(), '')
 
     def test_valid_hdu_size(self):
