@@ -18,12 +18,18 @@ Changelog
 - Fixed a bug where updating a header card comment could cause the value to be
   lost if it had not already been read from the card image string.
 
+- Changed ``_TableBaseHDU.data`` so that if the data contain an empty table a
+  ``FITS_rec`` object with zero rows is returned rather than ``None``.
+
 - The ``.key`` attribute of ``RecordValuedKeywordCards`` now returns the full
   keyword+field-specifier value, instead of just the plain keyword (#46)
 
 - Fixed a related bug where changes made directly to Card object in a header
   (i.e. assigning directly to card.value or card.comment) would not propagate
   when flushing changes to the file (#69)
+
+- Fixed a bug where writing a table with zero rows could fail in some cases
+  (#72)
 
 
 3.0.0 (2011-08-23)
