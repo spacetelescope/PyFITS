@@ -4,12 +4,12 @@ Changelog
 3.1.0 (unreleased)
 --------------------
 
-- `BinTableHDU.tdump` and `BinTableHDU.tcreate` are deprecated--use
-  `BinTableHDU.dump` and `BinTableHDU.load` instead.  The new methods output
-  the table data in a slightly different format from previous versions, which
-  places quotes around each value.  This format is compatible with data dumps
-  from previous versions of PyFITS, but not vice-versa due to a parsing bug in
-  older versions.
+- ``BinTableHDU.tdump`` and ``BinTableHDU.tcreate`` are deprecated--use
+  ``BinTableHDU.dump`` and ``BinTableHDU.load`` instead.  The new methods
+  output the table data in a slightly different format from previous versions,
+  which places quotes around each value.  This format is compatible with data
+  dumps from previous versions of PyFITS, but not vice-versa due to a parsing
+  bug in older versions.
 
 
 3.0.1 (unreleased)
@@ -18,7 +18,7 @@ Changelog
 - Fixed a bug where updating a header card comment could cause the value to be
   lost if it had not already been read from the card image string.
 
-- The `.key` attribute of RecordValuedKeywordCards now returns the full
+- The ``.key`` attribute of ``RecordValuedKeywordCards`` now returns the full
   keyword+field-specifier value, instead of just the plain keyword (#46)
 
 - Fixed a related bug where changes made directly to Card object in a header
@@ -40,37 +40,38 @@ Changelog
     numpy does not have the numpy.core.records module it is too old to be used
     with PyFITS.
 
-  * The `Header.ascardlist()` method is deprecated--use the `.ascard`
+  * The ``Header.ascardlist()`` method is deprecated--use the ``.ascard``
     attribute instead.
 
-  * `Card` instances have a new `.cardimage` attribute that should be used
-    rather than `.ascardimage()`, which may become deprecated.
+  * ``Card`` instances have a new ``.cardimage`` attribute that should be used
+    rather than ``.ascardimage()``, which may become deprecated.
 
-  * The `Card.fromstring()` method is now a classmethod.  It returns a new
-    `Card` instance rather than modifying an existing instance.
+  * The ``Card.fromstring()`` method is now a classmethod.  It returns a new
+    ``Card`` instance rather than modifying an existing instance.
 
-  * The `req_cards()` method on HDU instances has changed:  The `pos` argument
-    is not longer a string.  It is either an integer value (meaning the card's
-    position must match that value) or it can be a function that takes the
-    card's position as it's argument, and returns True if the position is
-    valid.  Likewise, the `test` argument no longer takes a string, but instead
-    a function that validates the card's value and returns True or False.
+  * The ``req_cards()`` method on HDU instances has changed:  The ``pos``
+    argument is not longer a string.  It is either an integer value (meaning
+    the card's position must match that value) or it can be a function that
+    takes the card's position as it's argument, and returns True if the
+    position is valid.  Likewise, the ``test`` argument no longer takes a
+    string, but instead a function that validates the card's value and returns
+    True or False.
 
-  * The `get_coldefs()` method of table HDUs is deprecated.  Use the `.columns`
-    attribute instead.
+  * The ``get_coldefs()`` method of table HDUs is deprecated.  Use the
+    ``.columns`` attribute instead.
 
-  * The `ColDefs.data` attribute is deprecated--use `ColDefs.columns` instead
-    (though in general you shouldn't mess with it directly--it might become
-    internal at some point).
+  * The ``ColDefs.data`` attribute is deprecated--use ``ColDefs.columns``
+    instead (though in general you shouldn't mess with it directly--it might
+    become internal at some point).
 
-  * `FITS_record` objects take `start` and `end` as arguments instead of
-    `startColumn` and `endColumn` (these are rarely created manually, so it's
-    unlikely that this change will affect anyone).
+  * ``FITS_record`` objects take ``start`` and ``end`` as arguments instead of
+    ``startColumn`` and ``endColumn`` (these are rarely created manually, so
+    it's unlikely that this change will affect anyone).
 
-  * `BinTableHDU.tcreate()` is now a classmethod, and returns a new
-    `BinTableHDU` instance.
+  * ``BinTableHDU.tcreate()`` is now a classmethod, and returns a new
+    ``BinTableHDU`` instance.
 
-  * Use `ExtensionHDU` and `NonstandardExtHDU` for making new extension HDU
+  * Use ``ExtensionHDU`` and ``NonstandardExtHDU`` for making new extension HDU
     classes.  They are now public interfaces, wheres previously they were
     private and prefixed with underscores.
 
@@ -89,7 +90,7 @@ Changelog
   TDIMn keywords (#47)
 
 - Fixed a major memory leak that occurred when creating new tables with the
-  `new_table()` function (#49)
+  ``new_table()`` function (#49)
   be padded with zero-bytes) vs ASCII tables (where strings are padded with
   spaces) (#15)
 
@@ -120,7 +121,7 @@ Changelog
 - Fixed an issue where BZERO and BSCALE keywords were appended to headers in
   the wrong location (#56)
 
-- `FITS_record` objects (table rows) have full slicing support, including
+- ``FITS_record`` objects (table rows) have full slicing support, including
   stepping, etc. (#59)
 
 - Fixed a bug where updating multiple files simultaneously (such as when
