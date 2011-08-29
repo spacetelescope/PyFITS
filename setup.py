@@ -29,6 +29,16 @@ setuptools.command.easy_install.easy_install = easier_install
 
 setup(
     setup_requires=['d2to1>=0.2.5', 'stsci.distutils>=0.2dev'],
+    entry_points={
+        'zest.releaser.prereleaer.after': [
+            'pyfits.prereleaser.after = '
+                'pyfits.release:releaser.prereleaser_after'
+        ],
+        'zest.releaser.postreleaser.after': [
+            'pyfits.postreleaser.after = '
+                'pyfits.release:releaser.postreleaser_after'
+        ]
+    },
     d2to1=True,
     use_2to3=True,
     zip_safe=False
