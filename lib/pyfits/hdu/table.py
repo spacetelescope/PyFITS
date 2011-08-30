@@ -208,15 +208,11 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
     @lazyproperty
     def data(self):
-        size = self.size()
-        if size:
-            data = self._get_tbdata()
-            data._coldefs = self.columns
-            data.formats = self.columns.formats
-            # Columns should now just return a reference to the data._coldefs
-            del self.columns
-        else:
-            data = None
+        data = self._get_tbdata()
+        data._coldefs = self.columns
+        data.formats = self.columns.formats
+        # Columns should now just return a reference to the data._coldefs
+        del self.columns
         return data
 
     @lazyproperty
