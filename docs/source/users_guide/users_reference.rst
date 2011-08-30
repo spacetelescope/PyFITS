@@ -13,24 +13,24 @@ Converting a 3-color image (JPG) to separate FITS images
    :align: center
    :alt: Starting image
 
-.. figure:: ../_static/Red.gif
-   :target: ../_static/Red.gif
+.. figure:: ../_static/Red.jpg
+   :target: ../_static/Red.jpg
    :align: right
    :scale: 50
    :alt: Red color information
 
    Red color information
 
-.. figure:: ../_static/Green.gif
-   :target: ../_static/Green.gif
+.. figure:: ../_static/Green.jpg
+   :target: ../_static/Green.jpg
    :align: right
    :scale: 50
    :alt: Green color information
 
    Green color information
 
-.. figure:: ../_static/Blue.gif
-   :target: ../_static/Blue.gif
+.. figure:: ../_static/Blue.jpg
+   :target: ../_static/Blue.jpg
    :align: right
    :scale: 50
    :alt: Blue color information
