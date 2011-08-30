@@ -6,7 +6,9 @@
 PyFITS Documentation
 ========================
 
-Contents:
+.. only:: html
+
+    .. rubric:: Contents
 
 .. toctree::
    :maxdepth: 2

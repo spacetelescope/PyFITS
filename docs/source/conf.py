@@ -183,8 +183,9 @@ htmlhelp_basename = 'pyfitsdoc'
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   ('index', 'pyfits.tex', 'PyFITS Documentation',
-   'J. C. Hsu, Paul Barrett, Christopher Hanley, James Taylor, '
-   'Michael Droettboom, Erik M. Bray', 'manual'),
+   ' \\and '.join(('J. C. Hsu', 'Paul Barrett', 'Christopher Hanley',
+                   'James Taylor', 'Michael Droettboom', 'Erik M. Bray')),
+   'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
