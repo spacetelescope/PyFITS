@@ -197,7 +197,20 @@ latex_documents = [
 #latex_use_parts = False
 
 # Additional stuff for the LaTeX preamble.
-#latex_preamble = ''
+# These are some hacks to ensure there are no page numbers on the title page,
+# ToC pages, or blank pages; the redefinition of \cleardoublepage ensures that
+# blank pages won't have page numbers.  The ToC is a little tricker, but the
+# \addtocontents takes care of that.
+latex_preamble += r"""
+\makeatletter
+\let\origdoublepage\cleardoublepage
+\let\py@OldClearDoublePage\cleardoublepage
+\renewcommand{\cleardoublepage}{%
+  {\pagestyle{empty}\py@OldClearDoublePage}%
+}
+\addtocontents{toc}{\protect\thispagestyle{empty}}
+\makeatother
+"""
 
 # Documents to append as an appendix to all manuals.
 #latex_appendices = []
