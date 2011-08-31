@@ -6,6 +6,8 @@ import re
 import sys
 import xmlrpclib
 
+from ConfigParser import ConfigParser
+
 try:
     from docutils.core import publish_parts
 except ImportError:
@@ -46,6 +48,25 @@ class ReleaseManager(object):
         self.history_lines = []
         self.previous_version = ''
 
+    def prereleaser_before(self, data):
+        """Set tag_svn_revision to False."""
+
+        if data['name'] != 'pyfits':
+            return
+
+        log = logging.getLogger('prerelease')
+        # TODO: This bit should belong to a generic release hook somewhere in
+        # the stsci namespace, or even should maybe be suggested as a built in
+        # action of zest.releaser
+        def callback(section, option, value, lineno, line):
+            if section == 'egg_info' and option == 'tag_svn_revision':
+                log.info('Disabling tag_svn_revision in setup.cfg')
+                return 'tag_svn_revision = False\n'
+            else:
+                return line
+
+        config_parser('setup.cfg', callback)
+
     def prereleaser_after(self, data):
         """Before preforming the release, get the previously released version
         from the latest tag in version control.
@@ -56,6 +77,22 @@ class ReleaseManager(object):
 
         self.previous_version = get_last_tag(self.vcs)
         self.history_lines = data['history_lines']
+
+    def postreleaser_before(self, data):
+        """Restore tag_svn_revision"""
+
+        if data['name'] != 'pyfits':
+            return
+
+        log = logging.getLogger('postrelease')
+
+        def callback(section, option, value, lineno, line):
+            if section == 'egg_info' and option == 'tag_svn_revision':
+                return 'tag_svn_revision = True'
+            else:
+                return line
+
+        config_parser('setup.cfg', callback)
 
     def postreleaser_after(self, data):
         """Used to update the PyFITS website.
@@ -178,5 +215,60 @@ class ReleaseManager(object):
             url = '%s://%s:********@%s/%s' % (proto, username, rest, page)
             log.error('Failed to update %s: %s' % (url, str(e)))
 
+
+# TODO: This is also a handy utility that could probaby be used elsewhere
+def config_parser(filename, callback):
+    """This is a very simplified config file parser that can update a config
+    file in-place so that order and comments are preserved.
+
+    The callback should be a function that takes a section, option, value,
+    line number, and raw line as its input (the current config section the
+    parser is in, the current option, its value, the line number of the config
+    file, and the actual line string the parser is on).
+
+    The callback function is called for each line of the file.  For multi-line
+    option values the function is still called once for each line of the
+    option, so the callback needs to know how to handle these if it desires to.
+    A line in which section, option, and value are None is either a comment or
+    a blank line.
+
+    The return value of the callback function should be the raw line to output
+    or an iterable of lines to output.  In most cases the callback function
+    will just return the same line that was passed in.
+    """
+
+    config = open(filename).readlines()
+    new_config = []
+    current_section = None
+    current_option = None
+    updated = False
+
+    for lineno, line in enumerate(config):
+        match = ConfigParser.SECTCRE.match(line)
+        if match:
+            current_section = match.group('header')
+            current_option = None
+            section, option, value = current_section, None, None
+        else:
+            if re.match(r'^\s*#', line) or not line.strip():
+                section, option, value = None, None, None
+            elif re.match(r'^\s+', line):
+                # A new line in the current option
+                section, option, value = (current_section, current_option,
+                                          line.strip())
+            else:
+                option, value = (item.strip() for item in line.split('=', 1))
+                section = current_section
+                current_option = option
+        lines = callback(section, option, value, lineno, line)
+        if lines != line:
+            updated = True
+        if isinstance(lines, basestring):
+            new_config.append(lines)
+        else:
+            new_config.extend(lines)
+
+    if updated:
+        open(filename, 'w').writelines(new_config)
 
 releaser = ReleaseManager()
