@@ -589,7 +589,7 @@ class FITS_rec(np.recarray):
                         field.replace('E', 'D')
                 # binary table
                 else:
-                    if field and isinstance(field[0], np.integer):
+                    if len(field) and isinstance(field[0], np.integer):
                         dummy = np.around(dummy)
                     field[:] = dummy.astype(field.dtype)
 
