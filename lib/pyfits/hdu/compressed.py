@@ -1804,6 +1804,6 @@ class CompImageHDU(BinTableHDU):
             # This is the case where the data has not been read from the
             # file yet.  We can handle that in a generic manner so we do
             # it in the base class.  The other possibility is that there
-            # is no data at all.  This can also be handled in a gereric
+            # is no data at all.  This can also be handled in a generic
             # manner.
             return super(CompImageHDU,self)._calculate_datasum(blocking)

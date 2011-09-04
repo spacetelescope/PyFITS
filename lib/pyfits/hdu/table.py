@@ -532,7 +532,7 @@ class BinTableHDU(_TableBaseHDU):
             # This is the case where the data has not been read from the file
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
-            # all.  This can also be handled in a gereric manner.
+            # all.  This can also be handled in a generic manner.
             return super(BinTableHDU,self)._calculate_datasum(blocking)
 
     def _writedata_internal(self, fileobj):

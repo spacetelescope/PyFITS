@@ -176,6 +176,12 @@ class _File(object):
                 # For output stream start with a truncated file.
                 self.size = 0
             elif isinstance(self.__file, gzip.GzipFile):
+                # This gives the size of the actual file, but it's not too
+                # useful since the semantics of this really should be the size
+                # of the compressed file.  Unfortunately there's no way to get
+                # that with decompressing the file first.
+                # TODO: Make .size into a lazyproperty that, for compressed
+                # files, will just decompress the file and give the actual size
                 pos = self.__file.tell()
                 self.__file.fileobj.seek(0, 2)
                 self.size = self.__file.fileobj.tell()
@@ -297,7 +303,10 @@ class _File(object):
         else:
             self.__file.seek(offset, whence)
 
-        pos = self.__file.tell()
+        if self.compressed:
+            pos = self.__file.fileobj.tell()
+        else:
+            pos = self.__file.tell()
         if pos > self.size:
             warnings.warn('File may have been truncated: actual file length '
                           '(%i) is smaller than the expected size (%i)' %
