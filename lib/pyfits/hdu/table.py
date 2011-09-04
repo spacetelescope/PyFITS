@@ -1147,14 +1147,14 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
            data_type = 'S' + str(columns.spans[j])
            dtype[columns.names[j]] = (data_type, columns.starts[j] - 1)
 
-        hdu.data = FITS_rec(
-                np.rec.array((' ' * _itemsize * nrows).encode('ascii'),
-                             dtype=dtype, shape=nrows))
+        hdu.data = np.rec.array((' ' * _itemsize * nrows).encode('ascii'),
+                                dtype=dtype, shape=nrows).view(FITS_rec)
         hdu.data.setflags(write=True)
     else:
         formats = ','.join(columns._recformats)
-        hdu.data = FITS_rec(np.rec.array(None, formats=formats,
-                                         names=columns.names, shape=nrows))
+        hdu.data = np.rec.array(None, formats=formats,
+                                names=columns.names,
+                                shape=nrows).view(FITS_rec)
 
     hdu.data._coldefs = hdu.columns
     hdu.data.formats = hdu.columns.formats

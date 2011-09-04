@@ -1,3 +1,5 @@
+from __future__ import division
+
 import gzip
 import os
 import sys
@@ -248,7 +250,7 @@ class _File(object):
                                  '%s' % (size, shape, dtype))
 
         if size and not shape:
-            shape = (size / dtype.itemsize,)
+            shape = (size // dtype.itemsize,)
 
         if not (size or shape):
             warnings.warn('No size or shape given to readarray(); assuming a '
