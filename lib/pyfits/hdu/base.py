@@ -792,7 +792,7 @@ class _ValidHDU(_BaseHDU, _Verify):
                     except ValueError:
                         err_text = "NAXISj keyword out of range ('%s' when " \
                                    "NAXIS == %d)" % (card.key, naxis)
- 
+
                         def fix(self=self, card=card):
                             del self._header[card.key]
 
@@ -1045,8 +1045,8 @@ class _ValidHDU(_BaseHDU, _Verify):
             self._checksum = self._header['CHECKSUM']
             self._checksum_comment = self._header.ascard['CHECKSUM'].comment
             if not self.verify_checksum(blocking):
-                 warnings.warn('Warning:  Checksum verification failed for '
-                               'HDU %s.\n' % ((self.name, self._extver),))
+                 warnings.warn('Checksum verification failed for HDU %s.\n' %
+                               ((self.name, self._extver),))
             del self._header['CHECKSUM']
         else:
             self._checksum = None
@@ -1057,8 +1057,8 @@ class _ValidHDU(_BaseHDU, _Verify):
              self._datasum_comment = self._header.ascard['DATASUM'].comment
 
              if not self.verify_datasum(blocking):
-                 warnings.warn('Warning:  Datasum verification failed for '
-                               'HDU %s.\n' % ((self.name, self._extver),))
+                 warnings.warn('Datasum verification failed for HDU %s.\n' %
+                               ((self.name, self._extver),))
              del self._header['DATASUM']
         else:
              self._checksum = None

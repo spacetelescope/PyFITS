@@ -253,7 +253,7 @@ class HDUList(list, _Verify):
                 # corrupted HDU
                 except ValueError, err:
                     warnings.warn(
-                        'Warning:  Required keywords missing when trying to read '
+                        'Required keywords missing when trying to read '
                         'HDU #%d.\n          %s\n          There may be extra '
                         'bytes after the last HDU or the file is corrupted.'
                         % (len(hdulist), err))

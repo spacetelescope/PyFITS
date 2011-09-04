@@ -361,8 +361,8 @@ class CompImageHDU(BinTableHDU):
         if compressionType:
             if compressionType not in ['RICE_1','GZIP_1','PLIO_1',
                                        'HCOMPRESS_1']:
-                warnings.warn('Warning: Unknown compression type provided.  '
-                              'Default %s compression used.' %
+                warnings.warn('Unknown compression type provided.  Default '
+                              '(%s) compression used.' %
                               DEFAULT_COMPRESSION_TYPE)
                 compressionType = DEFAULT_COMPRESSION_TYPE
 
@@ -511,8 +511,8 @@ class CompImageHDU(BinTableHDU):
         if not tileSize:
             tileSize = []
         elif len(tileSize) != self._image_header['NAXIS']:
-            warnings.warn('Warning: Provided tile size not appropriate ' +
-                          'for the data.  Default tile size will be used.')
+            warnings.warn('Provided tile size not appropriate for the data.  '
+                          'Default tile size will be used.')
             tileSize = []
 
         # Set default tile dimensions for HCOMPRESS_1
@@ -642,9 +642,9 @@ class CompImageHDU(BinTableHDU):
 
         # Create the record array to be used for the table data.
         self.columns = cols
-        self.compData = FITS_rec(
-                np.rec.array(None, formats=','.join(cols._recformats),
-                             names=cols.names, shape=nrows))
+        compData = np.rec.array(None, formats=','.join(cols._recformats),
+                                names=cols.names, shape=nrows)
+        self.compData = compData.view(FITS_rec)
         self.compData._coldefs = self.columns
         self.compData.formats = self.columns.formats
 

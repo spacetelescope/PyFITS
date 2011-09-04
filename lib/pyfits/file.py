@@ -299,9 +299,9 @@ class _File(object):
 
         pos = self.__file.tell()
         if pos > self.size:
-            warnings.warn('Warning: File may have been truncated: actual '
-                          'file length (%i) is smaller than the expected '
-                          'size (%i)' % (self.size, pos))
+            warnings.warn('File may have been truncated: actual file length '
+                          '(%i) is smaller than the expected size (%i)' %
+                          (self.size, pos))
 
     def tell(self):
         if not hasattr(self.__file, 'tell'):

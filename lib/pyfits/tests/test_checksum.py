@@ -27,10 +27,10 @@ class TestChecksumFunctions(PyfitsTestCase):
         with catch_warnings():
             warnings.filterwarnings(
                 'error',
-                 message='Warning:  Checksum verification failed')
+                 message='Checksum verification failed')
             warnings.filterwarnings(
                 'error',
-                message='Warning:  Datasum verification failed')
+                message='Datasum verification failed')
             hdu = pyfits.PrimaryHDU(np.arange(10.**6))
             hdu.writeto(self.temp('tmp.fits'), clobber=True,
                         checksum='nonstandard')

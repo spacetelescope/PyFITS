@@ -160,8 +160,6 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             if isinstance(data, np.ndarray) and data.dtype.fields is not None:
                 if isinstance(data, FITS_rec):
                     self.data = data
-                elif isinstance(data, np.rec.recarray):
-                    self.data = FITS_rec(data)
                 else:
                     self.data = data.view(FITS_rec)
 
