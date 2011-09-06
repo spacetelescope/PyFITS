@@ -146,8 +146,6 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             if isinstance(data, np.ndarray) and data.dtype.fields is not None:
                 if isinstance(data, FITS_rec):
                     self.data = data
-                elif isinstance(data, np.rec.recarray):
-                    self.data = FITS_rec(data)
                 else:
                     self.data = data.view(FITS_rec)
 
@@ -520,7 +518,7 @@ class BinTableHDU(_TableBaseHDU):
             # This is the case where the data has not been read from the file
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
-            # all.  This can also be handled in a gereric manner.
+            # all.  This can also be handled in a generic manner.
             return super(BinTableHDU,self)._calculate_datasum(blocking)
 
     def _writedata_internal(self, fileobj):
@@ -1175,14 +1173,14 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
            data_type = 'S' + str(columns.spans[j])
            dtype[columns.names[j]] = (data_type, columns.starts[j] - 1)
 
-        hdu.data = FITS_rec(
-                np.rec.array((' ' * _itemsize * nrows).encode('ascii'),
-                             dtype=dtype, shape=nrows))
+        hdu.data = np.rec.array((' ' * _itemsize * nrows).encode('ascii'),
+                                dtype=dtype, shape=nrows).view(FITS_rec)
         hdu.data.setflags(write=True)
     else:
         formats = ','.join(columns._recformats)
-        hdu.data = FITS_rec(np.rec.array(None, formats=formats,
-                                         names=columns.names, shape=nrows))
+        hdu.data = np.rec.array(None, formats=formats,
+                                names=columns.names,
+                                shape=nrows).view(FITS_rec)
 
     hdu.data._coldefs = hdu.columns
     hdu.data.formats = hdu.columns.formats

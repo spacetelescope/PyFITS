@@ -6,12 +6,26 @@ import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings
 
 from nose.tools import assert_equal, assert_raises, assert_true
 
 
 class TestChecksumFunctions(PyfitsTestCase):
+
+    def setup(self):
+        super(TestChecksumFunctions, self).setup()
+        self._oldfilters = warnings.filters[:]
+        warnings.filterwarnings(
+            'error',
+             message='Checksum verification failed')
+        warnings.filterwarnings(
+            'error',
+            message='Datasum verification failed')
+
+    def teardown(self):
+        super(TestChecksumFunctions, self).teardown()
+        warnings.filters = self._oldfilters
+
     def test_sample_file(self):
         hdul = pyfits.open(self.data('checksum.fits'), checksum=True)
         hdul.close()
@@ -24,22 +38,15 @@ class TestChecksumFunctions(PyfitsTestCase):
         hdul.close()
 
     def test_nonstandard_checksum(self):
-        with catch_warnings():
-            warnings.filterwarnings(
-                'error',
-                 message='Warning:  Checksum verification failed')
-            warnings.filterwarnings(
-                'error',
-                message='Warning:  Datasum verification failed')
-            hdu = pyfits.PrimaryHDU(np.arange(10.**6))
-            hdu.writeto(self.temp('tmp.fits'), clobber=True,
-                        checksum='nonstandard')
-            del hdu
-            hdul = pyfits.open(self.temp('tmp.fits'), checksum='nonstandard')
-            assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
-                          checksum=True)
-            assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
-                          checksum='standard')
+        hdu = pyfits.PrimaryHDU(np.arange(10.**6))
+        hdu.writeto(self.temp('tmp.fits'), clobber=True,
+                    checksum='nonstandard')
+        del hdu
+        hdul = pyfits.open(self.temp('tmp.fits'), checksum='nonstandard')
+        assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
+                      checksum=True)
+        assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
+                      checksum='standard')
 
     def test_scaled_data(self):
         hdul = pyfits.open(self.data('scale.fits'))

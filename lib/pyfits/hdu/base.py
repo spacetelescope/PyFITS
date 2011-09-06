@@ -1,5 +1,6 @@
 import datetime
 import inspect
+import os
 import re
 import warnings
 
@@ -277,7 +278,9 @@ class _BaseHDU(object):
                              checksum=checksum,
                              ignore_missing_end=ignore_missing_end, **kwargs)
 
-        fileobj.seek(hdu._datSpan, 1)
+        # If the checksum had to be checked the data may have already been read
+        # from the file, in which case we don't want to see relative
+        fileobj.seek(hdu._datLoc + hdu._datSpan, os.SEEK_SET)
         return hdu
 
     def _writeheader(self, fileobj, checksum=False):
@@ -584,6 +587,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         return card.key not in ('SIMPLE', 'XTENSION')
 
     # 0.6.5.5
+    # TODO: Make hdu.size into a property rather than a method
     def size(self):
         """
         Size (in bytes) of the data portion of the HDU.
@@ -792,7 +796,7 @@ class _ValidHDU(_BaseHDU, _Verify):
                     except ValueError:
                         err_text = "NAXISj keyword out of range ('%s' when " \
                                    "NAXIS == %d)" % (card.key, naxis)
- 
+
                         def fix(self=self, card=card):
                             del self._header[card.key]
 
@@ -1045,8 +1049,8 @@ class _ValidHDU(_BaseHDU, _Verify):
             self._checksum = self._header['CHECKSUM']
             self._checksum_comment = self._header.ascard['CHECKSUM'].comment
             if not self.verify_checksum(blocking):
-                 warnings.warn('Warning:  Checksum verification failed for '
-                               'HDU %s.\n' % ((self.name, self._extver),))
+                 warnings.warn('Checksum verification failed for HDU %s.\n' %
+                               ((self.name, self._extver),))
             del self._header['CHECKSUM']
         else:
             self._checksum = None
@@ -1057,8 +1061,8 @@ class _ValidHDU(_BaseHDU, _Verify):
              self._datasum_comment = self._header.ascard['DATASUM'].comment
 
              if not self.verify_datasum(blocking):
-                 warnings.warn('Warning:  Datasum verification failed for '
-                               'HDU %s.\n' % ((self.name, self._extver),))
+                 warnings.warn('Datasum verification failed for HDU %s.\n' %
+                               ((self.name, self._extver),))
              del self._header['DATASUM']
         else:
              self._checksum = None
@@ -1081,7 +1085,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        if self._data_loaded:
+        if not self._data_loaded:
             # This is the case where the data has not been read from the file
             # yet.  We find the data in the file, read it, and calculate the
             # datasum.
@@ -1093,8 +1097,8 @@ class _ValidHDU(_BaseHDU, _Verify):
             else:
                 return 0
         elif self.data is not None:
-            return self._compute_checksum(
-                np.fromstring(self.data, dtype='ubyte'), blocking=blocking)
+            return self._compute_checksum(self.data.view('ubyte'),
+                                          blocking=blocking)
         else:
             return 0
 

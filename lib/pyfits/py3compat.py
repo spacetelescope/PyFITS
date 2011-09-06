@@ -97,16 +97,21 @@ if sys.version_info[0] >= 3:
 
     _recarray = numpy.recarray
     class recarray(_recarray):
-         def __new__(subtype, shape, dtype=None, buf=None, offset=0,
-                     strides=None, formats=None, names=None, titles=None,
-                     byteorder=None, aligned=False, order='C'):
-             if dtype is not None:
-                 dtype = _fix_dtype(dtype)
+        def __new__(subtype, shape, dtype=None, buf=None, offset=0,
+                    strides=None, formats=None, names=None, titles=None,
+                    byteorder=None, aligned=False, order='C'):
+            if dtype is not None:
+                dtype = _fix_dtype(dtype)
 
-             return _recarray.__new__(
-                     subtype, shape, dtype, buf, offset, strides, formats,
-                     names, titles, byteorder, aligned, order)
-    numpy.recarray = recarray
+            if 'order' in _recarray.__new__.__code__.co_varnames:
+                return _recarray.__new__(
+                        subtype, shape, dtype, buf, offset, strides, formats,
+                        names, titles, byteorder, aligned, order)
+            else:
+                return _recarray.__new__(
+                        subtype, shape, dtype, buf, offset, strides, formats,
+                        names, titles, byteorder, aligned)
+    numpy.recarray = numpy.core.records.recarray = recarray
 
 
     # We also need to patch pyfits.file._File which can also be affected by the
