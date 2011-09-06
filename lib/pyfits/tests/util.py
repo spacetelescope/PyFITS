@@ -8,6 +8,11 @@ try:
 except ImportError:
     from StringIO import StringIO
 
+try:
+    from io import BytesIO
+except ImportError:
+    BytesIO = StringIO
+
 
 class CaptureStdout(object):
     """A simple context manager for redirecting stdout to a StringIO buffer."""

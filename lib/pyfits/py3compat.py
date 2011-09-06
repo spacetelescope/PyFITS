@@ -65,7 +65,7 @@ if sys.version_info[0] >= 3:
                     else:
                         val = temp
                 return val
-    for m in [numpy.char, numpy.core.defchararray, numpy.record]:
+    for m in [numpy.char, numpy.core.defchararray, numpy.core.records]:
         m.chararray = chararray
 
 
