@@ -308,6 +308,31 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(channelsIn.all(),channelsOut.all())
         hduL.close()
 
+    def test_column_endianness(self):
+        """
+        Regression test for #77 [PyFITS doesn't preserve byte order of
+        non-native order column arrays]
+        """
+
+        a = [1., 2., 3., 4.]
+        a1 = np.array(a, dtype='<f8')
+        a2 = np.array(a, dtype='>f8')
+
+        col1 = pyfits.Column(name='a', format='D', array=a1)
+        col2 = pyfits.Column(name='b', format='D', array=a2)
+        cols = pyfits.ColDefs([col1, col2])
+        tbhdu = pyfits.new_table(cols)
+
+        assert_true((tbhdu.data['a'] == a1).all())
+        assert_true((tbhdu.data['b'] == a2).all())
+
+        # Double check that the array is converted to the correct byte-order
+        # for FITS (big-endian).
+        tbhdu.writeto(self.temp('testendian.fits'), clobber=True)
+        hdul = pyfits.open(self.temp('testendian.fits'))
+        assert_true((hdul[1].data['a'] == a2).all())
+        assert_true((hdul[1].data['b'] == a2).all())
+
     def test_recarray_to_bintablehdu(self):
         bright=np.rec.array([(1,'Serius',-1.45,'A1V'),\
                              (2,'Canopys',-0.73,'F0Ib'),\
@@ -695,7 +720,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(hdu.data[0][1], 80)
 
         info = [(0, 'PRIMARY', 'PrimaryHDU', 4, (), 'uint8', ''),
-                (1, '', 'BinTableHDU', 30, '4R x 10C', 
+                (1, '', 'BinTableHDU', 30, '4R x 10C',
                  '[10A, J, 10A, 5E, L, 10A, J, 10A, 5E, L]', '')]
 
         assert_equal(pyfits.info(self.temp('newtable.fits'), output=False), info)
