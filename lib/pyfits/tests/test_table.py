@@ -1597,7 +1597,7 @@ class TestTableFunctions(PyfitsTestCase):
             'p\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
         acol = pyfits.Column(name='MEMNAME', format='A10',
-                             array=np.char.array(a))
+                             array=chararray.array(a))
         ahdu = pyfits.new_table([acol])
         assert_equal(ahdu.data.tostring().decode('raw-unicode-escape'), s)
 
