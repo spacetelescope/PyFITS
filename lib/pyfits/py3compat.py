@@ -2,11 +2,11 @@ import sys
 
 if sys.version_info[0] >= 3:
     # Stuff to do if Python 3
-    import io
     import builtins
+    import io
 
-    # Make io.FileIO available as the 'file' builtin as Go^H^HPython 2 intended
-    builtins.file = io.FileIO
+    # Bring back the cmp() function
+    builtins.cmp = lambda a, b: (a > b) - (a < b)
 
 
     # Make the decode_ascii utility function actually work
@@ -41,6 +41,31 @@ if sys.version_info[0] >= 3:
         return s
     pyfits.util.decode_ascii = decode_ascii
 
+    # Support the io.IOBase.readable/writable methods
+    from pyfits.util import isreadable as _isreadable
+    def isreadable(f):
+        if hasattr(f, 'readable'):
+            return f.readable()
+        return _isreadable(f)
+    pyfits.util.isreadable = isreadable
+
+    from pyfits.util import iswritable as _iswritable
+    def iswritable(f):
+        if hasattr(f, 'writable'):
+            return f.writable()
+        return _iswritable(f)
+    pyfits.util.iswritable = iswritable
+
+    # isfile needs to support the higher-level wrappers around FileIO
+    def isfile(f):
+        if isinstance(f, io.FileIO):
+            return True
+        elif hasattr(f, 'buffer'):
+            return isfile(f.buffer)
+        elif hasattr(f, 'raw'):
+            return isfile(f.raw)
+        return False
+    pyfits.util.isfile = isfile
 
     # Here we monkey patch (yes, I know) numpy to fix a few numpy Python 3
     # bugs.  The only behavior that's modified is that bugs are fixed, so that

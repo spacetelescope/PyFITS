@@ -11,8 +11,8 @@ import zipfile
 import numpy as np
 from numpy import memmap as Memmap
 
-from pyfits.util import Extendable, _fromfile, _tofile, _write_string, \
-                        deprecated
+from pyfits.util import (Extendable, isreadable, iswritable, _array_from_file,
+                         _array_to_file, _write_string, deprecated)
 
 
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
@@ -33,7 +33,7 @@ class _File(object):
             self.closed = False
             self.mode = mode
             self.memmap = memmap
-            self.compressed = False
+            self.compression = None
             self.readonly = False
             self.writeonly = False
             self.simulateonly = True
@@ -45,9 +45,7 @@ class _File(object):
             raise ValueError("Mode '%s' not recognized" % mode)
 
         # Determine what the _File object's name should be
-        if isinstance(fileobj, file):
-            self.name = fileobj.name
-        elif isinstance(fileobj, basestring):
+        if isinstance(fileobj, basestring):
             if mode != 'append' and not os.path.exists(fileobj) and \
                not os.path.splitdrive(fileobj)[0]:
                 #
@@ -75,9 +73,12 @@ class _File(object):
         # Underlying fileobj is a file-like object, but an actual file object
         self.file_like = False
 
-        self.compressed = False
-        if isinstance(fileobj, (gzip.GzipFile, zipfile.ZipFile)):
-            self.compressed = True
+        self.compression = None
+        if isinstance(fileobj, gzip.GzipFile):
+            self.compression = 'gzip'
+        elif isinstance(fileobj, zipfile.ZipFile):
+            # Reading from zip files is supported but not writing (yet)
+            self.compression = 'zip'
 
         self.readonly = False
         self.writeonly = False
@@ -213,6 +214,11 @@ class _File(object):
         """**Deprecated** Will be going away as soon as I figure out how."""
         return self.__file
 
+    def readable(self):
+        if self.writeonly:
+            return False
+        return isreadable(self.__file)
+
     def read(self, size=None):
         if not hasattr(self.__file, 'read'):
             raise EOFError
@@ -265,10 +271,15 @@ class _File(object):
             count = reduce(lambda x, y: x * y, shape)
             pos = self.__file.tell()
             self.__file.seek(offset)
-            data = _fromfile(self.__file, dtype, count, '')
+            data = _array_from_file(self.__file, dtype, count, '')
             data.shape = shape
             self.__file.seek(pos)
             return data
+
+    def writable(self):
+        if self.readonly:
+            return False
+        return iswritable(self.__file)
 
     def write(self, string):
         if hasattr(self.__file, 'write'):
@@ -283,7 +294,7 @@ class _File(object):
         """
 
         if hasattr(self.__file, 'write'):
-            _tofile(array, self.__file)
+            _array_to_file(array, self.__file)
 
     def flush(self):
         if hasattr(self.__file, 'flush'):
@@ -305,7 +316,7 @@ class _File(object):
         else:
             self.__file.seek(offset, whence)
 
-        if self.compressed:
+        if self.compression:
             pos = self.__file.fileobj.tell()
         else:
             pos = self.__file.tell()

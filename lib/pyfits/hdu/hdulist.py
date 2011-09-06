@@ -606,7 +606,7 @@ class HDUList(list, _Verify):
 
             # if the HDUList is resized, need to write out the entire contents
             # of the hdulist to the file.
-            if self._resize or self.__file.compressed:
+            if self._resize or self.__file.compression:
                 old_name = self.__file.name
                 old_memmap = self.__file.memmap
                 name = _tmp_name(old_name)
@@ -618,7 +618,7 @@ class HDUList(list, _Verify):
                     # file, delete the original file, and rename the tmp
                     # file to the original file.
                     #
-                    if self.__file.compressed:
+                    if self.__file.compression == 'gzip':
                         new_file = gzip.GzipFile(name, mode='ab+')
                     else:
                         new_file = name
@@ -806,14 +806,7 @@ class HDUList(list, _Verify):
         closed = True
         fileMode = 'ab+'
 
-        if isinstance(name, file):
-            closed = name.closed
-            filename = name.name
-
-            if not closed:
-                fileMode = name.mode
-
-        elif isinstance(name, gzip.GzipFile):
+        if isinstance(name, gzip.GzipFile):
             if name.fileobj is not None:
                 closed = name.fileobj.closed
             filename = name.filename

@@ -231,7 +231,7 @@ def itersubclasses(cls, _seen=None):
     >>> [cls.__name__ for cls in itersubclasses(object)] #doctest: +ELLIPSIS
     ['type', ...'tuple', ...]
 
-    From http://code.activestate.com/recipes/576949/ 
+    From http://code.activestate.com/recipes/576949/
     """
 
     if not isinstance(cls, type):
@@ -418,6 +418,60 @@ def decode_ascii(s):
     return s
 
 
+def isreadable(f):
+    """
+    Returns True if the file-like object can be read from.  This is a common-
+    sense approximation of io.IOBase.readable.
+    """
+
+    if hasattr(f, 'closed') and f.closed:
+        # This mimics the behavior of io.IOBase.readable
+        raise ValueError('I/O operation on closed file')
+
+    if not hasattr(f, 'read'):
+        return False
+
+    if hasattr(f, 'mode') and not any((c in f.mode for c in 'r+')):
+        return False
+
+    # Not closed, has a 'read()' method, and either has no known mode or a
+    # readable mode--should be good enough to assume 'readable'
+    return True
+
+
+def iswritable(f):
+    """
+    Returns True if the file-like object can be written to.  This is a common-
+    sense approximation of io.IOBase.writable.
+    """
+
+    if hasattr(f, 'closed') and f.closed:
+        # This mimics the behavior of io.IOBase.writable
+        raise ValueError('I/O operation on closed file')
+
+    if not hasattr(f, 'write'):
+        return False
+
+    if hasattr(f, 'mode') and not any((c in f.mode for c in 'wa+')):
+        return False
+
+    # Note closed, has a 'write()' method, and either has no known mode or a
+    # mode that supports writing--should be good enough to assume 'writable'
+    return True
+
+
+def isfile(f):
+    """
+    Returns True if the given object represents an OS-level file (that is,
+    isinstance(f, file)).
+
+    On Python 3 this also returns True if the given object is higher level
+    wrapper on top of a FileIO object, such as a TextIOWrapper.
+    """
+
+    return isinstance(f, file)
+
+
 def translate(s, table, deletechars):
     """
     This is a version of string/unicode.translate() that can handle string or
@@ -436,23 +490,27 @@ def translate(s, table, deletechars):
 
 
 
-def _fromfile(infile, dtype, count, sep):
+def _array_from_file(infile, dtype, count, sep):
     """Create a numpy array from a file or a file-like object."""
 
-    if isinstance(infile, file):
+    if isfile(infile):
         return np.fromfile(infile, dtype=dtype, count=count, sep=sep)
-    else: # treat as file-like object with "read" method
+    else:
+        # treat as file-like object with "read" method; this includes gzip file
+        # objects, because numpy.fromfile just reads the compressed bytes from
+        # their underlying file object, instead of the decompresed bytes
         read_size = np.dtype(dtype).itemsize * count
         s = infile.read(read_size)
         return np.fromstring(s, dtype=dtype, count=count, sep=sep)
 
 
-def _tofile(arr, outfile):
+def _array_to_file(arr, outfile):
     """Write a numpy array to a file or a file-like object."""
 
-    if isinstance(outfile, file):
+    if isfile(outfile):
         arr.tofile(outfile)
-    else: # treat as file-like object with "write" method
+    else:
+        # treat as file-like object with "write" method
         _write_string(outfile, arr.tostring())
 
 
