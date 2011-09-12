@@ -1,8 +1,8 @@
 Changelog
 ===========
 
-3.0.1 (unreleased)
---------------------
+3.0.1 (2011-09-12)
+------------------
 
 - Fixed a bug where updating a header card comment could cause the value to be
   lost if it had not already been read from the card image string.
