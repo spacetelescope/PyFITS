@@ -32,19 +32,19 @@ setup(
     entry_points={
         'zest.releaser.prereleaser.before': [
             'pyfits.prereleaser.before = '
-                'pyfits.release:releaser.prereleaser_before'
+                'pyfits._release:releaser.prereleaser_before'
         ],
         'zest.releaser.prereleaser.after': [
             'pyfits.prereleaser.after = '
-                'pyfits.release:releaser.prereleaser_after'
+                'pyfits._release:releaser.prereleaser_after'
         ],
         'zest.releaser.postreleaser.before': [
             'pyfits.postreleaser.before = '
-                'pyfits.release:releaser.postreleaser_before'
+                'pyfits._release:releaser.postreleaser_before'
         ],
         'zest.releaser.postreleaser.after': [
             'pyfits.postreleaser.after = '
-                'pyfits.release:releaser.postreleaser_after'
+                'pyfits._release:releaser.postreleaser_after'
         ]
     },
     d2to1=True,
