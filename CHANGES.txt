@@ -31,6 +31,13 @@ Changelog
 - Fixed a bug where writing a table with zero rows could fail in some cases
   (#72)
 
+- Miscellanous small bug fixes that were causing some tests to fail,
+  particularly on Python 3 (#74, #75)
+
+- Fixed a bug where creating a table column from an array in non-native byte
+  order would not preserve the byte order, thus interpreting the column array
+  using the wrong byte order (#77)
+
 
 3.0.0 (2011-08-23)
 --------------------
