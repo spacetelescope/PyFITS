@@ -7,6 +7,9 @@ Changelog
 - Fixed pyfits.tcreate() to be more robust when encountering blank lines in a
   column definition file (#14)
 
+- The presence, value, and position of the EXTEND keyword in Primary HDUs is
+  verified when reading/writing a FITS file (#32)
+
 - Fixed a bug where updating a FITS file would sometimes cause it to lose its
   original file permissions (#79)
 
