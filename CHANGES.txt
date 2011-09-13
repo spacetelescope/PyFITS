@@ -4,7 +4,8 @@ Changelog
 3.0.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fixed a bug where updating a FITS file would sometimes cause it to lose its
+  original file permissions (#79)
 
 
 3.0.1 (2011-09-12)
