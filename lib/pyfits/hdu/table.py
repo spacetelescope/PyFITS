@@ -954,6 +954,8 @@ class BinTableHDU(_TableBaseHDU):
             hdu.columns.bzeros = []
 
             for line in cdlines:
+                if not line.strip():
+                    continue
                 words = line[:-1].split()
                 hdu.columns.names.append(words[0])
                 hdu.columns.formats.append(words[1])
