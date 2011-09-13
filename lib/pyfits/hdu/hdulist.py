@@ -612,6 +612,7 @@ class HDUList(list, _Verify):
                 name = _tmp_name(old_name)
 
                 if not self.__file.file_like:
+                    old_mode = os.stat(old_name).st_mode
                     #
                     # The underlying file is an acutal file object.
                     # The HDUList is resized, so we need to write it to a tmp
@@ -647,6 +648,7 @@ class HDUList(list, _Verify):
 
                     # reopen the renamed new file with "update" mode
                     os.rename(name, old_name)
+                    os.chmod(old_name, old_mode)
 
                     if isinstance(new_file, gzip.GzipFile):
                         old_file = gzip.GzipFile(old_name, mode='rb+')

@@ -2,6 +2,7 @@ from __future__ import division # confidence high
 from __future__ import with_statement
 
 import gzip
+import os
 import warnings
 import zipfile
 
@@ -267,6 +268,26 @@ class TestFileFunctions(PyfitsTestCase):
             filelike.write(f.read())
         filelike.seek(0)
         assert_equal(len(pyfits.open(filelike)), 5)
+
+    def test_updated_file_permissions(self):
+        """
+        Regression test for #79.  Tests that when a FITS file is modified in
+        update mode, the file permissions are preserved.
+        """
+
+        filename = self.temp('test.fits')
+        hdul = [pyfits.PrimaryHDU(), pyfits.ImageHDU()]
+        hdul = pyfits.HDUList(hdul)
+        hdul.writeto(filename)
+
+        old_mode = os.stat(filename).st_mode
+
+        hdul = pyfits.open(filename, mode='update')
+        hdul.insert(1, pyfits.ImageHDU())
+        hdul.flush()
+        hdul.close()
+
+        assert_equal(old_mode, os.stat(filename).st_mode)
 
     def _make_gzip_file(self):
         gzfile = self.temp('test0.fits.gz')
