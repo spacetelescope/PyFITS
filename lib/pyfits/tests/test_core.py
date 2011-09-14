@@ -5,13 +5,11 @@ import gzip
 import warnings
 import zipfile
 
-from cStringIO import StringIO
-
 import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings
+from pyfits.tests.util import catch_warnings, BytesIO
 
 from nose.tools import assert_equal, assert_raises, assert_true, assert_false
 
@@ -264,7 +262,7 @@ class TestFileFunctions(PyfitsTestCase):
     def test_read_file_like_object(self):
         """Test reading a FITS file from a file-like object."""
 
-        filelike = StringIO()
+        filelike = BytesIO()
         with open(self.data('test0.fits'), 'rb') as f:
             filelike.write(f.read())
         filelike.seek(0)
@@ -321,7 +319,8 @@ class TestStreamingFunctions(PyfitsTestCase):
         """Test streaming an HDU to an open file-like object."""
 
         arr = np.zeros((5, 5), dtype=np.int32)
-        sf = StringIO()
+        # The file-like object underlying a StreamingHDU must be in binary mode
+        sf = BytesIO()
         shdu = self._make_streaming_hdu(sf)
         shdu.write(arr)
         assert_true(shdu.writecomplete)
