@@ -27,6 +27,10 @@ Changelog
 - Fixed a bug where updating a FITS file would sometimes cause it to lose its
   original file permissions (#79)
 
+- Fixed the handling of TDIMn keywords; 3.0 added support for them, but got
+  the axis order backards (they were treated as though they were row-major)
+  (#82)
+
 
 3.0.1 (2011-09-12)
 ------------------
