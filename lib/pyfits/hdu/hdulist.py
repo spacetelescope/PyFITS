@@ -674,6 +674,7 @@ class HDUList(list, _Verify):
                     ffo = self.__file
 
                     ffo.truncate(0)
+                    ffo.seek(0)
 
                     for hdu in hdulist:
                         # only output the checksum if flagged to do so
@@ -809,7 +810,8 @@ class HDUList(list, _Verify):
         filename = fileobj_name(fileobj)
 
         # check if the output file already exists
-        if isfile(fileobj) or isinstance(fileobj, gzip.GzipFile):
+        if (isfile(fileobj) or
+            isinstance(fileobj, (basestring, gzip.GzipFile))):
             if (os.path.exists(filename) and os.path.getsize(filename) != 0):
                 if clobber:
                     warnings.warn("Overwriting existing file '%s'." % filename)
