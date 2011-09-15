@@ -10,6 +10,9 @@ Changelog
 - The presence, value, and position of the EXTEND keyword in Primary HDUs is
   verified when reading/writing a FITS file (#32)
 
+- Improved file handling, particularly in Python 3 which had a few small file
+  I/O-related bugs (#76)
+
 - Fixed a bug where updating a FITS file would sometimes cause it to lose its
   original file permissions (#79)
 
