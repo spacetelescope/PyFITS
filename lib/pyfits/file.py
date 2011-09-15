@@ -124,22 +124,19 @@ class _File(object):
                         raise IOError(
                               "Writing to zipped fits files is not currently "
                               "supported")
-                    self._zfile = zipfile.ZipFile(self.name)
-                    namelist = self._zfile.namelist()
+                    zfile = zipfile.ZipFile(self.name)
+                    namelist = zfile.namelist()
                     if len(namelist) != 1:
                         raise IOError(
                           "Zip files with multiple members are not supported.")
-                    if hasattr(self._zfile, 'open'):
-                        self.__file = self._zfile.open(namelist[0])
-                    else:
-                        self.__file = tempfile.NamedTemporaryFile(suffix='.fits')
-                        self.__file.write(self._zfile.read(namelist[0]))
-                        self._zfile.close()
+                    self.__file = tempfile.NamedTemporaryFile(suffix='.fits')
+                    self.__file.write(zfile.read(namelist[0]))
+                    zfile.close()
                     self.compression = 'zip'
                 else:
                     self.__file = open(self.name, PYTHON_MODES[mode])
                     # Make certain we're back at the beginning of the file
-                    self.__file.seek(0)
+                self.__file.seek(0)
             else:
                 # We are dealing with a file like object.
                 # Assume it is open.
@@ -316,9 +313,6 @@ class _File(object):
 
         if hasattr(self.__file, 'close'):
             self.__file.close()
-
-        if hasattr(self, '_zfile'):
-            self._zfile.close()
 
         self.closed = True
 
