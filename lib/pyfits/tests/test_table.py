@@ -1605,13 +1605,13 @@ class TestTableFunctions(PyfitsTestCase):
         """
 
         data = np.rec.array(
-            [([1, 2, 3, 4], 'row1' * 2),
-             ([5, 6, 7, 8], 'row2' * 2),
-             ([9, 1, 2, 3], 'row3' * 2)], formats='4i4,a8')
+            [([0, 1, 2, 3, 4, 5], 'row1' * 2),
+             ([6, 7, 8, 9, 0, 1], 'row2' * 2),
+             ([2, 3, 4, 5, 6, 7], 'row3' * 2)], formats='6i4,a8')
 
         thdu = pyfits.new_table(data)
         # Modify the TDIM fields to my own specification
-        thdu.header.update('TDIM1', '(2,2)')
+        thdu.header.update('TDIM1', '(2,3)')
         thdu.header.update('TDIM2', '(4,2)')
 
         thdu.writeto(self.temp('newtable.fits'))
@@ -1624,11 +1624,11 @@ class TestTableFunctions(PyfitsTestCase):
 
         hdul.close()
 
-        assert_equal(c1.shape, (3, 2, 2))
+        assert_equal(c1.shape, (3, 3, 2))
         assert_equal(c2.shape, (3, 2))
-        assert_true((c1 == np.array([[[1, 2], [3, 4]],
-                                     [[5, 6], [7, 8]],
-                                     [[9, 1], [2, 3]]])).all())
+        assert_true((c1 == np.array([[[0, 1], [2, 3], [4, 5]],
+                                     [[6, 7], [8, 9], [0, 1]],
+                                     [[2, 3], [4, 5], [6, 7]]])).all())
         assert_true((c2 == np.array([['row1', 'row1'],
                                      ['row2', 'row2'],
                                      ['row3', 'row3']])).all())

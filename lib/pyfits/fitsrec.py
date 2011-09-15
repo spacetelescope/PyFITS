@@ -437,7 +437,7 @@ class FITS_rec(np.recarray):
                     self._convert[indx] = dummy
                 if _str:
                     fmt = self._convert[indx].dtype.char
-                    dtype = ('|%s%d' % (fmt, dim[0]), dim[1:])
+                    dtype = ('|%s%d' % (fmt, dim[-1]), dim[:-1])
                     self._convert[indx].dtype = dtype
                 else:
                     self._convert[indx].shape = (dummy.shape[0],) + dim
@@ -484,7 +484,7 @@ class FITS_rec(np.recarray):
         m = dim and TDIM_RE.match(dim)
         if m:
             dim = m.group('dims')
-            dim = tuple(int(d.strip()) for d in dim.split(','))
+            dim = tuple(int(d.strip()) for d in dim.split(','))[::-1]
         else:
             # Ignore any dim values that don't specify a multidimensional
             # column

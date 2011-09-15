@@ -329,7 +329,7 @@ class ColDefs(object):
                     format = _convert_format(ftype, reverse=True)
                 # Determine the appropriate dimensions for items in the column
                 # (typically just 1D)
-                dim = input.dtype[idx].shape
+                dim = input.dtype[idx].shape[::-1]
                 if dim and (len(dim) > 1 or 'A' in format):
                     if 'A' in format:
                         # n x m string arrays must include the max string
