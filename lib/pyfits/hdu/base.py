@@ -465,6 +465,8 @@ class _CorruptedHDU(_BaseHDU):
         Returns the size (in bytes) of the HDU's data part.
         """
 
+        # Note: On compressed files this might report a negative size; but the
+        # file is corrupt anyways so I'm not too worried about it.
         return self._file.size - self._datLoc
 
     def _summary(self):

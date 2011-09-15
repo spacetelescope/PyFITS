@@ -472,6 +472,70 @@ def isfile(f):
     return isinstance(f, file)
 
 
+def fileobj_name(f):
+    """
+    Returns the 'name' of file-like object f, if it has anything that could be
+    called its name.  Otherwise f's class or type is returned.  If f is a
+    string f itself is returned.
+    """
+
+    if isinstance(f, basestring):
+        return f
+    elif hasattr(f, 'name'):
+        return f.name
+    elif hasattr(f, 'filename'):
+        return f.filename
+    elif hasattr(f, '__class__'):
+        return str(f.__class__)
+    else:
+        return str(type(f))
+
+
+def fileobj_closed(f):
+    """
+    Returns True if the given file-like object is closed or if f is not a
+    file-like object.
+    """
+
+    if hasattr(f, 'closed'):
+        return f.closed
+    elif hasattr(f, 'fileobj') and hasattr(f.fileobj, 'closed'):
+        return f.fileobj.closed
+    elif hasattr(f, 'fp') and hasattr(f.fp.closed):
+        return f.fp.closed
+    else:
+        return True
+
+
+def fileobj_mode(f):
+    """
+    Returns the 'mode' string of a file-like object if such a thing exists.
+    Otherwise returns None.
+    """
+
+    # Go from most to least specific--for example gzip objects have a 'mode'
+    # attribute, but it's not analogous to the file.mode attribute
+    if hasattr(f, 'fileobj') and hasattr(f.fileobj, 'mode'):
+        mode = f.fileobj.mode
+    elif hasattr(f, 'fp') and hasattr(f.fp, 'mode'):
+        mode = f.fp.mode
+    elif hasattr(f, 'mode'):
+        mode = f.mode
+    else:
+        mode = None
+
+    if isinstance(mode, basestring):
+        # On Python 3 files opened in 'a' mode actually get opened in 'w' or
+        # 'r+' instead of 'a', since the behavior of 'a' mode is not normalized
+        # across systems.  So we should normalize in the same way...
+        if 'a' in mode:
+            if '+' in mode:
+                mode = mode.replace('a', 'r')
+            else:
+                mode = mode.replace('a', 'w')
+    return mode
+
+
 def translate(s, table, deletechars):
     """
     This is a version of string/unicode.translate() that can handle string or

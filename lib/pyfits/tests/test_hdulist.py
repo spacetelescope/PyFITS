@@ -3,13 +3,11 @@ from __future__ import with_statement
 
 import os
 
-from cStringIO import StringIO
-
 import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings
+from pyfits.tests.util import catch_warnings, BytesIO
 
 from nose.tools import assert_equal, assert_raises, assert_true
 
@@ -398,7 +396,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         HDU.
         """
 
-        sf = StringIO()
+        sf = BytesIO()
         arr = np.zeros((100, 100))
         hdu = pyfits.PrimaryHDU(data=arr)
         hdu.writeto(sf)
