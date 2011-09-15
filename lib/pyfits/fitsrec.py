@@ -7,7 +7,7 @@ import numpy as np
 from pyfits.column import ASCIITNULL, FITS2NUMPY, TDIM_RE, Column, ColDefs, \
                           _FormatX, _FormatP, _VLF, _get_index, _wrapx, \
                           _unwrapx, _convert_format, _convert_ascii_format
-from pyfits.util import _fromfile, decode_ascii, lazyproperty
+from pyfits.util import _array_from_file, decode_ascii, lazyproperty
 
 
 class FITS_record(object):
@@ -343,15 +343,15 @@ class FITS_rec(np.recarray):
                     if recformat._dtype == 'a':
                         count = field[i,0]
                         dt = recformat._dtype + str(1)
-                        da = _fromfile(self._file, dtype=dt, count=count,
-                                       sep='')
+                        da = _array_from_file(self._file, dtype=dt,
+                                              count=count, sep='')
                         dummy[i] = np.char.array(da, itemsize=count)
                         dummy[i] = decode_ascii(dummy[i])
                     else:
                         count = field[i,0]
                         dt = recformat._dtype
-                        dummy[i] = _fromfile(self._file, dtype=dt, count=count,
-                                             sep='')
+                        dummy[i] = _array_from_file(self._file, dtype=dt,
+                                                    count=count, sep='')
                         dummy[i].dtype = dummy[i].dtype.newbyteorder('>')
 
                 # scale by TSCAL and TZERO

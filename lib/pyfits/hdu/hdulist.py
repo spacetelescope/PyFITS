@@ -18,8 +18,9 @@ from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
-from pyfits.util import Extendable, _is_int, _tmp_name, _with_extensions, \
-                        _pad_length, BLOCK_SIZE
+from pyfits.util import (Extendable, _is_int, _tmp_name, _with_extensions,
+                         _pad_length, BLOCK_SIZE, isfile, fileobj_name,
+                         fileobj_closed, fileobj_mode)
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -606,7 +607,7 @@ class HDUList(list, _Verify):
 
             # if the HDUList is resized, need to write out the entire contents
             # of the hdulist to the file.
-            if self._resize or self.__file.compressed:
+            if self._resize or self.__file.compression:
                 old_name = self.__file.name
                 old_memmap = self.__file.memmap
                 name = _tmp_name(old_name)
@@ -618,7 +619,7 @@ class HDUList(list, _Verify):
                     # file, delete the original file, and rename the tmp
                     # file to the original file.
                     #
-                    if self.__file.compressed:
+                    if self.__file.compression == 'gzip':
                         new_file = gzip.GzipFile(name, mode='ab+')
                     else:
                         new_file = name
@@ -673,6 +674,7 @@ class HDUList(list, _Verify):
                     ffo = self.__file
 
                     ffo.truncate(0)
+                    ffo.seek(0)
 
                     for hdu in hdulist:
                         # only output the checksum if flagged to do so
@@ -764,14 +766,14 @@ class HDUList(list, _Verify):
                 hdr.update('extend', True, after='naxis' + str(n))
 
     @_with_extensions
-    def writeto(self, name, output_verify='exception', clobber=False,
+    def writeto(self, fileobj, output_verify='exception', clobber=False,
                 classExtensions={}, checksum=False):
         """
         Write the `HDUList` to a new file.
 
         Parameters
         ----------
-        name : file path, file object or file-like object
+        fileobj : file path, file object or file-like object
             File to write to.  If a file object, must be opened for
             append (ab+).
 
@@ -803,55 +805,22 @@ class HDUList(list, _Verify):
         self.verify(option=output_verify)
 
         # check if the file object is closed
-        closed = True
-        fileMode = 'ab+'
-
-        if isinstance(name, file):
-            closed = name.closed
-            filename = name.name
-
-            if not closed:
-                fileMode = name.mode
-
-        elif isinstance(name, gzip.GzipFile):
-            if name.fileobj is not None:
-                closed = name.fileobj.closed
-            filename = name.filename
-
-            if not closed:
-                fileMode = name.fileobj.mode
-
-        elif isinstance(name, basestring):
-            filename = name
-        else:
-            if hasattr(name, 'closed'):
-                closed = name.closed
-
-            if hasattr(name, 'mode'):
-                fileMode = name.mode
-
-            if hasattr(name, 'name'):
-                filename = name.name
-            elif hasattr(name, 'filename'):
-                filename = name.filename
-            elif hasattr(name, '__class__'):
-                filename = str(name.__class__)
-            else:
-                filename = str(type(name))
+        closed = fileobj_closed(fileobj)
+        fmode = fileobj_mode(fileobj) or 'ab+'
+        filename = fileobj_name(fileobj)
 
         # check if the output file already exists
-        if isinstance(name, (basestring, file, gzip.GzipFile)):
+        if (isfile(fileobj) or
+            isinstance(fileobj, (basestring, gzip.GzipFile))):
             if (os.path.exists(filename) and os.path.getsize(filename) != 0):
                 if clobber:
                     warnings.warn("Overwriting existing file '%s'." % filename)
-                    if (isinstance(name, file) and not name.closed) or \
-                       (isinstance(name,gzip.GzipFile) and \
-                       name.fileobj is not None and not name.fileobj.closed):
-                        name.close()
+                    if not closed:
+                        fileobj.close()
                     os.remove(filename)
                 else:
                     raise IOError("File '%s' already exists." % filename)
-        elif (hasattr(name, 'len') and name.len > 0):
+        elif (hasattr(fileobj, 'len') and fileobj.len > 0):
             if clobber:
                 warnings.warn("Overwriting existing file '%s'." % filename)
                 name.truncate(0)
@@ -864,11 +833,11 @@ class HDUList(list, _Verify):
 
         mode = 'copyonwrite'
         for key, val in PYTHON_MODES.iteritems():
-            if val == fileMode:
+            if val == fmode:
                 mode = key
                 break
 
-        hdulist = fitsopen(name, mode=mode)
+        hdulist = fitsopen(fileobj, mode=mode)
 
         for hdu in self:
             # TODO: Fix this once new HDU writing API is settled on
