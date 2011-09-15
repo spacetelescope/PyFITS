@@ -11,6 +11,22 @@ Changelog
   dumps from previous versions of PyFITS, but not vice-versa due to a parsing
   bug in older versions.
 
+- Fixed pyfits.tcreate() to be more robust when encountering blank lines in a
+  column definition file (#14)
+
+
+3.0.2 (unreleased)
+------------------
+
+- The presence, value, and position of the EXTEND keyword in Primary HDUs is
+  verified when reading/writing a FITS file (#32)
+
+- Improved file handling, particularly in Python 3 which had a few small file
+  I/O-related bugs (#76)
+
+- Fixed a bug where updating a FITS file would sometimes cause it to lose its
+  original file permissions (#79)
+
 
 3.0.1 (2011-09-12)
 ------------------

@@ -613,6 +613,7 @@ class HDUList(list, _Verify):
                 name = _tmp_name(old_name)
 
                 if not self.__file.file_like:
+                    old_mode = os.stat(old_name).st_mode
                     #
                     # The underlying file is an acutal file object.
                     # The HDUList is resized, so we need to write it to a tmp
@@ -648,6 +649,7 @@ class HDUList(list, _Verify):
 
                     # reopen the renamed new file with "update" mode
                     os.rename(name, old_name)
+                    os.chmod(old_name, old_mode)
 
                     if isinstance(new_file, gzip.GzipFile):
                         old_file = gzip.GzipFile(old_name, mode='rb+')
@@ -944,17 +946,34 @@ class HDUList(list, _Verify):
             def fix(self=self):
                 self.insert(0, PrimaryHDU())
 
-            text = self.run_option(option, err_text=err_text,
-                                   fix_text=fix_text, fix=fix)
-            errs.append(text)
+            err = self.run_option(option, err_text=err_text,
+                                  fix_text=fix_text, fix=fix)
+            errs.append(err)
+
+        if len(self) > 1 and ('EXTEND' not in self[0].header or
+                              self[0].header['EXTEND'] is not True):
+            err_text = ('Primary HDU does not contain an EXTEND keyword '
+                        'equal to T even though there are extension HDUs.')
+            fix_text = 'Fixed by inserting or updating the EXTEND keyword.'
+
+            def fix(header=self[0].header):
+                naxis = header['NAXIS']
+                if naxis == 0:
+                    after = 'NAXIS'
+                else:
+                    after = 'NAXIS' + str(naxis)
+                header.update('EXTEND', value=True, after=after)
+
+            errs.append(self.run_option(option, err_text=err_text,
+                                        fix_text=fix_text, fix=fix))
 
         # each element calls their own verify
         for idx, hdu in enumerate(self):
             if idx > 0 and (not isinstance(hdu, ExtensionHDU)):
                 err_text = "HDUList's element %s is not an extension HDU." \
                            % str(idx)
-                text = self.run_option(option, err_text=err_text, fixable=True)
-                errs.append(text)
+                err = self.run_option(option, err_text=err_text, fixable=True)
+                errs.append(errs)
 
             else:
                 result = hdu._verify(option)
