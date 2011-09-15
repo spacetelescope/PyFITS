@@ -4,12 +4,18 @@ Changelog
 3.1.0 (unreleased)
 --------------------
 
-- ``BinTableHDU.tdump`` and ``BinTableHDU.tcreate`` are deprecated--use
-  ``BinTableHDU.dump`` and ``BinTableHDU.load`` instead.  The new methods
-  output the table data in a slightly different format from previous versions,
-  which places quotes around each value.  This format is compatible with data
-  dumps from previous versions of PyFITS, but not vice-versa due to a parsing
-  bug in older versions.
+- API Changes:
+
+  * The size() method on HDU objects is now a .size property--this returns the
+    size in bytes of the data portion of the HDU, and in most cases is
+    equivalent to hdu.data.nbytes (#83)
+
+  * ``BinTableHDU.tdump`` and ``BinTableHDU.tcreate`` are deprecated--use
+    ``BinTableHDU.dump`` and ``BinTableHDU.load`` instead.  The new methods
+    output the table data in a slightly different format from previous
+    versions, which places quotes around each value.  This format is
+    compatible with data dumps from previous versions of PyFITS, but not
+    vice-versa due to a parsing bug in older versions.
 
 - Fixed pyfits.tcreate() to be more robust when encountering blank lines in a
   column definition file (#14)

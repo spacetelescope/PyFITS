@@ -35,7 +35,7 @@ class TestDivisionFunctions(PyfitsTestCase):
 
     def test_valid_hdu_size(self):
         t1 = pyfits.open(self.data('tb.fits'))
-        assert_equal(type(t1[1].size()), type(1))
+        assert_equal(type(t1[1].size), type(1))
 
     def test_hdu_get_size(self):
         with CaptureStdout() as f:

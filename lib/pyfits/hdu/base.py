@@ -201,7 +201,7 @@ class _BaseHDU(object):
 
         hdu = cls(data=data, header=header, **new_kwargs)
 
-        size = hdu.size()
+        size = hdu.size
         hdu._file = fileobj
         hdu._hdrLoc = offset                 # beginning of the header area
         if fileobj:
@@ -460,6 +460,7 @@ class _CorruptedHDU(_BaseHDU):
        extension is a `TableHDU` containing ASCII data.
     """
 
+    @property
     def size(self):
         """
         Returns the size (in bytes) of the HDU's data part.
@@ -513,6 +514,7 @@ class _NonstandardHDU(_BaseHDU, _Verify):
         else:
             return False
 
+    @property
     def size(self):
         """
         Returns the size (in bytes) of the HDU's data part.
@@ -588,8 +590,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         card = header.ascard[0]
         return card.key not in ('SIMPLE', 'XTENSION')
 
-    # 0.6.5.5
-    # TODO: Make hdu.size into a property rather than a method
+    @property
     def size(self):
         """
         Size (in bytes) of the data portion of the HDU.
@@ -1091,7 +1092,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             # This is the case where the data has not been read from the file
             # yet.  We find the data in the file, read it, and calculate the
             # datasum.
-            if self.size() > 0:
+            if self.size > 0:
                 raw_data = self._file.readarray(size=self._datSpan,
                                                 offset=self._datLoc,
                                                 dtype='ubyte')
@@ -1370,6 +1371,9 @@ class NonstandardExtHDU(ExtensionHDU):
 
         card = header.ascard[0]
         xtension = card.value.rstrip()
+        # A3DTABLE is not really considered a 'standard' extension, as it was
+        # sort of the prototype for BINTABLE; however, since our BINTABLE
+        # implementation handles A3DTABLE HDUs it is listed here.
         standard_xtensions = ('IMAGE', 'TABLE', 'BINTABLE', 'A3DTABLE')
         # The check that xtension is not one of the standard types should be
         # redundant.

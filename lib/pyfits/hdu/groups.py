@@ -41,8 +41,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
         """
 
         # Nearly the same code as in _TableBaseHDU
-        size = self.size()
-        if size:
+        if self.size:
             data = GroupData(self._get_tbdata())
             data._coldefs = self.columns
             data.formats = self.columns.formats
@@ -86,7 +85,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
         # Only really a lazyproperty for symmetry with _TableBaseHDU
         return 0
 
-    # 0.6.5.5
+    @property
     def size(self):
         """
         Returns the size (in bytes) of the HDU's data part.

@@ -311,8 +311,8 @@ class TestStreamingFunctions(PyfitsTestCase):
 
     def test_streaming_hdu(self):
         shdu = self._make_streaming_hdu(self.temp('new.fits'))
-        assert_true(isinstance(shdu.size(), int))
-        assert_equal(shdu.size(), 100)
+        assert_true(isinstance(shdu.size, int))
+        assert_equal(shdu.size, 100)
 
     def test_streaming_hdu_file_wrong_mode(self):
         """Test that streaming an HDU to a file opened in the wrong mode
@@ -331,7 +331,7 @@ class TestStreamingFunctions(PyfitsTestCase):
             shdu = self._make_streaming_hdu(f)
             shdu.write(arr)
             assert_true(shdu.writecomplete)
-            assert_equal(shdu.size(), 100)
+            assert_equal(shdu.size, 100)
         hdul = pyfits.open(self.temp('new.fits'))
         assert_equal(len(hdul), 1)
         assert_true((hdul[0].data == arr).all())
@@ -345,7 +345,7 @@ class TestStreamingFunctions(PyfitsTestCase):
         shdu = self._make_streaming_hdu(sf)
         shdu.write(arr)
         assert_true(shdu.writecomplete)
-        assert_equal(shdu.size(), 100)
+        assert_equal(shdu.size, 100)
 
         sf.seek(0)
         hdul = pyfits.open(sf)

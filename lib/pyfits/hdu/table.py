@@ -437,9 +437,9 @@ class TableHDU(_TableBaseHDU):
             # We need to pad the data to a block length before calculating
             # the datasum.
 
-            if self.size() > 0:
+            if self.size > 0:
                 d = np.append(np.fromstring(self.data, dtype='ubyte'),
-                              np.fromstring(_pad_length(self.size()) * ' ',
+                              np.fromstring(_pad_length(self.size) * ' ',
                                             dtype='ubyte'))
 
             cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),
