@@ -716,6 +716,7 @@ class TestImageFunctions(PyfitsTestCase):
         ofd.close()
         fd = pyfits.open(self.temp('test_new.fits'))
         assert_equal(fd[1].data.all(), data.all())
+        fd.close()
 
         data = np.zeros((100, 100)) + 1
         chdu = pyfits.CompImageHDU(data)

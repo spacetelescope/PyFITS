@@ -245,7 +245,7 @@ class Column(object):
                     fsize = int(_convert_format(format)[1:])
                     return chararray.array(array, itemsize=fsize)
                 else:
-                    numpy_format =  _convert_format(format)
+                    numpy_format = _convert_format(format)
                     return _convert_array(array, np.dtype(numpy_format))
             elif 'X' not in format and 'P' not in format:
                 (repeat, fmt, option) = _parse_tformat(format)

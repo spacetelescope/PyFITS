@@ -11,8 +11,10 @@ import zipfile
 import numpy as np
 from numpy import memmap as Memmap
 
-from pyfits.util import Extendable, _fromfile, _tofile, _write_string, \
-                        deprecated
+from pyfits.util import (Extendable, isreadable, iswritable, isfile,
+                         fileobj_name, fileobj_closed, fileobj_mode,
+                         _array_from_file, _array_to_file, _write_string,
+                         deprecated)
 
 
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
@@ -33,7 +35,7 @@ class _File(object):
             self.closed = False
             self.mode = mode
             self.memmap = memmap
-            self.compressed = False
+            self.compression = None
             self.readonly = False
             self.writeonly = False
             self.simulateonly = True
@@ -44,29 +46,17 @@ class _File(object):
         if mode not in PYTHON_MODES:
             raise ValueError("Mode '%s' not recognized" % mode)
 
-        # Determine what the _File object's name should be
-        if isinstance(fileobj, file):
-            self.name = fileobj.name
-        elif isinstance(fileobj, basestring):
-            if mode != 'append' and not os.path.exists(fileobj) and \
-               not os.path.splitdrive(fileobj)[0]:
+        if (isinstance(fileobj, basestring) and mode != 'append' and
+            not os.path.exists(fileobj) and
+            not os.path.splitdrive(fileobj)[0]):
                 #
                 # Not writing file and file does not exist on local machine and
                 # name does not begin with a drive letter (Windows), try to
                 # get it over the web.
                 #
-                self.name, fileheader = urllib.urlretrieve(fileobj)
-            else:
-                self.name = fileobj
+            self.name, _ = urllib.urlretrieve(fileobj)
         else:
-            if hasattr(fileobj, 'name'):
-                self.name = fileobj.name
-            elif hasattr(fileobj, 'filename'):
-                self.name = fileobj.filename
-            elif hasattr(fileobj, '__class__'):
-                self.name = str(fileobj.__class__)
-            else:
-                self.name = str(type(fileobj))
+            self.name = fileobj_name(fileobj)
 
         self.closed = False
         self.mode = mode
@@ -75,17 +65,20 @@ class _File(object):
         # Underlying fileobj is a file-like object, but an actual file object
         self.file_like = False
 
-        self.compressed = False
-        if isinstance(fileobj, (gzip.GzipFile, zipfile.ZipFile)):
-            self.compressed = True
+        self.compression = None
+        if isinstance(fileobj, gzip.GzipFile):
+            self.compression = 'gzip'
+        elif isinstance(fileobj, zipfile.ZipFile):
+            # Reading from zip files is supported but not writing (yet)
+            self.compression = 'zip'
 
         self.readonly = False
         self.writeonly = False
-        if mode in ('readonly', 'copyonwrite') or \
-                (isinstance(fileobj, gzip.GzipFile) and mode == 'update'):
+        if (mode in ('readonly', 'copyonwrite') or
+                (self.compression and mode == 'update')):
             self.readonly = True
-        elif mode == 'ostream' or \
-                (isinstance(fileobj, gzip.GzipFile) and mode == 'append'):
+        elif (mode == 'ostream' or
+                (self.compression and mode == 'append')):
             self.writeonly = True
 
         if memmap and mode not in ('readonly', 'copyonwrite', 'update'):
@@ -93,25 +86,22 @@ class _File(object):
                    "Memory mapping is not implemented for mode `%s`." % mode)
         else:
             # Initialize the internal self.__file object
-            if isinstance(fileobj, (file, gzip.GzipFile)):
-                if hasattr(fileobj, 'fileobj'):
-                    closed = fileobj.fileobj.closed
-                    fileobj_mode = fileobj.fileobj.mode
-                elif hasattr(fileobj, 'closed'):
-                    closed = fileobj.closed
-                    fileobj_mode = fileobj.mode
-                else:
-                    closed = True
-                    fileobj_mode = PYTHON_MODES[mode]
+            if isfile(fileobj) or isinstance(fileobj, gzip.GzipFile):
+                closed = fileobj_closed(fileobj)
+                fmode = fileobj_mode(fileobj) or PYTHON_MODES[mode]
 
                 if not closed:
-                    if PYTHON_MODES[mode] != fileobj_mode:
+                    # In some cases (like on Python 3) a file opened for
+                    # appending still shows a mode of 'r+', hence the extra
+                    # check for the append case
+                    if ((mode == 'append' and fmode not in ('ab+', 'rb+')) or
+                        (mode != 'append' and PYTHON_MODES[mode] != fmode)):
                         raise ValueError(
                             "Input mode '%s' (%s) does not match mode of the "
-                            "input file (%s)." % (mode, PYTHON_MODES[mode],
-                                                  fileobj_mode))
+                            "input file (%s)." %
+                            (mode, PYTHON_MODES[mode], fmode))
                     self.__file = fileobj
-                elif isinstance(fileobj, file):
+                elif isfile(fileobj):
                     self.__file = open(self.name, PYTHON_MODES[mode])
                     # Return to the beginning of the file--in Python 3 when
                     # opening in append mode the file pointer is at the end of
@@ -124,29 +114,28 @@ class _File(object):
                     # Handle gzip files
                     if mode in ['update', 'append']:
                         raise IOError(
-                              "Writing to gzipped fits files is not supported")
-                    zfile = gzip.GzipFile(self.name)
-                    self.__file = tempfile.NamedTemporaryFile(suffix='.fits')
-                    self.name = self.__file.name
-                    self.__file.write(zfile.read())
-                    zfile.close()
+                              "Writing to gzipped fits files is not "
+                              "currently supported")
+                    self.__file = gzip.open(self.name)
+                    self.compression = 'gzip'
                 elif os.path.splitext(self.name)[1] == '.zip':
                     # Handle zip files
                     if mode in ['update', 'append']:
                         raise IOError(
-                              "Writing to zipped fits files is not supported")
+                              "Writing to zipped fits files is not currently "
+                              "supported")
                     zfile = zipfile.ZipFile(self.name)
                     namelist = zfile.namelist()
                     if len(namelist) != 1:
                         raise IOError(
                           "Zip files with multiple members are not supported.")
                     self.__file = tempfile.NamedTemporaryFile(suffix='.fits')
-                    self.name = self.__file.name
                     self.__file.write(zfile.read(namelist[0]))
                     zfile.close()
+                    self.compression = 'zip'
                 else:
                     self.__file = open(self.name, PYTHON_MODES[mode])
-                # Make certain we're back at the beginning of the file
+                    # Make certain we're back at the beginning of the file
                 self.__file.seek(0)
             else:
                 # We are dealing with a file like object.
@@ -174,28 +163,16 @@ class _File(object):
 
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
-            if mode == 'ostream':
+            if (mode == 'ostream' or self.compression or
+                not hasattr(self.__file, 'seek')):
                 # For output stream start with a truncated file.
+                # For compressed files we can't really guess at the size
                 self.size = 0
-            elif isinstance(self.__file, gzip.GzipFile):
-                # This gives the size of the actual file, but it's not too
-                # useful since the semantics of this really should be the size
-                # of the compressed file.  Unfortunately there's no way to get
-                # that with decompressing the file first.
-                # TODO: Make .size into a lazyproperty that, for compressed
-                # files, will just decompress the file and give the actual size
-                pos = self.__file.tell()
-                self.__file.fileobj.seek(0, 2)
-                self.size = self.__file.fileobj.tell()
-                self.__file.fileobj.seek(0)
-                self.__file.seek(pos)
-            elif hasattr(self.__file, 'seek'):
+            else:
                 pos = self.__file.tell()
                 self.__file.seek(0, 2)
                 self.size = self.__file.tell()
                 self.__file.seek(pos)
-            else:
-                self.size = 0
 
     def __repr__(self):
         return '<%s.%s %s>' % (self.__module__, self.__class__.__name__,
@@ -212,6 +189,11 @@ class _File(object):
     def getfile(self):
         """**Deprecated** Will be going away as soon as I figure out how."""
         return self.__file
+
+    def readable(self):
+        if self.writeonly:
+            return False
+        return isreadable(self.__file)
 
     def read(self, size=None):
         if not hasattr(self.__file, 'read'):
@@ -265,10 +247,15 @@ class _File(object):
             count = reduce(lambda x, y: x * y, shape)
             pos = self.__file.tell()
             self.__file.seek(offset)
-            data = _fromfile(self.__file, dtype, count, '')
+            data = _array_from_file(self.__file, dtype, count, '')
             data.shape = shape
             self.__file.seek(pos)
             return data
+
+    def writable(self):
+        if self.readonly:
+            return False
+        return iswritable(self.__file)
 
     def write(self, string):
         if hasattr(self.__file, 'write'):
@@ -283,7 +270,7 @@ class _File(object):
         """
 
         if hasattr(self.__file, 'write'):
-            _tofile(array, self.__file)
+            _array_to_file(array, self.__file)
 
     def flush(self):
         if hasattr(self.__file, 'flush'):
@@ -305,11 +292,7 @@ class _File(object):
         else:
             self.__file.seek(offset, whence)
 
-        if self.compressed:
-            pos = self.__file.fileobj.tell()
-        else:
-            pos = self.__file.tell()
-        if pos > self.size:
+        if self.size and self.__file.tell() > self.size:
             warnings.warn('File may have been truncated: actual file length '
                           '(%i) is smaller than the expected size (%i)' %
                           (self.size, pos))

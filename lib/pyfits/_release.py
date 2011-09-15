@@ -21,6 +21,9 @@ from zest.releaser.choose import version_control
 from zest.releaser.utils import get_last_tag, ask
 
 
+log = None
+
+
 PYFITS_HOMEPAGE_BASE_URL = \
     'http://www.stsci.edu/resources/software_hardware/pyfits'
 # These are the pages to run find/replace of the version number on
@@ -54,7 +57,9 @@ class ReleaseManager(object):
         if data['name'] != 'pyfits':
             return
 
+        global log
         log = logging.getLogger('prerelease')
+
         # TODO: This bit should belong to a generic release hook somewhere in
         # the stsci namespace, or even should maybe be suggested as a built in
         # action of zest.releaser
@@ -84,6 +89,7 @@ class ReleaseManager(object):
         if data['name'] != 'pyfits':
             return
 
+        global log
         log = logging.getLogger('postrelease')
 
         def callback(section, option, value, lineno, line):
@@ -100,8 +106,6 @@ class ReleaseManager(object):
         TODO: If at any point we get a Windows build machine that we can remote
         into, use this as a point to create Windows builds as well.
         """
-
-        log = logging.getLogger('postrelease')
 
         if data['name'] != 'pyfits':
             return
@@ -162,8 +166,6 @@ class ReleaseManager(object):
         if new_version[2] != 0:
             new_version_str += '.%d' % new_version[2]
 
-        basic_auth = ':'.join((username, password))
-
         def version_replace(match):
             repl = match.group('prefix') + new_version_str
             if match.group('date'):
@@ -173,47 +175,35 @@ class ReleaseManager(object):
 
         # Go ahead and do the find/replace on supported subpages
         for page in PYFITS_HOMEPAGE_SUBPAGES:
-            proto, rest = PYFITS_HOMEPAGE_BASE_URL.split('://', 1)
-            url = '%s://%s@%s/%s' % (proto, basic_auth, rest, page)
             try:
-                log.info('Updating %s...' % url)
-                proxy = xmlrpclib.ServerProxy(url)
-                content = proxy.document_src()
+                url = os.path.join(PYFITS_HOMEPAGE_BASE_URL, page)
+                proxy = _ZopeProxy(page, username, password)
+                content = proxy.retrieve()
                 content = search_version_re.sub(version_replace, content)
-                proxy.manage_upload(content)
+                proxy.update(content)
             except Exception, e:
-                # Lots of things could go wrong here; maybe some specific
-                # exceptions could be caught and dealt with if they turn out to
-                # be common for some reason
-                # TODO: Catch bad authentication and let the user enter a new
-                # username/password
-                # Display a url with password hidden
-                url = '%s://%s:********@%s/%s' % (proto, username, rest, page)
-                log.error('Failed to update %s: %s' % (url, str(e)))
+                continue
 
         # Update the release notes
-        # TODO: This little routine should maybe be a function or something
-        proto, rest = PYFITS_HOMEPAGE_BASE_URL.split('://', 1)
-        url = '%s://%s@%s/%s' % (proto, basic_auth, rest, 'release')
-        try:
-            log.info('Updating %s...' % url)
-            parts = publish_parts('\n'.join(self.history_lines),
-                                  writer_name='html')
-            # Get just the body of the HTML and convert headers to <h3> tags
-            # instead of <h1> (there might be a 'better' way to do this, but
-            # this is a simple enough case to suffice for our purposes
-            content = parts['html_body']
-            # A quickie regexp--no good for general use, but should work fine
-            # in this case; this will prevent replacement of the <h1> tag in
-            # the title, but will take care of all the others
-            content = re.sub(r'<h1>([^<]+)</h1>', r'<h3>\1</h3>', content)
+        parts = publish_parts('\n'.join(self.history_lines),
+                              writer_name='html')
+        # Get just the body of the HTML and convert headers to <h3> tags
+        # instead of <h1> (there might be a 'better' way to do this, but
+        # this is a simple enough case to suffice for our purposes
+        content = parts['html_body']
 
+        # A quickie regexp--no good for general use, but should work fine
+        # in this case; this will prevent replacement of the <h1> tag in
+        # the title, but will take care of all the others
+        content = re.sub(r'<h1>([^<]+)</h1>', r'<h3>\1</h3>', content)
+
+        try:
+            url = os.path.join(PYFITS_HOMEPAGE_BASE_URL, 'release')
+            proxy = _ZopeProxy(url, username, password)
             # And upload...
-            proxy = xmlrpclib.ServerProxy(url)
-            proxy.manage_upload(content)
+            proxy.update(content)
         except Exception, e:
-            url = '%s://%s:********@%s/%s' % (proto, username, rest, page)
-            log.error('Failed to update %s: %s' % (url, str(e)))
+            pass
 
 
 # TODO: This is also a handy utility that could probaby be used elsewhere
@@ -270,5 +260,65 @@ def config_parser(filename, callback):
 
     if updated:
         open(filename, 'w').writelines(new_config)
+
+
+class _ZopeProxy(object):
+    """This is a simple class for handling retriving and updating of pages on a
+    Zope2 site.  This only handles updates to static content, and not
+    directories or anything like that.
+    """
+
+    def __init__(self, url, username=None, password=None):
+        if username and password:
+            protocol, rest = url.split('://', 1)
+            self.url = '%s://%s:%s@%s' % (protocol, username, password, rest)
+            self.masked_url = '%s//%s:%s@%s' % (protocol, username, '*' * 8,
+                                                rest)
+        else:
+            self.url = self.masked_url = url
+
+        self.proxy = None
+
+    def connect(self):
+        if self.proxy is not None:
+            return
+        try:
+            self.proxy = xmlrpclib.ServerProxy(url)
+        except Exception, e:
+            # TODO: Catch bad authentication and let the user enter a new
+            # username/password
+            if log:
+                log.error('Failed to connect to %s: %s' %
+                          (self.masked_url, str(e)))
+            raise
+
+    def retrieve(self):
+        """Retrieves the static page contents at the proxy's URL."""
+
+        self.connect()
+        if log:
+            log.info('Retrieving %s...' % self.masked_url)
+        try:
+            return self.proxy.document_src()
+        except Exception, e:
+            if log:
+                log.error('Failed to download content at %s: %s' %
+                          (self.masked_url, str(e)))
+            raise
+
+    def update(self, content):
+        """Updates the static page content at the proxy's URL."""
+
+        self.connect()
+        if log:
+             log.info('Updating %s...' % self.masked_url)
+        try:
+            self.proxy.manage_upload(content)
+        except Exception, e:
+            if log:
+                log.error('Failed to update content at %s: %s' %
+                          (self.masked_url, str(e)))
+            raise
+
 
 releaser = ReleaseManager()

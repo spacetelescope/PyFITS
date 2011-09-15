@@ -9,7 +9,8 @@ from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU, _TableBaseHDU
 from pyfits.header import Header
-from pyfits.util import _with_extensions
+from pyfits.util import (_with_extensions, fileobj_closed, fileobj_name,
+                         isfile)
 
 
 __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
@@ -472,10 +473,7 @@ def update(filename, data, *ext, **extkeys):
 
     new_hdu = _makehdu(data, header)
 
-    if not isinstance(filename, file) and hasattr(filename, 'closed'):
-        closed = filename.closed
-    else:
-        closed = True
+    closed = fileobj_closed(filename)
 
     hdulist, _ext = _getext(filename, 'update', *ext, **extkeys)
     hdulist[_ext] = new_hdu
@@ -715,26 +713,8 @@ def _makehdu(data, header, classExtensions={}):
 
 
 def _stat_filename_or_fileobj(filename):
-    closed = True
-    name = ''
-
-    if isinstance(filename, file):
-        closed = filename.closed
-        name = filename.name
-    elif isinstance(filename, gzip.GzipFile):
-        if filename.fileobj is not None:
-            closed = filename.fileobj.closed
-        name = filename.filename
-    elif isinstance(filename, basestring):
-        name = filename
-    else:
-        if hasattr(filename, 'closed'):
-            closed = filename.closed
-
-        if hasattr(filename, 'name'):
-            name = filename.name
-        elif hasattr(filename, 'filename'):
-            name = filename.filename
+    closed = fileobj_closed(filename)
+    name = fileobj_name(filename) or ''
 
     try:
         loc = filename.tell()
@@ -748,6 +728,7 @@ def _stat_filename_or_fileobj(filename):
     return name, closed, noexist_or_empty
 
 
+# TODO: Replace this with fileobj_mode
 def _get_file_mode(filename, default='readonly'):
     """
     Allow file object to already be opened in any of the valid modes and
@@ -763,8 +744,8 @@ def _get_file_mode(filename, default='readonly'):
     elif hasattr(filename, 'fileobj') and filename.fileobj is not None:
         closed = filename.fileobj.closed
 
-    if (isinstance(filename, file) or
-       isinstance(filename, gzip.GzipFile)) and not closed:
+    if (isfile(filename) or
+        isinstance(filename, gzip.GzipFile) and not closed):
         if isinstance(filename, gzip.GzipFile):
             file_mode = filename.fileobj.mode
         else:
