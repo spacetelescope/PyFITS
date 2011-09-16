@@ -202,14 +202,7 @@ class _ImageBaseHDU(_ValidHDU):
 
         old_naxis = self._header.get('NAXIS', 0)
 
-        if isinstance(self.data, GroupData):
-            self._header['BITPIX'] = _ImageBaseHDU.ImgCode[
-                      self.data.dtype.fields[self.data.dtype.names[0]][0].name]
-            axes = list(self.data.data.shape)[1:]
-            axes.reverse()
-            axes = [0] + axes
-
-        elif isinstance(self.data, np.ndarray):
+        if isinstance(self.data, np.ndarray):
             self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
             axes = list(self.data.shape)
             axes.reverse()
@@ -238,30 +231,6 @@ class _ImageBaseHDU(_ValidHDU):
                 del self._header.ascard['NAXIS' + str(idx)]
             except KeyError:
                 pass
-
-        # TODO: This needs to be moved into the GroupHDU class
-        if isinstance(self.data, GroupData):
-            self._header.update('GROUPS', True, after='NAXIS' + str(len(axes)))
-            self._header.update('PCOUNT', len(self.data.parnames),
-                                after='GROUPS')
-            self._header.update('GCOUNT', len(self.data), after='PCOUNT')
-            npars = len(self.data.parnames)
-            (_scale, _zero)  = self.data._get_scale_factors(npars)[3:5]
-            if _scale:
-                self._header.update('BSCALE',
-                                    self.data._coldefs.bscales[npars])
-            if _zero:
-                self._header.update('BZERO', self.data._coldefs.bzeros[npars])
-            for idx in range(npars):
-                self._header.update('PTYPE' + str(idx + 1),
-                                    self.data.parnames[idx])
-                (_scale, _zero)  = self.data._get_scale_factors(idx)[3:5]
-                if _scale:
-                    self._header.update('PSCAL' + str(idx + 1),
-                                        self.data._coldefs.bscales[idx])
-                if _zero:
-                    self._header.update('PZERO' + str(idx + 1),
-                                        self.data._coldefs.bzeros[idx])
 
     def scale(self, type=None, option="old", bscale=1, bzero=0):
         """
