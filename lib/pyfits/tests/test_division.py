@@ -1,8 +1,6 @@
 from __future__ import division # confidence high
 from __future__ import with_statement
 
-from cStringIO import StringIO
-
 import numpy as np
 
 import pyfits

@@ -9,8 +9,9 @@ import zipfile
 import numpy as np
 
 import pyfits
+from pyfits.util import BytesIO
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings, BytesIO
+from pyfits.tests.util import catch_warnings
 
 from nose.tools import assert_equal, assert_raises, assert_true, assert_false
 

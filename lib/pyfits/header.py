@@ -8,10 +8,10 @@ except ImportError:
     class __HEADERBASE(DictMixin, object): # object to make a newstyle class
         pass
 
-from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
-                        _ContinueCard, _HierarchCard, create_card, \
-                        create_card_from_string, upper_key
-from pyfits.util import BLOCK_SIZE, deprecated
+from pyfits.card import (Card, CardList, RecordValuedKeywordCard,
+                         _ContinueCard, _HierarchCard, create_card,
+                         create_card_from_string, upper_key, _pad)
+from pyfits.util import BLOCK_SIZE, deprecated, _pad_length
 
 
 class Header(__HEADERBASE):
@@ -142,8 +142,12 @@ class Header(__HEADERBASE):
             del self.ascard[key]
             self._mod = True
 
+    def __repr__(self):
+        return repr(self.ascard)
+
     def __str__(self):
-        return str(self.ascard)
+        s = repr(self) + _pad('END')
+        return s + _pad_length(len(s)) * ' '
 
     @classmethod
     def fromstring(cls, data):
@@ -320,7 +324,7 @@ class Header(__HEADERBASE):
             raise ValueError('Can not rename to CONTINUE')
 
         if newkey in Card._commentary_keys or oldkey in Card._commentary_keys:
-            if not (newkey in Card._commentary_keys and 
+            if not (newkey in Card._commentary_keys and
                     oldkey in Card._commentary_keys):
                 raise ValueError('Regular and commentary keys can not be '
                                  'renamed to each other.')

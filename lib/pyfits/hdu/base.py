@@ -6,12 +6,12 @@ import warnings
 
 import numpy as np
 
-from pyfits.card import Card, _pad
+from pyfits.card import Card
 from pyfits.file import _File
 from pyfits.header import Header
-from pyfits.util import Extendable, _with_extensions, lazyproperty, _is_int, \
-                        _is_pseudo_unsigned, _unsigned_zero, _pad_length, \
-                        itersubclasses, decode_ascii, BLOCK_SIZE, deprecated
+from pyfits.util import (Extendable, _with_extensions, lazyproperty, _is_int,
+                        _is_pseudo_unsigned, _unsigned_zero, _pad_length,
+                        itersubclasses, decode_ascii, BLOCK_SIZE, deprecated)
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -143,22 +143,22 @@ class _BaseHDU(object):
            beyond the header, then the trailing data is taken to be the HDU's
            data.  If `fileobj` is specified then the trailing data is ignored.
 
-        fileobj : file, optional
+        fileobj : file (optional)
            The file-like object that this HDU was read from.
 
-        offset : int, optional
+        offset : int (optional)
            If `fileobj` is specified, the offset into the file-like object at
            which this HDU begins.
 
-        checksum : bool optional
+        checksum : bool (optional)
            Check the HDU's checksum and/or datasum.
 
-        ignore_missing_end : bool, optional
+        ignore_missing_end : bool (optional)
            Ignore a missing end card in the header data.  Note that without
            the end card the end of the header can't be found, so the entire
            data is just assumed to be the header.
 
-        kwargs : optional
+        kwargs : (optional)
            May contain additional keyword arguments specific to an HDU type.
            Any unrecognized kwargs are simply ignored.
         """
@@ -315,8 +315,7 @@ class _BaseHDU(object):
         elif checksum:
             self.add_checksum(blocking='standard')
 
-        blocks = repr(self._header.ascard) + _pad('END')
-        blocks = blocks + _pad_length(len(blocks)) * ' '
+        blocks = str(self._header)
 
         offset = 0
         size = len(blocks)
@@ -1114,8 +1113,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         self._header.update('CHECKSUM', '0'*16);
 
         # Convert the header to a string.
-        s = repr(self._header.ascard) + _pad('END')
-        s = s + _pad_length(len(s))*' '
+        s = str(self._header)
 
         # Calculate the checksum of the Header and data.
         cs = self._compute_checksum(np.fromstring(s, dtype='ubyte'), datasum,

@@ -5,6 +5,16 @@ import sys
 import tempfile
 import warnings
 
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
+
+try:
+    from io import BytesIO
+except ImportError:
+    BytesIO = StringIO
+
 import numpy as np
 
 
