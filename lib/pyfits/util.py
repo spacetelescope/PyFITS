@@ -543,6 +543,10 @@ def fileobj_mode(f):
                 mode = mode.replace('a', 'r')
             else:
                 mode = mode.replace('a', 'w')
+    else:
+        # If mode still turned out to be something other than a string, it's
+        # not the droid we were looking for, and we should just toss it
+        mode = None
     return mode
 
 
@@ -596,8 +600,9 @@ def _write_string(f, s):
 
     # Assume if the file object doesn't have a specific mode, that the mode is
     # binary
-    if hasattr(f, 'mode'):
-        binmode = 'b' in f.mode
+    mode = fileobj_mode(f)
+    if mode:
+        binmode = 'b' in mode
     else:
         binmode = True
 

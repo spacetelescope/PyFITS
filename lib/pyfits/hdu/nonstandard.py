@@ -28,16 +28,16 @@ class FitsHDU(NonstandardExtHDU):
     @lazyproperty
     def hdulist(self):
         self._file.seek(self._datLoc)
-        s = BytesIO()
+        fileobj = BytesIO()
         # Read the data into a BytesIO--reading directly from the file
         # won't work (at least for gzipped files) due to problems deep
         # within the gzip module that make it difficult to read gzip files
         # embedded in another file
-        s.write(self._file.read(self.size))
-        s.seek(0)
+        fileobj.write(self._file.read(self.size))
+        fileobj.seek(0)
         if self._header['COMPRESS']:
-            s = gzip.GzipFile(fileobj=s)
-        return HDUList.fromfile(s, mode='readonly')
+            fileobj = gzip.GzipFile(fileobj=fileobj)
+        return HDUList.fromfile(fileobj, mode='readonly')
 
     @classmethod
     def fromfile(cls, filename, compress=False):
@@ -68,21 +68,23 @@ class FitsHDU(NonstandardExtHDU):
             Gzip compress the FITS file
         """
 
-        fileobj = BytesIO()
+        fileobj = bs = BytesIO()
         if compress:
             if hasattr(hdulist, '_file'):
                 name = fileobj_name(hdulist._file)
             else:
                 name = None
-            fileobj = gzip.GzipFile(name, mode='wb', fileobj=fileobj)
+            fileobj = gzip.GzipFile(name, mode='wb', fileobj=bs)
         hdulist.writeto(fileobj)
-        fileobj.seek(0)
+        if compress:
+            fileobj.close()
+        bs.seek(0)
 
         cards = [
             Card('XTENSION',  cls._extension, 'FITS extension'),
             Card('BITPIX',    8, 'array data type'),
             Card('NAXIS',     1, 'number of array dimensions'),
-            Card('NAXIS1',    len(fileobj.getvalue()), 'Axis length'),
+            Card('NAXIS1',    len(bs.getvalue()), 'Axis length'),
             Card('PCOUNT',    0, 'number of parameters'),
             Card('GCOUNT',    1, 'number of groups'),
         ]
@@ -102,7 +104,7 @@ class FitsHDU(NonstandardExtHDU):
         # shouldn't care about fileobjs.  There should be a _BaseHDU.fromfile
         # for that (there is _BaseHDU.readfrom which plays that role, but its
         # semantics are also a little unclear...)
-        return cls.fromstring(str(header), fileobj=_File(fileobj))
+        return cls.fromstring(str(header), fileobj=_File(bs))
 
     @classmethod
     def match_header(cls, header):
