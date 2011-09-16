@@ -155,6 +155,7 @@ class Card(_Verify):
                                      'string.')
         else:
             self._cardimage = ' ' * 80
+        self._modified = False
 
     def __repr__(self):
         return self.cardimage
@@ -190,6 +191,7 @@ class Card(_Verify):
         else:
             raise ValueError('Keyword name %s is not a string.' % repr(val))
         self._key = val
+        self._modified = True
 
     # TODO: It would be nice to eventually use property.getter/setter/deleter,
     # but those are not available prior to Python 2.6
@@ -222,10 +224,12 @@ class Card(_Verify):
                             np.floating, np.integer, np.complexfloating)):
             if isinstance(val, str):
                 self._check_text(val)
+            if not hasattr(self, '_value') or self._value != val:
+                self._modified = True
             self._value_modified = True
+            self._value = val
         else:
             raise ValueError('Illegal value %s.' % repr(val))
-        self._value = val
 
     def _getcomment(self):
         """Get the comment attribute from the card image if not already set."""
@@ -253,6 +257,8 @@ class Card(_Verify):
         else:
             if val is not None:
                 raise ValueError('Comment %s is not a string.' % repr(val))
+        if not hasattr(self, '_comment') or self._comment != val:
+            self._modified = True
         self._comment = val
 
     @property
@@ -1281,6 +1287,27 @@ class CardList(list):
     def __str__(self):
         """Format a list of cards into a printable string."""
         return '\n'.join(map(str, self))
+
+    def _get_mod(self):
+        mod = self.__dict__.get('_mod', False)
+        if not mod:
+            # See if any of the cards were directly modified
+            for card in self:
+                if card._modified:
+                    self.__dict__['_mod'] = True
+                    return True
+        return mod
+
+    def _set_mod(self, value):
+        self.__dict__['_mod'] = value
+        # If the card list is explicitly set as 'not modified' then make sure
+        # the same applies to its underlying cards
+        if not value:
+            for card in self:
+                card._modified = False
+
+    _mod = property(_get_mod, _set_mod,
+                    doc='has this card list been modified since last write')
 
     def copy(self):
         """Make a (deep)copy of the `CardList`."""

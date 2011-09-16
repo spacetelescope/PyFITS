@@ -10,6 +10,15 @@ Changelog
 - The presence, value, and position of the EXTEND keyword in Primary HDUs is
   verified when reading/writing a FITS file (#32)
 
+- Fixed a bug where updating a header card comment could cause the value to be
+  lost if it had not already been read from the card image string.
+
+- Fixed a related bug where changes made directly to Card object in a header
+  (i.e. assigning directly to card.value or card.comment) would not propagate
+  when flushing changes to the file (#69) [Note: This and the bug above it
+  were originally reported as being fixed in version 3.0.1, but the fix was
+  never included in the release.]
+
 - Improved file handling, particularly in Python 3 which had a few small file
   I/O-related bugs (#76)
 

@@ -56,7 +56,7 @@ class TestImageFunctions(PyfitsTestCase):
         """Test string value"""
 
         c = pyfits.Card('abc', '<8 ch')
-        assert_equal(str(c), 
+        assert_equal(str(c),
                      "ABC     = '<8 ch   '                                                            ")
         c = pyfits.Card('nullstr', '')
         assert_equal(str(c),
@@ -84,7 +84,7 @@ class TestImageFunctions(PyfitsTestCase):
 
         c = pyfits.Card('floatnum', -467374636747637647347374734737437.)
 
-        if (str(c) != "FLOATNUM= -4.6737463674763E+32                                                  " and 
+        if (str(c) != "FLOATNUM= -4.6737463674763E+32                                                  " and
             str(c) != "FLOATNUM= -4.6737463674763E+032                                                 "):
             assert_equal(str(c),
                          "FLOATNUM= -4.6737463674763E+32                                                  ")
@@ -259,7 +259,7 @@ class TestImageFunctions(PyfitsTestCase):
             "CONTINUE  '&' / long comment long comment long comment long comment long        \n"
             "CONTINUE  '&' / comment long comment long comment long comment long comment     \n"
             "CONTINUE  '&' / long comment                                                    ")
- 
+
 
     def test_word_in_long_string_too_long(self):
         # if a word in a long string is too long, it will be cut in the middle
