@@ -1080,6 +1080,14 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     """
     Create a new table from the input column definitions.
 
+    Warning: Creating a new table using this method creates an in-memory *copy*
+    of all the column arrays in the input.  This is because if they are
+    separate arrays they must be combined into a single contiguous array.
+
+    If the column data is already in a single contiguous array (such as an
+    existing record array) it may be better to create a BinTableHDU instance
+    directly.  See the PyFITS documentation for more details.
+
     Parameters
     ----------
     input : sequence of Column or ColDefs objects
