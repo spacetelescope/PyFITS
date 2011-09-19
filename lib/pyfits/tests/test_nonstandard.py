@@ -22,13 +22,13 @@ class TestNonstandardHdus(PyfitsTestCase):
 
     def _test_create_fitshdu(self, compression=False):
         hdul_orig = pyfits.open(self.data('test0.fits'))
-        hdul_orig_info = hdul_orig.info(output=False)
 
         fitshdu = pyfits.FitsHDU.fromhdulist(hdul_orig, compress=compression)
         # Just to be meta, let's append to the same hdulist that the fitshdu
         # encapuslates
         hdul_orig.append(fitshdu)
         hdul_orig.writeto(self.temp('tmp.fits'), clobber=True)
+        del hdul_orig[-1]
 
         hdul = pyfits.open(self.temp('tmp.fits'))
         assert_true(isinstance(hdul[-1], pyfits.FitsHDU))
@@ -36,7 +36,7 @@ class TestNonstandardHdus(PyfitsTestCase):
         wrapped = hdul[-1].hdulist
         assert_true(isinstance(wrapped, pyfits.HDUList))
 
-        assert_equal(hdul_orig_info, wrapped.info(output=False))
+        assert_equal(hdul_orig.info(output=False), wrapped.info(output=False))
         assert_true((hdul[1].data == wrapped[1].data).all())
         assert_true((hdul[2].data == wrapped[2].data).all())
         assert_true((hdul[3].data == wrapped[3].data).all())
