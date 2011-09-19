@@ -292,7 +292,8 @@ class _File(object):
         else:
             self.__file.seek(offset, whence)
 
-        if self.size and self.__file.tell() > self.size:
+        pos = self.__file.tell()
+        if self.size and pos > self.size:
             warnings.warn('File may have been truncated: actual file length '
                           '(%i) is smaller than the expected size (%i)' %
                           (self.size, pos))

@@ -290,14 +290,15 @@ class ColDefs(object):
         Parameters
         ----------
 
-        input : sequence of `Column` objects
-            an (table) HDU
+        input :
+            An existing table HDU, an existing ColDefs, or recarray
 
         **(Deprecated)** tbtype : str, optional
             which table HDU, ``"BinTableHDU"`` (default) or
             ``"TableHDU"`` (text table).
-            now ColDefs for a normal (binary) table by default, but converted
+            Now ColDefs for a normal (binary) table by default, but converted
             automatically to ASCII table ColDefs in the appropriate contexts
+            (namely, when creating an ASCII table).
         """
 
         from pyfits.hdu.table import _TableBaseHDU

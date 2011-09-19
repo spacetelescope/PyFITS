@@ -7,19 +7,19 @@ Tables
 
 .. inheritance-diagram:: Column ColDefs FITS_record FITS_rec GroupData TableHDU BinTableHDU
 
-`TableHDU`
-,,,,,,,,,,
+`BinTableHDU`
+,,,,,,,,,,,,,
 
-.. autoclass:: TableHDU
+.. autoclass:: BinTableHDU
    :members:
    :inherited-members:
    :undoc-members:
    :show-inheritance:
 
-`BinTableHDU`
-,,,,,,,,,,,,,
+`TableHDU`
+,,,,,,,,,,
 
-.. autoclass:: BinTableHDU
+.. autoclass:: TableHDU
    :members:
    :inherited-members:
    :undoc-members:
@@ -77,12 +77,12 @@ new_table
 
 .. autofunction:: new_table
 
-tdump
+tabledump
 -----
 
-.. autofunction:: tdump
+.. autofunction:: tabledump
 
-tcreate
+tablelaod
 -------
 
-.. autofunction:: tcreate
+.. autofunction:: tableload
