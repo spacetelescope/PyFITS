@@ -91,25 +91,16 @@ class _ImageBaseHDU(_ValidHDU):
             self._bzero = self._header.get('BZERO', 0)
             self._bscale = self._header.get('BSCALE', 1)
 
-        if data is DELAYED:
-            return
-
-        self.data = data
-
-        # update the header
-        self.update_header()
         self._bitpix = self._header['BITPIX']
 
-        if not do_not_scale_image_data:
-            # delete the keywords BSCALE and BZERO
-            del self._header['BSCALE']
-            del self._header['BZERO']
-
-        # Set the name attribute if it was provided (if this is an ImageHDU
-        # this will result in setting the EXTNAME keyword of the header as
-        # well)
         if 'name' in kwargs and kwargs['name']:
             self.name = kwargs['name']
+
+        if data is DELAYED:
+            return
+        else:
+            self.data = data
+            self.update_header()
 
     @classmethod
     def match_header(cls, header):
@@ -129,10 +120,8 @@ class _ImageBaseHDU(_ValidHDU):
         if self._header['NAXIS'] < 1:
             return
 
-        bitpix = self._header['BITPIX']
         dims = self._dimShape()
-
-        code = _ImageBaseHDU.NumCode[bitpix]
+        code = _ImageBaseHDU.NumCode[self._bitpix]
 
         raw_data = self._file.readarray(offset=self._datLoc, dtype=code,
                                         shape=dims)
@@ -163,10 +152,9 @@ class _ImageBaseHDU(_ValidHDU):
                 if blanks.sum() < len(blanks) / 8:
                     blanks = np.where(blanks)
 
-            if bitpix > 16:  # scale integers to Float64
-                data = np.array(raw_data, dtype=np.float64)
-            elif bitpix > 0:  # scale integers to Float32
-                data = np.array(raw_data, dtype=np.float32)
+            new_dtype = self._dtype_for_bitpix()
+            if new_dtype is not None:
+                data = np.array(raw_data, dtype=new_dtype)
             else:  # floating point cases
                 if self._file.memmap:
                     data = raw_data.copy()
@@ -184,12 +172,8 @@ class _ImageBaseHDU(_ValidHDU):
             if 'BLANK' in self._header:
                 data.flat[blanks] = np.nan
 
-        if not self._do_not_scale_image_data:
-           # delete the keywords BSCALE and BZERO after scaling
-           del self._header['BSCALE']
-           del self._header['BZERO']
-
-        self._header['BITPIX'] = _ImageBaseHDU.ImgCode[data.dtype.name]
+        self._update_header_scale_info(data.dtype)
+        self._bitpix = self._header['BITPIX']
 
         return data
 
@@ -198,12 +182,11 @@ class _ImageBaseHDU(_ValidHDU):
         Update the header keywords to agree with the data.
         """
 
-        from pyfits.hdu.groups import GroupData
-
         old_naxis = self._header.get('NAXIS', 0)
 
         if isinstance(self.data, np.ndarray):
-            self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+            self._bitpix = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+            self._header['BITPIX'] = self._bitpix
             axes = list(self.data.shape)
             axes.reverse()
 
@@ -231,6 +214,17 @@ class _ImageBaseHDU(_ValidHDU):
                 del self._header.ascard['NAXIS' + str(idx)]
             except KeyError:
                 pass
+
+    def _update_header_scale_info(self, dtype=None):
+        if (not self._do_not_scale_image_data and
+            not (self._bzero == 0 and self._bscale == 1)):
+            del self._header['BSCALE']
+            del self._header['BZERO']
+
+            if dtype is None:
+                dtype = self._dtype_for_bitpix()
+            if dtype is not None:
+                self._header['BITPIX'] = _ImageBaseHDU.ImgCode[dtype.name]
 
     def scale(self, type=None, option="old", bscale=1, bzero=0):
         """
@@ -313,11 +307,22 @@ class _ImageBaseHDU(_ValidHDU):
         #
         # Update the BITPIX Card to match the data
         #
-        self._header['BITPIX'] = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+        self._bitpix = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+        self._header['BITPIX'] = self._bitpix
+
+    def _verify(self, option='warn'):
+        if not self._data_loaded:
+            # This can affect the presence and order of certain header
+            # keywords, so run it before running the verification
+            self._update_header_scale_info()
+
+        return super(_ImageBaseHDU, self)._verify(option)
 
     def _writeheader(self, fileobj, checksum=False):
-        if self._data_loaded and self.data is not None:
+        if self._data_loaded:
             self.update_header()
+        else:
+            self._update_header_scale_info()
         return super(_ImageBaseHDU, self)._writeheader(fileobj, checksum)
 
     def _writedata_internal(self, fileobj):
@@ -356,6 +361,28 @@ class _ImageBaseHDU(_ValidHDU):
 
         return size
 
+    def _dtype_for_bitpix(self):
+        """
+        Determine the dtype that the data should be converted to depending on
+        the BITPIX value in the header, and possibly on the BSCALE value as
+        well.  Returns None if there should not be any change.
+        """
+
+        bitpix = self._bitpix
+        # Handle possible conversion to uints if enabled
+        if self._uint and self._bscale == 1:
+            for bits, dtype in ((16, np.dtype('uint16')),
+                                (32, np.dtype('uint32')),
+                                (64, np.dtype('uint64'))):
+                if bitpix == bits and self._bzero == 1 << (bits - 1):
+                    return dtype
+
+        if bitpix > 16:  # scale integers to Float64
+            return np.dtype('float64')
+        elif bitpix > 0:  # scale integers to Float32
+            return np.dtype('float32')
+
+
     def _convert_pseudo_unsigned(self, data):
         """
         Handle "pseudo-unsigned" integers, if the user requested it.  Returns
@@ -366,21 +393,18 @@ class _ImageBaseHDU(_ValidHDU):
         responsible for managing blanks.
         """
 
-        bitpix = self._header['BITPIX']
-        if self._uint and self._bscale == 1:
-            for bits, dtype in ((16, np.uint16),
-                                (32, np.uint32),
-                                (64, np.uint64)):
-                if bitpix == bits and self._bzero == 1 << (bits - 1):
-                    # Convert the input raw data into an unsigned
-                    # integer array and then scale the data
-                    # adjusting for the value of BZERO.  Note
-                    # that we subtract the value of BZERO instead
-                    # of adding because of the way numpy converts
-                    # the raw signed array into an unsigned array.
-                    data = np.array(data, dtype=dtype)
-                    data -= np.uint64(1 << (bits - 1))
-                    return data
+        dtype = self._dtype_for_bitpix()
+        # bool(dtype) is always False--have to explicitly compare to None; this
+        # caused a fair amount of hair loss
+        if dtype is not None and dtype.kind == 'u':
+        #    # Convert the input raw data into an unsigned integer array and
+        #    # then scale the data adjusting for the value of BZERO.  Note that
+        #    # we subtract the value of BZERO instead of adding because of the
+        #    # way numpy converts the raw signed array into an unsigned array.
+            bits = dtype.itemsize * 8
+            data = np.array(data, dtype=dtype)
+            data -= np.uint64(1 << (bits - 1))
+            return data
 
     def _dimShape(self):
         """
@@ -429,7 +453,7 @@ class _ImageBaseHDU(_ValidHDU):
                 if isinstance(self, GroupsHDU) and idx == 0:
                     continue
                 _shape += (self._header['NAXIS' + str(idx + 1)],)
-            _format = self.NumCode[self._header['BITPIX']]
+            _format = self.NumCode[self._bitpix]
 
         if isinstance(self, GroupsHDU):
             _gcount = '   %d Groups  %d Parameters' \
@@ -537,7 +561,7 @@ class Section(object):
             if not dims:
                 dims = [1]
 
-            _bitpix = self.hdu.header['BITPIX']
+            _bitpix = self.hdu._bitpix
             code = _ImageBaseHDU.NumCode[_bitpix]
             offset = self.hdu._datLoc + (offset * abs(_bitpix) // 8)
             raw_data = self.hdu._file.readarray(offset=offset, dtype=code,

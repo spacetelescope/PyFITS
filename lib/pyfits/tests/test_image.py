@@ -779,7 +779,7 @@ class TestImageFunctions(PyfitsTestCase):
     def test_rewriting_large_scaled_image(self):
         """Regression test for #84"""
 
-        hdul = pyfits.open(self.data('fixed-1890.fits.gz'))
+        hdul = pyfits.open(self.data('fixed-1890.fits'))
         orig_data = hdul[0].data
         hdul.writeto(self.temp('test_new.fits'), clobber=True)
         hdul.close()
@@ -789,7 +789,7 @@ class TestImageFunctions(PyfitsTestCase):
 
         # Just as before, but this time don't touch hdul[0].data before writing
         # back out--this is the case that failed in #84
-        hdul = pyfits.open(self.data('fixed-1890.fits.gz'))
+        hdul = pyfits.open(self.data('fixed-1890.fits'))
         hdul.writeto(self.temp('test_new.fits'), clobber=True)
         hdul.close()
         hdul = pyfits.open(self.temp('test_new.fits'))

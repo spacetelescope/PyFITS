@@ -21,7 +21,8 @@ class TestNonstandardHdus(PyfitsTestCase):
         self._test_create_fitshdu(compression=True)
 
     def _test_create_fitshdu(self, compression=False):
-        hdul_orig = pyfits.open(self.data('test0.fits'))
+        hdul_orig = pyfits.open(self.data('test0.fits'),
+                                do_not_scale_image_data=True)
 
         fitshdu = pyfits.FitsHDU.fromhdulist(hdul_orig, compress=compression)
         # Just to be meta, let's append to the same hdulist that the fitshdu
