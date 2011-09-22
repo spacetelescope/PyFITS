@@ -1,7 +1,8 @@
 .. currentmodule:: pyfits.core
 
+************
 FITS Headers
-````````````
+************
 
 In the next three chapters, more detailed information as well as examples will
 be explained for manipulating the header, the image data, and the table data
@@ -9,7 +10,7 @@ respectively.
 
 
 Header of an HDU
-,,,,,,,,,,,,,,,,
+================
 
 Every HDU normally has two components: header and data. In PyFITS these two
 components are accessed through the two attributes of the HDU, ``.header`` and
@@ -38,7 +39,7 @@ data.
 
 
 The Header Attribute
-,,,,,,,,,,,,,,,,,,,,
+====================
 
 
 Value Access and Updating
@@ -132,7 +133,7 @@ Ironically, there is no comment in a commentary card , only a string value.
 
 
 Card Images
-,,,,,,,,,,,
+===========
 
 A FITS header consists of card images.
 
@@ -183,7 +184,7 @@ PyFITS will be discussed in a later chapter.
 
 
 Card List
-,,,,,,,,,
+=========
 
 The Header itself only has limited functionality. Many lower level operations
 can only be achieved by going through its `CardList` object.
@@ -204,7 +205,7 @@ the keyword name or index.
 
 
 CONTINUE Cards
-,,,,,,,,,,,,,,
+==============
 
 The fact that the FITS standard only allows up to 8 characters for the keyword
 name and 80 characters to contain the keyword, the value, and the comment is
@@ -244,7 +245,7 @@ and updated just like regular keywords.
 
 
 HIERARCH Cards
-,,,,,,,,,,,,,,
+==============
 
 For keywords longer than 8 characters, there is a convention originated at ESO
 to facilitate such use. It uses a special keyword HIERARCH with the actual long

@@ -1,7 +1,8 @@
 .. currentmodule:: pyfits.core
 
+*********************
 Less Familiar Objects
-`````````````````````
+*********************
 
 In this chapter, we'll discuss less frequently used FITS data structures. They
 include ASCII tables, variable length tables, and random access group FITS
@@ -9,7 +10,7 @@ files.
 
 
 ASCII Tables
-,,,,,,,,,,,,
+============
 
 FITS standard supports both binary and ASCII tables. In ASCII tables, all the
 data are stored in a human readable text form, so it takes up more space and
@@ -89,7 +90,7 @@ The default value for tbtype is `BinTableHDU`.
 
 
 Variable Length Array Tables
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+============================
 
 The FITS standard also supports variable length array tables. The basic idea is
 that sometimes it is desirable to have tables with cells in the same field
@@ -173,7 +174,7 @@ is regular and the other variable length array.
 
 
 Random Access Groups
-,,,,,,,,,,,,,,,,,,,,
+====================
 
 Another less familiar data structure supported by the FITS standard is the
 random access group. This convention was established before the binary table
@@ -366,7 +367,7 @@ create the HDU itself:
 
 
 Compressed Image Data
-,,,,,,,,,,,,,,,,,,,,,
+=====================
 
 A general technique has been developed for storing compressed image data in
 FITS binary tables.  The principle used in this convention is to first divide

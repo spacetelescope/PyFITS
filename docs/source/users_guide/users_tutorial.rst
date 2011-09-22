@@ -1,7 +1,8 @@
 .. currentmodule:: pyfits.core
 
+**************
 Quick Tutorial
-``````````````
+**************
 
 This chapter provides a quick introduction of using PyFITS. The goal is to
 demonstrate PyFITS's basic features without getting into too much detail. If
@@ -16,7 +17,7 @@ Note that the module name is all lower case.
 
 
 Reading and Updating Existing FITS Files
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+========================================
 
 
 Opening a FITS file
@@ -39,12 +40,12 @@ content of the opened FITS file:
 
     >>> hdulist.info()
     Filename: test1.fits
-    No. Name Type Cards Dimensions Format
-    0 PRIMARY PrimaryHDU 220 () Int16
-    1 SCI ImageHDU 61 (800, 800) Float32
-    2 SCI ImageHDU 61 (800, 800) Float32
-    3 SCI ImageHDU 61 (800, 800) Float32
-    4 SCI ImageHDU 61 (800, 800) Float32
+    No. Name  Type       Cards Dimensions Format
+    0 PRIMARY PrimaryHDU   220 ()         int16
+    1 SCI     ImageHDU      61 (800, 800) float32
+    2 SCI     ImageHDU      61 (800, 800) float32
+    3 SCI     ImageHDU      61 (800, 800) float32
+    4 SCI     ImageHDU      61 (800, 800) float32
 
 After you are done with the opened file, close it with the `HDUList.close()`
 method:
@@ -54,6 +55,20 @@ method:
 The headers will still be accessible after the HDUlist is closed. The data may
 or may not be accessible depending on whether the data are touched and if they
 are memory-mapped, see later chapters for detail.
+
+Working with large files
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The `pyfits.open()` function supports a ``memmap=True`` argument that causes
+the array data of each HDU to be accessed with mmap, rather than being read
+into memory all at once.  This is particularly useful for working with very
+large arrays that cannot fit entirely into physical memory.
+
+This has minimal impact on smaller files as well, though some operations, such
+as reading the array data sequentially, may incur some additional overhead.  On
+32-bit systems arrays larger than 2-3 GB cannot be mmap'd (which is fine,
+because by that point you're likely to run out of physical memory anyways), but
+64-bit systems are much less limited in this respect.
 
 
 Working With a FITS Header
@@ -286,7 +301,7 @@ with update mode.
 
 
 Creating a New FITS File
-,,,,,,,,,,,,,,,,,,,,,,,,
+========================
 
 
 Creating a New Image File
@@ -384,7 +399,7 @@ and method.
 
 
 Convenience Functions
-,,,,,,,,,,,,,,,,,,,,,
+=====================
 
 PyFITS also provides several high level ("convenience") functions. Such a
 convenience function is a "canned" operation to achieve one simple task. By

@@ -1,13 +1,14 @@
 .. currentmodule:: pyfits.core
 
+*****
 Cards
-=====
+*****
 
 .. inheritance-diagram:: Card RecordValuedKeywordCard
    :parts: 2
 
 `Card`
-,,,,,,
+======
 
 .. autoclass:: Card
    :members:
@@ -16,7 +17,7 @@ Cards
    :show-inheritance:
 
 `RecordValuedKeywordCard`
-,,,,,,,,,,,,,,,,,,,,,,,,,
+=========================
 
 .. autoclass:: RecordValuedKeywordCard
    :members:
@@ -25,7 +26,7 @@ Cards
    :show-inheritance:
 
 Free functions
-,,,,,,,,,,,,,,
+==============
 
 create_card
 -----------

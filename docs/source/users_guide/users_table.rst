@@ -1,7 +1,8 @@
 .. currentmodule:: pyfits.core
 
+**********
 Table Data
-``````````
+**********
 
 In this chapter, we'll discuss the data component in a table HDU. A table will
 always be in an extension HDU, never in a primary HDU.
@@ -14,7 +15,7 @@ ASCII text need to be parsed back into numerical values.
 
 
 Table Data as a Record Array
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+============================
 
 
 What is a Record Array?
@@ -86,7 +87,7 @@ fields by name rather than by index.
 
 
 Table Operations
-,,,,,,,,,,,,,,,,
+================
 
 
 Selecting Records in a Table
@@ -157,7 +158,7 @@ the first table.
 
 
 Scaled Data in Tables
-,,,,,,,,,,,,,,,,,,,,,
+=====================
 
 A table field's data, like an image, can also be scaled. Scaling in a table has
 a more generalized meaning than in images. In images, the physical data is a
@@ -176,7 +177,7 @@ physical and storage column values.
 
 
 Creating a FITS Table
-,,,,,,,,,,,,,,,,,,,,,
+=====================
 
 
 Column Creation
