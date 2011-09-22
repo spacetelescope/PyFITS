@@ -2,13 +2,14 @@
 
 .. _tables:
 
+******
 Tables
-======
+******
 
 .. inheritance-diagram:: Column ColDefs FITS_record FITS_rec GroupData TableHDU BinTableHDU
 
 `BinTableHDU`
-,,,,,,,,,,,,,
+=============
 
 .. autoclass:: BinTableHDU
    :members:
@@ -17,7 +18,7 @@ Tables
    :show-inheritance:
 
 `TableHDU`
-,,,,,,,,,,
+==========
 
 .. autoclass:: TableHDU
    :members:
@@ -26,7 +27,7 @@ Tables
    :show-inheritance:
 
 `Column`
-,,,,,,,,
+========
 
 .. autoclass:: Column
    :members:
@@ -35,7 +36,7 @@ Tables
    :show-inheritance:
 
 `ColDefs`
-,,,,,,,,,
+=========
 
 .. autoclass:: ColDefs
    :members:
@@ -44,7 +45,7 @@ Tables
    :show-inheritance:
 
 `FITS_record`
-,,,,,,,,,,,,,
+=============
 
 .. autoclass:: FITS_record
    :members:
@@ -53,7 +54,7 @@ Tables
    :show-inheritance:
 
 `FITS_rec`
-,,,,,,,,,,
+==========
 
 .. autoclass:: FITS_rec
    :members:
@@ -61,7 +62,7 @@ Tables
    :show-inheritance:
 
 `GroupData`
-,,,,,,,,,,,
+===========
 
 .. autoclass:: GroupData
    :members:
@@ -70,7 +71,7 @@ Tables
 
 
 Free functions
-,,,,,,,,,,,,,,
+==============
 
 new_table
 ---------
@@ -78,11 +79,11 @@ new_table
 .. autofunction:: new_table
 
 tabledump
------
+---------
 
 .. autofunction:: tabledump
 
-tablelaod
--------
+tableload
+---------
 
 .. autofunction:: tableload

@@ -1,13 +1,14 @@
 .. currentmodule:: pyfits.core
 
+**********
 Image Data
-``````````
+**********
 
 In this chapter, we'll discuss the data component in an image HDU.
 
 
 Image Data as an Array
-,,,,,,,,,,,,,,,,,,,,,,
+======================
 
 A FITS primary HDU or an image extension HDU may contain image data. The
 following discussions apply to both of these HDU classes. In PyFITS, for most
@@ -52,7 +53,7 @@ These examples show the concise nature of numpy array operations.
 
 
 Scaled Data
-,,,,,,,,,,,
+===========
 
 Sometimes an image is scaled, i.e. the data stored in the file is not the
 image's physical (true) values, but linearly transformed according to the
@@ -139,7 +140,7 @@ of what happens to the ``.data`` attribute after the ``scale()`` call:
 
 
 Data Section
-,,,,,,,,,,,,
+============
 
 When a FITS image HDU's .data is accessed, either the whole data is copied into
 memory (in cases of NOT using memory mapping or if the data is scaled) or a

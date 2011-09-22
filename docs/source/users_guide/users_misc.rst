@@ -1,11 +1,12 @@
+**********************
 Miscellaneous Features
-``````````````````````
+**********************
 
 In this chapter, we'll describe some of the miscellaneous features of PyFITS.
 
 
 Warning Messages
-,,,,,,,,,,,,,,,,
+================
 
 PyFITS uses the Python warnings module to issue warning messages.  The user can
 suppress the warnings using the python command line argument ``-W"ignore"``

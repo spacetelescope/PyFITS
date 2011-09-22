@@ -1,7 +1,8 @@
 .. currentmodule:: pyfits.core
 
+************
 Verification
-````````````
+************
 
 PyFITS has built in a flexible scheme to verify FITS data being conforming to
 the FITS standard. The basic verification philosophy in PyFITS is to be
@@ -19,7 +20,7 @@ not be held up because of a minor standard violation.
 
 
 FITS Standard
-,,,,,,,,,,,,,
+=============
 
 Since FITS standard is a "loose" standard, there are many places the violation
 can occur and to enforce them all will be almost impossible. It is not uncommon
@@ -52,7 +53,7 @@ reading a FITS file, no ``verify()`` is called on input. On output,
 
 
 Verification Options
-,,,,,,,,,,,,,,,,,,,,
+====================
 
 There are 5 options for all verify(option) calls in PyFITS. In addition, they
 available for the ``output_verify`` argument of the following methods:
@@ -116,7 +117,7 @@ will not try to fix any FITS standard violations whether fixable or not.
 
 
 Verifications at Different Data Object Levels
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+=============================================
 
 We'll examine what PyFITS's verification does at the three different levels:
 
@@ -261,7 +262,7 @@ We'll summarize the verification with a "life-cycle" example:
 
 
 Verification using the FITS Checksum Keyword Convention
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+=======================================================
 
 The North American FITS committee has reviewed the FITS Checksum Keyword
 Convention for possible adoption as a FITS Standard.  This convention provides

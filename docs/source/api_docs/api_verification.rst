@@ -1,7 +1,8 @@
 .. _verify:
 
+********************
 Verification options
---------------------
+********************
 
 There are 5 options for the `output_verify` argument of the following
 methods: :meth:`close`, :meth:`writeto`, and :meth:`flush`. In these
@@ -9,7 +10,7 @@ cases, they are passed to a :meth:`verify` call within these
 methods.
 
 exception
-`````````
+=========
 
 This option will raise an exception if any FITS standard is
 violated. This is the default option for output (i.e. when
@@ -18,7 +19,7 @@ wants to overwrite this default on output, the other options listed
 below can be used.
 
 ignore
-``````
+======
 
 This option will ignore any FITS standard violation. On output, it
 will write the HDU List content to the output FITS file, whether or
@@ -37,7 +38,7 @@ No warning message will be printed out. This is like a silent warn
 (see below) option.
 
 fix
-```
+===
 
 This option wil try to fix any FITS standard violations. It is not
 always possible to fix such violations. In general, there are two
@@ -60,7 +61,7 @@ to make the fix in such a way that it will not throw off other FITS
 readers.
 
 silentfix
-`````````
+=========
 
 Same as fix, but will not print out informative messages. This may be
 useful in a large script where the user does not want excessive
@@ -68,7 +69,7 @@ harmless messages. If the violation is not fixable, it will still
 throw an exception.
 
 warn
-````
+====
 
 This option is the same as the ignore option but will send warning
 messages. It will not try to fix any FITS standard violations whether

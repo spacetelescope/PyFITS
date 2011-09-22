@@ -1,5 +1,6 @@
+************
 Introduction
-````````````
+************
 
 The PyFITS module is a Python library providing access to FITS files. FITS
 (Flexible Image Transport System) is a portable file standard widely used in
@@ -7,7 +8,7 @@ the astronomy community to store images and tables.
 
 
 Installation
-,,,,,,,,,,,,
+============
 
 PyFITS requires Python version 2.3 or newer. PyFITS also requires the numpy
 module. Information about numpy can be found at:
@@ -51,7 +52,7 @@ structures in PyFITS.
 
 
 User Support
-,,,,,,,,,,,,
+============
 
 The official PyFITS web page is:
 

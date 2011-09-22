@@ -1,7 +1,8 @@
 .. currentmodule:: pyfits.core
 
+**************
 Quick Tutorial
-``````````````
+**************
 
 This chapter provides a quick introduction of using PyFITS. The goal is to
 demonstrate PyFITS's basic features without getting into too much detail. If
@@ -16,7 +17,7 @@ Note that the module name is all lower case.
 
 
 Reading and Updating Existing FITS Files
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+========================================
 
 
 Opening a FITS file
@@ -286,7 +287,7 @@ with update mode.
 
 
 Creating a New FITS File
-,,,,,,,,,,,,,,,,,,,,,,,,
+========================
 
 
 Creating a New Image File
@@ -384,7 +385,7 @@ and method.
 
 
 Convenience Functions
-,,,,,,,,,,,,,,,,,,,,,
+=====================
 
 PyFITS also provides several high level ("convenience") functions. Such a
 convenience function is a "canned" operation to achieve one simple task. By
