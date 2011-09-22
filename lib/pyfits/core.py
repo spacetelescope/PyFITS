@@ -53,6 +53,7 @@ from pyfits.hdu.hdulist import fitsopen as open
 from pyfits.hdu.image import Section
 from pyfits.hdu.table import new_table
 from pyfits.header import Header
+from pyfits.util import deprecated
 
 
 # Additional imports used by the documentation (some of which should be
@@ -64,7 +65,7 @@ __all__ = pyfits.card.__all__ + pyfits.column.__all__ + \
           pyfits.convenience.__all__ + pyfits.hdu.__all__ + \
           ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',
            'new_table', 'Header', 'VerifyError', 'TRUE', 'FALSE',
-           'setExtensionNameCaseSensitive']
+           'EXTENSION_NAME_CASE_SENSITIVE', 'setExtensionNameCaseSensitive']
 
 
 # These are of course deprecated, but a handful of external code still uses
@@ -82,6 +83,7 @@ FALSE = False
 
 EXTENSION_NAME_CASE_SENSITIVE = False
 
+@deprecated(alternative='the pyfits.EXTENSION_NAME_CASE_SENSITIVE variable')
 def setExtensionNameCaseSensitive(value=True):
     global EXTENSION_NAME_CASE_SENSITIVE
     EXTENSION_NAME_CASE_SENSITIVE = value
