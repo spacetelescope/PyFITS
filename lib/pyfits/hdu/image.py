@@ -397,10 +397,10 @@ class _ImageBaseHDU(_ValidHDU):
         # bool(dtype) is always False--have to explicitly compare to None; this
         # caused a fair amount of hair loss
         if dtype is not None and dtype.kind == 'u':
-        #    # Convert the input raw data into an unsigned integer array and
-        #    # then scale the data adjusting for the value of BZERO.  Note that
-        #    # we subtract the value of BZERO instead of adding because of the
-        #    # way numpy converts the raw signed array into an unsigned array.
+            # Convert the input raw data into an unsigned integer array and
+            # then scale the data adjusting for the value of BZERO.  Note that
+            # we subtract the value of BZERO instead of adding because of the
+            # way numpy converts the raw signed array into an unsigned array.
             bits = dtype.itemsize * 8
             data = np.array(data, dtype=dtype)
             data -= np.uint64(1 << (bits - 1))
