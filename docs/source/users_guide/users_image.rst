@@ -180,5 +180,3 @@ while the second part will:
     >>> f1[1].section[5,:]
     >>> f1[1].section[5,:10]
     >>> f1[1].section[6,7]
-
-At present, the ``.section`` attribute does not support scaled data.
