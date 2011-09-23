@@ -110,15 +110,17 @@ if sys.version_info[0] >= 3:
         if dtype.fields is None:
             return dtype
 
-        new_dtype = {}
-        for name in dtype.names:
-            field = dtype.fields[name]
+        formats = []
+        offsets = []
+        for field in (dtype.fields[name] for name in dtype.names):
             shape = field[0].shape
             if not isinstance(shape, tuple):
                 shape = (shape,)
-            new_dtype[name] = ((field[0].base, shape), field[1])
+            formats.append((field[0].base, shape))
+            offsets.append(field[1])
 
-        return numpy.dtype(new_dtype)
+        return numpy.dtype({'names': dtype.names, 'formats': formats,
+                            'offsets': offsets})
 
     _recarray = numpy.recarray
     class recarray(_recarray):
