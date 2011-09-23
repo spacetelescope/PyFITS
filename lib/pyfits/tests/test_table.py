@@ -1688,3 +1688,28 @@ class TestTableFunctions(PyfitsTestCase):
         assert_true((s1 == s2).all())
         assert_true((s2 == s3).all())
         assert_true((s3 == s4).all())
+
+    def test_attribute_field_shadowing(self):
+        """
+        Regression test for #86.
+
+        Numpy recarray objects have a poorly-considered feature of allowing
+        field access by attribute lookup.  However, if a field name conincides
+        with an existing attribute/method of the array, the existing name takes
+        precence (making the attribute-based field lookup completely unreliable
+        in general cases).
+
+        This ensures that any FITS_rec attributes still work correctly even
+        when there is a field with the same name as that attribute.
+        """
+
+        c1 = pyfits.Column(name='names', format='I', array=[1])
+        c2 = pyfits.Column(name='formats', format='I', array=[2])
+        c3 = pyfits.Column(name='other', format='I', array=[3])
+
+        t = pyfits.new_table([c1, c2, c3])
+        assert_equal(t.data.names, ['names', 'formats', 'other'])
+        assert_equal(t.data.formats, ['I'] * 3)
+        assert_true((t.data['names'] == [1]).all())
+        assert_true((t.data['formats'] == [2]).all())
+        assert_true((t.data.other == [3]).all())
