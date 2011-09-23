@@ -862,10 +862,12 @@ class _ValidHDU(_BaseHDU, _Verify):
             # if the supposed location is specified
             if pos is not None:
                 if not pos(_index):
-                    err_text = "'%s' card at the wrong place (card %d)." \
-                               % (keyword, _index)
-                    fix_text = "Fixed by moving it to the right place " \
-                               "(card %d)." % insert_pos
+                    err_text = ("'%s' card at the wrong place (card %d) "
+                                "(note: PyFITS uses zero-based indexing)." %
+                                (keyword, _index))
+                    fix_text = ("Fixed by moving it to the right place "
+                                "(card %d) (note: PyFITS uses zero-based "
+                                "indexing)." % insert_pos)
 
                     def fix(self=self, index=_index, insert_pos=insert_pos):
                         cards = self._header.ascard

@@ -63,6 +63,7 @@ class _Verify(object):
         if opt not in ['silentfix', 'exception'] and x:
             warnings.warn('Output verification result:')
             warnings.warn(x)
+            warnings.warn('Note: PyFITS uses zero-based indexing.')
         if opt == 'exception' and x:
             raise VerifyError('\n' + x)
 

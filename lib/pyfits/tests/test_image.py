@@ -216,9 +216,9 @@ class TestImageFunctions(PyfitsTestCase):
         c = pyfits.Card.fromstring('abc= a6')
         with CaptureStdout() as f:
             c.verify()
-            assert_equal(f.getvalue(),
-                'Output verification result:\n'
-                'Card image is not FITS standard (equal sign not at column 8).\n')
+            assert_true(
+                'Card image is not FITS standard (equal sign not at column 8).'
+                in f.getvalue())
         assert_equal(str(c),
                      "abc= a6                                                                         ")
 
@@ -226,9 +226,7 @@ class TestImageFunctions(PyfitsTestCase):
         c = pyfits.Card.fromstring('abc= a6')
         with CaptureStdout() as f:
             c.verify('fix')
-            assert_equal(f.getvalue(),
-                         'Output verification result:\n'
-                         '  Fixed card to be FITS standard.: ABC\n')
+            assert_true('Fixed card to be FITS standard.: ABC' in f.getvalue())
         assert_equal(str(c),
                      "ABC     = 'a6      '                                                            ")
 
@@ -474,16 +472,14 @@ class TestImageFunctions(PyfitsTestCase):
             x = pyfits.ImageHDU()
             hdu = pyfits.HDUList(x) # HDUList can take a list or one single HDU
             hdu.verify()
-            assert_equal(f.getvalue(),
-                "Output verification result:\n"
-                "HDUList's 0th element is not a primary HDU.\n")
+            assert_true(
+                "HDUList's 0th element is not a primary HDU." in f.getvalue())
 
         with CaptureStdout() as f:
             hdu.writeto(self.temp('test_new2.fits'), 'fix')
-            assert_equal(f.getvalue(),
-                "Output verification result:\n"
+            assert_true(
                 "HDUList's 0th element is not a primary HDU.  "
-                "Fixed by inserting one as 0th HDU.\n")
+                "Fixed by inserting one as 0th HDU." in f.getvalue())
 
     def test_section(self):
         # section testing

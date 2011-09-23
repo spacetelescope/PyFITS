@@ -33,7 +33,9 @@ open method returns a PyFITS object called an `HDUList` which is a Python-like
 list, consisting of HDU objects. An HDU (Header Data Unit) is the highest level
 component of the FITS file structure. So, after the above open call,
 ``hdulist[0]`` is the primary HDU, ``hdulist[1]``, if any, is the first
-extension HDU, etc.
+extension HDU, etc.  It should be noted that PyFITS is using zero-based
+indexing when referring to HDUs and header cards, though the FITS standard
+(which was designed with FORTRAN in mind) uses one-based indexing.
 
 The `HDUList` has a useful method `HDUList.info()`, which summarizes the
 content of the opened FITS file:
@@ -59,7 +61,7 @@ are memory-mapped, see later chapters for detail.
 Working with large files
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-The `pyfits.open()` function supports a ``memmap=True`` argument that causes
+The `yfits.open()` function supports a ``memmap=True`` argument that cause
 the array data of each HDU to be accessed with mmap, rather than being read
 into memory all at once.  This is particularly useful for working with very
 large arrays that cannot fit entirely into physical memory.
