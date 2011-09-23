@@ -177,7 +177,7 @@ class ReleaseManager(object):
         for page in PYFITS_HOMEPAGE_SUBPAGES:
             try:
                 url = os.path.join(PYFITS_HOMEPAGE_BASE_URL, page)
-                proxy = _ZopeProxy(page, username, password)
+                proxy = _ZopeProxy(url, username, password)
                 content = proxy.retrieve()
                 content = search_version_re.sub(version_replace, content)
                 proxy.update(content)
@@ -283,7 +283,7 @@ class _ZopeProxy(object):
         if self.proxy is not None:
             return
         try:
-            self.proxy = xmlrpclib.ServerProxy(url)
+            self.proxy = xmlrpclib.ServerProxy(self.url)
         except Exception, e:
             # TODO: Catch bad authentication and let the user enter a new
             # username/password
