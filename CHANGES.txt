@@ -24,8 +24,22 @@ Changelog
 3.0.2 (unreleased)
 ------------------
 
+- The ``BinTableHDU.tcreate`` method and by extension the ``pyfits.tcreate``
+  function don't get tripped up by blank lines anymore (#14)
+
 - The presence, value, and position of the EXTEND keyword in Primary HDUs is
   verified when reading/writing a FITS file (#32)
+
+- Improved documentation (in warning messages as well as in the handbook) that
+  PyFITS uses zero-based indexing (as one would expect for C/Python code, but
+  contrary to the PyFITS standard which was written with FORTRAN in mind)
+  (#68)
+
+- Fixed a related bug where changes made directly to Card object in a header
+  (i.e. assigning directly to card.value or card.comment) would not propagate
+  when flushing changes to the file (#69)  NOTE: This bug was originally
+  reported as fixed in version 3.0.1, but the fix was never actually included
+  in that release.
 
 - Improved file handling, particularly in Python 3 which had a few small file
   I/O-related bugs (#76)
@@ -36,6 +50,10 @@ Changelog
 - Fixed the handling of TDIMn keywords; 3.0 added support for them, but got
   the axis order backards (they were treated as though they were row-major)
   (#82)
+
+- Fixed a crash when a FITS file containing scaled data is opened and
+  immediately written to a new file without explicitly viewing the data first
+  (#84)
 
 
 3.0.1 (2011-09-12)
