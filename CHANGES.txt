@@ -55,6 +55,9 @@ Changelog
   immediately written to a new file without explicitly viewing the data first
   (#84)
 
+- Fixed a bug where creating a table with columns named either 'names' or
+  'formats' resulted in an infinite recursion (#86)
+
 
 3.0.1 (2011-09-12)
 ------------------

@@ -190,8 +190,8 @@ class FITS_rec(np.recarray):
             self._file = obj._file
             self._coldefs = obj._coldefs
             self._nfields = obj._nfields
-            self.names = obj.names
             self._gap = obj._gap
+            self.names = obj.names
             self.formats = obj.formats
         else:
             # This will allow regular ndarrays with fields, rather than
@@ -204,10 +204,12 @@ class FITS_rec(np.recarray):
 
             self._coldefs = None
             self._gap = 0
+
+            # Bypass setattr-based assignment to fields; see #86
             self.names = list(obj.dtype.names)
             self.formats = None
 
-            attrs = ['_convert', '_coldefs', 'names', '_gap', 'formats']
+            attrs = ['_convert', '_coldefs', '_gap']
             for attr in attrs:
                 if hasattr(obj, attr):
                     value = getattr(obj, attr, None)
@@ -217,10 +219,27 @@ class FITS_rec(np.recarray):
 
             if self._coldefs is None:
                 self._coldefs = ColDefs(self)
-                self.formats = self._coldefs.formats
+            self.formats = self._coldefs.formats
 
     def __repr__(self):
         return np.recarray.__repr__(self)
+
+    def __getattribute__(self, attr):
+        # See the comment in __setattr__
+        if attr in ('names', 'formats'):
+            return object.__getattribute__(self, attr)
+        else:
+            return super(FITS_rec, self).__getattribute__(attr)
+
+    def __setattr__(self, attr, value):
+        # Overrides the silly attribute-based assignment to fields supported by
+        # recarrays for our two built-in public attributes: names and formats
+        # Otherwise, the default behavior, bad as it is, is preserved.  See
+        # ticket #86
+        if attr in ('names', 'formats'):
+            return object.__setattr__(self, attr, value)
+        else:
+            return super(FITS_rec, self).__setattr__(attr, value)
 
     def __getitem__(self, key):
         if isinstance(key, basestring):
