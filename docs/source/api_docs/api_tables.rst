@@ -78,12 +78,12 @@ new_table
 
 .. autofunction:: new_table
 
-tabledump
----------
+tdump
+-----
 
-.. autofunction:: tabledump
+.. autofunction:: tdump
 
-tableload
----------
+tcreate
+-------
 
-.. autofunction:: tableload
+.. autofunction:: tcreate
