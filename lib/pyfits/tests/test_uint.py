@@ -16,7 +16,7 @@ class TestUintFunctions(PyfitsTestCase):
         hdu.writeto(self.temp('tempfile.fits'))
         hdul = pyfits.open(self.temp('tempfile.fits'), uint=True)
         assert_equal(hdul[0].data.dtype, np.uint16)
-        assert_equal(np.all(hdul[0].data == 
+        assert_equal(np.all(hdul[0].data ==
                          np.array([(2**16)-3, (2**16)-2, (2**16)-1, 0, 1, 2, 3],
                                   dtype=np.uint16)), True)
         hdul.writeto(self.temp('tempfile1.fits'))
@@ -32,7 +32,7 @@ class TestUintFunctions(PyfitsTestCase):
         hdu.writeto(self.temp('tempfile.fits'))
         hdul = pyfits.open(self.temp('tempfile.fits'), uint=True)
         assert_equal(hdul[0].data.dtype, np.uint32)
-        assert_equal(np.all(hdul[0].data == 
+        assert_equal(np.all(hdul[0].data ==
                          np.array([(2**32)-3, (2**32)-2, (2**32)-1, 0, 1, 2, 3],
                          dtype=np.uint32)), True)
         hdul.writeto(self.temp('tempfile1.fits'))
@@ -49,7 +49,7 @@ class TestUintFunctions(PyfitsTestCase):
             hdu.writeto(self.temp('tempfile.fits'))
             hdul = pyfits.open(self.temp('tempfile.fits'), uint=True)
             assert_equal(hdul[0].data.dtype, np.uint64)
-            assert_equal(np.all(hdul[0].data == 
+            assert_equal(np.all(hdul[0].data ==
                              np.array([(2**64)-3,(2**64)-2,(2**64)-1,0,1,2,3],
                              dtype=np.uint64)), True)
             hdul.writeto(self.temp('tempfile1.fits'))

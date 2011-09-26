@@ -234,11 +234,11 @@ class TestImageFunctions(PyfitsTestCase):
         # test long string value
         c = pyfits.Card('abc', 'long string value '*10, 'long comment '*10)
         assert_equal(str(c),
-            "ABC     = 'long string value long string value long string value long string &' \n"
-            "CONTINUE  'value long string value long string value long string value long &'  \n"
-            "CONTINUE  'string value long string value long string value &'                  \n"
-            "CONTINUE  '&' / long comment long comment long comment long comment long        \n"
-            "CONTINUE  '&' / comment long comment long comment long comment long comment     \n"
+            "ABC     = 'long string value long string value long string value long string &' "
+            "CONTINUE  'value long string value long string value long string value long &'  "
+            "CONTINUE  'string value long string value long string value &'                  "
+            "CONTINUE  '&' / long comment long comment long comment long comment long        "
+            "CONTINUE  '&' / comment long comment long comment long comment long comment     "
             "CONTINUE  '&' / long comment                                                    ")
 
     def test_long_string_from_file(self):
@@ -251,11 +251,11 @@ class TestImageFunctions(PyfitsTestCase):
         c = hdul[0].header.ascard['abc']
         hdul.close()
         assert_equal(str(c),
-            "ABC     = 'long string value long string value long string value long string &' \n"
-            "CONTINUE  'value long string value long string value long string value long &'  \n"
-            "CONTINUE  'string value long string value long string value &'                  \n"
-            "CONTINUE  '&' / long comment long comment long comment long comment long        \n"
-            "CONTINUE  '&' / comment long comment long comment long comment long comment     \n"
+            "ABC     = 'long string value long string value long string value long string &' "
+            "CONTINUE  'value long string value long string value long string value long &'  "
+            "CONTINUE  'string value long string value long string value &'                  "
+            "CONTINUE  '&' / long comment long comment long comment long comment long        "
+            "CONTINUE  '&' / comment long comment long comment long comment long comment     "
             "CONTINUE  '&' / long comment                                                    ")
 
 
@@ -263,10 +263,10 @@ class TestImageFunctions(PyfitsTestCase):
         # if a word in a long string is too long, it will be cut in the middle
         c = pyfits.Card('abc', 'longstringvalue'*10, 'longcomment'*10)
         assert_equal(str(c),
-            "ABC     = 'longstringvaluelongstringvaluelongstringvaluelongstringvaluelongstr&'\n"
-            "CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'\n"
-            "CONTINUE  'elongstringvalue&'                                                   \n"
-            "CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme\n"
+            "ABC     = 'longstringvaluelongstringvaluelongstringvaluelongstringvaluelongstr&'"
+            "CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'"
+            "CONTINUE  'elongstringvalue&'                                                   "
+            "CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme"
             "CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment                  ")
 
     def test_long_string_value_via_fromstring(self):
