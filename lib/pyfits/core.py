@@ -31,8 +31,9 @@ from __future__ import division # confidence high
                 - Google Search, when asked for "PyFITS"
 """
 
-import urllib
+import os
 import sys
+import urllib
 import warnings
 
 import pyfits.py3compat
@@ -73,6 +74,11 @@ __all__ = pyfits.card.__all__ + pyfits.column.__all__ + \
 TRUE = True
 FALSE = False
 
+
+try:
+    USE_MEMMAP = bool(int(os.environ.get('PYFITS_USE_MEMMAP', 1)))
+except ValueError:
+    USE_MEMMAP = True
 
 # The following variable and function are used to support case sensitive
 # values for the value of a EXTNAME card in an extension header.  By default,
