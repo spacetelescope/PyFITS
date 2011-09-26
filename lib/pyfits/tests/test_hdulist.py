@@ -424,3 +424,13 @@ class TestHDUListFunctions(PyfitsTestCase):
             assert_equal(len(w), 1)
             assert_true('mode is not supported' in str(w[0].message))
         assert_equal(oldmtime, os.stat(self.data('test0.fits')).st_mtime)
+
+    def test_fix_extend_keyword(self):
+        hdul = pyfits.HDUList()
+        hdul.append(pyfits.PrimaryHDU())
+        hdul.append(pyfits.ImageHDU())
+        del hdul[0].header['EXTEND']
+        hdul.verify('silentfix')
+
+        assert_true('EXTEND' in hdul[0].header)
+        assert_equal(hdul[0].header['EXTEND'], True)
