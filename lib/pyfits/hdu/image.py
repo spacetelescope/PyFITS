@@ -737,7 +737,9 @@ class ImageHDU(_ImageBaseHDU, ExtensionHDU):
     @classmethod
     def match_header(cls, header):
         card = header.ascard[0]
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
         return card.key == 'XTENSION' and xtension == cls._extension
 
     def _verify(self, option='warn'):

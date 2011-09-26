@@ -1370,7 +1370,9 @@ class NonstandardExtHDU(ExtensionHDU):
         """
 
         card = header.ascard[0]
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
         # A3DTABLE is not really considered a 'standard' extension, as it was
         # sort of the prototype for BINTABLE; however, since our BINTABLE
         # implementation handles A3DTABLE HDUs it is listed here.

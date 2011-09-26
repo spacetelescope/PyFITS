@@ -386,7 +386,9 @@ class TableHDU(_TableBaseHDU):
     @classmethod
     def match_header(cls, header):
         card = header.ascard[0]
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
         return card.key == 'XTENSION' and xtension == cls._extension
 
     def _get_tbdata(self):
@@ -470,7 +472,9 @@ class BinTableHDU(_TableBaseHDU):
     @classmethod
     def match_header(cls, header):
         card = header.ascard[0]
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
         return card.key == 'XTENSION' and \
                xtension in (cls._extension, 'A3DTABLE')
 

@@ -271,7 +271,10 @@ class CompImageHDU(BinTableHDU):
         if card.key != 'XTENSION':
             return False
 
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
+
         if xtension not in ('BINTABLE', 'A3DTABLE'):
             return False
 

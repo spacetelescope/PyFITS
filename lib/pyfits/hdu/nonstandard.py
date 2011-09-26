@@ -119,7 +119,9 @@ class FitsHDU(NonstandardExtHDU):
         card = header.ascard[0]
         if card.key != 'XTENSION':
             return False
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
         return xtension == cls._extension
 
     # TODO: Add header verification
