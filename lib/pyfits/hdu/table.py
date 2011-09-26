@@ -229,10 +229,6 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         size = self._header['NAXIS1'] * self._header['NAXIS2']
         return self._header.get('THEAP', size)
 
-    @lazyproperty
-    def _pcount(self):
-        return self._header.get('PCOUNT', 0)
-
     @deprecated(alternative='the .columns attribute')
     def get_coldefs(self):
         """
