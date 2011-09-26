@@ -167,9 +167,6 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                 self._header['NAXIS2'] = self.data.shape[0]
                 self._header['TFIELDS'] = self.data._nfields
 
-                if self.data._coldefs is None:
-                    self.data._coldefs = ColDefs(data)
-
                 self.columns = self.data._coldefs
                 self.update()
 
