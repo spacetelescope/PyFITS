@@ -24,7 +24,10 @@ Changelog
 3.0.3 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- In some cases HDU creation failed if the first keyword value in the header
+  was not a string value (#89)
+
+- Fixed a typo in code for handling HCOMPRESS compressed images.
 
 
 3.0.2 (2011-09-23)
