@@ -21,7 +21,13 @@ Changelog
   column definition file (#14)
 
 
-3.0.2 (unreleased)
+3.0.3 (unreleased)
+------------------
+
+- Nothing changed yet.
+
+
+3.0.2 (2011-09-23)
 ------------------
 
 - The ``BinTableHDU.tcreate`` method and by extension the ``pyfits.tcreate``
@@ -35,11 +41,14 @@ Changelog
   contrary to the PyFITS standard which was written with FORTRAN in mind)
   (#68)
 
+- Fixed a bug where updating a header card comment could cause the value to be
+  lost if it had not already been read from the card image string.
+
 - Fixed a related bug where changes made directly to Card object in a header
   (i.e. assigning directly to card.value or card.comment) would not propagate
-  when flushing changes to the file (#69)  NOTE: This bug was originally
-  reported as fixed in version 3.0.1, but the fix was never actually included
-  in that release.
+  when flushing changes to the file (#69) [Note: This and the bug above it
+  were originally reported as being fixed in version 3.0.1, but the fix was
+  never included in the release.]
 
 - Improved file handling, particularly in Python 3 which had a few small file
   I/O-related bugs (#76)
