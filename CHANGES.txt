@@ -17,6 +17,11 @@ Changelog
     compatible with data dumps from previous versions of PyFITS, but not
     vice-versa due to a parsing bug in older versions.
 
+- Added a new .is_image attribute on HDU objects, which is True if the HDU
+  data is an 'image' as opposed to a table or something else.  Here the
+  meaning of 'image' is fairly loose, and mostly just means a Primary or Image
+  extension HDU, or possibly a compressed image HDU (#71)
+
 - Fixed pyfits.tcreate() to be more robust when encountering blank lines in a
   column definition file (#14)
 

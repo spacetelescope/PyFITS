@@ -111,6 +111,15 @@ class _BaseHDU(object):
     header = property(_getheader, _setheader)
 
     @property
+    def is_image(self):
+        return (
+            self.name == 'PRIMARY' or
+            ('XTENSION' in self.header and
+             (self.header['XTENSION'] == 'IMAGE' or
+              (self.header['XTENSION'] == 'BINTABLE' and
+               'ZIMAGE' in self.header and self.header['ZIMAGE'] == True))))
+
+    @property
     def _data_loaded(self):
         return 'data' in self.__dict__ and self.data is not None and \
                self.data is not DELAYED
