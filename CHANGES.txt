@@ -29,6 +29,8 @@ Changelog
 3.0.3 (unreleased)
 ------------------
 
+- Fixed several small bugs related record-valued keyword cards (#70)
+
 - In some cases HDU creation failed if the first keyword value in the header
   was not a string value (#89)
 
