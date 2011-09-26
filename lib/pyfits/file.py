@@ -29,11 +29,7 @@ class _File(object):
 
     __metaclass__ = Extendable
 
-    def __init__(self, fileobj=None, mode='copyonwrite', memmap=None):
-        if memmap is None:
-            from pyfits.core import USE_MEMMAP
-            memmap = USE_MEMMAP
-
+    def __init__(self, fileobj=None, mode='copyonwrite', memmap=False):
         if fileobj is None:
             self.__file = None
             self.closed = False

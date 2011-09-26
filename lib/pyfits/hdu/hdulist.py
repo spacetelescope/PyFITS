@@ -25,7 +25,7 @@ from pyfits.verify import _Verify, _ErrList
 
 
 @_with_extensions
-def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
+def fitsopen(name, mode="copyonwrite", memmap=None, classExtensions={},
              **kwargs):
     """Factory function to open a FITS file and return an `HDUList` object.
 
@@ -92,6 +92,10 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
             file.
 
     """
+
+    if memmap is None:
+        from pyfits.core import USE_MEMMAP
+        memmap = USE_MEMMAP
 
     if 'uint16' in kwargs and 'uint' not in kwargs:
         kwargs['uint'] = kwargs['uint16']
