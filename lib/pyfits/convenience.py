@@ -256,15 +256,11 @@ def setval(filename, key, value="", comment=None, before=None, after=None,
         See `getdata` for explanations/examples.
     """
 
+    if 'do_not_scale_image_data' not in extkeys:
+        extkeys['do_not_scale_image_data'] = True
+
     hdulist, ext = _getext(filename, mode='update', *ext, **extkeys)
     hdulist[ext].header.update(key, value, comment, before, after, savecomment)
-
-    # Ensure that data will not be scaled when the file is closed
-
-    for hdu in hdulist:
-       hdu._bscale = 1
-       hdu._bzero = 0
-
     hdulist.close()
 
 
@@ -294,15 +290,11 @@ def delval(filename, key, *ext, **extkeys):
         See `getdata` for explanations/examples.
     """
 
+    if 'do_not_scale_image_data' not in extkeys:
+        extkeys['do_not_scale_image_data'] = True
+
     hdulist, ext = _getext(filename, mode='update', *ext, **extkeys)
     del hdulist[ext].header[key]
-
-    # Ensure that data will not be scaled when the file is closed
-
-    for hdu in hdulist:
-       hdu._bscale = 1
-       hdu._bzero = 0
-
     hdulist.close()
 
 
