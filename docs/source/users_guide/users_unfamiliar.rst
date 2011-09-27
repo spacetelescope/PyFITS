@@ -1,7 +1,8 @@
 .. currentmodule:: pyfits.core
 
+*********************
 Less Familiar Objects
-`````````````````````
+*********************
 
 In this chapter, we'll discuss less frequently used FITS data structures. They
 include ASCII tables, variable length tables, and random access group FITS
@@ -9,7 +10,7 @@ files.
 
 
 ASCII Tables
-,,,,,,,,,,,,
+============
 
 FITS standard supports both binary and ASCII tables. In ASCII tables, all the
 data are stored in a human readable text form, so it takes up more space and
@@ -74,7 +75,8 @@ The default value for tbtype is `BinTableHDU`.
      >>> a1 = np.array(['abcd', 'def'])
      >>> r1 = np.array([11., 12.])
      >>> c1 = pyfits.Column(name='abc', format='A3', array=a1)
-     >>> c2 = pyfits.Column(name='def', format='E', array=r1, bscale=2.3, bzero=0.6)
+     >>> c2 = pyfits.Column(name='def', format='E', array=r1, bscale=2.3,
+     ...                    bzero=0.6)
      >>> c3 = pyfits.Column(name='t1', format='I', array=[91, 92, 93])
      # Create the table
      >>> x = pyfits.ColDefs([c1, c2, c3], tbtype='TableHDU')
@@ -83,12 +85,12 @@ The default value for tbtype is `BinTableHDU`.
      >>> hdu = pyfits.new_table([c1, c2, c3], tbtype='TableHDU')
      >>> hdu.writeto('ascii.fits')
      >>> hdu.data
-     FITS_rec([('abcd', 11.0, 91), ('def', 12.0, 92), ('', 0.0, 93)], 
+     FITS_rec([('abcd', 11.0, 91), ('def', 12.0, 92), ('', 0.0, 93)],
               dtype=[('abc', '|S3'), ('def', '|S14'), ('t1', '|S10')])
 
 
 Variable Length Array Tables
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+============================
 
 The FITS standard also supports variable length array tables. The basic idea is
 that sometimes it is desirable to have tables with cells in the same field
@@ -141,9 +143,9 @@ is regular and the other variable length array.
     >>> import pyfits
     >>> import numpy as np
     >>> c1 = pyfits.Column(name='var', format='PJ()',
-                           array=np.array([np.array([45., 56]),
-                               np.array([11, 12, 13])],
-                      dtype=np.object))
+    ...                    array=np.array([[45., 56]
+                                           [11, 12, 13]],
+    ...                                   dtype=np.object))
     >>> c2 = pyfits.Column(name='xyz', format='2I', array=[[11, 3], [12, 4]])
     # the rest is the same as a regular table.
     # Create the table HDU
@@ -172,7 +174,7 @@ is regular and the other variable length array.
 
 
 Random Access Groups
-,,,,,,,,,,,,,,,,,,,,
+====================
 
 Another less familiar data structure supported by the FITS standard is the
 random access group. This convention was established before the binary table
@@ -180,16 +182,16 @@ extension was introduced. In most cases its use can now be superseded by the
 binary table. It is mostly used in radio interferometry.
 
 Like Primary HDUs, a Random Access Group HDU is always the first HDU of a FITS
-file. Its data has one or more groups. Each group may have any number (including
-0) of parameters, together with an image. The parameters and the image have the
-same data type.
+file. Its data has one or more groups. Each group may have any number
+(including 0) of parameters, together with an image. The parameters and the
+image have the same data type.
 
 All groups in the same HDU have the same data structure, i.e. same data type
 (specified by the keyword BITPIX, as in image HDU), same number of parameters
 (specified by PCOUNT), and the same size and shape (specified by NAXISn
-keywords) of the image data. The number of groups is specified by GCOUNT and the
-keyword NAXIS1 is always 0. Thus the total data size for a Random Access Group
-HDU is
+keywords) of the image data. The number of groups is specified by GCOUNT and
+the keyword NAXIS1 is always 0. Thus the total data size for a Random Access
+Group HDU is
 
 .. parsed-literal::
 
@@ -199,11 +201,11 @@ HDU is
 Header and Summary
 ------------------
 
-Accessing the header of a Random Access Group HDU is no different from any other
-HDU. Just use the .header attribute.
+Accessing the header of a Random Access Group HDU is no different from any
+other HDU. Just use the .header attribute.
 
-The content of the HDU can similarly be summarized by using the `HDUList.info()`
-method:
+The content of the HDU can similarly be summarized by using the
+`HDUList.info()` method:
 
     >>> f = pyfits.open('random_group.fits')
     >>> print f[0].header['groups']
@@ -222,10 +224,10 @@ method:
 Data: Group Parameters
 ----------------------
 
-The data part of a random access group HDU is, like other HDUs, in the ``.data``
-attribute. It includes both parameter(s) and image array(s).
+The data part of a random access group HDU is, like other HDUs, in the
+``.data`` attribute. It includes both parameter(s) and image array(s).
 
-1. show the data in 100th group, including parameters and data 
+1. show the data in 100th group, including parameters and data
 
     >>> print f[0].data[99]
     (-8.1987486677035799e-06, 1.2010923615889215e-05,
@@ -235,8 +237,8 @@ attribute. It includes both parameter(s) and image array(s).
     [ 0. , 0. , 3.99993873],
     [ 0. , 0. , 3.99993873]]]]], dtype=float32))
 
-The data first lists all the parameters, then the image array, for the specified
-group(s). As a reminder, the image data in this file has the shape of
+The data first lists all the parameters, then the image array, for the
+specified group(s). As a reminder, the image data in this file has the shape of
 (1,1,1,4,3) in Python or C convention, or (3,4,1,1,1) in IRAF or FORTRAN
 convention.
 
@@ -268,10 +270,10 @@ random access group, and it means to add the values together. Thus:
     >>> print f[0].data.par('date')[99]
     2445728.10
 
-The ``.par()`` is a method for either the entire data object or one data item (a
-group). So there are two possible ways to get a group parameter for a certain
-group, this is similar to the situation in table data (with its ``field()``
-method):
+The ``.par()`` is a method for either the entire data object or one data item
+(a group). So there are two possible ways to get a group parameter for a
+certain group, this is similar to the situation in table data (with its
+``field()`` method):
 
     >>>
     # Access group parameter by selecting the row (group) number last
@@ -335,8 +337,8 @@ create the HDU itself:
     # in lists assigned to their corresponding arguments.
     # If the data type (bitpix) is not specified, the data type of the image
     # will be used.
-    >>> x = pyfits.GroupData(imdata, parnames=['abc', 'xyz'], 
-                             pardata=[pdata1, pdata2], bitpix=-32)
+    >>> x = pyfits.GroupData(imdata, parnames=['abc', 'xyz'],
+    ...                      pardata=[pdata1, pdata2], bitpix=-32)
     # Now, create the GroupsHDU and write to a FITS file.
     >>> hdu = pyfits.GroupsHDU(x)
     >>> hdu.writeto('test_group.fits')
@@ -365,15 +367,16 @@ create the HDU itself:
 
 
 Compressed Image Data
-,,,,,,,,,,,,,,,,,,,,,
+=====================
 
-A general technique has been developed for storing compressed image data in FITS
-binary tables.  The principle used in this convention is to first divide the
-n-dimensional image into a rectangular grid of sub images or  'tiles'.  Each
-tile is then compressed as a continuous block of data, and the resulting
-compressed byte stream is stored in a row of a variable  length column in a FITS
-binary table.  Several commonly used algorithms for compressing image tiles are
-supported.  These include, Gzip, Rice,  IRAF Pixel List (PLIO), and Hcompress.
+A general technique has been developed for storing compressed image data in
+FITS binary tables.  The principle used in this convention is to first divide
+the n-dimensional image into a rectangular grid of sub images or  'tiles'.
+Each tile is then compressed as a continuous block of data, and the resulting
+compressed byte stream is stored in a row of a variable  length column in a
+FITS binary table.  Several commonly used algorithms for compressing image
+tiles are supported.  These include, Gzip, Rice,  IRAF Pixel List (PLIO), and
+Hcompress.
 
 For more details, reference "A FITS Image Compression Proposal" from:
 
@@ -384,12 +387,12 @@ and "Registered FITS Convention, Tiled Image Compression Convention":
     http://fits.gsfc.nasa.gov/registry/tilecompression.html
 
 Compressed image data is accessed, in PyFITS, using the optional
-"pyfits.compression" module contained in a C shared library (compression.so). If
-an attempt is made to access an HDU containing compressed image data when the
-pyfitsComp module is not available, the user is notified of the  problem and the
-HDU is treated like a standard binary table HDU.  This  notification will only
-be made the first time compressed image data is encountered.  In this way, the
-pyfitsComp module is not required in order for PyFITS to work.
+"pyfits.compression" module contained in a C shared library (compression.so).
+If an attempt is made to access an HDU containing compressed image data when
+the pyfitsComp module is not available, the user is notified of the  problem
+and the HDU is treated like a standard binary table HDU.  This  notification
+will only be made the first time compressed image data is encountered.  In this
+way, the pyfitsComp module is not required in order for PyFITS to work.
 
 
 Header and Summary
@@ -397,10 +400,11 @@ Header and Summary
 
 In PyFITS, the header of a compressed image HDU appears to the user like any
 image header.  The actual header stored in the FITS file is that of a  binary
-table HDU with a set of special keywords, defined by the convention, to describe
-the structure of the compressed image.  The conversion between binary table HDU
-header and image HDU header is all performed behind the scenes.  Since the HDU
-is actually a binary table, it may not appear as a primary HDU in a FITS file.
+table HDU with a set of special keywords, defined by the convention, to
+describe the structure of the compressed image.  The conversion between binary
+table HDU header and image HDU header is all performed behind the scenes.
+Since the HDU is actually a binary table, it may not appear as a primary HDU in
+a FITS file.
 
 The content of the HDU header may be accessed using the ``.header`` attribute:
 
@@ -465,15 +469,16 @@ Data
 ----
 
 As with the header, the data of a compressed image HDU appears to the user as
-standard uncompressed image data.  The actual data is stored in the fits file as
-Binary Table data containing at least one column (COMPRESSED_DATA).  Each row of
-this variable-length column contains the byte stream that was generated as a
-result of compressing the corresponding image tile.  Several optional columns
-may also appear.  These include, UNCOMPRESSED_DATA to hold the uncompressed
-pixel values for tiles that cannot be compressed, ZSCALE and ZZERO to hold the
-linear scale factor and zero point offset which may be needed to transform the
-raw uncompressed values back to the original image pixel values, and ZBLANK to
-hold the integer value used to represent undefined pixels (if any) in the image.
+standard uncompressed image data.  The actual data is stored in the fits file
+as Binary Table data containing at least one column (COMPRESSED_DATA).  Each
+row of this variable-length column contains the byte stream that was generated
+as a result of compressing the corresponding image tile.  Several optional
+columns may also appear.  These include, UNCOMPRESSED_DATA to hold the
+uncompressed pixel values for tiles that cannot be compressed, ZSCALE and ZZERO
+to hold the linear scale factor and zero point offset which may be needed to
+transform the raw uncompressed values back to the original image pixel values,
+and ZBLANK to hold the integer value used to represent undefined pixels (if
+any) in the image.
 
 The content of the HDU data may be accessed using the ``.data`` attribute:
 
@@ -491,9 +496,10 @@ The content of the HDU data may be accessed using the ``.data`` attribute:
 Creating a Compressed Image HDU
 -------------------------------
 
-To create a compressed image HDU from scratch, simply construct a `CompImageHDU`
-object from an uncompressed image data array and its associated image header.
-From there, the HDU can be treated just like any other image HDU.
+To create a compressed image HDU from scratch, simply construct a
+`CompImageHDU` object from an uncompressed image data array and its associated
+image header.  From there, the HDU can be treated just like any other image
+HDU.
 
     >>> hdu = pyfits.CompImageHDU(imageData, imageHeader)
     >>> hdu.writeto('compressed_image.fits')

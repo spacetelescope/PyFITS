@@ -3,11 +3,7 @@
 import sys
 import warnings
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
-
+from pyfits.util import StringIO
 
 class CaptureStdout(object):
     """A simple context manager for redirecting stdout to a StringIO buffer."""

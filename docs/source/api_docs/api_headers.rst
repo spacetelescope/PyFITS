@@ -1,12 +1,13 @@
 .. currentmodule:: pyfits.core
 
+*******
 Headers
-=======
+*******
 
 .. inheritance-diagram:: Header CardList
 
 `Header`
-,,,,,,,,
+========
 
 .. autoclass:: Header
    :members:
@@ -15,7 +16,7 @@ Headers
    :show-inheritance:
 
 `CardList`
-,,,,,,,,,,
+==========
 
 .. autoclass:: CardList
    :members:

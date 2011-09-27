@@ -252,7 +252,8 @@ class Column(object):
                     return _convert_array(array, np.dtype(numpy_format))
             elif 'X' not in format and 'P' not in format:
                 (repeat, fmt, option) = _parse_tformat(format)
-                numpy_format = _convert_format(fmt)
+                # Preserve byte order of the original array for now; see #77
+                numpy_format = array.dtype.byteorder + _convert_format(fmt)
                 return _convert_array(array, np.dtype(numpy_format))
             elif 'X' in format:
                 return _convert_array(array, np.dtype('uint8'))
@@ -292,14 +293,15 @@ class ColDefs(object):
         Parameters
         ----------
 
-        input : sequence of `Column` objects
-            an (table) HDU
+        input :
+            An existing table HDU, an existing ColDefs, or recarray
 
         **(Deprecated)** tbtype : str, optional
             which table HDU, ``"BinTableHDU"`` (default) or
             ``"TableHDU"`` (text table).
-            now ColDefs for a normal (binary) table by default, but converted
+            Now ColDefs for a normal (binary) table by default, but converted
             automatically to ASCII table ColDefs in the appropriate contexts
+            (namely, when creating an ASCII table).
         """
 
         from pyfits.hdu.table import _TableBaseHDU
@@ -331,7 +333,7 @@ class ColDefs(object):
                     format = _convert_format(ftype, reverse=True)
                 # Determine the appropriate dimensions for items in the column
                 # (typically just 1D)
-                dim = input.dtype[idx].shape
+                dim = input.dtype[idx].shape[::-1]
                 if dim and (len(dim) > 1 or 'A' in format):
                     if 'A' in format:
                         # n x m string arrays must include the max string

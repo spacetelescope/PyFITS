@@ -35,7 +35,7 @@ class TestImageFunctions(PyfitsTestCase):
         hdu = pyfits.ImageHDU(header=hdr, name='FOO')
         assert_equal(hdu.name, 'FOO')
         assert_equal(hdu.header['EXTNAME'], 'FOO')
-
+        
     def test_open(self):
         # The function "open" reads a FITS file into an HDUList object.  There
         # are three modes to open: "readonly" (the default), "append", and
@@ -219,16 +219,14 @@ class TestImageFunctions(PyfitsTestCase):
             x = pyfits.ImageHDU()
             hdu = pyfits.HDUList(x) # HDUList can take a list or one single HDU
             hdu.verify()
-            assert_equal(f.getvalue(),
-                "Output verification result:\n  "
-                "HDUList's 0th element is not a primary HDU.\n")
+            assert_true(
+                "HDUList's 0th element is not a primary HDU." in f.getvalue())
 
         with CaptureStdout() as f:
             hdu.writeto(self.temp('test_new2.fits'), 'fix')
-            assert_equal(f.getvalue(),
-                "Output verification result:\n  "
+            assert_true(
                 "HDUList's 0th element is not a primary HDU.  "
-                "Fixed by inserting one as 0th HDU.\n")
+                "Fixed by inserting one as 0th HDU." in f.getvalue())
 
     def test_section(self):
         # section testing
@@ -450,27 +448,46 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(d.section[:,1,0,:].all(), dat[:,1,0,:].all())
         assert_equal(d.section[:,:,:,1].all(), dat[:,:,:,1].all())
 
-    def test_comp_image(self):
-        data = np.zeros((2, 10, 10), dtype=np.float32)
+    def _test_comp_image(self, data, compression_type, quantize_level):
         primary_hdu = pyfits.PrimaryHDU()
         ofd = pyfits.HDUList(primary_hdu)
-        ofd.append(pyfits.CompImageHDU(data, name="SCI",
-                                       compressionType="GZIP_1",
-                                       quantizeLevel=-0.01))
+        chdu = pyfits.CompImageHDU(data, name='SCI',
+                                   compressionType=compression_type,
+                                   quantizeLevel=quantize_level)
+        ofd.append(chdu)
         ofd.writeto(self.temp('test_new.fits'))
         ofd.close()
         fd = pyfits.open(self.temp('test_new.fits'))
         assert_equal(fd[1].data.all(), data.all())
-
-        data = np.zeros((100, 100)) + 1
-        chdu = pyfits.CompImageHDU(data)
-        chdu.writeto(self.temp('test_new.fits'), clobber=True)
-        fd = pyfits.open(self.temp('test_new.fits'))
         assert_equal(fd[1].header['NAXIS'], chdu.header['NAXIS'])
         assert_equal(fd[1].header['NAXIS1'], chdu.header['NAXIS1'])
         assert_equal(fd[1].header['NAXIS2'], chdu.header['NAXIS2'])
         assert_equal(fd[1].header['BITPIX'], chdu.header['BITPIX'])
-        assert_equal(fd[1].data.all(), data.all())
+        fd.close()
+
+    def test_comp_image_rice_1(self):
+        """Tests image compression with the RICE_1 algorithm."""
+
+        self._test_comp_image(np.zeros((2, 10, 10), dtype=np.float32),
+                              'RICE_1', 16)
+
+    def test_comp_image_gzip_1(self):
+        """Tests image compression with the GZIP_1 algorithm."""
+
+        self._test_comp_image(np.zeros((2, 10, 10), dtype=np.float32),
+                              'GZIP_1', -0.01)
+
+    def test_comp_image_hcompression_1(self):
+        """Tests image compression with the HCOMPRESS_1 algorithm.
+
+        This is not a comprehensive test--just a simple round-trip test to make
+        sure the code for handling HCOMPRESS_1 at least gets exercised.
+        """
+
+        assert_raises(ValueError, self._test_comp_image,
+                      np.zeros((2, 10, 10), dtype=np.float32), 'HCOMPRESS_1',
+                      16)
+        self._test_comp_image(np.zeros((100, 100)) + 1, 'HCOMPRESS_1', 16)
 
     def test_do_not_scale_image_data(self):
         hdul = pyfits.open(self.data('scale.fits'),
@@ -519,3 +536,23 @@ class TestImageFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('test_new.fits'))
         arr += 1
         assert_true((hdul[1].data == arr).all())
+
+    def test_rewriting_large_scaled_image(self):
+        """Regression test for #84"""
+
+        hdul = pyfits.open(self.data('fixed-1890.fits'))
+        orig_data = hdul[0].data
+        hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        hdul.close()
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        assert_true((hdul[0].data == orig_data).all())
+        hdul.close()
+
+        # Just as before, but this time don't touch hdul[0].data before writing
+        # back out--this is the case that failed in #84
+        hdul = pyfits.open(self.data('fixed-1890.fits'))
+        hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        hdul.close()
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        assert_true((hdul[0].data == orig_data).all())
+        hdul.close()

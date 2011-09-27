@@ -278,7 +278,7 @@ class Card(_Verify):
 
     # This regex helps delete leading zeros from numbers, otherwise
     # Python might evaluate them as octal values.
-    _number_FSC_RE = re.compile(r'(?P<sign>[+-])?0*(?P<digt>%s)' 
+    _number_FSC_RE = re.compile(r'(?P<sign>[+-])?0*(?P<digt>%s)'
                                 % _digits_FSC)
     _number_NFSC_RE = re.compile(r'(?P<sign>[+-])? *0*(?P<digt>%s)'
                                  % _digits_NFSC)
@@ -363,7 +363,7 @@ class Card(_Verify):
         self._valuestring = None
         self._valuemodified = False
 
-    def __repr__(self):
+    def __str__(self):
         # TODO: Have some useful string representation
         return repr((self.keyword, self.value, self.comment))
 
@@ -413,6 +413,7 @@ class Card(_Verify):
             self._modified = True
         else:
             raise ValueError('Keyword name %r is not a string.' % keyword)
+        self._modified = True
 
     keyword = property(_getkeyword, _setkeyword, doc='a header keyword')
     # TODO: Make .key deprecated in favor of .keyword (though really this
@@ -460,6 +461,7 @@ class Card(_Verify):
         elif self._image:
             self._comment = self._parsecomment()
             return self._comment
+            self._value = val
         else:
             self._setcomment('')
             return ''
@@ -773,7 +775,7 @@ class Card(_Verify):
             # longstring case (CONTINUE card)
             # try not to use CONTINUE if the string value can fit in one line.
             # Instead, just truncate the comment
-            if (isinstance(self.value, str) and 
+            if (isinstance(self.value, str) and
                 len(value) > (self.length - 10)):
                 output = self._formatlongimage()
             else:
@@ -833,7 +835,6 @@ class Card(_Verify):
         # verify the key, it is never fixable
         # always fix silently the case where "=" is before column 9,
         # since there is no way to communicate back to the _keys.
-        # TODO: I think this will break for hierarch cards...
         if (self.keyword != self.keyword.upper() and not
             (self._image and self._image[:8].upper() == 'HIERARCH')):
             # Keyword should be uppercase unless it's a HIERARCH card
@@ -965,12 +966,12 @@ class RecordValuedKeywordCard(Card):
     #
     # regular expression to extract the field specifier and value from
     # a card image (ex. 'AXIS.1: 2'), the value may not be FITS Standard
-    # Complient
+    # Compliant
     #
     field_specifier_NFSC_image_RE = re.compile(field_specifier_NFSC_val)
     #
     # regular expression to extract the field specifier and value from
-    # a card value; the value may not be FITS Standard Complient
+    # a card value; the value may not be FITS Standard Compliant
     # (ex. 'AXIS.1: 2.0e5')
     #
     field_specifier_NFSC_val_RE = re.compile(field_specifier_NFSC_val + r'$')
@@ -1022,7 +1023,19 @@ class RecordValuedKeywordCard(Card):
 
                     if mo:
                         self._field_specifier = mo.group('keyword')
-                        value = float(mo.group('val'))
+                        value = mo.group('val')
+                        # The value should be a float, though we don't coerce
+                        # ints into floats.  Anything else should be a value
+                        # error
+                        try:
+                            value = int(value)
+                        except ValueError:
+                            try:
+                                value = float(value)
+                            except ValueError:
+                                raise ValueError(
+                                    "Record-valued keyword card value must be "
+                                    "a floating point or integer value.")
                     else:
                         raise ValueError(
                             "Value %s must be in the form "
@@ -1037,14 +1050,42 @@ class RecordValuedKeywordCard(Card):
        self._extract_value()
        return self._field_specifier
 
+    @property
+    def raw(self):
+        """
+        Return this card as a normal Card object not parsed as a record-valued
+        keyword card.  Note that this returns a copy, so that modifications to
+        it do not update the original record-valued keyword card.
+        """
+
+        key = super(RecordValuedKeywordCard, self)._getkey()
+        return Card(key, self.strvalue(), self.comment)
+
+    def _getkey(self):
+        key = super(RecordValuedKeywordCard, self)._getkey()
+        if not hasattr(self, '_field_specifier'):
+            return key
+        return '%s.%s' % (key, self._field_specifier)
+
+    key = property(_getkey, Card.key.fset, doc=Card.key.__doc__)
+
+    def _getvalue(self):
+        """The RVKC value should always be returned as a float."""
+
+        return float(super(RecordValuedKeywordCard, self)._getvalue())
 
     def _setvalue(self, val):
         if not isinstance(val, float):
             try:
-                val = float(val)
+                val = int(val)
             except ValueError:
-                raise ValueError('value %s is not a float' % val)
+                try:
+                    val = float(val)
+                except:
+                    raise ValueError('value %s is not a float' % val)
         super(RecordValuedKeywordCard, self)._setvalue(val)
+
+    value = property(_getvalue, _setvalue, doc=Card.value.__doc__)
 
     #
     # class method definitins
@@ -1263,7 +1304,10 @@ class RecordValuedKeywordCard(Card):
         slashloc = self._cardimage.find('/')
 
         if hasattr(self, '_value_modified') and self._value_modified:
-            val_str = _format_float(self.value)
+            # Bypass the automatic coertion to float here, so that values like
+            # '2' will still be rendered as '2' instead of '2.0'
+            value = super(RecordValuedKeywordCard, self).value
+            val_str = _value_to_string(value).strip()
         else:
             val_str = self._valuestring
 
@@ -1331,6 +1375,32 @@ class RecordValuedKeywordCard(Card):
                                           ' ')
             self._update_cardimage()
 
+    def _format_key(self):
+        if hasattr(self, '_key') or hasattr(self, '_cardimage'):
+            return '%-8s' % super(RecordValuedKeywordCard, self).key
+        else:
+            return ' ' * 8
+
+    def _check_key(self, key):
+        """
+        Verify the keyword to be FITS standard and that it matches the
+        standard for record-valued keyword cards.
+        """
+
+        if '.' in key:
+            keyword, field_specifier = key.split('.', 1)
+        else:
+            keyword, field_specifier = key, None
+
+        super(RecordValuedKeywordCard, self)._check_key(keyword)
+
+        if field_specifier:
+            if not self.field_specifier_s.match(key):
+                self._err_text = 'Illegal keyword name %s' % repr(key)
+                # TODO: Maybe fix by treating as normal card and not RVKC?
+                self._fixable = False
+                raise ValueError(self._err_text)
+
 
     def _check(self, option='ignore'):
         """Verify the card image with the specified `option`."""
@@ -1365,7 +1435,7 @@ class RecordValuedKeywordCard(Card):
 
             # verify the value
             result = \
-              self.keyword_val_comm_RE.match (self._get_value_comment_string())
+              self.keyword_val_comm_RE.match(self._get_value_comment_string())
 
             if result is not None:
                 return result

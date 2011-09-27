@@ -31,8 +31,9 @@ from __future__ import division # confidence high
                 - Google Search, when asked for "PyFITS"
 """
 
-import urllib
+import os
 import sys
+import urllib
 import warnings
 
 import pyfits.py3compat
@@ -53,6 +54,7 @@ from pyfits.hdu.hdulist import fitsopen as open
 from pyfits.hdu.image import Section
 from pyfits.hdu.table import new_table
 from pyfits.header import Header
+from pyfits.util import deprecated
 
 
 # Additional imports used by the documentation (some of which should be
@@ -63,8 +65,8 @@ from pyfits.verify import VerifyError
 __all__ = pyfits.card.__all__ + pyfits.column.__all__ + \
           pyfits.convenience.__all__ + pyfits.hdu.__all__ + \
           ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',
-           'new_table', 'Header', 'VerifyError', 'TRUE', 'FALSE',
-           'setExtensionNameCaseSensitive']
+           'new_table', 'Header', 'VerifyError', 'TRUE', 'FALSE', 'USE_MEMMAP',
+           'EXTENSION_NAME_CASE_SENSITIVE', 'setExtensionNameCaseSensitive']
 
 
 # These are of course deprecated, but a handful of external code still uses
@@ -72,6 +74,11 @@ __all__ = pyfits.card.__all__ + pyfits.column.__all__ + \
 TRUE = True
 FALSE = False
 
+
+try:
+    USE_MEMMAP = bool(int(os.environ.get('PYFITS_USE_MEMMAP', 0)))
+except ValueError:
+    USE_MEMMAP = False
 
 # The following variable and function are used to support case sensitive
 # values for the value of a EXTNAME card in an extension header.  By default,
@@ -82,6 +89,7 @@ FALSE = False
 
 EXTENSION_NAME_CASE_SENSITIVE = False
 
+@deprecated(alternative='the pyfits.EXTENSION_NAME_CASE_SENSITIVE variable')
 def setExtensionNameCaseSensitive(value=True):
     global EXTENSION_NAME_CASE_SENSITIVE
     EXTENSION_NAME_CASE_SENSITIVE = value

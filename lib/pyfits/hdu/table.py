@@ -158,17 +158,12 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             if isinstance(data, np.ndarray) and data.dtype.fields is not None:
                 if isinstance(data, FITS_rec):
                     self.data = data
-                elif isinstance(data, np.rec.recarray):
-                    self.data = FITS_rec(data)
                 else:
                     self.data = data.view(FITS_rec)
 
                 self._header['NAXIS1'] = self.data.itemsize
                 self._header['NAXIS2'] = self.data.shape[0]
                 self._header['TFIELDS'] = self.data._nfields
-
-                if self.data._coldefs is None:
-                    self.data._coldefs = ColDefs(data)
 
                 self.columns = self.data._coldefs
                 self.update()
@@ -220,25 +215,17 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
     @lazyproperty
     def data(self):
-        size = self.size()
-        if size:
-            data = self._get_tbdata()
-            data._coldefs = self.columns
-            data.formats = self.columns.formats
-            # Columns should now just return a reference to the data._coldefs
-            del self.columns
-        else:
-            data = None
+        data = self._get_tbdata()
+        data._coldefs = self.columns
+        data.formats = self.columns.formats
+        # Columns should now just return a reference to the data._coldefs
+        del self.columns
         return data
 
     @lazyproperty
     def _theap(self):
         size = self._header['NAXIS1'] * self._header['NAXIS2']
         return self._header.get('THEAP', size)
-
-    @lazyproperty
-    def _pcount(self):
-        return self._header.get('PCOUNT', 0)
 
     @deprecated(alternative='the .columns attribute')
     def get_coldefs(self):
@@ -396,7 +383,9 @@ class TableHDU(_TableBaseHDU):
     @classmethod
     def match_header(cls, header):
         card = header.cards[0]
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
         return card.key == 'XTENSION' and xtension == cls._extension
 
     def _get_tbdata(self):
@@ -440,9 +429,9 @@ class TableHDU(_TableBaseHDU):
             # We need to pad the data to a block length before calculating
             # the datasum.
 
-            if self.size() > 0:
+            if self.size > 0:
                 d = np.append(np.fromstring(self.data, dtype='ubyte'),
-                              np.fromstring(_pad_length(self.size()) * ' ',
+                              np.fromstring(_pad_length(self.size) * ' ',
                                             dtype='ubyte'))
 
             cs = self._compute_checksum(np.fromstring(d, dtype='ubyte'),
@@ -480,7 +469,9 @@ class BinTableHDU(_TableBaseHDU):
     @classmethod
     def match_header(cls, header):
         card = header.cards[0]
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
         return card.key == 'XTENSION' and \
                xtension in (cls._extension, 'A3DTABLE')
 
@@ -535,7 +526,7 @@ class BinTableHDU(_TableBaseHDU):
             # This is the case where the data has not been read from the file
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
-            # all.  This can also be handled in a gereric manner.
+            # all.  This can also be handled in a generic manner.
             return super(BinTableHDU,self)._calculate_datasum(blocking)
 
     def _writedata_internal(self, fileobj):
@@ -1083,6 +1074,14 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     """
     Create a new table from the input column definitions.
 
+    Warning: Creating a new table using this method creates an in-memory *copy*
+    of all the column arrays in the input.  This is because if they are
+    separate arrays they must be combined into a single contiguous array.
+
+    If the column data is already in a single contiguous array (such as an
+    existing record array) it may be better to create a BinTableHDU instance
+    directly.  See the PyFITS documentation for more details.
+
     Parameters
     ----------
     input : sequence of Column or ColDefs objects
@@ -1150,14 +1149,14 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
            data_type = 'S' + str(columns.spans[j])
            dtype[columns.names[j]] = (data_type, columns.starts[j] - 1)
 
-        hdu.data = FITS_rec(
-                np.rec.array((' ' * _itemsize * nrows).encode('ascii'),
-                             dtype=dtype, shape=nrows))
+        hdu.data = np.rec.array((' ' * _itemsize * nrows).encode('ascii'),
+                                dtype=dtype, shape=nrows).view(FITS_rec)
         hdu.data.setflags(write=True)
     else:
         formats = ','.join(columns._recformats)
-        hdu.data = FITS_rec(np.rec.array(None, formats=formats,
-                                         names=columns.names, shape=nrows))
+        hdu.data = np.rec.array(None, formats=formats,
+                                names=columns.names,
+                                shape=nrows).view(FITS_rec)
 
     hdu.data._coldefs = hdu.columns
     hdu.data.formats = hdu.columns.formats

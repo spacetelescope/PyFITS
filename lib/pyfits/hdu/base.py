@@ -1,5 +1,6 @@
 import datetime
 import inspect
+import os
 import re
 import warnings
 
@@ -8,9 +9,9 @@ import numpy as np
 from pyfits.card import _pad
 from pyfits.file import _File
 from pyfits.header import Header
-from pyfits.util import Extendable, _with_extensions, lazyproperty, _is_int, \
-                        _is_pseudo_unsigned, _unsigned_zero, _pad_length, \
-                        itersubclasses, decode_ascii, BLOCK_SIZE, deprecated
+from pyfits.util import (Extendable, _with_extensions, lazyproperty, _is_int,
+                        _is_pseudo_unsigned, _unsigned_zero, _pad_length,
+                        itersubclasses, decode_ascii, BLOCK_SIZE, deprecated)
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -110,6 +111,15 @@ class _BaseHDU(object):
     header = property(_getheader, _setheader)
 
     @property
+    def is_image(self):
+        return (
+            self.name == 'PRIMARY' or
+            ('XTENSION' in self.header and
+             (self.header['XTENSION'] == 'IMAGE' or
+              (self.header['XTENSION'] == 'BINTABLE' and
+               'ZIMAGE' in self.header and self.header['ZIMAGE'] == True))))
+
+    @property
     def _data_loaded(self):
         return 'data' in self.__dict__ and self.data is not None and \
                self.data is not DELAYED
@@ -142,22 +152,22 @@ class _BaseHDU(object):
            beyond the header, then the trailing data is taken to be the HDU's
            data.  If `fileobj` is specified then the trailing data is ignored.
 
-        fileobj : file, optional
+        fileobj : file (optional)
            The file-like object that this HDU was read from.
 
-        offset : int, optional
+        offset : int (optional)
            If `fileobj` is specified, the offset into the file-like object at
            which this HDU begins.
 
-        checksum : bool optional
+        checksum : bool (optional)
            Check the HDU's checksum and/or datasum.
 
-        ignore_missing_end : bool, optional
+        ignore_missing_end : bool (optional)
            Ignore a missing end card in the header data.  Note that without
            the end card the end of the header can't be found, so the entire
            data is just assumed to be the header.
 
-        kwargs : optional
+        kwargs : (optional)
            May contain additional keyword arguments specific to an HDU type.
            Any unrecognized kwargs are simply ignored.
         """
@@ -200,7 +210,7 @@ class _BaseHDU(object):
 
         hdu = cls(data=data, header=header, **new_kwargs)
 
-        size = hdu.size()
+        size = hdu.size
         hdu._file = fileobj
         hdu._hdrLoc = offset                 # beginning of the header area
         if fileobj:
@@ -277,7 +287,9 @@ class _BaseHDU(object):
                              checksum=checksum,
                              ignore_missing_end=ignore_missing_end, **kwargs)
 
-        fileobj.seek(hdu._datSpan, 1)
+        # If the checksum had to be checked the data may have already been read
+        # from the file, in which case we don't want to see relative
+        fileobj.seek(hdu._datLoc + hdu._datSpan, os.SEEK_SET)
         return hdu
 
     def _writeheader(self, fileobj, checksum=False):
@@ -460,11 +472,14 @@ class _CorruptedHDU(_BaseHDU):
        extension is a `TableHDU` containing ASCII data.
     """
 
+    @property
     def size(self):
         """
         Returns the size (in bytes) of the HDU's data part.
         """
 
+        # Note: On compressed files this might report a negative size; but the
+        # file is corrupt anyways so I'm not too worried about it.
         return self._file.size - self._datLoc
 
     def _summary(self):
@@ -511,6 +526,7 @@ class _NonstandardHDU(_BaseHDU, _Verify):
         else:
             return False
 
+    @property
     def size(self):
         """
         Returns the size (in bytes) of the HDU's data part.
@@ -585,7 +601,7 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         return header.keys()[0] not in ('SIMPLE', 'XTENSION')
 
-    # 0.6.5.5
+    @property
     def size(self):
         """
         Size (in bytes) of the data portion of the HDU.
@@ -864,10 +880,13 @@ class _ValidHDU(_BaseHDU, _Verify):
             # if the supposed location is specified
             if pos is not None:
                 if not pos(index):
-                    err_text = ("'%s' card at the wrong place (card %d)." %
+                    err_text = ("'%s' card at the wrong place (card %d) "
+                                "(note: PyFITS uses zero-based indexing)." %
                                 (keyword, index))
+
                     fix_text = ("Fixed by moving it to the right place "
-                                "(card %d)." % insert_pos)
+                                "(card %d) (note: PyFITS uses zero-based "
+                                "indexing)." % insert_pos)
 
                     def fix(self=self, index=index, insert_pos=insert_pos):
                         card = self._header.cards[index]
@@ -1049,8 +1068,8 @@ class _ValidHDU(_BaseHDU, _Verify):
             self._checksum = self._header['CHECKSUM']
             self._checksum_comment = self._header.comments['CHECKSUM']
             if not self.verify_checksum(blocking):
-                 warnings.warn('Warning:  Checksum verification failed for '
-                               'HDU %s.\n' % ((self.name, self._extver),))
+                 warnings.warn('Checksum verification failed for HDU %s.\n' %
+                               ((self.name, self._extver),))
             del self._header['CHECKSUM']
         else:
             self._checksum = None
@@ -1061,8 +1080,8 @@ class _ValidHDU(_BaseHDU, _Verify):
              self._datasum_comment = self._header.comments['DATASUM']
 
              if not self.verify_datasum(blocking):
-                 warnings.warn('Warning:  Datasum verification failed for '
-                               'HDU %s.\n' % ((self.name, self._extver),))
+                 warnings.warn('Datasum verification failed for HDU %s.\n' %
+                               ((self.name, self._extver),))
              del self._header['DATASUM']
         else:
              self._checksum = None
@@ -1085,11 +1104,11 @@ class _ValidHDU(_BaseHDU, _Verify):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        if self._data_loaded:
+        if not self._data_loaded:
             # This is the case where the data has not been read from the file
             # yet.  We find the data in the file, read it, and calculate the
             # datasum.
-            if self.size() > 0:
+            if self.size > 0:
                 raw_data = self._file.readarray(size=self._datSpan,
                                                 offset=self._datLoc,
                                                 dtype='ubyte')
@@ -1097,8 +1116,8 @@ class _ValidHDU(_BaseHDU, _Verify):
             else:
                 return 0
         elif self.data is not None:
-            return self._compute_checksum(
-                np.fromstring(self.data, dtype='ubyte'), blocking=blocking)
+            return self._compute_checksum(self.data.view('ubyte'),
+                                          blocking=blocking)
         else:
             return 0
 
@@ -1366,7 +1385,12 @@ class NonstandardExtHDU(ExtensionHDU):
         """
 
         card = header.cards[0]
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
+        # A3DTABLE is not really considered a 'standard' extension, as it was
+        # sort of the prototype for BINTABLE; however, since our BINTABLE
+        # implementation handles A3DTABLE HDUs it is listed here.
         standard_xtensions = ('IMAGE', 'TABLE', 'BINTABLE', 'A3DTABLE')
         # The check that xtension is not one of the standard types should be
         # redundant.

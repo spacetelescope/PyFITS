@@ -41,8 +41,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
         """
 
         # Nearly the same code as in _TableBaseHDU
-        size = self.size()
-        if size:
+        if self.size:
             data = GroupData(self._get_tbdata())
             data._coldefs = self.columns
             data.formats = self.columns.formats
@@ -86,7 +85,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
         # Only really a lazyproperty for symmetry with _TableBaseHDU
         return 0
 
-    # 0.6.5.5
+    @property
     def size(self):
         """
         Returns the size (in bytes) of the HDU's data part.
@@ -105,6 +104,64 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
             pcount = self._header.get('PCOUNT', 0)
             size = abs(bitpix) * gcount * (pcount + size) // 8
         return size
+
+    def update_header(self):
+        old_naxis = self._header.get('NAXIS', 0)
+
+        if isinstance(self.data, GroupData):
+            first_field = self.data.dtype.names[0]
+            first_field_code = self.data.dtype.fields[first_field][0].name
+            self._header['BITPIX'] = _ImageBaseHDU.ImgCode[first_field_code]
+            axes = list(self.data.data.shape)[1:]
+            axes.reverse()
+            axes = [0] + axes
+        elif self.data is None:
+            axes = []
+        else:
+            raise ValueError('incorrect array type')
+
+        self._header['NAXIS'] = len(axes)
+
+        # add NAXISi if it does not exist
+        for idx, axis in enumerate(axes):
+            try:
+                self._header['NAXIS'+ str(idx + 1)] = axis
+            except KeyError:
+                if (idx == 0):
+                    after = 'naxis'
+                else :
+                    after = 'naxis' + str(idx)
+                self._header.update('naxis' + str(idx + 1), axis, after=after)
+
+        # delete extra NAXISi's
+        for idx in range(len(axes)+1, old_naxis+1):
+            try:
+                del self._header.ascard['NAXIS' + str(idx)]
+            except KeyError:
+                pass
+
+        if isinstance(self.data, GroupData):
+            self._header.update('GROUPS', True, after='NAXIS' + str(len(axes)))
+            self._header.update('PCOUNT', len(self.data.parnames),
+                                after='GROUPS')
+            self._header.update('GCOUNT', len(self.data), after='PCOUNT')
+            npars = len(self.data.parnames)
+            (_scale, _zero)  = self.data._get_scale_factors(npars)[3:5]
+            if _scale:
+                self._header.update('BSCALE',
+                                    self.data._coldefs.bscales[npars])
+            if _zero:
+                self._header.update('BZERO', self.data._coldefs.bzeros[npars])
+            for idx in range(npars):
+                self._header.update('PTYPE' + str(idx + 1),
+                                    self.data.parnames[idx])
+                (_scale, _zero)  = self.data._get_scale_factors(idx)[3:5]
+                if _scale:
+                    self._header.update('PSCAL' + str(idx + 1),
+                                        self.data._coldefs.bscales[idx])
+                if _zero:
+                    self._header.update('PZERO' + str(idx + 1),
+                                        self.data._coldefs.bzeros[idx])
 
     def _get_tbdata(self):
         # get the right shape for the data part of the random group,

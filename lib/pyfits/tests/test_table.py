@@ -308,6 +308,31 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(channelsIn.all(),channelsOut.all())
         hduL.close()
 
+    def test_column_endianness(self):
+        """
+        Regression test for #77 [PyFITS doesn't preserve byte order of
+        non-native order column arrays]
+        """
+
+        a = [1., 2., 3., 4.]
+        a1 = np.array(a, dtype='<f8')
+        a2 = np.array(a, dtype='>f8')
+
+        col1 = pyfits.Column(name='a', format='D', array=a1)
+        col2 = pyfits.Column(name='b', format='D', array=a2)
+        cols = pyfits.ColDefs([col1, col2])
+        tbhdu = pyfits.new_table(cols)
+
+        assert_true((tbhdu.data['a'] == a1).all())
+        assert_true((tbhdu.data['b'] == a2).all())
+
+        # Double check that the array is converted to the correct byte-order
+        # for FITS (big-endian).
+        tbhdu.writeto(self.temp('testendian.fits'), clobber=True)
+        hdul = pyfits.open(self.temp('testendian.fits'))
+        assert_true((hdul[1].data['a'] == a2).all())
+        assert_true((hdul[1].data['b'] == a2).all())
+
     def test_recarray_to_bintablehdu(self):
         bright=np.rec.array([(1,'Serius',-1.45,'A1V'),\
                              (2,'Canopys',-0.73,'F0Ib'),\
@@ -1572,7 +1597,7 @@ class TestTableFunctions(PyfitsTestCase):
             'p\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
         acol = pyfits.Column(name='MEMNAME', format='A10',
-                             array=np.char.array(a))
+                             array=chararray.array(a))
         ahdu = pyfits.new_table([acol])
         assert_equal(ahdu.data.tostring().decode('raw-unicode-escape'), s)
 
@@ -1587,13 +1612,13 @@ class TestTableFunctions(PyfitsTestCase):
         """
 
         data = np.rec.array(
-            [([1, 2, 3, 4], 'row1' * 2),
-             ([5, 6, 7, 8], 'row2' * 2),
-             ([9, 1, 2, 3], 'row3' * 2)], formats='4i4,a8')
+            [([0, 1, 2, 3, 4, 5], 'row1' * 2),
+             ([6, 7, 8, 9, 0, 1], 'row2' * 2),
+             ([2, 3, 4, 5, 6, 7], 'row3' * 2)], formats='6i4,a8')
 
         thdu = pyfits.new_table(data)
         # Modify the TDIM fields to my own specification
-        thdu.header['TDIM1'] = '(2,2)'
+        thdu.header['TDIM1'] = '(2,3)'
         thdu.header['TDIM2'] = '(4,2)'
 
         thdu.writeto(self.temp('newtable.fits'))
@@ -1606,11 +1631,11 @@ class TestTableFunctions(PyfitsTestCase):
 
         hdul.close()
 
-        assert_equal(c1.shape, (3, 2, 2))
+        assert_equal(c1.shape, (3, 3, 2))
         assert_equal(c2.shape, (3, 2))
-        assert_true((c1 == np.array([[[1, 2], [3, 4]],
-                                     [[5, 6], [7, 8]],
-                                     [[9, 1], [2, 3]]])).all())
+        assert_true((c1 == np.array([[[0, 1], [2, 3], [4, 5]],
+                                     [[6, 7], [8, 9], [0, 1]],
+                                     [[2, 3], [4, 5], [6, 7]]])).all())
         assert_true((c2 == np.array([['row1', 'row1'],
                                      ['row2', 'row2'],
                                      ['row3', 'row3']])).all())
@@ -1732,3 +1757,28 @@ class TestTableFunctions(PyfitsTestCase):
 
         # In this particular case the record data at least should be equivalent
         assert_true(comparerecords(tbhdu.data, new_tbhdu.data))
+
+    def test_attribute_field_shadowing(self):
+        """
+        Regression test for #86.
+
+        Numpy recarray objects have a poorly-considered feature of allowing
+        field access by attribute lookup.  However, if a field name conincides
+        with an existing attribute/method of the array, the existing name takes
+        precence (making the attribute-based field lookup completely unreliable
+        in general cases).
+
+        This ensures that any FITS_rec attributes still work correctly even
+        when there is a field with the same name as that attribute.
+        """
+
+        c1 = pyfits.Column(name='names', format='I', array=[1])
+        c2 = pyfits.Column(name='formats', format='I', array=[2])
+        c3 = pyfits.Column(name='other', format='I', array=[3])
+
+        t = pyfits.new_table([c1, c2, c3])
+        assert_equal(t.data.names, ['names', 'formats', 'other'])
+        assert_equal(t.data.formats, ['I'] * 3)
+        assert_true((t.data['names'] == [1]).all())
+        assert_true((t.data['formats'] == [2]).all())
+        assert_true((t.data.other == [3]).all())

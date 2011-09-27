@@ -9,7 +9,8 @@ from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU, _TableBaseHDU
 from pyfits.header import Header
-from pyfits.util import _with_extensions, deprecated
+from pyfits.util import (_with_extensions, deprecated, fileobj_closed,
+                         fileobj_name, isfile)
 
 
 __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
@@ -255,17 +256,13 @@ def setval(filename, key, value="", comment=None, before=None, after=None,
         See `getdata` for explanations/examples.
     """
 
+    if 'do_not_scale_image_data' not in extkeys:
+        extkeys['do_not_scale_image_data'] = True
+
     hdulist, ext = _getext(filename, mode='update', *ext, **extkeys)
     if key in hdulist[ext].header and savecomment:
         comment = None
     hdulist[ext].header.set(key, value, comment, before, after)
-
-    # Ensure that data will not be scaled when the file is closed
-
-    for hdu in hdulist:
-       hdu._bscale = 1
-       hdu._bzero = 0
-
     hdulist.close()
 
 
@@ -295,15 +292,11 @@ def delval(filename, key, *ext, **extkeys):
         See `getdata` for explanations/examples.
     """
 
+    if 'do_not_scale_image_data' not in extkeys:
+        extkeys['do_not_scale_image_data'] = True
+
     hdulist, ext = _getext(filename, mode='update', *ext, **extkeys)
     del hdulist[ext].header[key]
-
-    # Ensure that data will not be scaled when the file is closed
-
-    for hdu in hdulist:
-       hdu._bscale = 1
-       hdu._bzero = 0
-
     hdulist.close()
 
 
@@ -475,10 +468,7 @@ def update(filename, data, *ext, **extkeys):
 
     new_hdu = _makehdu(data, header)
 
-    if not isinstance(filename, file) and hasattr(filename, 'closed'):
-        closed = filename.closed
-    else:
-        closed = True
+    closed = fileobj_closed(filename)
 
     hdulist, _ext = _getext(filename, 'update', *ext, **extkeys)
     hdulist[_ext] = new_hdu
@@ -720,26 +710,8 @@ def _makehdu(data, header, classExtensions={}):
 
 
 def _stat_filename_or_fileobj(filename):
-    closed = True
-    name = ''
-
-    if isinstance(filename, file):
-        closed = filename.closed
-        name = filename.name
-    elif isinstance(filename, gzip.GzipFile):
-        if filename.fileobj is not None:
-            closed = filename.fileobj.closed
-        name = filename.filename
-    elif isinstance(filename, basestring):
-        name = filename
-    else:
-        if hasattr(filename, 'closed'):
-            closed = filename.closed
-
-        if hasattr(filename, 'name'):
-            name = filename.name
-        elif hasattr(filename, 'filename'):
-            name = filename.filename
+    closed = fileobj_closed(filename)
+    name = fileobj_name(filename) or ''
 
     try:
         loc = filename.tell()
@@ -753,6 +725,7 @@ def _stat_filename_or_fileobj(filename):
     return name, closed, noexist_or_empty
 
 
+# TODO: Replace this with fileobj_mode
 def _get_file_mode(filename, default='readonly'):
     """
     Allow file object to already be opened in any of the valid modes and
@@ -768,8 +741,8 @@ def _get_file_mode(filename, default='readonly'):
     elif hasattr(filename, 'fileobj') and filename.fileobj is not None:
         closed = filename.fileobj.closed
 
-    if (isinstance(filename, file) or
-       isinstance(filename, gzip.GzipFile)) and not closed:
+    if (isfile(filename) or
+        isinstance(filename, gzip.GzipFile) and not closed):
         if isinstance(filename, gzip.GzipFile):
             file_mode = filename.fileobj.mode
         else:

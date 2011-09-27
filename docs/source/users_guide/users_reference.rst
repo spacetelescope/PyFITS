@@ -1,50 +1,48 @@
+****************
 Reference Manual
-````````````````
+****************
 
 **Examples**
 
 
 Converting a 3-color image (JPG) to separate FITS images
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+========================================================
 
 
-.. image:: ../_static/Hs-2009-14-a-web.jpg
-   :target: ../_static/Hs-2009-14-a-web.jpg
+.. figure:: ../_static/Hs-2009-14-a-web.jpg
+   :scale: 100 %
    :align: center
    :alt: Starting image
 
-.. figure:: ../_static/Red.gif
-   :target: ../_static/Red.gif
-   :align: right
-   :scale: 50
-   :alt: Red color information
+.. container:: figures
 
-   Red color information
+    .. figure:: ../_static/Red.jpg
+       :target: ../_static/Red.jpg
+       :scale: 50
+       :alt: Red color information
 
-.. figure:: ../_static/Green.gif
-   :target: ../_static/Green.gif
-   :align: right
-   :scale: 50
-   :alt: Green color information
+       Red color information
 
-   Green color information
+    .. figure:: ../_static/Green.jpg
+       :target: ../_static/Green.jpg
+       :scale: 50
+       :alt: Green color information
 
-.. figure:: ../_static/Blue.gif
-   :target: ../_static/Blue.gif
-   :align: right
-   :scale: 50
-   :alt: Blue color information
+       Green color information
 
-   Blue color information
+    .. figure:: ../_static/Blue.jpg
+       :target: ../_static/Blue.jpg
+       :scale: 50
+       :alt: Blue color information
 
-.. parsed-literal::
+       Blue color information
+
+::
 
     #!/usr/bin/env python
     import pyfits
     import numpy 
     import Image
-
-.. parsed-literal::
 
     #get the image and color information
     image = Image.open('hs-2009-14-a-web.jpg')
@@ -55,16 +53,13 @@ Converting a 3-color image (JPG) to separate FITS images
     gdata = g.getdata()
     bdata = b.getdata()
 
-.. parsed-literal::
-
     # create numpy arrays
     npr = numpy.reshape(rdata, (ysize, xsize))
     npg = numpy.reshape(gdata, (ysize, xsize))
     npb = numpy.reshape(bdata, (ysize, xsize))
 
-.. parsed-literal::
-
-    # write out the fits images, the data numbers are still JUST the RGB scalings; don't use for science
+    # write out the fits images, the data numbers are still JUST the RGB
+    # scalings; don't use for science
     red = pyfits.PrimaryHDU()
     red.header.update('LATOBS', "32:11:56") # add spurious header info
     red.header.update('LONGOBS', "110:56")

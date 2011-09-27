@@ -3,11 +3,10 @@ from __future__ import with_statement
 
 import os
 
-from cStringIO import StringIO
-
 import numpy as np
 
 import pyfits
+from pyfits.util import BytesIO
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings
 
@@ -398,7 +397,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         HDU.
         """
 
-        sf = StringIO()
+        sf = BytesIO()
         arr = np.zeros((100, 100))
         hdu = pyfits.PrimaryHDU(data=arr)
         hdu.writeto(sf)
@@ -425,3 +424,13 @@ class TestHDUListFunctions(PyfitsTestCase):
             assert_equal(len(w), 1)
             assert_true('mode is not supported' in str(w[0].message))
         assert_equal(oldmtime, os.stat(self.data('test0.fits')).st_mtime)
+
+    def test_fix_extend_keyword(self):
+        hdul = pyfits.HDUList()
+        hdul.append(pyfits.PrimaryHDU())
+        hdul.append(pyfits.ImageHDU())
+        del hdul[0].header['EXTEND']
+        hdul.verify('silentfix')
+
+        assert_true('EXTEND' in hdul[0].header)
+        assert_equal(hdul[0].header['EXTEND'], True)

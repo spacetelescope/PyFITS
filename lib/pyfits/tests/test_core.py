@@ -2,14 +2,14 @@ from __future__ import division # confidence high
 from __future__ import with_statement
 
 import gzip
+import os
 import warnings
 import zipfile
-
-from cStringIO import StringIO
 
 import numpy as np
 
 import pyfits
+from pyfits.util import BytesIO
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings
 
@@ -266,11 +266,31 @@ class TestFileFunctions(PyfitsTestCase):
     def test_read_file_like_object(self):
         """Test reading a FITS file from a file-like object."""
 
-        filelike = StringIO()
+        filelike = BytesIO()
         with open(self.data('test0.fits'), 'rb') as f:
             filelike.write(f.read())
         filelike.seek(0)
         assert_equal(len(pyfits.open(filelike)), 5)
+
+    def test_updated_file_permissions(self):
+        """
+        Regression test for #79.  Tests that when a FITS file is modified in
+        update mode, the file permissions are preserved.
+        """
+
+        filename = self.temp('test.fits')
+        hdul = [pyfits.PrimaryHDU(), pyfits.ImageHDU()]
+        hdul = pyfits.HDUList(hdul)
+        hdul.writeto(filename)
+
+        old_mode = os.stat(filename).st_mode
+
+        hdul = pyfits.open(filename, mode='update')
+        hdul.insert(1, pyfits.ImageHDU())
+        hdul.flush()
+        hdul.close()
+
+        assert_equal(old_mode, os.stat(filename).st_mode)
 
     def _make_gzip_file(self):
         gzfile = self.temp('test0.fits.gz')
@@ -294,8 +314,8 @@ class TestStreamingFunctions(PyfitsTestCase):
 
     def test_streaming_hdu(self):
         shdu = self._make_streaming_hdu(self.temp('new.fits'))
-        assert_true(isinstance(shdu.size(), int))
-        assert_equal(shdu.size(), 100)
+        assert_true(isinstance(shdu.size, int))
+        assert_equal(shdu.size, 100)
 
     def test_streaming_hdu_file_wrong_mode(self):
         """Test that streaming an HDU to a file opened in the wrong mode
@@ -314,7 +334,7 @@ class TestStreamingFunctions(PyfitsTestCase):
             shdu = self._make_streaming_hdu(f)
             shdu.write(arr)
             assert_true(shdu.writecomplete)
-            assert_equal(shdu.size(), 100)
+            assert_equal(shdu.size, 100)
         hdul = pyfits.open(self.temp('new.fits'))
         assert_equal(len(hdul), 1)
         assert_true((hdul[0].data == arr).all())
@@ -323,11 +343,12 @@ class TestStreamingFunctions(PyfitsTestCase):
         """Test streaming an HDU to an open file-like object."""
 
         arr = np.zeros((5, 5), dtype=np.int32)
-        sf = StringIO()
+        # The file-like object underlying a StreamingHDU must be in binary mode
+        sf = BytesIO()
         shdu = self._make_streaming_hdu(sf)
         shdu.write(arr)
         assert_true(shdu.writecomplete)
-        assert_equal(shdu.size(), 100)
+        assert_equal(shdu.size, 100)
 
         sf.seek(0)
         hdul = pyfits.open(sf)
@@ -343,6 +364,21 @@ class TestStreamingFunctions(PyfitsTestCase):
         with open(self.temp('new.fits'), 'ab+') as f:
             shdu = self._make_streaming_hdu(f)
             shdu.write(arr)
+
+    # TODO: This test is temporarily borrowed from the header-refactoring
+    # branch as a regression test for ticket #69; it can be removed when the
+    # header-refactoring branch is merged into trunk
+    def test_update_comment(self):
+        hdul = pyfits.open(self.data('arange.fits'))
+        hdul[0].header.update('FOO', 'BAR', 'BAZ')
+        hdul.writeto(self.temp('test.fits'))
+
+        hdul = pyfits.open(self.temp('test.fits'), mode='update')
+        hdul[0].header.ascard['FOO'].comment = 'QUX'
+        hdul.close()
+
+        hdul = pyfits.open(self.temp('test.fits'))
+        assert_equal(hdul[0].header.ascard['FOO'].comment, 'QUX')
 
     def _make_streaming_hdu(self, fileobj):
         hd = pyfits.Header()

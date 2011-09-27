@@ -4,14 +4,108 @@ Changelog
 3.1.0 (unreleased)
 --------------------
 
-- `BinTableHDU.tdump` and `BinTableHDU.tcreate` are deprecated--use
-  `BinTableHDU.dump` and `BinTableHDU.load` instead.  The new methods output
-  the table data in a slightly different format from previous versions, which
-  places quotes around each value.  This format is compatible with data dumps
-  from previous versions of PyFITS, but not vice-versa due to a parsing bug in
-  older versions.
+- API Changes:
 
-3.0.0 (unreleased)
+  * The size() method on HDU objects is now a .size property--this returns the
+    size in bytes of the data portion of the HDU, and in most cases is
+    equivalent to hdu.data.nbytes (#83)
+
+  * ``BinTableHDU.tdump`` and ``BinTableHDU.tcreate`` are deprecated--use
+    ``BinTableHDU.dump`` and ``BinTableHDU.load`` instead.  The new methods
+    output the table data in a slightly different format from previous
+    versions, which places quotes around each value.  This format is
+    compatible with data dumps from previous versions of PyFITS, but not
+    vice-versa due to a parsing bug in older versions.
+
+- Added a new .is_image attribute on HDU objects, which is True if the HDU
+  data is an 'image' as opposed to a table or something else.  Here the
+  meaning of 'image' is fairly loose, and mostly just means a Primary or Image
+  extension HDU, or possibly a compressed image HDU (#71)
+
+- Fixed pyfits.tcreate() to be more robust when encountering blank lines in a
+  column definition file (#14)
+
+
+3.0.3 (unreleased)
+------------------
+
+- Fixed several small bugs related record-valued keyword cards (#70)
+
+- In some cases HDU creation failed if the first keyword value in the header
+  was not a string value (#89)
+
+- Fixed a typo in code for handling HCOMPRESS compressed images.
+
+
+3.0.2 (2011-09-23)
+------------------
+
+- The ``BinTableHDU.tcreate`` method and by extension the ``pyfits.tcreate``
+  function don't get tripped up by blank lines anymore (#14)
+
+- The presence, value, and position of the EXTEND keyword in Primary HDUs is
+  verified when reading/writing a FITS file (#32)
+
+- Improved documentation (in warning messages as well as in the handbook) that
+  PyFITS uses zero-based indexing (as one would expect for C/Python code, but
+  contrary to the PyFITS standard which was written with FORTRAN in mind)
+  (#68)
+
+- Fixed a bug where updating a header card comment could cause the value to be
+  lost if it had not already been read from the card image string.
+
+- Fixed a related bug where changes made directly to Card object in a header
+  (i.e. assigning directly to card.value or card.comment) would not propagate
+  when flushing changes to the file (#69) [Note: This and the bug above it
+  were originally reported as being fixed in version 3.0.1, but the fix was
+  never included in the release.]
+
+- Improved file handling, particularly in Python 3 which had a few small file
+  I/O-related bugs (#76)
+
+- Fixed a bug where updating a FITS file would sometimes cause it to lose its
+  original file permissions (#79)
+
+- Fixed the handling of TDIMn keywords; 3.0 added support for them, but got
+  the axis order backards (they were treated as though they were row-major)
+  (#82)
+
+- Fixed a crash when a FITS file containing scaled data is opened and
+  immediately written to a new file without explicitly viewing the data first
+  (#84)
+
+- Fixed a bug where creating a table with columns named either 'names' or
+  'formats' resulted in an infinite recursion (#86)
+
+
+3.0.1 (2011-09-12)
+------------------
+
+- Fixed a bug where updating a header card comment could cause the value to be
+  lost if it had not already been read from the card image string.
+
+- Changed ``_TableBaseHDU.data`` so that if the data contain an empty table a
+  ``FITS_rec`` object with zero rows is returned rather than ``None``.
+
+- The ``.key`` attribute of ``RecordValuedKeywordCards`` now returns the full
+  keyword+field-specifier value, instead of just the plain keyword (#46)
+
+- Fixed a related bug where changes made directly to Card object in a header
+  (i.e. assigning directly to card.value or card.comment) would not propagate
+  when flushing changes to the file (#69)
+
+- Fixed a bug where writing a table with zero rows could fail in some cases
+  (#72)
+
+- Miscellanous small bug fixes that were causing some tests to fail,
+  particularly on Python 3 (#74, #75)
+
+- Fixed a bug where creating a table column from an array in non-native byte
+  order would not preserve the byte order, thus interpreting the column array
+  using the wrong byte order (#77)
+
+
+3.0.0 (2011-08-23)
 --------------------
 
 - Contains major changes, bumping the version to 3.0
@@ -25,37 +119,38 @@ Changelog
     numpy does not have the numpy.core.records module it is too old to be used
     with PyFITS.
 
-  * The `Header.ascardlist()` method is deprecated--use the `.ascard`
+  * The ``Header.ascardlist()`` method is deprecated--use the ``.ascard``
     attribute instead.
 
-  * `Card` instances have a new `.cardimage` attribute that should be used
-    rather than `.ascardimage()`, which may become deprecated.
+  * ``Card`` instances have a new ``.cardimage`` attribute that should be used
+    rather than ``.ascardimage()``, which may become deprecated.
 
-  * The `Card.fromstring()` method is now a classmethod.  It returns a new
-    `Card` instance rather than modifying an existing instance.
+  * The ``Card.fromstring()`` method is now a classmethod.  It returns a new
+    ``Card`` instance rather than modifying an existing instance.
 
-  * The `req_cards()` method on HDU instances has changed:  The `pos` argument
-    is not longer a string.  It is either an integer value (meaning the card's
-    position must match that value) or it can be a function that takes the
-    card's position as it's argument, and returns True if the position is
-    valid.  Likewise, the `test` argument no longer takes a string, but instead
-    a function that validates the card's value and returns True or False.
+  * The ``req_cards()`` method on HDU instances has changed:  The ``pos``
+    argument is not longer a string.  It is either an integer value (meaning
+    the card's position must match that value) or it can be a function that
+    takes the card's position as it's argument, and returns True if the
+    position is valid.  Likewise, the ``test`` argument no longer takes a
+    string, but instead a function that validates the card's value and returns
+    True or False.
 
-  * The `get_coldefs()` method of table HDUs is deprecated.  Use the `.columns`
-    attribute instead.
+  * The ``get_coldefs()`` method of table HDUs is deprecated.  Use the
+    ``.columns`` attribute instead.
 
-  * The `ColDefs.data` attribute is deprecated--use `ColDefs.columns` instead
-    (though in general you shouldn't mess with it directly--it might become
-    internal at some point).
+  * The ``ColDefs.data`` attribute is deprecated--use ``ColDefs.columns``
+    instead (though in general you shouldn't mess with it directly--it might
+    become internal at some point).
 
-  * `FITS_record` objects take `start` and `end` as arguments instead of
-    `startColumn` and `endColumn` (these are rarely created manually, so it's
-    unlikely that this change will affect anyone).
+  * ``FITS_record`` objects take ``start`` and ``end`` as arguments instead of
+    ``startColumn`` and ``endColumn`` (these are rarely created manually, so
+    it's unlikely that this change will affect anyone).
 
-  * `BinTableHDU.tcreate()` is now a classmethod, and returns a new
-    `BinTableHDU` instance.
+  * ``BinTableHDU.tcreate()`` is now a classmethod, and returns a new
+    ``BinTableHDU`` instance.
 
-  * Use `ExtensionHDU` and `NonstandardExtHDU` for making new extension HDU
+  * Use ``ExtensionHDU`` and ``NonstandardExtHDU`` for making new extension HDU
     classes.  They are now public interfaces, wheres previously they were
     private and prefixed with underscores.
 
@@ -74,7 +169,7 @@ Changelog
   TDIMn keywords (#47)
 
 - Fixed a major memory leak that occurred when creating new tables with the
-  `new_table()` function (#49)
+  ``new_table()`` function (#49)
   be padded with zero-bytes) vs ASCII tables (where strings are padded with
   spaces) (#15)
 
@@ -105,7 +200,7 @@ Changelog
 - Fixed an issue where BZERO and BSCALE keywords were appended to headers in
   the wrong location (#56)
 
-- `FITS_record` objects (table rows) have full slicing support, including
+- ``FITS_record`` objects (table rows) have full slicing support, including
   stepping, etc. (#59)
 
 - Fixed a bug where updating multiple files simultaneously (such as when

@@ -18,13 +18,14 @@ from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
-from pyfits.util import Extendable, _is_int, _tmp_name, _with_extensions, \
-                        _pad_length, BLOCK_SIZE
+from pyfits.util import (Extendable, _is_int, _tmp_name, _with_extensions,
+                         _pad_length, BLOCK_SIZE, isfile, fileobj_name,
+                         fileobj_closed, fileobj_mode)
 from pyfits.verify import _Verify, _ErrList
 
 
 @_with_extensions
-def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
+def fitsopen(name, mode="copyonwrite", memmap=None, classExtensions={},
              **kwargs):
     """Factory function to open a FITS file and return an `HDUList` object.
 
@@ -91,6 +92,10 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
             file.
 
     """
+
+    if memmap is None:
+        from pyfits.core import USE_MEMMAP
+        memmap = USE_MEMMAP
 
     if 'uint16' in kwargs and 'uint' not in kwargs:
         kwargs['uint'] = kwargs['uint16']
@@ -253,10 +258,11 @@ class HDUList(list, _Verify):
                 # corrupted HDU
                 except ValueError, err:
                     warnings.warn(
-                        'Warning:  Required keywords missing when trying to read '
-                        'HDU #%d.\n          %s\n          There may be extra '
-                        'bytes after the last HDU or the file is corrupted.'
-                        % (len(hdulist), err))
+                        'Required keywords missing when trying to read '
+                        'HDU #%d (note: PyFITS uses zero-based indexing.\n'
+                        '          %s\n          There may be extra '
+                        'bytes after the last HDU or the file is corrupted.' %
+                        (len(hdulist), err))
                     break
                 except IOError, err:
                     if ffo.writeonly:
@@ -603,19 +609,20 @@ class HDUList(list, _Verify):
 
             # if the HDUList is resized, need to write out the entire contents
             # of the hdulist to the file.
-            if self._resize or self.__file.compressed:
+            if self._resize or self.__file.compression:
                 old_name = self.__file.name
                 old_memmap = self.__file.memmap
                 name = _tmp_name(old_name)
 
                 if not self.__file.file_like:
+                    old_mode = os.stat(old_name).st_mode
                     #
                     # The underlying file is an acutal file object.
                     # The HDUList is resized, so we need to write it to a tmp
                     # file, delete the original file, and rename the tmp
                     # file to the original file.
                     #
-                    if self.__file.compressed:
+                    if self.__file.compression == 'gzip':
                         new_file = gzip.GzipFile(name, mode='ab+')
                     else:
                         new_file = name
@@ -644,6 +651,7 @@ class HDUList(list, _Verify):
 
                     # reopen the renamed new file with "update" mode
                     os.rename(name, old_name)
+                    os.chmod(old_name, old_mode)
 
                     if isinstance(new_file, gzip.GzipFile):
                         old_file = gzip.GzipFile(old_name, mode='rb+')
@@ -670,6 +678,7 @@ class HDUList(list, _Verify):
                     ffo = self.__file
 
                     ffo.truncate(0)
+                    ffo.seek(0)
 
                     for hdu in hdulist:
                         # only output the checksum if flagged to do so
@@ -759,14 +768,14 @@ class HDUList(list, _Verify):
                 hdr.set('extend', True, after='naxis' + str(n))
 
     @_with_extensions
-    def writeto(self, name, output_verify='exception', clobber=False,
+    def writeto(self, fileobj, output_verify='exception', clobber=False,
                 classExtensions={}, checksum=False):
         """
         Write the `HDUList` to a new file.
 
         Parameters
         ----------
-        name : file path, file object or file-like object
+        fileobj : file path, file object or file-like object
             File to write to.  If a file object, must be opened for
             append (ab+).
 
@@ -798,55 +807,22 @@ class HDUList(list, _Verify):
         self.verify(option=output_verify)
 
         # check if the file object is closed
-        closed = True
-        fileMode = 'ab+'
-
-        if isinstance(name, file):
-            closed = name.closed
-            filename = name.name
-
-            if not closed:
-                fileMode = name.mode
-
-        elif isinstance(name, gzip.GzipFile):
-            if name.fileobj is not None:
-                closed = name.fileobj.closed
-            filename = name.filename
-
-            if not closed:
-                fileMode = name.fileobj.mode
-
-        elif isinstance(name, basestring):
-            filename = name
-        else:
-            if hasattr(name, 'closed'):
-                closed = name.closed
-
-            if hasattr(name, 'mode'):
-                fileMode = name.mode
-
-            if hasattr(name, 'name'):
-                filename = name.name
-            elif hasattr(name, 'filename'):
-                filename = name.filename
-            elif hasattr(name, '__class__'):
-                filename = str(name.__class__)
-            else:
-                filename = str(type(name))
+        closed = fileobj_closed(fileobj)
+        fmode = fileobj_mode(fileobj) or 'ab+'
+        filename = fileobj_name(fileobj)
 
         # check if the output file already exists
-        if isinstance(name, (basestring, file, gzip.GzipFile)):
+        if (isfile(fileobj) or
+            isinstance(fileobj, (basestring, gzip.GzipFile))):
             if (os.path.exists(filename) and os.path.getsize(filename) != 0):
                 if clobber:
                     warnings.warn("Overwriting existing file '%s'." % filename)
-                    if (isinstance(name, file) and not name.closed) or \
-                       (isinstance(name,gzip.GzipFile) and \
-                       name.fileobj is not None and not name.fileobj.closed):
-                        name.close()
+                    if not closed:
+                        fileobj.close()
                     os.remove(filename)
                 else:
                     raise IOError("File '%s' already exists." % filename)
-        elif (hasattr(name, 'len') and name.len > 0):
+        elif (hasattr(fileobj, 'len') and fileobj.len > 0):
             if clobber:
                 warnings.warn("Overwriting existing file '%s'." % filename)
                 name.truncate(0)
@@ -859,11 +835,11 @@ class HDUList(list, _Verify):
 
         mode = 'copyonwrite'
         for key, val in PYTHON_MODES.iteritems():
-            if val == fileMode:
+            if val == fmode:
                 mode = key
                 break
 
-        hdulist = fitsopen(name, mode=mode)
+        hdulist = fitsopen(fileobj, mode=mode)
 
         for hdu in self:
             # TODO: Fix this once new HDU writing API is settled on
@@ -970,17 +946,34 @@ class HDUList(list, _Verify):
             def fix(self=self):
                 self.insert(0, PrimaryHDU())
 
-            text = self.run_option(option, err_text=err_text,
-                                   fix_text=fix_text, fix=fix)
-            errs.append(text)
+            err = self.run_option(option, err_text=err_text,
+                                  fix_text=fix_text, fix=fix)
+            errs.append(err)
+
+        if len(self) > 1 and ('EXTEND' not in self[0].header or
+                              self[0].header['EXTEND'] is not True):
+            err_text = ('Primary HDU does not contain an EXTEND keyword '
+                        'equal to T even though there are extension HDUs.')
+            fix_text = 'Fixed by inserting or updating the EXTEND keyword.'
+
+            def fix(header=self[0].header):
+                naxis = header['NAXIS']
+                if naxis == 0:
+                    after = 'NAXIS'
+                else:
+                    after = 'NAXIS' + str(naxis)
+                header.set('EXTEND', value=True, after=after)
+
+            errs.append(self.run_option(option, err_text=err_text,
+                                        fix_text=fix_text, fix=fix))
 
         # each element calls their own verify
         for idx, hdu in enumerate(self):
             if idx > 0 and (not isinstance(hdu, ExtensionHDU)):
                 err_text = "HDUList's element %s is not an extension HDU." \
                            % str(idx)
-                text = self.run_option(option, err_text=err_text, fixable=True)
-                errs.append(text)
+                err = self.run_option(option, err_text=err_text, fixable=True)
+                errs.append(errs)
 
             else:
                 result = hdu._verify(option)

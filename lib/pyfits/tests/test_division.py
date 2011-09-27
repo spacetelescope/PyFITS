@@ -1,8 +1,6 @@
 from __future__ import division # confidence high
 from __future__ import with_statement
 
-from cStringIO import StringIO
-
 import numpy as np
 
 import pyfits
@@ -31,7 +29,7 @@ class TestDivisionFunctions(PyfitsTestCase):
 
     def test_valid_hdu_size(self):
         t1 = pyfits.open(self.data('tb.fits'))
-        assert_equal(type(t1[1].size()), type(1))
+        assert_equal(type(t1[1].size), type(1))
 
     def test_hdu_get_size(self):
         with CaptureStdout() as f:

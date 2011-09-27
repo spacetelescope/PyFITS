@@ -1,16 +1,17 @@
 .. currentmodule:: pyfits.core
 
+******************************
 Exceptions and Utility Classes
-==============================
+******************************
 
 Exceptions
-``````````
+==========
 
 .. inheritance-diagram:: VerifyError
    :parts: 2
 
 :class:`VerifyError`
-,,,,,,,,,,,,,,,,,,,,
+--------------------
 
 .. autoclass:: VerifyError
    :members:
@@ -18,13 +19,13 @@ Exceptions
    :show-inheritance:
 
 Utility Classes
-```````````````
+===============
 
 .. inheritance-diagram:: Delayed Undefined ErrorURLopener
    :parts: 2
 
 :class:`Delayed`
-,,,,,,,,,,,,,,,,
+----------------
 
 .. autoclass:: Delayed
    :members:
@@ -32,7 +33,7 @@ Utility Classes
    :show-inheritance:
 
 :class:`Undefined`
-,,,,,,,,,,,,,,,,,,
+------------------
 
 .. autoclass:: Undefined
    :members:
@@ -40,7 +41,7 @@ Utility Classes
    :show-inheritance:
 
 :class:`ErrorURLopener`
-,,,,,,,,,,,,,,,,,,,,,,,
+-----------------------
 
 .. autoclass:: ErrorURLopener
    :members:

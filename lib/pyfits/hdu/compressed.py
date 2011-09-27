@@ -271,7 +271,10 @@ class CompImageHDU(BinTableHDU):
         if card.keyword != 'XTENSION':
             return False
 
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
+
         if xtension not in ('BINTABLE', 'A3DTABLE'):
             return False
 
@@ -361,8 +364,8 @@ class CompImageHDU(BinTableHDU):
         if compressionType:
             if compressionType not in ['RICE_1','GZIP_1','PLIO_1',
                                        'HCOMPRESS_1']:
-                warnings.warn('Warning: Unknown compression type provided.  '
-                              'Default %s compression used.' %
+                warnings.warn('Unknown compression type provided.  Default '
+                              '(%s) compression used.' %
                               DEFAULT_COMPRESSION_TYPE)
                 compressionType = DEFAULT_COMPRESSION_TYPE
 
@@ -509,16 +512,16 @@ class CompImageHDU(BinTableHDU):
         if not tileSize:
             tileSize = []
         elif len(tileSize) != self._image_header['NAXIS']:
-            warnings.warn('Warning: Provided tile size not appropriate ' +
-                          'for the data.  Default tile size will be used.')
+            warnings.warn('Provided tile size not appropriate for the data.  '
+                          'Default tile size will be used.')
             tileSize = []
 
         # Set default tile dimensions for HCOMPRESS_1
 
         if compressionType == 'HCOMPRESS_1':
-            if self._image_header['NAXIS'] < 2:
-                raise ValueError('Hcompress cannot be used with '
-                                 '1-dimensional images.')
+            if self._image_header['NAXIS'] != 2:
+                raise ValueError('Hcompress can only be used with '
+                                 '2-dimensional images.')
             elif self._image_header['NAXIS1'] < 4 or \
             self._image_header['NAXIS2'] < 4:
                 raise ValueError('Hcompress minimum image dimension is '
@@ -638,9 +641,9 @@ class CompImageHDU(BinTableHDU):
 
         # Create the record array to be used for the table data.
         self.columns = cols
-        self.compData = FITS_rec(
-                np.rec.array(None, formats=','.join(cols._recformats),
-                             names=cols.names, shape=nrows))
+        compData = np.rec.array(None, formats=','.join(cols._recformats),
+                                names=cols.names, shape=nrows)
+        self.compData = compData.view(FITS_rec)
         self.compData._coldefs = self.columns
         self.compData.formats = self.columns.formats
 
@@ -1424,7 +1427,7 @@ class CompImageHDU(BinTableHDU):
                 zval = 'ZVAL' + str(idx)
                 if self._header[zname] == 'SMOOTH':
                     hcompSmooth = self._header[zval]
-                i += 1
+                idx += 1
 
             zvalList.append(hcompSmooth)
 
@@ -1754,6 +1757,6 @@ class CompImageHDU(BinTableHDU):
             # This is the case where the data has not been read from the
             # file yet.  We can handle that in a generic manner so we do
             # it in the base class.  The other possibility is that there
-            # is no data at all.  This can also be handled in a gereric
+            # is no data at all.  This can also be handled in a generic
             # manner.
             return super(CompImageHDU,self)._calculate_datasum(blocking)

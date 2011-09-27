@@ -2,11 +2,11 @@ import sys
 
 if sys.version_info[0] >= 3:
     # Stuff to do if Python 3
-    import io
     import builtins
+    import io
 
-    # Make io.FileIO available as the 'file' builtin as Go^H^HPython 2 intended
-    builtins.file = io.FileIO
+    # Bring back the cmp() function
+    builtins.cmp = lambda a, b: (a > b) - (a < b)
 
 
     # Make the decode_ascii utility function actually work
@@ -41,6 +41,31 @@ if sys.version_info[0] >= 3:
         return s
     pyfits.util.decode_ascii = decode_ascii
 
+    # Support the io.IOBase.readable/writable methods
+    from pyfits.util import isreadable as _isreadable
+    def isreadable(f):
+        if hasattr(f, 'readable'):
+            return f.readable()
+        return _isreadable(f)
+    pyfits.util.isreadable = isreadable
+
+    from pyfits.util import iswritable as _iswritable
+    def iswritable(f):
+        if hasattr(f, 'writable'):
+            return f.writable()
+        return _iswritable(f)
+    pyfits.util.iswritable = iswritable
+
+    # isfile needs to support the higher-level wrappers around FileIO
+    def isfile(f):
+        if isinstance(f, io.FileIO):
+            return True
+        elif hasattr(f, 'buffer'):
+            return isfile(f.buffer)
+        elif hasattr(f, 'raw'):
+            return isfile(f.raw)
+        return False
+    pyfits.util.isfile = isfile
 
     # Here we monkey patch (yes, I know) numpy to fix a few numpy Python 3
     # bugs.  The only behavior that's modified is that bugs are fixed, so that
@@ -65,7 +90,7 @@ if sys.version_info[0] >= 3:
                     else:
                         val = temp
                 return val
-    for m in [numpy.char, numpy.core.defchararray, numpy.record]:
+    for m in [numpy.char, numpy.core.defchararray, numpy.core.records]:
         m.chararray = chararray
 
 
@@ -85,28 +110,35 @@ if sys.version_info[0] >= 3:
         if dtype.fields is None:
             return dtype
 
-        new_dtype = {}
-        for name in dtype.names:
-            field = dtype.fields[name]
+        formats = []
+        offsets = []
+        for field in (dtype.fields[name] for name in dtype.names):
             shape = field[0].shape
             if not isinstance(shape, tuple):
                 shape = (shape,)
-            new_dtype[name] = ((field[0].base, shape), field[1])
+            formats.append((field[0].base, shape))
+            offsets.append(field[1])
 
-        return numpy.dtype(new_dtype)
+        return numpy.dtype({'names': dtype.names, 'formats': formats,
+                            'offsets': offsets})
 
     _recarray = numpy.recarray
     class recarray(_recarray):
-         def __new__(subtype, shape, dtype=None, buf=None, offset=0,
-                     strides=None, formats=None, names=None, titles=None,
-                     byteorder=None, aligned=False, order='C'):
-             if dtype is not None:
-                 dtype = _fix_dtype(dtype)
+        def __new__(subtype, shape, dtype=None, buf=None, offset=0,
+                    strides=None, formats=None, names=None, titles=None,
+                    byteorder=None, aligned=False, order='C'):
+            if dtype is not None:
+                dtype = _fix_dtype(dtype)
 
-             return _recarray.__new__(
-                     subtype, shape, dtype, buf, offset, strides, formats,
-                     names, titles, byteorder, aligned, order)
-    numpy.recarray = recarray
+            if 'order' in _recarray.__new__.__code__.co_varnames:
+                return _recarray.__new__(
+                        subtype, shape, dtype, buf, offset, strides, formats,
+                        names, titles, byteorder, aligned, order)
+            else:
+                return _recarray.__new__(
+                        subtype, shape, dtype, buf, offset, strides, formats,
+                        names, titles, byteorder, aligned)
+    numpy.recarray = numpy.core.records.recarray = recarray
 
 
     # We also need to patch pyfits.file._File which can also be affected by the

@@ -7,7 +7,7 @@ import numpy as np
 from pyfits.column import ASCIITNULL, FITS2NUMPY, TDIM_RE, Column, ColDefs, \
                           _FormatX, _FormatP, _VLF, _get_index, _wrapx, \
                           _unwrapx, _convert_format, _convert_ascii_format
-from pyfits.util import _fromfile, decode_ascii, lazyproperty
+from pyfits.util import _array_from_file, decode_ascii, lazyproperty
 
 
 class FITS_record(object):
@@ -190,8 +190,8 @@ class FITS_rec(np.recarray):
             self._file = obj._file
             self._coldefs = obj._coldefs
             self._nfields = obj._nfields
-            self.names = obj.names
             self._gap = obj._gap
+            self.names = obj.names
             self.formats = obj.formats
         else:
             # This will allow regular ndarrays with fields, rather than
@@ -204,10 +204,12 @@ class FITS_rec(np.recarray):
 
             self._coldefs = None
             self._gap = 0
+
+            # Bypass setattr-based assignment to fields; see #86
             self.names = list(obj.dtype.names)
             self.formats = None
 
-            attrs = ['_convert', '_coldefs', 'names', '_gap', 'formats']
+            attrs = ['_convert', '_coldefs', '_gap']
             for attr in attrs:
                 if hasattr(obj, attr):
                     value = getattr(obj, attr, None)
@@ -217,10 +219,27 @@ class FITS_rec(np.recarray):
 
             if self._coldefs is None:
                 self._coldefs = ColDefs(self)
-                self.formats = self._coldefs.formats
+            self.formats = self._coldefs.formats
 
     def __repr__(self):
         return np.recarray.__repr__(self)
+
+    def __getattribute__(self, attr):
+        # See the comment in __setattr__
+        if attr in ('names', 'formats'):
+            return object.__getattribute__(self, attr)
+        else:
+            return super(FITS_rec, self).__getattribute__(attr)
+
+    def __setattr__(self, attr, value):
+        # Overrides the silly attribute-based assignment to fields supported by
+        # recarrays for our two built-in public attributes: names and formats
+        # Otherwise, the default behavior, bad as it is, is preserved.  See
+        # ticket #86
+        if attr in ('names', 'formats'):
+            return object.__setattr__(self, attr, value)
+        else:
+            return super(FITS_rec, self).__setattr__(attr, value)
 
     def __getitem__(self, key):
         if isinstance(key, basestring):
@@ -343,15 +362,15 @@ class FITS_rec(np.recarray):
                     if recformat._dtype == 'a':
                         count = field[i,0]
                         dt = recformat._dtype + str(1)
-                        da = _fromfile(self._file, dtype=dt, count=count,
-                                       sep='')
+                        da = _array_from_file(self._file, dtype=dt,
+                                              count=count, sep='')
                         dummy[i] = np.char.array(da, itemsize=count)
                         dummy[i] = decode_ascii(dummy[i])
                     else:
                         count = field[i,0]
                         dt = recformat._dtype
-                        dummy[i] = _fromfile(self._file, dtype=dt, count=count,
-                                             sep='')
+                        dummy[i] = _array_from_file(self._file, dtype=dt,
+                                                    count=count, sep='')
                         dummy[i].dtype = dummy[i].dtype.newbyteorder('>')
 
                 # scale by TSCAL and TZERO
@@ -437,7 +456,7 @@ class FITS_rec(np.recarray):
                     self._convert[indx] = dummy
                 if _str:
                     fmt = self._convert[indx].dtype.char
-                    dtype = ('|%s%d' % (fmt, dim[0]), dim[1:])
+                    dtype = ('|%s%d' % (fmt, dim[-1]), dim[:-1])
                     self._convert[indx].dtype = dtype
                 else:
                     self._convert[indx].shape = (dummy.shape[0],) + dim
@@ -484,7 +503,7 @@ class FITS_rec(np.recarray):
         m = dim and TDIM_RE.match(dim)
         if m:
             dim = m.group('dims')
-            dim = tuple(int(d.strip()) for d in dim.split(','))
+            dim = tuple(int(d.strip()) for d in dim.split(','))[::-1]
         else:
             # Ignore any dim values that don't specify a multidimensional
             # column
@@ -589,7 +608,7 @@ class FITS_rec(np.recarray):
                         field.replace('E', 'D')
                 # binary table
                 else:
-                    if isinstance(field[0], np.integer):
+                    if len(field) and isinstance(field[0], np.integer):
                         dummy = np.around(dummy)
                     field[:] = dummy.astype(field.dtype)
 

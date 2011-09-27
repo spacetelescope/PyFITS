@@ -5,7 +5,7 @@ from pyfits.file import _File
 from pyfits.hdu.base import _BaseHDU
 from pyfits.hdu.hdulist import HDUList
 from pyfits.hdu.image import PrimaryHDU, _ImageBaseHDU
-from pyfits.util import _pad_length
+from pyfits.util import _pad_length, fileobj_name
 
 class StreamingHDU(object):
     """
@@ -63,13 +63,7 @@ class StreamingHDU(object):
         self._header = header.copy()
 
         # handle a file object instead of a file name
-
-        if isinstance(name, file):
-           filename = name.name
-        elif isinstance(name, basestring):
-            filename = name
-        else:
-            filename = ''
+        filename = fileobj_name(name) or ''
 #
 #       Check if the file already exists.  If it does not, check to see
 #       if we were provided with a Primary Header.  If not we will need
@@ -124,7 +118,7 @@ class StreamingHDU(object):
         tmp_hdu._header = self._header
         self._hdrLoc = tmp_hdu._writeheader(self._ffo)[0]
         self._datLoc = self._ffo.tell()
-        self._size = self.size()
+        self._size = self.size
 
         if self._size != 0:
             self.writecomplete = False
@@ -199,6 +193,7 @@ class StreamingHDU(object):
 
         return self.writecomplete
 
+    @property
     def size(self):
         """
         Return the size (in bytes) of the data portion of the HDU.

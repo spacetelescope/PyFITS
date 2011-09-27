@@ -6,9 +6,8 @@ import warnings
 
 from collections import defaultdict
 
-from pyfits.card import (Card, CardList, RecordValuedKeywordCard,
-                         create_card, create_card_from_string, upper_key)
-from pyfits.util import BLOCK_SIZE, deprecated, isiterable
+from pyfits.card import Card, CardList, create_card, upper_key, _pad
+from pyfits.util import BLOCK_SIZE, deprecated, isiterable, _pad_length
 
 
 class Header(object):
@@ -210,7 +209,6 @@ class Header(object):
         self._modified = True
 
     # TODO: Provide a nice, informative __repr__
-
     def __str__(self):
         return ''.join(str(card) for card in self._cards)
 
@@ -1062,7 +1060,7 @@ class Header(object):
             raise ValueError('Can not rename to CONTINUE')
 
         if (newkey in Card._commentary_keywords or
-                oldkey in Card._commentary_keywords):
+            oldkey in Card._commentary_keywords):
             if not (newkey in Card._commentary_keywords and
                     oldkey in Card._commentary_keywords):
                 raise ValueError('Regular and commentary keys can not be '
