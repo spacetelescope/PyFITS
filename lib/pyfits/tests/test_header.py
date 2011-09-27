@@ -191,7 +191,7 @@ class TestHeaderFunctions(PyfitsTestCase):
     def test_misalocated_equal_sign(self):
         # test mislocated "=" sign
         c = pyfits.Card.fromstring('xyz= 100')
-        assert_equal(c.key, 'xyz')
+        assert_equal(c.keyword, 'XYZ')
         assert_equal(c.value, 100)
         assert_equal(str(c),
                      "XYZ     =                  100                                                  ")
@@ -210,15 +210,15 @@ class TestHeaderFunctions(PyfitsTestCase):
         c = pyfits.Card.fromstring('abc= a6')
         with CaptureStdout() as f:
             c.verify()
-            assert_true(f.getvalue().startswith(
-                'Output verification result:\n  '
-                'Card image is not FITS standard (equal sign not at column 8).\n'))
+            assert_true(
+                'Card image is not FITS standard (equal sign not at column 8)'
+                in f.getvalue())
 
     def test_fix_invalid_equal_sign(self):
         c = pyfits.Card.fromstring('abc= a6')
         with CaptureStdout() as f:
             c.verify('fix')
-            fix_text = 'Fixed card to meet the FITS standard: abc\n'
+            fix_text = 'Fixed card to meet the FITS standard: ABC'
             assert_true(fix_text in f.getvalue())
         assert_equal(str(c),
                      "ABC     = 'a6      '                                                            ")

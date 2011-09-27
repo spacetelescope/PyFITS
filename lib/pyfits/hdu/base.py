@@ -324,8 +324,7 @@ class _BaseHDU(object):
         elif checksum:
             self.add_checksum(blocking='standard')
 
-        blocks = str(self._header) + _pad('END')
-        blocks = blocks + _pad_length(len(blocks)) * ' '
+        blocks = str(self._header)
 
         offset = 0
         size = len(blocks)
@@ -1130,8 +1129,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         self._header['CHECKSUM'] = '0' * 16
 
         # Convert the header to a string.
-        s = str(self._header) + _pad('END')
-        s = s + _pad_length(len(s))*' '
+        s = str(self._header)
 
         # Calculate the checksum of the Header and data.
         cs = self._compute_checksum(np.fromstring(s, dtype='ubyte'), datasum,

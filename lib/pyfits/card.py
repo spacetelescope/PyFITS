@@ -363,7 +363,7 @@ class Card(_Verify):
         self._valuestring = None
         self._valuemodified = False
 
-    def __str__(self):
+    def __repr__(self):
         # TODO: Have some useful string representation
         return repr((self.keyword, self.value, self.comment))
 
@@ -413,7 +413,6 @@ class Card(_Verify):
             self._modified = True
         else:
             raise ValueError('Keyword name %r is not a string.' % keyword)
-        self._modified = True
 
     keyword = property(_getkeyword, _setkeyword, doc='a header keyword')
     # TODO: Make .key deprecated in favor of .keyword (though really this
@@ -461,7 +460,6 @@ class Card(_Verify):
         elif self._image:
             self._comment = self._parsecomment()
             return self._comment
-            self._value = val
         else:
             self._setcomment('')
             return ''
@@ -518,8 +516,11 @@ class Card(_Verify):
         if self._value is not None and self._comment is not None:
             self._parsed = False
         keyword = self._image[:8].strip()
-        if keyword.upper() in self._commentary_keywords:
-            return keyword
+        keyword_upper = keyword.upper()
+        if keyword_upper in self._commentary_keywords:
+            if keyword_upper != keyword:
+                self._modified = True
+            return keyword_upper
         if '=' in self._image:
             keyword = self._image.split('=', 1)[0].strip()
         if len(keyword) > 8:
@@ -531,7 +532,10 @@ class Card(_Verify):
                     'keywords longer than 8 characters must use the HIERARCH '
                     'keyword.' % self._image)
         else:
-            return keyword.strip()
+            keyword_upper = keyword.upper()
+            if keyword_upper != keyword:
+                self._modified = True
+            return keyword_upper
 
     def _parsevalue(self):
         """Extract the keyword value from the card image."""
@@ -635,7 +639,7 @@ class Card(_Verify):
         else:
             image = self.image
 
-        if self.keyword.upper() in self._commentary_keywords + ['CONTINUE']:
+        if self.keyword in self._commentary_keywords + ['CONTINUE']:
             keyword, valuecomment = image.split(' ', 1)
         else:
             try:
@@ -648,7 +652,7 @@ class Card(_Verify):
             if delim_index is None:
                 keyword = image[:8]
                 valuecomment = image[8:]
-            elif delim_index > 10:
+            elif delim_index > 10 and image[:9] != 'HIERARCH ':
                 keyword = image[:8]
                 valuecomment = image[10:]
             else:
@@ -823,8 +827,9 @@ class Card(_Verify):
         errs = _ErrList([])
         fix_text = 'Fixed card to meet the FITS standard: %s' % self.keyword
         # verify the equal sign position
-        if (self.keyword.upper() not in self._commentary_keywords and
-                self._image and self._image.find('=') != 8):
+        if (self.keyword not in self._commentary_keywords and
+            (self._image and self._image[:8].upper() != 'HIERARCH' and
+             self._image.find('=') != 8)):
             errs.append(self.run_option(
                 option,
                 err_text='Card image is not FITS standard (equal sign not '
@@ -835,8 +840,10 @@ class Card(_Verify):
         # verify the key, it is never fixable
         # always fix silently the case where "=" is before column 9,
         # since there is no way to communicate back to the _keys.
-        if (self.keyword != self.keyword.upper() and not
-            (self._image and self._image[:8].upper() == 'HIERARCH')):
+        # TODO: I think this will break for hierarch cards...
+        if self._image and self._image[:8].upper() == 'HIERARCH':
+            pass
+        elif self.keyword != self.keyword.upper():
             # Keyword should be uppercase unless it's a HIERARCH card
             errs.append(self.run_option(
                 option,

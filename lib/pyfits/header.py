@@ -210,7 +210,8 @@ class Header(object):
 
     # TODO: Provide a nice, informative __repr__
     def __str__(self):
-        return ''.join(str(card) for card in self._cards)
+        s = ''.join(str(card) for card in self._cards) + _pad('END')
+        return s + _pad_length(len(s)) * ' '
 
     @property
     def cards(self):

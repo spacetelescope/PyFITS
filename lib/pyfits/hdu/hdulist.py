@@ -996,10 +996,6 @@ class HDUList(list, _Verify):
 
                 # Header:
                 nbytes = len(str(hdu.header))
-                # Add +80 for the END card
-                nbytes += Card.length
-                # Add padding
-                nbytes += _pad_length(nbytes)
                 if nbytes != (hdu._datLoc - hdu._hdrLoc):
                     self._resize = True
                     self._truncate = False
