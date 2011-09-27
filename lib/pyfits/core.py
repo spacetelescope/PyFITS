@@ -76,9 +76,9 @@ FALSE = False
 
 
 try:
-    USE_MEMMAP = bool(int(os.environ.get('PYFITS_USE_MEMMAP', 1)))
+    USE_MEMMAP = bool(int(os.environ.get('PYFITS_USE_MEMMAP', 0)))
 except ValueError:
-    USE_MEMMAP = True
+    USE_MEMMAP = False
 
 # The following variable and function are used to support case sensitive
 # values for the value of a EXTNAME card in an extension header.  By default,
