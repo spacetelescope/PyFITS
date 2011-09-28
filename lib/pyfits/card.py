@@ -160,7 +160,8 @@ class Card(_Verify):
     def __str__(self):
         return self.cardimage
 
-    def _getkey(self):
+    @property
+    def key(self):
         """Returns the keyword name parsed from the card image."""
 
         if not hasattr(self, '_key'):
@@ -168,7 +169,8 @@ class Card(_Verify):
             self._key = head.strip().upper()
         return self._key
 
-    def _setkey(self, val):
+    @key.setter
+    def key(self, val):
         """Set the key attribute; once set it cannot be modified."""
 
         if hasattr(self, '_key'):
@@ -193,11 +195,8 @@ class Card(_Verify):
         self._key = val
         self._modified = True
 
-    # TODO: It would be nice to eventually use property.getter/setter/deleter,
-    # but those are not available prior to Python 2.6
-    key = property(_getkey, _setkey, doc='Card keyword')
-
-    def _getvalue(self):
+    @property
+    def value(self):
         """Get the value attribute from the card image if not already set."""
 
         if not hasattr(self, '_value'):
@@ -206,7 +205,8 @@ class Card(_Verify):
             self._value = self._extract_value()
         return self._value
 
-    def _setvalue(self, val):
+    @value.setter
+    def value(self, val):
         self._update_value(val)
         if hasattr(self, '_cardimage'):
             # Make sure these are saved from the old cardimage before deleting
@@ -214,8 +214,6 @@ class Card(_Verify):
             self.key
             self.comment
             del self._cardimage
-
-    value = property(_getvalue, _setvalue, doc='Card value')
 
     def _update_value(self, val):
         """Set the value attribute."""
@@ -231,14 +229,16 @@ class Card(_Verify):
         else:
             raise ValueError('Illegal value %s.' % repr(val))
 
-    def _getcomment(self):
+    @property
+    def comment(self):
         """Get the comment attribute from the card image if not already set."""
 
         if not hasattr(self, '_comment'):
             self._comment = self._extract_comment()
         return self._comment
 
-    def _setcomment(self, val):
+    @comment.setter
+    def comment(self, val):
         self._update_comment(val)
         if hasattr(self, '_cardimage'):
             # Make sure these are saved from the old cardimage before deleting
@@ -246,8 +246,6 @@ class Card(_Verify):
             self.key
             self.value
             del self._cardimage
-
-    comment = property(_getcomment, _setcomment, doc='Card comment')
 
     def _update_comment(self, val):
         """Set the comment attribute."""
@@ -819,23 +817,28 @@ class RecordValuedKeywordCard(Card):
         it do not update the original record-valued keyword card.
         """
 
-        key = super(RecordValuedKeywordCard, self)._getkey()
+        key = super(RecordValuedKeywordCard, self).key
         return Card(key, self.strvalue(), self.comment)
 
-    def _getkey(self):
-        key = super(RecordValuedKeywordCard, self)._getkey()
+    @property
+    def key(self):
+        key = super(RecordValuedKeywordCard, self).key
         if not hasattr(self, '_field_specifier'):
             return key
         return '%s.%s' % (key, self._field_specifier)
 
-    key = property(_getkey, Card.key.fset, doc=Card.key.__doc__)
+    @key.setter
+    def key(self, value):
+        Card.key.fset(self, value)
 
-    def _getvalue(self):
+    @property
+    def value(self):
         """The RVKC value should always be returned as a float."""
 
-        return float(super(RecordValuedKeywordCard, self)._getvalue())
+        return float(super(RecordValuedKeywordCard, self).value)
 
-    def _setvalue(self, val):
+    @value.setter
+    def value(self, val):
         if not isinstance(val, float):
             try:
                 val = int(val)
@@ -844,9 +847,7 @@ class RecordValuedKeywordCard(Card):
                     val = float(val)
                 except:
                     raise ValueError('value %s is not a float' % val)
-        super(RecordValuedKeywordCard, self)._setvalue(val)
-
-    value = property(_getvalue, _setvalue, doc=Card.value.__doc__)
+        Card.value.fset(self, val)
 
     #
     # class method definitins
@@ -1317,7 +1318,10 @@ class CardList(list):
         """Format a list of cards into a printable string."""
         return '\n'.join(map(str, self))
 
-    def _get_mod(self):
+    @property
+    def _mod(self):
+        """Has this card list been modified since last write"""
+
         mod = self.__dict__.get('_mod', False)
         if not mod:
             # See if any of the cards were directly modified
@@ -1327,16 +1331,14 @@ class CardList(list):
                     return True
         return mod
 
-    def _set_mod(self, value):
+    @_mod.setter
+    def _mod(self, value):
         self.__dict__['_mod'] = value
         # If the card list is explicitly set as 'not modified' then make sure
         # the same applies to its underlying cards
         if not value:
             for card in self:
                 card._modified = False
-
-    _mod = property(_get_mod, _set_mod,
-                    doc='has this card list been modified since last write')
 
     def copy(self):
         """Make a (deep)copy of the `CardList`."""
@@ -1612,13 +1614,18 @@ class _HierarchCard(Card):
     characters.
     """
 
-    def _getkey(self):
+    @property
+    def key(self):
         """Returns the keyword name parsed from the card image."""
 
         if not hasattr(self, '_key'):
             head = self._get_key_string()
             self._key = head.strip()
         return self._key
+
+    @key.setter
+    def key(self, value):
+        Card.key.fset(self, value)
 
     def _format_key(self):
         if hasattr(self, '_key') or hasattr(self, '_cardimage'):
