@@ -403,12 +403,15 @@ class Card(_Verify):
                 # 'HIERARCH '.  Now we will create them automtically for long
                 # keywords, but we still want to support the old behavior too:
                 if keyword[:9].upper() == 'HIERARCH ':
+                    # The user explicitly asked for a HIERARCH card, so don't
+                    # bug them about it...
                     keyword = keyword[9:]
-                # We'll gladly create a HIERARCH card, but a warning is also
-                # displayed
-                warnings.warn(
-                    'Keyword name %r is greater than 8 characters; a '
-                    'HIERARCH card will be created.')
+                else:
+                    # We'll gladly create a HIERARCH card, but a warning is
+                    # also displayed
+                    warnings.warn(
+                        'Keyword name %r is greater than 8 characters; a '
+                        'HIERARCH card will be created.' % keyword)
             self._keyword = keyword
             self._modified = True
         else:
@@ -481,7 +484,7 @@ class Card(_Verify):
 
     @property
     def image(self):
-        if not self._parsed:
+        if self._image and not self._parsed:
             self.verify('silentfix')
         if self._image is None or self._modified:
             self._image = self._formatimage()

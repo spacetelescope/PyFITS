@@ -274,12 +274,26 @@ class TestHeaderFunctions(PyfitsTestCase):
             "CONTINUE  '&' / comments in line 1 comments with ''.                            ")
 
     def test_hierarch_card(self):
+        # Test automatic upgrade to hierarch card
+        with catch_warnings(record=True) as w:
+            c = pyfits.Card('ESO INS SLIT2 Y1FRML',
+                            'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)')
+            assert_equal(len(w), 1)
+            assert_true('HIERARCH card will be created' in str(w[0].message))
+            assert_equal(str(c),
+                         "HIERARCH ESO INS SLIT2 Y1FRML= "
+                         "'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)'")
+
+        # Test manual creation of hierarch card
         c = pyfits.Card('hierarch abcdefghi', 10)
         assert_equal(str(c),
-            "HIERARCH abcdefghi = 10                                                         ")
-        c = pyfits.Card('HIERARCH ESO INS SLIT2 Y1FRML', 'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)')
+            "HIERARCH abcdefghi = "
+            "10                                                         ")
+        c = pyfits.Card('HIERARCH ESO INS SLIT2 Y1FRML',
+                        'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)')
         assert_equal(str(c),
-            "HIERARCH ESO INS SLIT2 Y1FRML= 'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)'")
+                     "HIERARCH ESO INS SLIT2 Y1FRML= "
+                     "'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)'")
 
     def test_header_setitem_invalid(self):
         header = pyfits.Header()
