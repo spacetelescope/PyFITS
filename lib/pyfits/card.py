@@ -353,11 +353,11 @@ class Card(_Verify):
         self._parsed = True
 
         if keyword is not None:
-            self._setkeyword(keyword)
+            self.keyword = keyword
         if value is not None:
-            self._setvalue(value)
+            self.value = value
         if comment is not None:
-            self._setcomment(comment)
+            self.comment = comment
 
         self._modified = False
         self._valuestring = None
@@ -376,17 +376,21 @@ class Card(_Verify):
     def __getitem__(self, index):
         return (self.keyword, self.value, self.comment)[index]
 
-    def _getkeyword(self):
+    @property
+    def keyword(self):
+        """Returns the keyword name parsed from the card image."""
         if self._keyword is not None:
             return self._keyword
         elif self._image:
             self._keyword = self._parsekeyword()
             return self._keyword
         else:
-            self._setkeyword('')
+            self.keyword = ''
             return ''
 
-    def _setkeyword(self, keyword):
+    @keyword.setter
+    def keyword(self, keyword):
+        """Set the key attribute; once set it cannot be modified."""
         if self._keyword is not None:
             raise AttributeError(
                 'Once set, the Card keyword may not be modified')
@@ -416,26 +420,27 @@ class Card(_Verify):
             self._modified = True
         else:
             raise ValueError('Keyword name %r is not a string.' % keyword)
-
-    keyword = property(_getkeyword, _setkeyword, doc='a header keyword')
-    # TODO: Make .key deprecated in favor of .keyword (though really this
-    # entire interface should be deprecated)
+    # For API backwards-compatibility; key should raise a deprecation warning
+    # TODO: key should be made to raise a deprecation warning; yeah, keyword is
+    # more typing, but it's also more semantically correct here than just 'key'
     key = keyword
 
-    def _getvalue(self):
+    @property
+    def value(self):
         if self._value is not None:
             return self._value
         elif self._valuestring is not None:
-            self._setvalue(self._valuestring)
+            self.value = self._valuestring
             return self._valuestring
         elif self._image:
             self._value = self._parsevalue()
             return self._value
         else:
-            self._setvalue('')
+            self.value = ''
             return ''
 
-    def _setvalue(self, value):
+    @value.setter
+    def value(self, value):
         if value is None:
             value = ''
         oldvalue = self._value
@@ -452,22 +457,24 @@ class Card(_Verify):
         else:
             raise ValueError('Illegal value: %r.' % value)
 
-    def _delvalue(self):
-        self._setvalue('')
+    @value.deleter
+    def value(self):
+        self.value = ''
 
-    value = property(_getvalue, _setvalue, _delvalue)
-
-    def _getcomment(self):
+    @property
+    def comment(self):
+        """Get the comment attribute from the card image if not already set."""
         if self._comment is not None:
             return self._comment
         elif self._image:
             self._comment = self._parsecomment()
             return self._comment
         else:
-            self._setcomment('')
+            self.comment = ''
             return ''
 
-    def _setcomment(self, comment):
+    @comment.setter
+    def comment(self, comment):
         if comment is None:
             comment = ''
         oldcomment = self._comment
@@ -477,10 +484,9 @@ class Card(_Verify):
             self._comment = comment
             self._modified = True
 
-    def _delcomment(self):
-        self._setcomment('')
-
-    comment = property(_getcomment, _setcomment, _delcomment)
+    @comment.deleter
+    def comment(self):
+        self.comment = ''
 
     @property
     def image(self):
@@ -677,10 +683,10 @@ class Card(_Verify):
         if m is None:
             try:
                 value, comment = valuecomment.split('/', 1)
-                self._setvalue(value.strip())
-                self._setcomment(comment.strip())
+                self.value = value.strip()
+                self.comment = comment.strip()
             except (ValueError, IndexError):
-                self._setvalue(valuecomment)
+                self.value = valuecomment
             self._valuestring = self._value
             self._valuemodified = False
             return
@@ -1068,23 +1074,28 @@ class RecordValuedKeywordCard(Card):
         it do not update the original record-valued keyword card.
         """
 
-        key = super(RecordValuedKeywordCard, self)._getkey()
+        key = super(RecordValuedKeywordCard, self).key
         return Card(key, self.strvalue(), self.comment)
 
-    def _getkey(self):
-        key = super(RecordValuedKeywordCard, self)._getkey()
+    @property
+    def key(self):
+        key = super(RecordValuedKeywordCard, self).key
         if not hasattr(self, '_field_specifier'):
             return key
         return '%s.%s' % (key, self._field_specifier)
 
-    key = property(_getkey, Card.key.fset, doc=Card.key.__doc__)
+    @key.setter
+    def key(self, value):
+        Card.key.fset(self, value)
 
-    def _getvalue(self):
+    @property
+    def value(self):
         """The RVKC value should always be returned as a float."""
 
-        return float(super(RecordValuedKeywordCard, self)._getvalue())
+        return float(super(RecordValuedKeywordCard, self).value)
 
-    def _setvalue(self, val):
+    @value.setter
+    def value(self, val):
         if not isinstance(val, float):
             try:
                 val = int(val)
@@ -1093,9 +1104,7 @@ class RecordValuedKeywordCard(Card):
                     val = float(val)
                 except:
                     raise ValueError('value %s is not a float' % val)
-        super(RecordValuedKeywordCard, self)._setvalue(val)
-
-    value = property(_getvalue, _setvalue, doc=Card.value.__doc__)
+        Card.value.fset(self, val)
 
     #
     # class method definitins

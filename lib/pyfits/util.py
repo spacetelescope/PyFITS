@@ -1,3 +1,4 @@
+import __builtin__
 import functools
 import itertools
 import os
@@ -268,10 +269,14 @@ class lazyproperty(object):
     http://code.activestate.com/recipes/363602-lazy-property-evaluation
     """
 
-    def __init__(self, fget, fset=None, fdel=None):
+    def __init__(self, fget, fset=None, fdel=None, doc=None):
         self._fget = fget
         self._fset = fset
         self._fdel = fdel
+        if doc is None:
+            self.__doc__ = fget.__doc__
+        else:
+            self.__doc__ = doc
 
     def __get__(self, obj, owner=None):
         if obj is None:
@@ -295,6 +300,28 @@ class lazyproperty(object):
         key = self._fget.func_name
         if key in obj.__dict__:
             del obj.__dict__[key]
+
+    def getter(self, fget):
+        return self.__ter(fget, 0)
+
+    def setter(self, fset):
+        return self.__ter(fset, 1)
+
+    def deleter(self, fdel):
+        return self.__ter(fdel, 2)
+
+    def __ter(self, f, arg):
+        args = [self._fget, self._fset, self._fdel, self.__doc__]
+        args[arg] = f
+        cls_ns = sys._getframe(1).f_locals
+        for k, v in cls_ns.iteritems():
+            if v is self:
+                property_name = k
+                break
+
+        cls_ns[property_name] = lazyproperty(*args)
+
+        return cls_ns[property_name]
 
 
 def deprecated(message='', name='', alternative='', pending=False):
@@ -777,3 +804,36 @@ def _tmp_name(input):
     f, fn = tempfile.mkstemp(dir=input)
     os.close(f)
     return fn
+
+
+if sys.version_info[:2] < (2, 6):
+    # Replace the builtin property to add support for the getter/setter/deleter
+    # mechanism as introduced in Python 2.6 (this can go away if we ever drop
+    # 2.5 support)
+    class property(property):
+        def __init__(self, fget, *args, **kwargs):
+            self.__doc__ = fget.__doc__
+            super(property, self).__init__(fget, *args, **kwargs)
+
+        def getter(self, fget):
+            return self.__ter(fget, 0)
+
+        def setter(self, fset):
+            return self.__ter(fset, 1)
+
+        def deleter(self, fdel):
+            return self.__ter(fdel, 2)
+
+        def __ter(self, f, arg):
+            args = [self.fget, self.fset, self.fdel, self.__doc__]
+            args[arg] = f
+            cls_ns = sys._getframe(1).f_locals
+            for k, v in cls_ns.iteritems():
+                if v is self:
+                    property_name = k
+                    break
+
+            cls_ns[property_name] = property(*args)
+
+            return cls_ns[property_name]
+    __builtin__.property = property

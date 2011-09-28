@@ -62,11 +62,33 @@ from pyfits.util import deprecated
 from pyfits.verify import VerifyError
 
 
-__all__ = pyfits.card.__all__ + pyfits.column.__all__ + \
-          pyfits.convenience.__all__ + pyfits.hdu.__all__ + \
+# Set module-global boolean variables--these variables can also get their
+# values from environment variables
+GLOBALS = [
+     # Variable name                       # Default
+    ('EXTENSION_NAME_CASE_SENSITIVE',      False),
+    ('USE_MEMMAP',                         False),
+    ('ENABLE_RECORD_VALUED_KEYWORD_CARDS', True)
+]
+
+for varname, default in GLOBALS:
+    try:
+        locals()[varname] = bool(int(os.environ.get('PYFITS_' + varname,
+                                                    default)))
+    except ValueError:
+        locals()[varname] = default
+
+
+try:
+    USE_MEMMAP = bool(int(os.environ.get('PYFITS_USE_MEMMAP', 0)))
+except ValueError:
+    USE_MEMMAP = False
+
+__all__ = (pyfits.card.__all__ + pyfits.column.__all__ +
+           pyfits.convenience.__all__ + pyfits.hdu.__all__ +
           ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',
-           'new_table', 'Header', 'VerifyError', 'TRUE', 'FALSE', 'USE_MEMMAP',
-           'EXTENSION_NAME_CASE_SENSITIVE', 'setExtensionNameCaseSensitive']
+           'new_table', 'Header', 'VerifyError', 'TRUE', 'FALSE',
+           'setExtensionNameCaseSensitive'] + [g[0] for g in GLOBALS])
 
 
 # These are of course deprecated, but a handful of external code still uses
@@ -75,20 +97,13 @@ TRUE = True
 FALSE = False
 
 
-try:
-    USE_MEMMAP = bool(int(os.environ.get('PYFITS_USE_MEMMAP', 0)))
-except ValueError:
-    USE_MEMMAP = False
-
 # The following variable and function are used to support case sensitive
 # values for the value of a EXTNAME card in an extension header.  By default,
 # pyfits converts the value of EXTNAME cards to upper case when reading from
 # a file.  By calling setExtensionNameCaseSensitive() the user may circumvent
 # this process so that the EXTNAME value remains in the same case as it is
-# in the file.
-
-EXTENSION_NAME_CASE_SENSITIVE = False
-
+# in the file. (Note: The EXTENSION_NAME_CASE_SENSITIVE is now defined above
+# along with the other module variables)
 @deprecated(alternative='the pyfits.EXTENSION_NAME_CASE_SENSITIVE variable')
 def setExtensionNameCaseSensitive(value=True):
     global EXTENSION_NAME_CASE_SENSITIVE

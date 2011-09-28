@@ -854,6 +854,7 @@ class CompImageHDU(BinTableHDU):
             for _ in range(required_blanks - table_blanks):
                 self._header.append()
 
+    @lazyproperty
     def data(self):
         # The data attribute is the image data (not the table data).
 
@@ -1100,13 +1101,13 @@ class CompImageHDU(BinTableHDU):
                 data = np.where(blanks, np.nan, data)
         return data
 
-    def _setdata(self, value):
+    @data.setter
+    def data(self, value):
         if (value is not None) and (not isinstance(value, np.ndarray) or
              value.dtype.fields is not None):
                 raise TypeError('CompImageHDU data has incorrect type:%s; '
                                 'dtype.fields = %s' %
                                 (type(value), value.dtype.fields))
-    data = lazyproperty(data, _setdata)
 
     @lazyproperty
     def compData(self):
