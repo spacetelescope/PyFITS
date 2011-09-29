@@ -94,7 +94,7 @@ def fitsopen(name, mode="copyonwrite", memmap=None, classExtensions={},
     """
 
     if memmap is None:
-        from pyfits.core import USE_MEMMAP
+        from pyfits import USE_MEMMAP
         memmap = USE_MEMMAP
 
     if 'uint16' in kwargs and 'uint' not in kwargs:
