@@ -500,7 +500,11 @@ class Card(_Verify):
 
     @value.deleter
     def value(self):
-        self.value = ''
+        if not self.field_specifier:
+            self.value = ''
+        else:
+            raise AttributeError('Values cannot be deleted from record-valued '
+                                 'keyword cards')
 
     @property
     def comment(self):
