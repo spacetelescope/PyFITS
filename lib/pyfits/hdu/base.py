@@ -103,12 +103,13 @@ class _BaseHDU(object):
         self._datSpan = None
         self.name = ''
 
-    def _getheader(self):
+    @property
+    def header(self):
         return self._header
 
-    def _setheader(self, value):
+    @header.setter
+    def header(self, value):
         self._header = value
-    header = property(_getheader, _setheader)
 
     @property
     def is_image(self):
@@ -1305,7 +1306,7 @@ class ExtensionHDU(_ValidHDU):
         Set an HDU attribute.
         """
 
-        from pyfits.core import EXTENSION_NAME_CASE_SENSITIVE
+        from pyfits import EXTENSION_NAME_CASE_SENSITIVE
 
         if attr == 'name' and value:
             if not isinstance(value, basestring):
