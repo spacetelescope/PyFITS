@@ -6,7 +6,7 @@ import warnings
 
 from collections import defaultdict
 
-from pyfits.card import Card, CardList, create_card, upper_key, _pad
+from pyfits.card import Card, CardList, create_card, _pad, _int_or_float
 from pyfits.util import BLOCK_SIZE, deprecated, isiterable, _pad_length
 
 
@@ -146,7 +146,11 @@ class Header(object):
             comment = None
 
         try:
-            idx = self._cardindex(key)
+            if isinstance(key, basestring):
+                new_card = Card(key, value, comment)
+                idx = self._cardindex(new_card.keyword)
+            else:
+                idx = self._cardindex(key)
             card = self._cards[idx]
             card.value = value
             if comment is not None:
@@ -184,7 +188,7 @@ class Header(object):
             return
         elif isinstance(key, basestring):
             # delete ALL cards with the same keyword name
-            key = key.upper()
+            key = Card.normalize_keyword(key)
             if key not in self._keyword_indices:
                 # TODO: The old Header implementation allowed deletes of
                 # nonexistent keywords to pass
@@ -197,7 +201,7 @@ class Header(object):
             return
 
         idx = self._cardindex(key)
-        keyword = self._cards[idx].keyword.upper()
+        keyword = self._cards[idx].keyword
         del self._cards[idx]
         indices = self._keyword_indices[keyword]
         indices.remove(idx)
@@ -255,17 +259,20 @@ class Header(object):
             else:
                 return None
 
+        end = 'END' + ' ' * 77
+
         while idx < len(data):
             image = [data[idx:idx + Card.length]]
+            if image[0] == end:
+                break
+
             next = peeknext()
             while next and next[:8] == 'CONTINUE':
                 image.append(next)
                 idx += Card.length
                 next = peeknext()
-            card = Card.fromstring(''.join(image))
-            if card.key == 'END':
-                break
-            cards.append(card)
+
+            cards.append(Card.fromstring(''.join(image)))
             idx += Card.length
 
         return cls(cards)
@@ -350,7 +357,12 @@ class Header(object):
 
         """
 
-        if keyword in self:
+        # Create a temporary card that looks like the one being set; if the
+        # temporary card turns out to be a RVKC this will make it easier to
+        # deal with the idiosyncrasies thereof
+        new_card = Card(keyword, value, comment)
+
+        if new_card.keyword in self:
             if comment is None:
                 comment = self.comments[keyword]
             if value is None:
@@ -653,7 +665,7 @@ class Header(object):
             self._cards.insert(idx, card)
             self._updateindices(idx)
 
-        keyword = card.keyword.upper()
+        keyword = card.keyword
         self._keyword_indices[keyword].append(idx)
 
         if not end:
@@ -772,7 +784,7 @@ class Header(object):
 
         self._cards.insert(idx, card)
 
-        keyword = card.keyword.upper()
+        keyword = card.keyword
 
         # If idx was < 0, determine the actual index according to the rules
         # used by list.insert()
@@ -861,7 +873,7 @@ class Header(object):
 
 
         if isinstance(key, basestring):
-            key = (key.upper(), 0)
+            key = (Card.normalize_keyword(key), 0)
 
         if isinstance(key, tuple):
             if (len(key) != 2 or not isinstance(key[0], basestring) or
@@ -870,11 +882,28 @@ class Header(object):
                         'Tuple indices must be 2-tuples consisting of a '
                         'keyword string and an integer index.')
             keyword, n = key
-            keyword = keyword.upper()
+            keyword = Card.normalize_keyword(keyword)
             # Returns the index into _cards for the n-th card with the given
             # keyword (where n is 0-based)
             if keyword not in self._keyword_indices:
-                raise KeyError("Keyword %r not found." % keyword)
+                if len(keyword) > 8:
+                    raise KeyError("Keyword %r not found." % keyword)
+                # Great--now we have to check if there's a RVKC that starts
+                # with the given keyword, making failed lookups fairly
+                # expensive
+                # TODO: Have a flag for whether or not the header contains any
+                # RVKCs (the most common case) so that we can avoid having to
+                # deal with them when possible
+                keyword = keyword + '.'
+                found = 0
+                for idx, card in enumerate(self._cards):
+                    if (card.field_specifier and
+                        card.keyword.startswith(keyword)):
+                        if found == n:
+                            return idx
+                        found += 1
+                else:
+                    raise KeyError("Keyword %r not found." % keyword)
             try:
                 return self._keyword_indices[keyword][n]
             except IndexError:
@@ -1054,8 +1083,8 @@ class Header(object):
             duplicate name.
         """
 
-        oldkey = upper_key(oldkey)
-        newkey = upper_key(newkey)
+        oldkey = Card.normalize_keyword(oldkey)
+        newkey = Card.normalize_keyword(newkey)
 
         if newkey == 'CONTINUE':
             raise ValueError('Can not rename to CONTINUE')
