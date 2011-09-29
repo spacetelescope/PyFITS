@@ -106,7 +106,11 @@ class Header(object):
         elif self._haswildcard(key):
             return Header([copy.copy(self._cards[idx])
                            for idx in self._wildcardmatch(key)])
-
+        elif (isinstance(key, basestring) and
+              key.upper() in Card._commentary_keywords):
+            key = key.upper()
+            # Special case for commentary cards--return a list of their values
+            return [c.value for c in self._cards if c.keyword == key]
         return self._cards[self._cardindex(key)].value
 
     def __setitem__ (self, key, value):
@@ -145,23 +149,17 @@ class Header(object):
         else:
             comment = None
 
-        try:
-            if isinstance(key, basestring):
-                new_card = Card(key, value, comment)
-                idx = self._cardindex(new_card.keyword)
-            else:
-                idx = self._cardindex(key)
-            card = self._cards[idx]
+        if isinstance(key, int):
+            card = self._cards[key]
             card.value = value
             if comment is not None:
                 card.comment = comment
             if card._modified:
                 self._modified = True
-        except KeyError:
+        else:
             # If we get an IndexError that should be raised; we don't allow
             # assignment to non-existing indices
-            self._update(Card(key, value, comment))
-            self._modified = True
+            self._update((key, value, comment))
 
     def __delitem__(self, key):
         """
@@ -180,7 +178,7 @@ class Header(object):
                 # If the slice step is backwards we want to reverse it, because
                 # it will be reversed in a few lines...
                 if slice.step < 0:
-                    indicies = reversed(indices)
+                    indices = reversed(indices)
             else:
                 indices = self._wildcardmatch(key)
             for idx in reversed(indices):
@@ -740,7 +738,12 @@ class Header(object):
         if stop is None:
             stop = len(self._cards)
 
-        for idx in xrange(start, stop):
+        if stop < start:
+            step = -1
+        else:
+            step = 1
+
+        for idx in xrange(start, stop, step):
             if self._cards[idx].keyword == keyword:
                 return idx
         else:
@@ -834,26 +837,30 @@ class Header(object):
         is to use the insert(), append(), or extend() methods.
         """
 
-        # TODO: Handle RVKCs at some point; right now for simplicity's sake
-        # we're ignoring them
-
-        # TODO: Obviously commentary keywords aren't really properly supported
-        # yet
+        if not isinstance(card, Card):
+            comment = card[-1]
+            card = Card(*card)
+        else:
+            comment = card.comment
 
         keyword = card.keyword
 
         if (keyword not in Card._commentary_keywords and
                 keyword in self._keyword_indices):
             # Easy; just update the value/comment
-            # TODO: Once we start worrying about the string representation of
-            # the entire header, we should probably touch something here to
-            # ensure that it's updated
             idx = self._keyword_indices[keyword][0]
             existing_card = self._cards[idx]
             existing_card.value = card.value
-            existing_card.comment = card.comment
+            if comment is not None:
+                # '' should be used to explictly blank a comment
+                existing_card.comment = card.comment
             if existing_card._modified:
                 self._modified = True
+        elif keyword in Card._commentary_keywords:
+            # Append after the last keyword of the same type
+            idx = self.index(keyword, start=len(self) - 1, stop=-1)
+            isblank = not (card.keyword or card.value or card.comment)
+            self.insert(idx + 1, card, useblanks=(not isblank))
         else:
             # A new keyword! self.append() will handle updating _modified
             self.append(card)
@@ -1120,7 +1127,7 @@ class Header(object):
             same as in `Header.update`
         """
 
-        self._add_commentary('history', value, before=before, after=after)
+        self._add_commentary('HISTORY', value, before=before, after=after)
 
     def add_comment(self, value, before=None, after=None):
         """
@@ -1138,7 +1145,7 @@ class Header(object):
             same as in `Header.update`
         """
 
-        self._add_commentary('comment', value, before=before, after=after)
+        self._add_commentary('COMMENT', value, before=before, after=after)
 
     def add_blank(self, value='', before=None, after=None):
         """
@@ -1158,19 +1165,21 @@ class Header(object):
 
         self._add_commentary(' ', value, before=before, after=after)
 
+    @deprecated(alternative="header['HISTORY']", pending=True)
     def get_history(self):
         """
         Get all history cards as a list of string texts.
         """
 
-        return [c for c in self.ascard if c.key == 'HISTORY']
+        return self['HISTORY']
 
+    @deprecated(alternative="header['COMMENT']", pending=True)
     def get_comment(self):
         """
         Get all comment cards as a list of string texts.
         """
 
-        return [c for c in self.ascard if c.key == 'COMMENT']
+        return self['COMMENT']
 
     def toTxtFile(self, fileobj, clobber=False):
         """
@@ -1331,21 +1340,10 @@ class Header(object):
         card (or blank card), append at the end.
         """
 
-        new_card = Card(key, value)
         if before is not None or after is not None:
-            self.ascard._pos_insert(new_card, before=before, after=after)
+            self._relativeinsert((key, value), before=before, after=after)
         else:
-            if key[0] == ' ':
-                useblanks = new_card.cardimage != ' '*80
-                self.ascard.append(new_card, useblanks=useblanks, bottom=1)
-            else:
-                try:
-                    _last = self.ascard.index_of(key, backward=1)
-                    self.ascard.insert(_last+1, new_card)
-                except:
-                    self.ascard.append(new_card, bottom=1)
-
-        self._modified = True
+            self[key] = value
 
 
 class _HeaderComments(object):
@@ -1375,6 +1373,9 @@ class _HeaderComments(object):
         return '\n'.join('%*s  %s' % (keyword_width, c.keyword, c.comment)
                          for c in self._header._cards)
 
+    def __len__(self):
+        return len(self._header)
+
     def __getitem__(self, item):
         """
         Slices and filter strings return a new _HeaderComments containing the
@@ -1400,7 +1401,7 @@ class _HeaderComments(object):
             else:
                 indices = self._header._wildcardmatch(item)
             if isinstance(comment, basestring) or not isiterable(comment):
-                value = itertools.repeat(comment, len(indices))
+                comment = itertools.repeat(comment, len(indices))
             for idx, val in itertools.izip(indices, comment):
                 self[idx] = val
             return

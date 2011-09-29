@@ -442,13 +442,16 @@ def isiterable(obj):
     # collections.Iterable, but this unavailable in Python 2.5 and below
     try:
         from collections import Iterable
-        return isinstance(obj, Iterable)
-    except ImportError:
-        try:
-            iter(obj)
+        if isinstance(obj, Iterable):
             return True
-        except TypeError:
-            return False
+    except ImportError:
+        pass
+
+    try:
+        iter(obj)
+        return True
+    except TypeError:
+        return False
 
 def encode_ascii(s):
     """

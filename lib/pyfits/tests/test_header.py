@@ -34,6 +34,21 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert_equal(header['B'], 'B')
         assert_equal(header.comments['B'], 'C')
 
+    def test_add_commentary(self):
+        header = pyfits.Header([('A', 'B', 'C'), ('HISTORY', 1),
+                                ('HISTORY', 2), ('HISTORY', 3), ('', '', ''),
+                                ('', '', '')])
+        header.add_history(4)
+        # One of the blanks should get used, so the length shouldn't change
+        assert_equal(len(header), 6)
+        assert_equal(header.cards[4].value, 4)
+        assert_equal(header['HISTORY'], [1, 2, 3, 4])
+
+        header.add_history(0, after='A')
+        assert_equal(len(header), 6)
+        assert_equal(header.cards[1].value, 0)
+        assert_equal(header['HISTORY'], [0, 1, 2, 3, 4])
+
 
 class TestHeaderFunctions(PyfitsTestCase):
     """Test PyFITS Header and Card objects."""
@@ -425,6 +440,11 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(len(header), 1)
         assert_equal(header[0], 1)
 
+    def test_header_history(self):
+        header = pyfits.Header([('ABC', 0), ('HISTORY', 1), ('HISTORY', 2),
+                                ('DEF', 3), ('HISTORY', 4), ('HISTORY', 5)])
+        assert_equal(header['HISTORY'], [1, 2, 4, 5])
+
     def test_header_clear(self):
         header = pyfits.Header([('A', 'B'), ('C', 'D')])
         header.clear()
@@ -534,6 +554,37 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(len(header), 5)
         assert_equal(header[1], 'H')
         assert_equal(header[-1], '')
+
+    def test_header_comments(self):
+        header = pyfits.Header([('A', 'B', 'C'), ('DEF', 'G', 'H')])
+        assert_equal(repr(header.comments),
+                     '       A  C\n'
+                     '     DEF  H')
+
+    def test_comment_slices_and_filters(self):
+        header = pyfits.Header([('AB', 'C', 'D'), ('EF', 'G', 'H'),
+                                ('AI', 'J', 'K')])
+        s = header.comments[1:]
+        assert_equal(list(s), ['H', 'K'])
+        s = header.comments[::-1]
+        assert_equal(list(s), ['K', 'H', 'D'])
+        s = header.comments['A*']
+        assert_equal(list(s), ['D', 'K'])
+
+    def test_comment_slice_filter_assign(self):
+        header = pyfits.Header([('AB', 'C', 'D'), ('EF', 'G', 'H'),
+                                ('AI', 'J', 'K')])
+        header.comments[1:] = 'L'
+        assert_equal(list(header.comments), ['D', 'L', 'L'])
+        assert_equal(header.cards[header.index('AB')].comment, 'D')
+        assert_equal(header.cards[header.index('EF')].comment, 'L')
+        assert_equal(header.cards[header.index('AI')].comment, 'L')
+
+        header.comments[::-1] = header.comments[:]
+        assert_equal(list(header.comments), ['L', 'L', 'D'])
+
+        header.comments['A*'] = ['M', 'N']
+        assert_equal(list(header.comments), ['M', 'L', 'N'])
 
     def test_update_comment(self):
         hdul = pyfits.open(self.data('arange.fits'))
