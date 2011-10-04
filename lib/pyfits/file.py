@@ -174,6 +174,11 @@ class _File(object):
                 self.size = self.__file.tell()
                 self.__file.seek(pos)
 
+        if self.memmap and not isfile(self.__file):
+            self.memmap = False
+            warnings.warn('Disabling mmap for non-file-backed file-like '
+                          'object.')
+
     def __repr__(self):
         return '<%s.%s %s>' % (self.__module__, self.__class__.__name__,
                                self.__file)

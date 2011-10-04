@@ -1,3 +1,6 @@
+from __future__ import division
+
+
 import datetime
 import inspect
 import os
@@ -1177,13 +1180,27 @@ class _ValidHDU(_BaseHDU, _Verify):
         reason still needs to be for backward compatibility.
         """
 
+        u8 = np.uint32(8)
         u16 = np.uint32(16)
         uFFFF = np.uint32(0xFFFF)
-        bytes = bytes.view(dtype='>u2')
+
+        if bytes.nbytes % 2:
+            last = bytes[-1]
+            bytes = bytes[:-1]
+        else:
+            last = np.uint32(0)
+
+        bytes = bytes.view('>u2')
+
         hi = sum32 >> u16
         lo = sum32 & uFFFF
-        hi += int(np.add.reduce(bytes[0::2])) & np.uint32(0xFFFFFFFF)
-        lo += int(np.add.reduce(bytes[1::2])) & np.uint32(0xFFFFFFFF)
+        hi += np.add.reduce(bytes[0::2])
+        lo += np.add.reduce(bytes[1::2])
+
+        if (bytes.nbytes // 2) % 2:
+            lo += last << u8
+        else:
+            hi += last << u8
 
         hicarry = hi >> u16
         locarry = lo >> u16
@@ -1371,7 +1388,9 @@ class NonstandardExtHDU(ExtensionHDU):
         """
 
         card = header.ascard[0]
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
         standard_xtensions = ('IMAGE', 'TABLE', 'BINTABLE', 'A3DTABLE')
         # The check that xtension is not one of the standard types should be
         # redundant.

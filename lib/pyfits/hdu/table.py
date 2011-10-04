@@ -153,9 +153,6 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                 self._header['NAXIS2'] = self.data.shape[0]
                 self._header['TFIELDS'] = self.data._nfields
 
-                if self.data._coldefs is None:
-                    self.data._coldefs = ColDefs(data)
-
                 self.columns = self.data._coldefs
                 self.update()
 
@@ -217,10 +214,6 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
     def _theap(self):
         size = self._header['NAXIS1'] * self._header['NAXIS2']
         return self._header.get('THEAP', size)
-
-    @lazyproperty
-    def _pcount(self):
-        return self._header.get('PCOUNT', 0)
 
     @deprecated(alternative='the .columns attribute')
     def get_coldefs(self):
@@ -379,7 +372,9 @@ class TableHDU(_TableBaseHDU):
     @classmethod
     def match_header(cls, header):
         card = header.ascard[0]
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
         return card.key == 'XTENSION' and xtension == cls._extension
 
     def _get_tbdata(self):
@@ -463,7 +458,9 @@ class BinTableHDU(_TableBaseHDU):
     @classmethod
     def match_header(cls, header):
         card = header.ascard[0]
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
         return card.key == 'XTENSION' and \
                xtension in (cls._extension, 'A3DTABLE')
 

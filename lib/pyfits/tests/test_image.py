@@ -234,11 +234,11 @@ class TestImageFunctions(PyfitsTestCase):
         # test long string value
         c = pyfits.Card('abc', 'long string value '*10, 'long comment '*10)
         assert_equal(str(c),
-            "ABC     = 'long string value long string value long string value long string &' \n"
-            "CONTINUE  'value long string value long string value long string value long &'  \n"
-            "CONTINUE  'string value long string value long string value &'                  \n"
-            "CONTINUE  '&' / long comment long comment long comment long comment long        \n"
-            "CONTINUE  '&' / comment long comment long comment long comment long comment     \n"
+            "ABC     = 'long string value long string value long string value long string &' "
+            "CONTINUE  'value long string value long string value long string value long &'  "
+            "CONTINUE  'string value long string value long string value &'                  "
+            "CONTINUE  '&' / long comment long comment long comment long comment long        "
+            "CONTINUE  '&' / comment long comment long comment long comment long comment     "
             "CONTINUE  '&' / long comment                                                    ")
 
     def test_long_string_from_file(self):
@@ -251,11 +251,11 @@ class TestImageFunctions(PyfitsTestCase):
         c = hdul[0].header.ascard['abc']
         hdul.close()
         assert_equal(str(c),
-            "ABC     = 'long string value long string value long string value long string &' \n"
-            "CONTINUE  'value long string value long string value long string value long &'  \n"
-            "CONTINUE  'string value long string value long string value &'                  \n"
-            "CONTINUE  '&' / long comment long comment long comment long comment long        \n"
-            "CONTINUE  '&' / comment long comment long comment long comment long comment     \n"
+            "ABC     = 'long string value long string value long string value long string &' "
+            "CONTINUE  'value long string value long string value long string value long &'  "
+            "CONTINUE  'string value long string value long string value &'                  "
+            "CONTINUE  '&' / long comment long comment long comment long comment long        "
+            "CONTINUE  '&' / comment long comment long comment long comment long comment     "
             "CONTINUE  '&' / long comment                                                    ")
 
 
@@ -263,10 +263,10 @@ class TestImageFunctions(PyfitsTestCase):
         # if a word in a long string is too long, it will be cut in the middle
         c = pyfits.Card('abc', 'longstringvalue'*10, 'longcomment'*10)
         assert_equal(str(c),
-            "ABC     = 'longstringvaluelongstringvaluelongstringvaluelongstringvaluelongstr&'\n"
-            "CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'\n"
-            "CONTINUE  'elongstringvalue&'                                                   \n"
-            "CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme\n"
+            "ABC     = 'longstringvaluelongstringvaluelongstringvaluelongstringvaluelongstr&'"
+            "CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'"
+            "CONTINUE  'elongstringvalue&'                                                   "
+            "CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme"
             "CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment                  ")
 
     def test_long_string_value_via_fromstring(self):
@@ -701,28 +701,46 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(d.section[:,1,0,:].all(), dat[:,1,0,:].all())
         assert_equal(d.section[:,:,:,1].all(), dat[:,:,:,1].all())
 
-    def test_comp_image(self):
-        data = np.zeros((2, 10, 10), dtype=np.float32)
+    def _test_comp_image(self, data, compression_type, quantize_level):
         primary_hdu = pyfits.PrimaryHDU()
         ofd = pyfits.HDUList(primary_hdu)
-        ofd.append(pyfits.CompImageHDU(data, name="SCI",
-                                       compressionType="GZIP_1",
-                                       quantizeLevel=-0.01))
+        chdu = pyfits.CompImageHDU(data, name='SCI',
+                                   compressionType=compression_type,
+                                   quantizeLevel=quantize_level)
+        ofd.append(chdu)
         ofd.writeto(self.temp('test_new.fits'))
         ofd.close()
         fd = pyfits.open(self.temp('test_new.fits'))
         assert_equal(fd[1].data.all(), data.all())
-        fd.close()
-
-        data = np.zeros((100, 100)) + 1
-        chdu = pyfits.CompImageHDU(data)
-        chdu.writeto(self.temp('test_new.fits'), clobber=True)
-        fd = pyfits.open(self.temp('test_new.fits'))
         assert_equal(fd[1].header['NAXIS'], chdu.header['NAXIS'])
         assert_equal(fd[1].header['NAXIS1'], chdu.header['NAXIS1'])
         assert_equal(fd[1].header['NAXIS2'], chdu.header['NAXIS2'])
         assert_equal(fd[1].header['BITPIX'], chdu.header['BITPIX'])
-        assert_equal(fd[1].data.all(), data.all())
+        fd.close()
+
+    def test_comp_image_rice_1(self):
+        """Tests image compression with the RICE_1 algorithm."""
+
+        self._test_comp_image(np.zeros((2, 10, 10), dtype=np.float32),
+                              'RICE_1', 16)
+
+    def test_comp_image_gzip_1(self):
+        """Tests image compression with the GZIP_1 algorithm."""
+
+        self._test_comp_image(np.zeros((2, 10, 10), dtype=np.float32),
+                              'GZIP_1', -0.01)
+
+    def test_comp_image_hcompression_1(self):
+        """Tests image compression with the HCOMPRESS_1 algorithm.
+
+        This is not a comprehensive test--just a simple round-trip test to make
+        sure the code for handling HCOMPRESS_1 at least gets exercised.
+        """
+
+        assert_raises(ValueError, self._test_comp_image,
+                      np.zeros((2, 10, 10), dtype=np.float32), 'HCOMPRESS_1',
+                      16)
+        self._test_comp_image(np.zeros((100, 100)) + 1, 'HCOMPRESS_1', 16)
 
     def test_do_not_scale_image_data(self):
         hdul = pyfits.open(self.data('scale.fits'),

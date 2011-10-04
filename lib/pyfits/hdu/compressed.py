@@ -271,7 +271,10 @@ class CompImageHDU(BinTableHDU):
         if card.key != 'XTENSION':
             return False
 
-        xtension = card.value.rstrip()
+        xtension = card.value
+        if isinstance(xtension, basestring):
+            xtension = xtension.rstrip()
+
         if xtension not in ('BINTABLE', 'A3DTABLE'):
             return False
 
@@ -518,9 +521,9 @@ class CompImageHDU(BinTableHDU):
         # Set default tile dimensions for HCOMPRESS_1
 
         if compressionType == 'HCOMPRESS_1':
-            if self._image_header['NAXIS'] < 2:
-                raise ValueError('Hcompress cannot be used with '
-                                 '1-dimensional images.')
+            if self._image_header['NAXIS'] != 2:
+                raise ValueError('Hcompress can only be used with '
+                                 '2-dimensional images.')
             elif self._image_header['NAXIS1'] < 4 or \
             self._image_header['NAXIS2'] < 4:
                 raise ValueError('Hcompress minimum image dimension is '
@@ -1470,7 +1473,7 @@ class CompImageHDU(BinTableHDU):
                 zval = 'ZVAL' + str(idx)
                 if self._header[zname] == 'SMOOTH':
                     hcompSmooth = self._header[zval]
-                i += 1
+                idx += 1
 
             zvalList.append(hcompSmooth)
 

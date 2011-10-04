@@ -157,7 +157,7 @@ class Card(_Verify):
             self._cardimage = ' ' * 80
         self._modified = False
 
-    def __repr__(self):
+    def __str__(self):
         return self.cardimage
 
     def _getkey(self):
@@ -727,12 +727,12 @@ class RecordValuedKeywordCard(Card):
     #
     # regular expression to extract the field specifier and value from
     # a card image (ex. 'AXIS.1: 2'), the value may not be FITS Standard
-    # Complient
+    # Compliant
     #
     field_specifier_NFSC_image_RE = re.compile(field_specifier_NFSC_val)
     #
     # regular expression to extract the field specifier and value from
-    # a card value; the value may not be FITS Standard Complient
+    # a card value; the value may not be FITS Standard Compliant
     # (ex. 'AXIS.1: 2.0e5')
     #
     field_specifier_NFSC_val_RE = re.compile(field_specifier_NFSC_val + r'$')
@@ -784,7 +784,19 @@ class RecordValuedKeywordCard(Card):
 
                     if mo:
                         self._field_specifier = mo.group('keyword')
-                        value = float(mo.group('val'))
+                        value = mo.group('val')
+                        # The value should be a float, though we don't coerce
+                        # ints into floats.  Anything else should be a value
+                        # error
+                        try:
+                            value = int(value)
+                        except ValueError:
+                            try:
+                                value = float(value)
+                            except ValueError:
+                                raise ValueError(
+                                    "Record-valued keyword card value must be "
+                                    "a floating point or integer value.")
                     else:
                         raise ValueError(
                             "Value %s must be in the form "
@@ -818,13 +830,23 @@ class RecordValuedKeywordCard(Card):
 
     key = property(_getkey, Card.key.fset, doc=Card.key.__doc__)
 
+    def _getvalue(self):
+        """The RVKC value should always be returned as a float."""
+
+        return float(super(RecordValuedKeywordCard, self)._getvalue())
+
     def _setvalue(self, val):
         if not isinstance(val, float):
             try:
-                val = float(val)
+                val = int(val)
             except ValueError:
-                raise ValueError('value %s is not a float' % val)
+                try:
+                    val = float(val)
+                except:
+                    raise ValueError('value %s is not a float' % val)
         super(RecordValuedKeywordCard, self)._setvalue(val)
+
+    value = property(_getvalue, _setvalue, doc=Card.value.__doc__)
 
     #
     # class method definitins
@@ -1043,7 +1065,10 @@ class RecordValuedKeywordCard(Card):
         slashloc = self._cardimage.find('/')
 
         if hasattr(self, '_value_modified') and self._value_modified:
-            val_str = _float_format(self.value)
+            # Bypass the automatic coertion to float here, so that values like
+            # '2' will still be rendered as '2' instead of '2.0'
+            value = super(RecordValuedKeywordCard, self).value
+            val_str = _value_to_string(value).strip()
         else:
             val_str = self._valuestring
 
@@ -1111,6 +1136,11 @@ class RecordValuedKeywordCard(Card):
                                           ' ')
             self._update_cardimage()
 
+    def _format_key(self):
+        if hasattr(self, '_key') or hasattr(self, '_cardimage'):
+            return '%-8s' % super(RecordValuedKeywordCard, self).key
+        else:
+            return ' ' * 8
 
     def _check_key(self, key):
         """
@@ -1267,8 +1297,7 @@ class CardList(list):
 
             for card in cardlist:
                 key = card.key
-
-                super(CardList, self).__delitem__(key)
+                del self[key]
         else:
             idx = self.index_of(key)
             super(CardList, self).__delitem__(idx)
@@ -1282,7 +1311,7 @@ class CardList(list):
     def __repr__(self):
         """Format a list of cards into a string."""
 
-        return ''.join(map(repr, self))
+        return ''.join(map(str, self))
 
     def __str__(self):
         """Format a list of cards into a printable string."""
@@ -1312,7 +1341,7 @@ class CardList(list):
     def copy(self):
         """Make a (deep)copy of the `CardList`."""
 
-        return CardList([create_card_from_string(repr(c)) for c in self])
+        return CardList([create_card_from_string(str(c)) for c in self])
 
     def keys(self):
         """
@@ -1616,7 +1645,7 @@ class _ContinueCard(Card):
     string value.
     """
 
-    def __str__(self):
+    def __repr__(self):
         """Format a list of cards into a printable string."""
 
         output = []

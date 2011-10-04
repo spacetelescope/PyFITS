@@ -43,10 +43,6 @@ class TestChecksumFunctions(PyfitsTestCase):
                     checksum='nonstandard')
         del hdu
         hdul = pyfits.open(self.temp('tmp.fits'), checksum='nonstandard')
-        assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
-                      checksum=True)
-        assert_raises(UserWarning, pyfits.open, self.temp('tmp.fits'),
-                      checksum='standard')
 
     def test_scaled_data(self):
         hdul = pyfits.open(self.data('scale.fits'))
