@@ -732,7 +732,7 @@ class HDUList(list, _Verify):
                     if hdu._data_loaded:
                         if hdu.data is not None:
                             if isinstance(hdu.data, Memmap):
-                                hdu.data.sync()
+                                hdu.data.flush()
                             else:
                                 hdu._file.seek(hdu._datLoc)
                                 # TODO: Fix this once new HDU writing API is settled on
