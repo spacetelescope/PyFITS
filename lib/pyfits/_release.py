@@ -50,6 +50,7 @@ class ReleaseManager(object):
         self.vcs = version_control()
         self.history_lines = []
         self.previous_version = ''
+        self.released_version = ''
 
     def prereleaser_before(self, data):
         """Set tag_svn_revision to False."""
@@ -83,6 +84,14 @@ class ReleaseManager(object):
         self.previous_version = get_last_tag(self.vcs)
         self.history_lines = data['history_lines']
 
+    def releaser_after(self, data):
+        """Save the version that was just released."""
+
+        if data['name'] != 'pyfits':
+            return
+
+        self.released_version = data['version']
+
     def postreleaser_before(self, data):
         """Restore tag_svn_revision"""
 
@@ -114,15 +123,20 @@ class ReleaseManager(object):
             return
 
 
-        previous_version = raw_input(
-            'Enter previous version [%s]: ' % self.previous_version).strip()
-        if not previous_version:
-            previous_version = self.previous_version
+        previous_version = new_version = None
 
-        new_version = raw_input(
-            'Enter new version [%s]: ' % data['new_version']).strip()
-        if not new_version:
-            new_version = data['new_version']
+        while not previous_version:
+            previous_version = raw_input(
+                'Enter previous version [%s]: ' %
+                self.previous_version).strip()
+            if not previous_version:
+                previous_version = self.previous_version
+
+        while not new_version:
+            new_version = raw_input(
+                'Enter new version [%s]: ' % self.released_version).strip()
+            if not new_version:
+                new_version = self.released_version
 
         username = raw_input(
                 'Enter your Zope username [%s]: ' % getpass.getuser()).strip()
@@ -322,3 +336,25 @@ class _ZopeProxy(object):
 
 
 releaser = ReleaseManager()
+
+
+def _test_postrelease_after():
+    """
+    The postrelease_after hook is by far the trickiest part of this releaser
+    hook, so it's helpful for development to have a simple test function for
+    it.
+
+    This test monkey-patches _ZopeProxy so that the update() method just prints
+    the contents that would be updated, without actually doing so.
+    """
+
+    def update(self, content):
+        print content
+        return
+
+    _ZopeProxy.update = update
+
+    test_releaser = ReleaseManager()
+    test_releaser.history_lines = [l.rstrip('\n') for l in
+                                   open('CHANGES.txt').readlines()]
+    test_releaser.postreleaser_after({'name': 'pyfits'})
