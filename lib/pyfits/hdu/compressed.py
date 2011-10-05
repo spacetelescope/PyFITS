@@ -12,9 +12,9 @@ from pyfits.util import lazyproperty, _pad_length
 
 try:
     from pyfits import compression
-    COMPRESSION_SUPPORTED = True
+    COMPRESSION_SUPPORTED = COMPRESSION_ENABLED = True
 except ImportError:
-    COMPRESSION_SUPPORTED = False
+    COMPRESSION_SUPPORTED = COMPRESSION_ENABLED = False
 
 
 # Default compression parameter values
@@ -281,13 +281,15 @@ class CompImageHDU(BinTableHDU):
         if 'ZIMAGE' not in header or header['ZIMAGE'] != True:
             return False
 
-        if COMPRESSION_SUPPORTED: # Redundant
+        if COMPRESSION_SUPPORTED and COMPRESSION_ENABLED:
             return True
+        elif not COMPRESSION_SUPPORTED:
+            warnings.warn('Failure matching header to a compressed image '
+                          'HDU.\nThe compression module is not available.\n'
+                          'The HDU will be treated as a Binary Table HDU.')
+            return False
         else:
-            warnings.warn(
-                'Failure matching header to a compressed image HDU.')
-            warnings.warn('The compression module is not available.')
-            warnings.warn('The HDU will be treated as a Binary Table HDU.')
+            # Compression is supported but disabled; just pass silently (#92)
             return False
 
     def updateHeaderData(self, image_header,
