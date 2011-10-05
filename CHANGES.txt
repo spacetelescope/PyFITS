@@ -38,6 +38,9 @@ Changelog
 - Fixed a crash when trying to compute the HDU checksum when the data array
   contains an odd number of bytes (#91)
 
+- Disabled an unnecessary warning that was displayed on opening compressed
+  HDUs with disable_image_compression = True (#92)
+
 - Fixed a typo in code for handling HCOMPRESS compressed images.
 
 
