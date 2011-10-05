@@ -239,7 +239,7 @@ class HDUList(list, _Verify):
         try:
             if 'disable_image_compression' in kwargs and \
                kwargs['disable_image_compression']:
-                compressed.COMPRESSION_SUPPORTED = False
+                compressed.COMPRESSION_ENABLED = False
 
             if mode == 'ostream':
                 # Output stream--not interested in reading/parsing the HDUs--just
