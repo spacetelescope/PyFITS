@@ -192,6 +192,10 @@ class _BaseHDU(object):
             header = Header.fromstring(data[:hdrlen])
         elif isinstance(data, Header):
             header = data
+            if (not len(header) or
+                header.keys()[0] not in ('SIMPLE', 'XTENSION')):
+                raise ValueError('Block does not begin with SIMPLE or '
+                                 'XTENSION')
         else:
             raise TypeError('Invalid data argument to _BaseHDU.fromstring(): '
                             'Must be either a string or a Header object.')
