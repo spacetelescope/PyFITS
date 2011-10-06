@@ -20,11 +20,11 @@ While an HDU may have empty data, i.e. the .data attribute is None, any HDU
 will always have a header. When an HDU is created with a constructor, e.g.
 ``hdu = PrimaryHDU(data, header)``, the user may supply the header value from
 an existing HDU's header and the data value from  a numpy array. If the
-defaults (``None``) are used, the new HDU will have the minimal require
-keyword:
+defaults (``None``) are used, the new HDU will have the minimal required
+keywords for an HDU of that type:
 
     >>> hdu = pyfits.PrimaryHDU()
-    >>> print hdu.header.ascardlist() # show the keywords
+    >>> hdu.header # show the all of the header cards
     SIMPLE = T / conforms to FITS standard
     BITPIX = 8 / array data type
     NAXIS  = 0 / number of array dimensions
@@ -52,15 +52,16 @@ or index of an HDU's header attribute. Here is a quick summary:
     >>> prihdr = hdulist[0].header # the primary HDU header
     >>> print prihdr[3] # get the 4th keyword's value
     10
-    >>> prihdr[3] = 20 # change it's value
-    >>> print prihdr['darkcorr'] # get the value of the keyword 'darkcorr'
+    >>> prihdr[3] = 20 # change its value
+    >>> prihdr['darkcorr'] # get the value of the keyword 'darkcorr'
     'OMIT'
     >>> prihdr['darkcorr'] = 'PERFORM' # change darkcorr's value
 
-When reference by the keyword name, it is case insensitive. Thus,
-prihdr['abc'], prihdr['ABC'], or prihdr['aBc'] are all equivalent.
+Keyword names are case-insenstive except in a few special cases (see the
+sections on HIERARCH card and record-valued cards). Thus, `prihdr['abc']`,
+`prihdr['ABC']`, or `prihdr['aBc']` are all equivalent.
 
-A keyword (and its corresponding Card) can be deleted using the same index/name
+A keyword (and its corresponding card) can be deleted using the same index/name
 syntax:
 
     >>> del prihdr[3] # delete the 2nd keyword
@@ -70,21 +71,22 @@ Note that, like a regular Python list, the indexing updates after each delete,
 so if ``del prihdr[3]`` is done two times in a row, the 2nd and 3rd keywords
 are removed from the original header.
 
-Slices are not accepted by the header attribute, so it is not possible to do
-del ``prihdr[3:5]``, for example.
+It is also possible to delete an entire range of cards using the slice syntax:
 
-The method ``update(key, value, comment)`` is a more versatile way to update
-keywords. It has the flexibility to update an existing keyword and in case the
-keyword does not exist, add it to the header. It also allows the use to update
-both the value and its comment. If it is a new keyword, the user can also
-specify where to put it, using the before or after optional argument. The
-default is to append at the end of the header.
+    >>> del prihdr[3:5]
 
-    >>> prihdr.update('target', 'NGC1234', 'target name')
+The method ``Header.set`` is another way to update they value or comment
+associated with an existing keyword, or to create a new keyword.  Most of its
+functionality can be duplicated with the dict-like syntax shown above.  But in
+some cases it might be more clear.  It also has the advantage of allowing one
+to either move cards within the header, or specify the location of a new card
+relative to existing cards:
+
+    >>> prihdr.set('target', 'NGC1234', 'target name')
     >>> # place the next new keyword before the 'target' keyword
-    >>> prihdr.update('newkey', 666, before='target') # comment is optional
+    >>> prihdr.set('newkey', 666, before='target') # comment is optional
     >>> # place the next new keyword after the 21st keyword
-    >>> prihdr.update('newkey2', 42.0, 'another new key', after=20)
+    >>> prihdr.set('newkey2', 42.0, 'another new key', after=20)
 
 
 COMMENT, HISTORY, and Blank Keywords
@@ -96,27 +98,30 @@ name. The duplicates can only be accessed by numeric indexing.
 
 There are three special keywords (their associated cards are sometimes referred
 to as commentary cards), which commonly appear in FITS headers more than once.
-They are (1) blank keyword, (2) HISTORY, and (3) COMMENT. Again, to get their
-values (except for the first one), a user must use indexing.
+They are (1) blank keyword, (2) HISTORY, and (3) COMMENT. Unlike other
+keywords, when accessing these keywords they are returned as a list:
 
-The following header methods are provided in PyFITS to add new commentary
-cards: `Header.add_history()`, `Header.add_comment()`, and
-`Header.add_blank()`. They are provided because the `Header.update()` method
-will not work - it will replace the first card of the same keyword.
+    >>> prihdr['history']
+    I updated this file on 02/03/2011
+    I updated this file on 02/04/2011
+    ....
 
-Users can control where in the header to add the new commentary card(s) by
-using the optional before and after arguments, similar to the ``update()``
-method used for regular cards. If no before or after is specified, the new card
-will be placed after the last one of the same kind (except  blank-key cards
-which will always be placed at the end). If no card of the same kind exists, it
-will be placed at the end. Here is an example:
+These lists can be sliced like any other list.  For example, to diplay just the
+last HISTORY entry, use `prihdr['history'][-1]`.  Existing commentary cards can
+also be updated by using the appropriate index number for that card.
 
-    >>> hdu.header.add_history('history 1')
-    >>> hdu.header.add_blank('blank 1')
-    >>> hdu.header.add_comment('comment 1')
-    >>> hdu.header.add_history('history 2')
-    >>> hdu.header.add_blank('blank 2')
-    >>> hdu.header.add_comment('comment 2'))
+New commentary cards can be added like any other card by using the dict-like
+keyword assignment syntax, or by using the ``Header.set`` method.  However,
+unlike with other keywords, a new commentary card is always added and appended
+to the last commentary card with the same keyword, rather than to the end of
+the header. Here is an example:
+
+    >>> hdu.header['history'] = 'history 1'
+    >>> hdu.header[''] = 'blank 1'
+    >>> hdu.header['comment'] = 'comment 1'
+    >>> hdu.header['history'] = 'history 2'
+    >>> hdu.header[''] = 'blank 2'
+    >>> hdu.header['comment'] = 'comment 2'
 
 and the part in the modified header becomes:
 
@@ -129,7 +134,12 @@ and the part in the modified header becomes:
     COMMENT comment 2
             blank 2
 
-Ironically, there is no comment in a commentary card , only a string value.
+
+Users can also directly control exactly where in the header to add a new
+commentary card by using the ``Header.insert`` method.
+
+*Note:* Ironically, there is no comment in a commentary card, only a string
+value.
 
 
 Card Images
@@ -183,27 +193,6 @@ PyFITS will be discussed in a later chapter.
     Unfixable error: Illegal keyword name 'P.I.'
 
 
-Card List
-=========
-
-The Header itself only has limited functionality. Many lower level operations
-can only be achieved by going through its `CardList` object.
-
-The header is basically a list of `Card` objects. This list can be manifested
-as a `CardList` object in PyFITS. It is accessed via the `Header.ascardlist()`
-method (or the ``.ascard`` attribute, for short). Since the header attribute
-only refers to a card value, so when a user needs to access a card's other
-properties (e.g. the comment) in a header, it has to go through the `CardList`.
-
-Like the header's item, the `CardList`'s item can be accessed through either
-the keyword name or index.
-
-    >>> cards = prihdr.header.ascardlist()
-    >>> cards['abc'].comment = 'new comment' # update the keyword ABC's comment
-    >>> cards[3].key # see the keyword name of the 4th card
-    >>> cards[10:20].keys() # see keyword names from cards 11 to 20
-
-
 CONTINUE Cards
 ==============
 
@@ -219,28 +208,28 @@ keyword. PyFITS does support this convention, even though it is not a FITS
 standard. The examples below show the use of CONTINUE is automatic for long
 string values.
 
-    >>> c = pyfits.Card('abc', 'abcdefg'*20)
-    >>> print c
+    >>> header = pyfits.Header()
+    >>> header['abc'] = 'abcdefg' * 20
+    >>> header
     ABC = 'abcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcd&'
     CONTINUE 'efgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefga&'
     CONTINUE 'bcdefg&'
-    >>> c.value
-    'abcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgab
-    cdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefg'
-    # both value and comments are long
-    >>> c = pyfits.Card('abc', 'abcdefg'*10, 'abcdefg'*10)
-    >>> print c
+    >>> header['abc']
+    'abcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefg'
+    >>> # both value and comments are long
+    >>> header['abc'] = ('abcdefg' * 10, 'abcdefg' * 10)
+    >>> header
     ABC = 'abcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcd&'
     CONTINUE 'efg&'
     CONTINUE '&' / abcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefgabcdefga
     CONTINUE '&' / bcdefg
 
-Note that when CONTINUE card is used, at the end of each 80-characters card
+Note that when a CONTINUE card is used, at the end of each 80-characters card
 image, an ampersand is present. The ampersand is not part of the string value.
 Also, there is no "=" at the 9th column after CONTINUE. In the first example,
-the entire 240 characters is considered a Card. So, if it is the nth card in a
-header, the (n+1)th card refers to the next keyword, not the 80-characters
-containing CONTINUE. These keywords having long string values can be accessed
+the entire 240 characters is treated by PyFITS as a single card. So, if it is
+the nth card in a header, the (n+1)th card refers to the next keyword, not the
+next CONTINUE card.  These keywords having long string values can be accessed
 and updated just like regular keywords.
 
 

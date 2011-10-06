@@ -61,7 +61,7 @@ are memory-mapped, see later chapters for detail.
 Working with large files
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-The `yfits.open()` function supports a ``memmap=True`` argument that cause
+The `pyfits.open()` function supports a ``memmap=True`` argument that cause
 the array data of each HDU to be accessed with mmap, rather than being read
 into memory all at once.  This is particularly useful for working with very
 large arrays that cannot fit entirely into physical memory.
@@ -76,12 +76,18 @@ because by that point you're likely to run out of physical memory anyways), but
 Working With a FITS Header
 --------------------------
 
-As mentioned earlier, each element of an HDUList is an HDU object with
+As mentioned earlier, each element of an `HDUList` is an HDU object with
 attributes of header and data, which can be used to access the header keywords
 and the data.
 
+For those unfamiliar with FITS headers, they consist of a list of "cards",
+where a card contains a keyword, a value, and a comment.  The keyword and
+comment must both be strings, whereas the value can be a string or an integer,
+float, or complex number.  Keywords are usually unique within a header, except
+in a few special cases.
+
 The header attribute is a Header instance, another PyFITS object. To get the
-value of a header keyword, simply do (a la Python dictionaries):
+value associated with a header keyword, simply do (a la Python dicts):
 
     >>> hdulist[0].header['targname']
     'NGC121'
@@ -89,9 +95,9 @@ value of a header keyword, simply do (a la Python dictionaries):
 to get the value of the keyword targname, which is a string 'NGC121'.
 
 Although keyword names are always in upper case inside the FITS file,
-specifying a keyword name with PyFITS is case-insensitive, for user's
+specifying a keyword name with PyFITS is case-insensitive, for the user's
 convenience. If the specified keyword name does not exist, it will raise a
-KeyError exception.
+`KeyError` exception.
 
 We can also get the keyword value by indexing (a la Python lists):
 
@@ -99,7 +105,7 @@ We can also get the keyword value by indexing (a la Python lists):
     96
 
 This example returns the 28th (like Python lists, it is 0-indexed) keyword's
-value, an integer, 96.
+value--an integer--96.
 
 Similarly, it is easy to update a keyword's value in PyFITS, either through
 keyword name or index:
@@ -108,33 +114,70 @@ keyword name or index:
     >>> prihdr['targname'] = 'NGC121-a'
     >>> prihdr[27] = 99
 
-Use the above syntax if the keyword is already present in the header. If the
-keyword might not exist and you want to add it if it doesn't, use the
-`Header.update()` method:
+It is also possible to update both the value and comment associated with a
+keyword by assigning them as a tuple:
 
-    >>> prihdr.update('observer', 'Edwin Hubble')
+    >>> prihdr = hdulist[0].header
+    >>> prihdr['targname'] = ('NGC121-a', 'the observation target')
+    >>> prihdr['targname']
+    'NGC121-a'
+    >>> prihdr.comments['targname']
+    'the observation target'
 
-Special methods must be used to add comment or history records:
+Like a dict, one may also use the above syntax to add a new keyword/value pair
+(and optionally a comment as well).  In this case the new card is appended to
+the end of the header (unless it's a commentary keyword such as COMMENT or
+HISTORY, in which case it is appended after the last card with that keyword).
 
-    >>> prihdr.add_history('I updated this file 2/26/09')
-    >>> prihdr.add_comment('Edwin Hubble really knew his stuff')
+Another way to either update an existing card or append a new one is to use the 
+`Header.set()` method:
 
-A header consists of `Card` objects (i.e. the 80-column card-images specified
-in the FITS standard). Each Card normally has up to three parts: key, value,
-and comment. To see the entire list of cardimages of an HDU, use the
-`Header.ascardlist()` method :
+    >>> prihdr.set('observer', 'Edwin Hubble')
 
-    >>> print prihdr.ascardlist()[:3]
+Comment or history records are added like normal cards, though in their case a
+new card is always created, rather than updating an existing HISTORY or COMMENT
+card:
+
+    >>> prihdr['history'] = 'I updated this file 2/26/09'
+    >>> prihdr['comment'] = 'Edwin Hubble really knew his stuff'
+    >>> prihdr['comment'] = 'I like using HST observations'
+    >>> prihdr['comment']
+    Edwin Hubble really knew his stuff
+    I like using HST observations
+
+Note: Be careful not to confuse COMMENT cards with the comment value for normal
+cards.
+
+To updating existing COMMENT or HISTORY cards, reference them by index:
+
+    >>> prihdr['history'][0] = 'I updated this file on 2/26/09'
+    >>> prihdr['history']
+    I updated this file on 2/26/09
+
+To see the entire header as it appears in the FITS file (with the END card and
+padding stripped), simply enter the header object by itself, or print
+repr(header):
+
+    >>> header
     SIMPLE  =                    T / file does conform to FITS standard
     BITPIX  =                   16 / number of bits per data pixel
     NAXIS   =                    0 / number of data axes
+    ...all cards are shown...
+    >>> print repr(header)
+    ...identical...
 
-Only the first three cards are shown above.
+It's also possible to view a slice of the header:
 
-To get a list of all keywords, use the `CardList.keys()` method of the card
-list:
+   >>> header[:2]
+   SIMPLE  =                    T / file does conform to FITS standard
+   BITPIX  =                   16 / number of bits per data pixel
 
-    >>> prihdr.ascardlist().keys()
+Only the first two cards are shown above.
+
+To get a list of all keywords, use the `Header.keys()` method just as you would
+with a dict:
+
+    >>> prihdr.keys()
     ['SIMPLE', 'BITPIX', 'NAXIS', ...]
 
 
@@ -496,9 +539,9 @@ file:
 
     >>> pyfits.info('test0.fits')
     Filename: test0.fits
-    No. Name Type Cards Dimensions Format
-    0 PRIMARY PrimaryHDU 138 () Int16
-    1 SCI ImageHDU 61 (400, 400) Int16
-    2 SCI ImageHDU 61 (400, 400) Int16
-    3 SCI ImageHDU 61 (400, 400) Int16
-    4 SCI ImageHDU 61 (400, 400) Int16
+    No. Name    Type       Cards Dimensions Format
+    0   PRIMARY PrimaryHDU   138 ()         Int16
+    1   SCI     ImageHDU      61 (400, 400) Int16
+    2   SCI     ImageHDU      61 (400, 400) Int16
+    3   SCI     ImageHDU      61 (400, 400) Int16
+    4   SCI     ImageHDU      61 (400, 400) Int16
