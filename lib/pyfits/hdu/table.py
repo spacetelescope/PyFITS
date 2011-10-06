@@ -730,7 +730,7 @@ class BinTableHDU(_TableBaseHDU):
 
         # Process the header parameters
         if hfile:
-            self._header.toTxtFile(hfile)
+            self._header.tofile(hfile, sep='\n', end=False, padding=False)
 
     dump.__doc__ += tdump_file_format.replace('\n', '\n        ')
     tdump = deprecated(name='tdump')(dump)

@@ -8,14 +8,11 @@ import numpy as np
 
 from pyfits.card import _pad
 from pyfits.file import _File
-from pyfits.header import Header
+from pyfits.header import Header, HEADER_END_RE
 from pyfits.util import (Extendable, _with_extensions, lazyproperty, _is_int,
                         _is_pseudo_unsigned, _unsigned_zero, _pad_length,
                         itersubclasses, decode_ascii, BLOCK_SIZE, deprecated)
 from pyfits.verify import _Verify, _ErrList
-
-
-HEADER_END_RE = re.compile('END {77}')
 
 
 class _Delayed(object):
@@ -138,6 +135,9 @@ class _BaseHDU(object):
     def match_header(cls, header):
         raise NotImplementedError
 
+    # TODO: This method is a bit kludgy, especially in how it still usually
+    # works with a fileobj, and how the first argument may or may not contain
+    # HDU data.  This should be rethought.
     @classmethod
     def fromstring(cls, data, fileobj=None, offset=0, checksum=False,
                    ignore_missing_end=False, **kwargs):
@@ -173,22 +173,30 @@ class _BaseHDU(object):
            Any unrecognized kwargs are simply ignored.
         """
 
-        if data[:8] not in ['SIMPLE  ', 'XTENSION']:
-            raise ValueError('Block does not begin with SIMPLE or XTENSION')
+        if isinstance(data, basestring):
+            if data[:8] not in ['SIMPLE  ', 'XTENSION']:
+                raise ValueError('Block does not begin with SIMPLE or '
+                                 'XTENSION')
 
-        # Make sure the end card is present
-        match = HEADER_END_RE.search(data)
-        if not match:
-            if ignore_missing_end:
-                hdrlen = len(data)
+            # Make sure the end card is present
+            match = HEADER_END_RE.search(data)
+            if not match:
+                if ignore_missing_end:
+                    hdrlen = len(data)
+                else:
+                    raise ValueError('Header missing END card.')
             else:
-                raise ValueError('Header missing END card.')
-        else:
-            hdrlen = match.start() + len(match.group())
-            hdrlen += _pad_length(hdrlen)
+                hdrlen = match.start() + len(match.group())
+                hdrlen += _pad_length(hdrlen)
 
-        header = Header.fromstring(data[:hdrlen])
-        if not fileobj and len(data) > hdrlen:
+            header = Header.fromstring(data[:hdrlen])
+        elif isinstance(data, Header):
+            header = data
+        else:
+            raise TypeError('Invalid data argument to _BaseHDU.fromstring(): '
+                            'Must be either a string or a Header object.')
+
+        if not fileobj and isinstance(data, basestring) and len(data) > hdrlen:
             data = data[hdrlen:]
         elif fileobj:
             data = DELAYED
@@ -258,33 +266,9 @@ class _BaseHDU(object):
             fileobj = _File(fileobj)
 
         hdr_offset = fileobj.tell()
+        hdr = Header.fromfile(fileobj, endcard=not ignore_missing_end)
 
-        # Read the first header block.
-        block = decode_ascii(fileobj.read(BLOCK_SIZE))
-        if block == '':
-            raise EOFError()
-
-        blocks = []
-
-        # continue reading header blocks until END card is reached
-        while True:
-            # find the END card
-            mo = HEADER_END_RE.search(block)
-            if mo is None:
-                blocks.append(block)
-                block = decode_ascii(fileobj.read(BLOCK_SIZE))
-                if block == '':
-                    break
-            else:
-                break
-        blocks.append(block)
-
-        if not HEADER_END_RE.search(block) and not ignore_missing_end:
-            raise IOError('Header missing END card.')
-
-        blocks = ''.join(blocks)
-
-        hdu = cls.fromstring(blocks, fileobj=fileobj, offset=hdr_offset,
+        hdu = cls.fromstring(hdr, fileobj=fileobj, offset=hdr_offset,
                              checksum=checksum,
                              ignore_missing_end=ignore_missing_end, **kwargs)
 
@@ -325,23 +309,22 @@ class _BaseHDU(object):
         elif checksum:
             self.add_checksum(blocking='standard')
 
-        blocks = str(self._header)
 
         offset = 0
-        size = len(blocks)
-
-        if size % BLOCK_SIZE != 0:
-            raise IOError('Header size (%d) is not a multiple of block size '
-                          '(%d).' % (size, BLOCK_SIZE))
-
         if not fileobj.simulateonly:
-            fileobj.flush()
             try:
                 offset = fileobj.tell()
             except (AttributeError, IOError):
-                offset = 0
-            fileobj.write(blocks.encode('ascii'))
-            fileobj.flush()
+                pass
+
+            self._header.tofile(fileobj)
+
+            try:
+                size = fileobj.tell() - offset
+            except (AttributeError, IOError):
+                size = len(str(self._header))
+        else:
+            size = len(str(self._header))
 
         # If data is unsigned integer 16, 32 or 64, remove the
         # BSCALE/BZERO cards

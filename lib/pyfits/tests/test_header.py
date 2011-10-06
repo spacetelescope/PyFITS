@@ -1,6 +1,7 @@
 from __future__ import division # confidence high
 from __future__ import with_statement
 
+import itertools
 import warnings
 
 import pyfits
@@ -48,6 +49,12 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert_equal(len(header), 6)
         assert_equal(header.cards[1].value, 0)
         assert_equal(header['HISTORY'], [0, 1, 2, 3, 4])
+
+    def test_has_key(self):
+        header = pyfits.Header([('A', 'B', 'C'), ('D', 'E', 'F')])
+        assert_true(header.has_key('A'))
+        assert_true(header.has_key('D'))
+        assert_false(header.has_key('C'))
 
 
 class TestHeaderFunctions(PyfitsTestCase):
@@ -344,6 +351,12 @@ class TestHeaderFunctions(PyfitsTestCase):
         header['FOO'] = None
         assert_equal(header['FOO'], '')
 
+    def test_set_comment_only(self):
+        header = pyfits.Header([('A', 'B', 'C')])
+        header.set('A', comment='D')
+        assert_equal(header['A'], 'B')
+        assert_equal(header.comments['A'], 'D')
+
     def test_header_iter(self):
         header = pyfits.Header([('A', 'B'), ('C', 'D')])
         assert_equal(list(header), ['A', 'C'])
@@ -488,11 +501,85 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(header[2], 'C')
         assert_equal(header[('A', 1)], 'C')
 
+    def test_header_items(self):
+        header = pyfits.Header([('A', 'B'), ('C', 'D')])
+        assert_equal(header.items(), list(header.iteritems()))
+
+    def test_header_iterkeys(self):
+        header = pyfits.Header([('A', 'B'), ('C', 'D')])
+        for a, b in itertools.izip(header.iterkeys(), header):
+            assert_equal(a, b)
+
+    def test_header_itervalues(self):
+        header = pyfits.Header([('A', 'B'), ('C', 'D')])
+        for a, b in itertools.izip(header.itervalues(), ['B', 'D']):
+            assert_equal(a, b)
+
     def test_header_keys(self):
         hdul = pyfits.open(self.data('arange.fits'))
         assert_equal(hdul[0].header.keys(),
                      ['SIMPLE', 'BITPIX', 'NAXIS', 'NAXIS1', 'NAXIS2',
                       'NAXIS3', 'EXTEND'])
+
+    def test_header_list_like_pop(self):
+        header = pyfits.Header([('A', 'B'), ('C', 'D'), ('E', 'F'),
+                                ('G', 'H')])
+
+        last = header.pop()
+        assert_equal(last, 'H')
+        assert_equal(len(header), 3)
+        assert_equal(header.keys(), ['A', 'C', 'E'])
+
+        mid = header.pop(1)
+        assert_equal(mid, 'D')
+        assert_equal(len(header), 2)
+        assert_equal(header.keys(), ['A', 'E'])
+
+        first = header.pop(0)
+        assert_equal(first, 'B')
+        assert_equal(len(header), 1)
+        assert_equal(header.keys(), ['E'])
+
+        assert_raises(IndexError, header.pop, 42)
+
+    def test_header_dict_like_pop(self):
+        header = pyfits.Header([('A', 'B'), ('C', 'D'), ('E', 'F'),
+                                ('G', 'H')])
+        assert_raises(TypeError, header.pop, 'A', 'B', 'C')
+
+        last = header.pop('G')
+        assert_equal(last, 'H')
+        assert_equal(len(header), 3)
+        assert_equal(header.keys(), ['A', 'C', 'E'])
+
+        mid = header.pop('C')
+        assert_equal(mid, 'D')
+        assert_equal(len(header), 2)
+        assert_equal(header.keys(), ['A', 'E'])
+
+        first = header.pop('A')
+        assert_equal(first, 'B')
+        assert_equal(len(header), 1)
+        assert_equal(header.keys(), ['E'])
+
+        default = header.pop('X', 'Y')
+        assert_equal(default, 'Y')
+        assert_equal(len(header), 1)
+
+        assert_raises(KeyError, header.pop, 'X')
+
+    def test_popitem(self):
+        header = pyfits.Header([('A', 'B'), ('C', 'D'), ('E', 'F')])
+        keyword, value = header.popitem()
+        assert_true(keyword not in header)
+        assert_equal(len(header), 2)
+        keyword, value = header.popitem()
+        assert_true(keyword not in header)
+        assert_equal(len(header), 1)
+        keyword, value = header.popitem()
+        assert_true(keyword not in header)
+        assert_equal(len(header), 0)
+        assert_raises(KeyError, header.popitem)
 
     def test_update_from_dict(self):
         """

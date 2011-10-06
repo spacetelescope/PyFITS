@@ -1,3 +1,5 @@
+from __future__ import division
+
 import copy
 import itertools
 import os
@@ -7,7 +9,12 @@ import warnings
 from collections import defaultdict
 
 from pyfits.card import Card, CardList, create_card, _pad, _int_or_float
-from pyfits.util import BLOCK_SIZE, deprecated, isiterable, _pad_length
+from pyfits.file import _File, PYTHON_MODES
+from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, decode_ascii,
+                         fileobj_mode, _pad_length)
+
+
+HEADER_END_RE = re.compile('END {77}')
 
 
 class Header(object):
@@ -109,8 +116,8 @@ class Header(object):
         elif (isinstance(key, basestring) and
               key.upper() in Card._commentary_keywords):
             key = key.upper()
-            # Special case for commentary cards--return a list of their values
-            return [c.value for c in self._cards if c.keyword == key]
+            # Special case for commentary cards
+            return _HeaderCommentaryCards(self, key)
         return self._cards[self._cardindex(key)].value
 
     def __setitem__ (self, key, value):
@@ -210,10 +217,11 @@ class Header(object):
         self._updateindices(idx, increment=False)
         self._modified = True
 
-    # TODO: Provide a nice, informative __repr__
+    def __repr__(self):
+        return self.tostring(sep='\n', endcard=False, padding=False)
+
     def __str__(self):
-        s = ''.join(str(card) for card in self._cards) + _pad('END')
-        return s + _pad_length(len(s)) * ' '
+        return self.tostring()
 
     @property
     def cards(self):
@@ -231,7 +239,7 @@ class Header(object):
         return _HeaderComments(self)
 
     @classmethod
-    def fromstring(cls, data):
+    def fromstring(cls, data, sep=''):
         """
         Creates an HDU header from a byte string containing the entire header
         data.
@@ -240,11 +248,20 @@ class Header(object):
         ----------
         data : str
            String containing the entire header.
+
+        sep : str (optional)
+            The string separating cards from each other, such as a newline.  By
+            default there is no card separator.
         """
 
-        if (len(data) % BLOCK_SIZE) != 0:
+        actual_block_size = _block_size(sep)
+
+        if (len(data) % actual_block_size) != 0:
+            # This error message ignores the length of the separator for now,
+            # but maybe it shouldn't?
             raise ValueError('Header size is not multiple of %d: %d'
-                             % (BLOCK_SIZE, len(data)))
+                             % (BLOCK_SIZE,
+                                len(data) - actual_block_size + BLOCK_SIZE))
 
         cards = []
 
@@ -267,13 +284,165 @@ class Header(object):
             next = peeknext()
             while next and next[:8] == 'CONTINUE':
                 image.append(next)
-                idx += Card.length
+                idx += Card.length + len(sep)
                 next = peeknext()
 
             cards.append(Card.fromstring(''.join(image)))
             idx += Card.length
 
         return cls(cards)
+
+    @classmethod
+    def fromfile(cls, fileobj, sep='', endcard=True):
+        close_file = False
+        if isinstance(fileobj, basestring):
+            fileobj = open(fileobj, 'r')
+            close_file = True
+
+        actual_block_size = _block_size(sep)
+
+        try:
+            # Read the first header block.
+            block = decode_ascii(fileobj.read(actual_block_size))
+            if block == '':
+                raise EOFError()
+
+            blocks = []
+
+            # continue reading header blocks until END card is reached
+            while True:
+                # find the END card
+                mo = HEADER_END_RE.search(block)
+                if mo is None:
+                    blocks.append(block)
+                    block = decode_ascii(fileobj.read(actual_block_size))
+                    if block == '':
+                        break
+                else:
+                    break
+            blocks.append(block)
+
+            if not HEADER_END_RE.search(block) and endcard:
+                raise IOError('Header missing END card.')
+
+            return cls.fromstring(''.join(blocks), sep=sep)
+        finally:
+            if close_file:
+                fileobj.close()
+
+    def tostring(self, sep='', endcard=True, padding=True):
+        """
+        Returns a string representation of the header.
+
+        By default this uses no
+        separator between cards, adds the END card, and pads the string with
+        spaces to the next multiple of 2880 bytes.  That is, it returns the
+        header exactly as it would appear in a FITS file.
+
+        Parameters
+        ----------
+        sep : str (optional)
+            The character or string with which to separate cards.  By default
+            there is no separator, but one could use '\n', for example, to
+            separate each card with a new line
+
+        endcard : bool (optional)
+            If True (default) adds the END card to the end of the header
+            string
+
+        padding : bool (optiona)
+            If True (default) pads the string with spaces out to the next
+            multiple of 2880 characters
+        """
+
+        s = sep.join(str(card) for card in self._cards)
+        if endcard:
+            s += sep + _pad('END')
+        if padding:
+            s += ' ' * _pad_length(len(s))
+        return s
+
+    def tofile(self, fileobj, sep='', endcard=True, padding=True,
+               clobber=False):
+        """
+        Writes the header to file or file-like object.
+
+        By default this writes the header exactly as it would be written to a
+        FITS file, with the END card included and padding to the next multiple
+        of 2880 bytes.  However, aspects of this may be controlled.
+
+        Parameters
+        ----------
+        fileobj : str, file (optional)
+            Either the pathname of a file, or an open file handle or file-like
+            object
+
+        sep : str (optional)
+            The character or string with which to separate cards.  By default
+            there is no separator, but one could use `'\n'`, for example, to
+            separate each card with a new line
+
+        endcard : bool (optional)
+            If `True` (default) adds the END card to the end of the header
+            string
+
+        padding : bool (optional)
+            If `True` (default) pads the string with spaces out to the next
+            multiple of 2880 characters
+
+        clobber : bool (optional)
+            If `True`, overwrites the output file if it already exists
+        """
+
+        close_file = False
+
+        # check if the output file already exists
+        # TODO: Perhaps this sort of thing could be handled by the _File
+        # initializer...
+        if isinstance(fileobj, basestring):
+            if os.path.exists(fileobj) and os.path.getsize(fileobj) != 0:
+                if clobber:
+                    warnings.warn("Overwriting existing file '%s'." % fileobj)
+                    os.remove(fileobj)
+                else:
+                    raise IOError("File '%s' already exists." % fileobj)
+
+            fileobj = open(fileobj, 'w')
+            close_file = True
+
+        if not isinstance(fileobj, _File):
+            # TODO: There needs to be a way of handling this built into the
+            # _File class.  I think maybe there used to be, but I took it out;
+            # now the design is such that it would be better for it to go back
+            # in
+            mode = 'append'
+            fmode = fileobj_mode(fileobj) or 'ab+'
+            for key, val in PYTHON_MODES.iteritems():
+                if val == fmode:
+                    mode = key
+                    break
+            fileobj = _File(fileobj, mode=mode)
+
+        try:
+            blocks = self.tostring(sep=sep, endcard=endcard, padding=padding)
+            actual_block_size = _block_size(sep)
+            if padding and len(blocks) % actual_block_size != 0:
+                raise IOError('Header size (%d) is not a multiple of block '
+                              'size (%d).' %
+                              (len(blocks) - actual_block_size + BLOCK_SIZE,
+                               BLOCK_SIZE))
+
+            if not fileobj.simulateonly:
+                fileobj.flush()
+                try:
+                    offset = fileobj.tell()
+                except (AttributeError, IOError):
+                    offset = 0
+                fileobj.write(blocks.encode('ascii'))
+                fileobj.flush()
+        finally:
+            if close_file:
+                fileobj.close()
 
     def clear(self):
         """
@@ -1181,6 +1350,7 @@ class Header(object):
 
         return self['COMMENT']
 
+    @deprecated(alternative="tofile(sep='\n', endcard=False, padding=False)")
     def toTxtFile(self, fileobj, clobber=False):
         """
         Output the header parameters to a file in ASCII format.
@@ -1194,33 +1364,7 @@ class Header(object):
             When `True`, overwrite the output file if it exists.
         """
 
-        close_file = False
-
-        # check if the output file already exists
-        if isinstance(fileobj, basestring):
-            if (os.path.exists(fileobj) and os.path.getsize(fileobj) != 0):
-                if clobber:
-                    warnings.warn("Overwriting existing file '%s'." % fileobj)
-                    os.remove(fileobj)
-                else:
-                    raise IOError("File '%s' already exist." % fileobj)
-
-            fileobj = open(fileobj, 'w')
-            close_file = True
-
-        lines = []   # lines to go out to the header parameters file
-
-        # Add the card image for each card in the header to the lines list
-
-        for j in range(len(self.ascard)):
-            lines.append(str(self.ascard[j]) + '\n')
-
-        # Write the header parameter lines out to the ASCII header
-        # parameter file
-        fileobj.writelines(lines)
-
-        if close_file:
-            fileobj.close()
+        self.tofile(fileobj, sep='\n', endcard=False, padding=False)
 
     def fromTxtFile(self, fileobj, replace=False):
         """
@@ -1346,7 +1490,46 @@ class Header(object):
             self[key] = value
 
 
-class _HeaderComments(object):
+class _CardAccessor(object):
+    """
+    This is a generic class for wrapping a Header in such a way that you can
+    use the header's slice/filtering capabilities to return a subset of cards
+    and do something of them.
+
+    This is sort of the opposite notion of the old CardList class--whereas
+    Header used to use CardList to get lists of cards, this uses Header to get
+    lists of cards.
+    """
+
+
+    # TODO: Consider giving this dict/list methods like Header itself
+    def __init__(self, header):
+        self._header = header
+
+    def __repr__(self):
+        '\n'.join(str(c) for c in self._header._cards)
+
+    def __len__(self):
+        return len(self._header)
+
+    def __eq__(self, other):
+        if isiterable(other):
+            for a, b in itertools.izip(self, other):
+                if a != b:
+                    return False
+            else:
+                return True
+        return False
+
+    def __getitem__(self, item):
+        if isinstance(item, slice) or self._header._haswildcard(item):
+            return self.__class__(self._header[item])
+
+        idx = self._header._cardindex(item)
+        return self._header._cards[idx]
+
+
+class _HeaderComments(_CardAccessor):
     """
     A class used internally by the Header class for the Header.comments
     attribute access.
@@ -1356,11 +1539,6 @@ class _HeaderComments(object):
     of keyword lookup as the Header class itself, but returns comments instead
     of values.
     """
-
-    # TODO: Consider giving this dict/list methods like Header itself
-
-    def __init__(self, header):
-        self._header = header
 
     def __repr__(self):
         """Returns a simple list of all keywords and their comments."""
@@ -1373,20 +1551,16 @@ class _HeaderComments(object):
         return '\n'.join('%*s  %s' % (keyword_width, c.keyword, c.comment)
                          for c in self._header._cards)
 
-    def __len__(self):
-        return len(self._header)
-
     def __getitem__(self, item):
         """
         Slices and filter strings return a new _HeaderComments containing the
         returned cards.  Otherwise the comment of a single card is returned.
         """
 
-        if isinstance(item, slice) or self._header._haswildcard(item):
-            return _HeaderComments(self._header[item])
-
-        idx = self._header._cardindex(item)
-        return self._header._cards[idx].comment
+        item = super(_HeaderComments, self).__getitem__(item)
+        if isinstance(item, _HeaderComments):
+            return item
+        return item.comment
 
     def __setitem__(self, item, comment):
         """
@@ -1411,3 +1585,28 @@ class _HeaderComments(object):
         idx = self._header._cardindex(item)
         value = self._header[idx]
         self._header[idx] = (value, comment)
+
+
+class _HeaderCommentaryCards(_CardAccessor):
+    def __init__(self, header, keyword=''):
+        super(_HeaderCommentaryCards, self).__init__(header)
+        self._keyword = keyword
+
+    def __repr__(self):
+        return '\n'.join(str(c.value) for c in self._header._cards
+                         if c.keyword == self._keyword)
+
+    def __getitem__(self, idx):
+        if not isinstance(idx, int):
+            raise ValueError('%s index must be an integer' % self._keyword)
+        return self._header[(self._keyword, idx)]
+
+
+def _block_size(sep):
+    """
+    Determine the size of a FITS header block if a non-blank separator is used
+    between cards.
+    """
+
+    return BLOCK_SIZE + (len(sep) * (BLOCK_SIZE // Card.length - 1))
+
