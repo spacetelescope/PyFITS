@@ -265,13 +265,6 @@ class Header(object):
 
         actual_block_size = _block_size(sep)
 
-        if (len(data) % actual_block_size) != 0:
-            # This error message ignores the length of the separator for now,
-            # but maybe it shouldn't?
-            raise ValueError('Header size is not multiple of %d: %d'
-                             % (BLOCK_SIZE,
-                                len(data) - actual_block_size + BLOCK_SIZE))
-
         cards = []
 
         # Split the header into individual cards
@@ -297,12 +290,12 @@ class Header(object):
                 next = peeknext()
 
             cards.append(Card.fromstring(''.join(image)))
-            idx += Card.length
+            idx += Card.length + len(sep)
 
         return cls(cards)
 
     @classmethod
-    def fromfile(cls, fileobj, sep='', endcard=True):
+    def fromfile(cls, fileobj, sep='', endcard=True, padding=True):
         close_file = False
         if isinstance(fileobj, basestring):
             fileobj = open(fileobj, 'r')
@@ -334,7 +327,17 @@ class Header(object):
             if not HEADER_END_RE.search(block) and endcard:
                 raise IOError('Header missing END card.')
 
-            return cls.fromstring(''.join(blocks), sep=sep)
+            blocks = ''.join(blocks)
+
+            if padding and (len(blocks) % actual_block_size) != 0:
+                # This error message ignores the length of the separator for
+                # now, but maybe it shouldn't?
+                actual_len = len(blocks) - actual_block_size + BLOCK_SIZE
+                raise ValueError('Header size is not multiple of %d: %d'
+                                 % (BLOCK_SIZE, actual_len))
+
+
+            return cls.fromstring(blocks, sep=sep)
         finally:
             if close_file:
                 fileobj.close()
@@ -538,7 +541,8 @@ class Header(object):
         # deal with the idiosyncrasies thereof
         new_card = Card(keyword, value, comment)
 
-        if new_card.keyword in self:
+        if (new_card.keyword in self and
+                new_card.keyword not in Card._commentary_keywords):
             if comment is None:
                 comment = self.comments[keyword]
             if value is None:
@@ -958,8 +962,10 @@ class Header(object):
         """
 
         if idx >= len(self._cards):
-            # This is just an append
-            self.append(card)
+            # This is just an append (Though it must be an append absolutely to
+            # the bottom, ignoring blanks, etc.--the point of the insert method
+            # is that you get exactly what you asked for with no surprises)
+            self.append(card, end=True)
             return
 
         if isinstance(card, basestring):
@@ -1042,7 +1048,8 @@ class Header(object):
                 existing_card.comment = card.comment
             if existing_card._modified:
                 self._modified = True
-        elif keyword in Card._commentary_keywords:
+        elif (keyword in Card._commentary_keywords and
+                keyword in self._keyword_indices):
             # Append after the last keyword of the same type
             idx = self.index(keyword, start=len(self) - 1, stop=-1)
             isblank = not (card.keyword or card.value or card.comment)
@@ -1078,7 +1085,7 @@ class Header(object):
             keyword = Card.normalize_keyword(keyword)
             # Returns the index into _cards for the n-th card with the given
             # keyword (where n is 0-based)
-            if keyword not in self._keyword_indices:
+            if keyword and keyword not in self._keyword_indices:
                 if len(keyword) > 8:
                     raise KeyError("Keyword %r not found." % keyword)
                 # Great--now we have to check if there's a RVKC that starts
@@ -1381,7 +1388,8 @@ class Header(object):
             When `True`, overwrite the output file if it exists.
         """
 
-        self.tofile(fileobj, sep='\n', endcard=False, padding=False)
+        self.tofile(fileobj, sep='\n', endcard=False, padding=False,
+                    clobber=clobber)
 
     def fromTxtFile(self, fileobj, replace=False):
         """
@@ -1405,26 +1413,14 @@ class Header(object):
             just updating the current header.
         """
 
-        close_file = False
+        input_header = Header.fromfile(fileobj, sep='\n', endcard=False,
+                                       padding=False)
 
-        if isinstance(fileobj, basestring):
-            fileobj = open(fileobj, 'r')
-            close_file = True
+        if replace:
+            self.clear()
+        prev_key = 0
 
-        lines = fileobj.readlines()
-
-        if close_file:
-            fileobj.close()
-
-        if len(self.ascard) > 0 and not replace:
-            prevKey = 0
-        else:
-            if replace:
-                self.ascard = CardList([])
-            prevKey = 0
-
-        for line in lines:
-            card = Card.fromstring(line[:min(80, len(line)-1)])
+        for card in input_header.cards:
             card.verify('silentfix')
 
             if card.keyword == 'SIMPLE':
@@ -1432,65 +1428,31 @@ class Header(object):
                     del self.ascard['EXTENSION']
 
                 self.set(card.keyword, card.value, card.comment, before=0)
-                prevKey = 0
+                prev_key = 0
             elif card.keyword == 'EXTENSION':
                 if self.get('SIMPLE'):
                     del self.ascard['SIMPLE']
 
                 self.set(card.keyword, card.value, card.comment, before=0)
-                prevKey = 0
-            elif card.keyword == 'HISTORY':
-                if not replace:
-                    items = self.items()
-                    idx = 0
-
-                    for item in items:
-                        if item[0] == card.keyword and item[1] == card.value:
+                prev_key = 0
+            elif card.keyword in Card._commentary_keywords:
+                if (not replace and
+                        not (card.keyword == '' and card.value == '')):
+                    # Don't add duplicate commentary cards (though completely
+                    # blank cards are allowed to be duplicated)
+                    for idx, c in enumerate(self.cards):
+                        if c.keyword == card.keyword and c.value == card.value:
                             break
-                        idx += 1
-
-                    if idx == len(self.ascard):
-                        self.add_history(card.value, after=prevKey)
-                        prevKey += 1
+                    else:
+                        self.set(card.keyword, card.value, after=prev_key)
+                        prev_key += 1
                 else:
-                    self.add_history(card.value, after=prevKey)
-                    prevKey += 1
-            elif card.keyword == 'COMMENT':
-                if not replace:
-                    items = self.items()
-                    idx = 0
-
-                    for item in items:
-                        if item[0] == card.keyword and item[1] == card.value:
-                            break
-                        idx += 1
-
-                    if idx == len(self.ascard):
-                        self.add_comment(card.value, after=prevKey)
-                        prevKey += 1
-                else:
-                    self.add_comment(card.value, after=prevKey)
-                    prevKey += 1
-            elif card.keyword == '        ':
-                if not replace:
-                    items = self.items()
-                    idx = 0
-
-                    for item in items:
-                        if item[0] == card.keyword and item[1] == card.value:
-                            break
-                        idx += 1
-
-                    if idx == len(self.ascard):
-                        self.add_blank(card.value, after=prevKey)
-                        prevKey += 1
-                else:
-                    self.add_blank(card.value, after=prevKey)
-                    prevKey += 1
+                    self.set(card.keyword, card.value, after=prev_key)
+                    prev_key += 1
             else:
                 self.set(card.keyword, card.value, card.comment,
-                         after=prevKey)
-                prevKey += 1
+                         after=prev_key)
+                prev_key += 1
 
     def _add_commentary(self, key, value, before=None, after=None):
         """

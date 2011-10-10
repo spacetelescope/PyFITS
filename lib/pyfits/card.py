@@ -867,10 +867,7 @@ class Card(_Verify):
         # value string
         float_types = (float, np.floating, complex, np.complexfloating)
         value = self.value # Force the value to be parsed out first
-        if not self.keyword:
-            # Blank cards must have blank values
-            value = ''
-        elif self.keyword in self._commentary_keywords:
+        if self.keyword in self._commentary_keywords:
             # The value of a commentary card must be just a raw unprocessed
             # string
             value = str(value)

@@ -56,6 +56,38 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert_true(header.has_key('D'))
         assert_false(header.has_key('C'))
 
+    def test_totxtfile(self):
+        hdul = pyfits.open(self.data('test0.fits'))
+        hdul[0].header.toTxtFile(self.temp('header.txt'))
+        hdu = pyfits.ImageHDU()
+        hdu.header.update('MYKEY', 'FOO', 'BAR')
+        hdu.header.fromTxtFile(self.temp('header.txt'), replace=True)
+        assert_equal(len(hdul[0].header.ascard), len(hdu.header.ascard))
+        assert_false(hdu.header.has_key('MYKEY'))
+        assert_false(hdu.header.has_key('EXTENSION'))
+        assert_true(hdu.header.has_key('SIMPLE'))
+
+        # Write the hdu out and read it back in again--it should be recognized
+        # as a PrimaryHDU
+        hdu.writeto(self.temp('test.fits'), output_verify='ignore')
+        assert_true(isinstance(pyfits.open(self.temp('test.fits'))[0],
+                               pyfits.PrimaryHDU))
+
+        hdu = pyfits.ImageHDU()
+        hdu.header.update('MYKEY', 'FOO', 'BAR')
+        hdu.header.fromTxtFile(self.temp('header.txt'))
+        assert_equal(len(hdul[0].header.ascard), len(hdu.header.ascard) - 4)
+        assert_true(hdu.header.has_key('MYKEY'))
+        assert_false(hdu.header.has_key('EXTENSION'))
+        assert_true(hdu.header.has_key('SIMPLE'))
+
+        hdu.writeto(self.temp('test.fits'), output_verify='ignore',
+                    clobber=True)
+        hdul2 = pyfits.open(self.temp('test.fits'))
+        assert_true(len(hdul2), 2)
+        assert_true(hdul2[1].header.has_key('MYKEY'))
+
+
 
 class TestHeaderFunctions(PyfitsTestCase):
     """Test PyFITS Header and Card objects."""
@@ -176,6 +208,15 @@ class TestHeaderFunctions(PyfitsTestCase):
         c = pyfits.Card.fromstring("history =   (1, 2)")
         assert_equal(str(c),
                      "HISTORY =   (1, 2)                                                              ")
+
+    def test_blank_keyword(self):
+        c = pyfits.Card('', '       / EXPOSURE INFORMATION')
+        assert_equal(str(c),
+                     '               / EXPOSURE INFORMATION                                           ')
+        c = pyfits.Card.fromstring(str(c))
+        assert_equal(c.keyword, '')
+        assert_equal(c.value, '       / EXPOSURE INFORMATION')
+
 
     def test_specify_undefined_value(self):
         # this is how to specify an undefined value
