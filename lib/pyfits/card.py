@@ -589,6 +589,8 @@ class Card(_Verify):
         if match:
             return '.'.join((match.group('keyword').strip().upper(),
                              match.group('field_specifier')))
+        elif len(keyword) > 8:
+            return keyword.strip()
         else:
             return keyword.strip().upper()
 

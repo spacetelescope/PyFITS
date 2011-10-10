@@ -88,7 +88,6 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert_true(hdul2[1].header.has_key('MYKEY'))
 
 
-
 class TestHeaderFunctions(PyfitsTestCase):
     """Test PyFITS Header and Card objects."""
 
@@ -336,7 +335,7 @@ class TestHeaderFunctions(PyfitsTestCase):
             "CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  "
             "CONTINUE  '&' / comments in line 1 comments with ''.                            ")
 
-    def test_hierarch_card(self):
+    def test_hierarch_card_creation(self):
         # Test automatic upgrade to hierarch card
         with catch_warnings(record=True) as w:
             c = pyfits.Card('ESO INS SLIT2 Y1FRML',
@@ -357,6 +356,13 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(str(c),
                      "HIERARCH ESO INS SLIT2 Y1FRML= "
                      "'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)'")
+
+    def test_hierarch_card_lookup(self):
+        header = pyfits.Header()
+        header['hierarch abcdefghi'] = 10
+        assert_true('abcdefghi' in header)
+        assert_equal(header['abcdefghi'], 10)
+        assert_false('ABCDEFGHI' in header)
 
     def test_header_setitem_invalid(self):
         header = pyfits.Header()
