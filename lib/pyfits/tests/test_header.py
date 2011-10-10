@@ -231,6 +231,11 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         assert_equal(c2.comment, 'Axis number')
         assert_equal(c2.field_specifier, 'AXIS.1')
 
+        # RVKCs created with this constructor should verify without any
+        # problems
+        c1.verify('exception')
+        c2.verify('exception')
+
     def test_rvkc_fromstring(self):
         """Test creation of RVKC from their string representation."""
 
