@@ -60,18 +60,17 @@ Converting a 3-color image (JPG) to separate FITS images
 
     # write out the fits images, the data numbers are still JUST the RGB
     # scalings; don't use for science
-    red = pyfits.PrimaryHDU()
-    red.header.update('LATOBS', "32:11:56") # add spurious header info
-    red.header.update('LONGOBS', "110:56")
-    red.data = npr
+    red = pyfits.PrimaryHDU(data=npr)
+    red.header['LATOBS'] = "32:11:56" # add spurious header info
+    red.header['LONGOBS'] = "110:56"
     red.writeto('red.fits')
-    green = pyfits.PrimaryHDU()
-    green.header.update('LATOBS', "32:11:56")
-    green.header.update('LONGOBS', "110:56")
-    green.data = npg
+
+    green = pyfits.PrimaryHDU(data=npg)
+    green.header['LATOBS'] = "32:11:56"
+    green.header['LONGOBS'] = "110:56"
     green.writeto('green.fits')
-    blue = pyfits.PrimaryHDU()
-    blue.header.update('LATOBS', "32:11:56")
-    blue.header.update('LONGOBS', "110:56")
-    blue.data = npb
+
+    blue = pyfits.PrimaryHDU(data=npb)
+    blue.header['LATOBS'] = "32:11:56"
+    blue.header['LONGOBS'] = "110:56"
     blue.writeto('blue.fits')

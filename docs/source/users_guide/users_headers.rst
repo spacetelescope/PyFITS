@@ -148,13 +148,22 @@ Card Images
 A FITS header consists of card images.
 
 A card images in a FITS header consists of a keyword name, a value, and
-optionally a comment. Physically, it takes 80 columns (bytes) - without
-carriage return - in a FITS file's storage form. In PyFITS, each card image is
-manifested by a Card object. There are also special kinds of cards: commentary
-cards (see above) and card images taking more than one 80-column card image.
-The latter will be discussed later.
+optionally a comment. Physically, it takes 80 columns (bytes)--without
+carriage return--in a FITS file's storage format. In PyFITS, each card image is
+manifested by a `Card` object. There are also special kinds of cards:
+commentary cards (see above) and card images taking more than one 80-column
+card image.  The latter will be discussed later.
 
-Most of the time, a new Card object is created with the Card constructor:
+Most of the time the details of dealing with cards are handled by the `Header`
+object, and it is not necessary to directly manipulate cards.  In fact, most
+`Header` methods that accept a (keyword, value) or (keyword, value, comment)
+tuple as an argument can also take a `Card` object as an argument.  `Card`
+objects are just wrappers around that header that provide the logic for parsing
+and formatting individual cards in a header.  But there's nothing gained by
+manually using a `Card` object, except to examine how a card might appear in a
+header before actually adding it to the header.
+
+A new Card object is created with the `Card` constructor:
 ``Card(key, value, comment)``. For example:
 
     >>> c1 = pyfits.Card('temp', 80.0, 'temperature, floating value')
@@ -177,20 +186,26 @@ The `Card()` constructor will check if the arguments given are conforming to
 the FITS standard and has a fixed card image format. If the user wants to
 create a card with a customized format or even a card which is not conforming
 to the FITS standard (e.g. for testing purposes), the `Card.fromstring()`
-method can be used.
+class method can be used.
 
 Cards can be verified with `Card.verify()`. The non-standard card ``c2`` in the
-example below, is flagged by such verification. More about verification in
+example below is flagged by such verification. More about verification in
 PyFITS will be discussed in a later chapter.
 
-    >>> c1 = pyfits.Card().fromstring('ABC = 3.456D023')
-    >>> c2 = pyfits.Card().fromstring("P.I. ='Hubble'")
+    >>> c1 = pyfits.Card.fromstring('ABC = 3.456D023')
+    >>> c2 = pyfits.Card.fromstring("P.I. ='Hubble'")
     >>> print c1; print c2
     ABC = 3.456D023
     P.I. ='Hubble'
     >>> c2.verify()
     Output verification result:
     Unfixable error: Illegal keyword name 'P.I.'
+
+A list of the `Card` objects underlying a `Header` object can be accessed with
+the ``header.cards`` attribute.  This list is only meant for observing, and
+should not be directly manipulated.  In fact, it is only a copy--modifications
+to it will not affect the header it came from.  Use the methods provided by the
+`Header` class instead.
 
 
 CONTINUE Cards
@@ -229,8 +244,10 @@ image, an ampersand is present. The ampersand is not part of the string value.
 Also, there is no "=" at the 9th column after CONTINUE. In the first example,
 the entire 240 characters is treated by PyFITS as a single card. So, if it is
 the nth card in a header, the (n+1)th card refers to the next keyword, not the
-next CONTINUE card.  These keywords having long string values can be accessed
-and updated just like regular keywords.
+next CONTINUE card.  As such, CONTINUE cards are transparently handled by
+PyFITS as a single logical card, and it's generally not necessary to worry
+about the details of the format.  Keywords that resolve to a set of CONTINUE
+cards can be accessed and updated just like regular keywords.
 
 
 HIERARCH Cards
@@ -240,36 +257,42 @@ For keywords longer than 8 characters, there is a convention originated at ESO
 to facilitate such use. It uses a special keyword HIERARCH with the actual long
 keyword following. PyFITS supports this convention as well.
 
-When creating or updating using the `Header.update()` method, it is necessary
-to prepend 'hierarch' (case insensitive). But if the keyword is already in the
-header, it can be accessed or updated by assignment by using the keyword name
-diretly, with or without the 'hierarch' prepending.  The keyword name will
-preserve its cases from its constructor, but when referring to the keyword, it
-is case insensitive.
+If a keyword contains more than 8 characters PyFITS will automatically use a
+HIERARCH card, but will also issue a warning in case this is in error.
+However, one may explicitly request a HIERARCH card by prepending the keyword
+with 'HIERARCH ' (just as it would appear in the header).  However, they can be
+accessed without prefixing the keyword with 'HIERARCH ' (and in fact doing so
+is in error).  HIEARARCH keywords also differ from normal FITS keywords in that 
+they are case-sensitive.
 
 Examples follow:
 
     >>> c = pyfits.Card('abcdefghi', 10)
-    ...
-    ValueError: keyword name abcdefghi is too long (> 8), use HIERARCH.
+    Keyword name 'abcdefghi' is greater than 8 characters; a HIERARCH card will
+    be created.
+    >>> print c
+    HIERARCH abcdefghi = 10
     >>> c = pyfits.Card('hierarch abcdefghi', 10)
     >>> print c
     HIERARCH abcdefghi = 10
     >>> h = pyfits.PrimaryHDU()
-    >>> h.header.update('hierarch abcdefghi', 99)
-    >>> h.header.update('hierarch abcdefghi', 99)
+    >>> h.header['hierarch abcdefghi'] =  99
     >>> h.header['abcdefghi']
     99
     >>> h.header['abcdefghi'] = 10
-    >>> h.header['hierarch abcdefghi']
+    >>> h.header['abcdefghi']
     10
-    # case insensitive
-    >>> h.header.update('hierarch ABCdefghi', 1000)
-    >>> print h.header
+    >>> h.header['ABCDEFGHI']
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "pyfits/header.py", line 121, in __getitem__
+        return self._cards[self._cardindex(key)].value
+      File "pyfits/header.py", line 1106, in _cardindex
+        raise KeyError("Keyword %r not found." % keyword)
+    KeyError: "Keyword 'ABCDEFGI.' not found."
+    >>> h.header
     SIMPLE = T / conforms to FITS standard
     BITPIX = 8 / array data type
     NAXIS = 0 / number of array dimensions
     EXTEND = T
-    HIERARCH ABCdefghi = 1000
-    >>> h.header['hierarch abcdefghi']
-    1000
+    HIERARCH abcdefghi = 1000
