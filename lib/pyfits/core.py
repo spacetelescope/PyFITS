@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # $Id$
-
 """
 A module for reading and writing FITS files and manipulating their
 contents.

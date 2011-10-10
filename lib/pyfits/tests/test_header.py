@@ -595,6 +595,27 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(header['F'], 'G')
         assert_equal(header[-1], 'G')
 
+    def test_header_extend(self):
+        """
+        Test extending a header both with and without stripping cards from the
+        extension header.
+        """
+
+        hdu = pyfits.PrimaryHDU()
+        hdu2 = pyfits.ImageHDU()
+        hdu2.header['MYKEY'] = ('some val', 'some comment')
+        hdu.header += hdu2.header
+        assert_equal(len(hdu.header), 5)
+        assert_equal(hdu.header[-1], 'some val')
+
+        # Directly append the other header in full--not usually a desirable
+        # operation when the header is coming from another HDU
+        hdu.header.extend(hdu2.header, strip=False)
+        assert_equal(len(hdu.header), 11)
+        assert_equal(hdu.header.keys()[5], 'XTENSION')
+        assert_equal(hdu.header[-1], 'some val')
+        assert_true(('MYKEY', 1) in hdu.header)
+
     def test_header_append_use_blanks(self):
         """
         Tests that blank cards can be appended, and that future appends will

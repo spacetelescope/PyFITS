@@ -223,6 +223,15 @@ class Header(object):
     def __str__(self):
         return self.tostring()
 
+    def __add__(self, other):
+        temp = self.copy(strip=False)
+        temp.extend(other)
+        return temp
+
+    def __iadd__(self, other):
+        self.extend(other)
+        return self
+
     @property
     def cards(self):
         """
@@ -848,7 +857,7 @@ class Header(object):
 
         self._modified = True
 
-    def extend(self, cards):
+    def extend(self, cards, strip=True):
         """
         Appends multiple keyword+value cards to the end of the header, similar
         to list.extend().
@@ -859,9 +868,17 @@ class Header(object):
             An iterable of (keyword, value, [comment]) tuples; see
             Header.append()
 
+        strip : bool (optional)
+            Remove any keywords that have meaning only to specific types of
+            HDUs, so that only more general keywords are added from extension
+            Header or Card list (default: True).
         """
 
-        for card in cards:
+        temp = Header(cards)
+        if strip:
+            temp._strip()
+
+        for card in temp.cards:
             self.append(card)
 
     def count(self, keyword):
