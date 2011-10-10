@@ -296,28 +296,27 @@ header by supplying the checksum keyword argument with a value of 'datasum'.
 
 Here are some examples:
 
-     >>>
-     # Open the file pix.fits verifying the checksum values for all HDUs
+     >>> # Open the file pix.fits verifying the checksum values for all HDUs
      >>> hdul = pyfits.open('pix.fits', checksum=True)
      >>>
-     # Open the file in.fits where checksum verification fails for the
-     # primary HDU
+     >>> # Open the file in.fits where checksum verification fails for the
+     >>> # primary HDU
      >>> hdul = pyfits.open('in.fits', checksum=True)
      Warning:  Checksum verification failed for HDU #0.
      >>>
-     # Create file out.fits containing an HDU constructed from data and header
-     # containing both CHECKSUM and DATASUM cards.
+     >>> # Create file out.fits containing an HDU constructed from data and
+     >>> # header containing both CHECKSUM and DATASUM cards.
      >>> pyfits.writeto('out.fits', data, header, checksum=True)
      >>>
-     # Create file out.fits containing all the HDUs in the HDULIST
-     # hdul with each HDU header containing only the DATASUM card
+     >>> # Create file out.fits containing all the HDUs in the HDULIST
+     >>> # hdul with each HDU header containing only the DATASUM card
      >>> hdul.writeto('out.fits', checksum='datasum')
      >>>
-     # Create file out.fits containing the HDU hdu with both CHECKSUM
-     # and DATASUM cards in the header
+     >>> # Create file out.fits containing the HDU hdu with both CHECKSUM
+     >>> # and DATASUM cards in the header
      >>> hdu.writeto('out.fits', checksum=True)
      >>>
-     # Append a new HDU constructed from array data to the end of
-     # the file existingfile.fits with only the appended HDU
-     # containing both CHECKSUM and DATASUM cards.
+     >>> # Append a new HDU constructed from array data to the end of
+     >>> # the file existingfile.fits with only the appended HDU
+     >>> # containing both CHECKSUM and DATASUM cards.
      >>> pyfits.append('existingfile.fits', data, checksum=True)
