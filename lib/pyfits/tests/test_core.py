@@ -9,6 +9,7 @@ import zipfile
 import numpy as np
 
 import pyfits
+from pyfits.convenience import _getext
 from pyfits.util import BytesIO
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings
@@ -199,6 +200,54 @@ class TestCore(PyfitsTestCase):
     def test_unrecognized_verify_option(self):
         hdu = pyfits.ImageHDU()
         assert_raises(ValueError, hdu.verify, 'foobarbaz')
+
+    def test_getext(self):
+        """
+        Test the various different ways of specifying an extension header in
+        the convenience functions.
+        """
+
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', 1)
+        assert_equal(ext, 1)
+        assert_raises(ValueError, _getext, self.data('test0.fits'), 'readonly',
+                      1, 2)
+        assert_raises(ValueError, _getext, self.data('test0.fits'), 'readonly',
+                      (1, 2))
+        assert_raises(ValueError, _getext, self.data('test0.fits'), 'readonly',
+                      'sci', 'sci')
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      1, 2, 3)
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', ext=1)
+        assert_equal(ext, 1)
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', ext=('sci', 2))
+        assert_equal(ext, ('sci', 2))
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      1, ext=('sci', 2), extver=3)
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      ext=('sci', 2), extver=3)
+
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', 'sci')
+        assert_equal(ext, ('sci', 0))
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', 'sci', 1)
+        assert_equal(ext, ('sci', 1))
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', ('sci', 1))
+        assert_equal(ext, ('sci', 1))
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', 'sci',
+                          extver=1, do_not_scale_image_data=True)
+        assert_equal(ext, ('sci', 1))
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      'sci', ext=1)
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      'sci', 1, extver=2)
+
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', extname='sci')
+        assert_equal(ext, ('sci', 0))
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', extname='sci',
+                          extver=1)
+        assert_equal(ext, ('sci', 1))
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      extver=1)
+
 
 
 class TestFileFunctions(PyfitsTestCase):
