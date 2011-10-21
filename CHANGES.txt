@@ -26,7 +26,13 @@ Changelog
   column definition file (#14)
 
 
-3.0.3 (unreleased)
+3.0.4 (unreleased)
+------------------
+
+- Nothing changed yet.
+
+
+3.0.3 (2011-10-05)
 ------------------
 
 - Fixed several small bugs involving corner cases in record-valued keyword
