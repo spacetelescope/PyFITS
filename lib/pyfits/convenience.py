@@ -7,7 +7,7 @@ from pyfits.file import PYTHON_MODES, _File
 from pyfits.hdu.base import _BaseHDU
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
-from pyfits.hdu.table import BinTableHDU, _TableBaseHDU
+from pyfits.hdu.table import BinTableHDU
 from pyfits.header import Header
 from pyfits.util import (deprecated, fileobj_closed, fileobj_name, isfile,
                          _is_int)
