@@ -29,7 +29,8 @@ Changelog
 3.0.4 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fixed a crash when writing HCOMPRESS compressed images that could happen on
+  Python 2.5 and 2.6.
 
 
 3.0.3 (2011-10-05)
