@@ -61,7 +61,7 @@ are memory-mapped, see later chapters for detail.
 Working with large files
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-The `yfits.open()` function supports a ``memmap=True`` argument that cause
+The `pyfits.open()` function supports a ``memmap=True`` argument that cause
 the array data of each HDU to be accessed with mmap, rather than being read
 into memory all at once.  This is particularly useful for working with very
 large arrays that cannot fit entirely into physical memory.

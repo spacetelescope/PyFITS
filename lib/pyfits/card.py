@@ -1156,7 +1156,7 @@ class RecordValuedKeywordCard(Card):
         super(RecordValuedKeywordCard, self)._check_key(keyword)
 
         if field_specifier:
-            if not self.field_specifier_s.match(key):
+            if not re.match(self.field_specifier_s, key):
                 self._err_text = 'Illegal keyword name %s' % repr(key)
                 # TODO: Maybe fix by treating as normal card and not RVKC?
                 self._fixable = False
