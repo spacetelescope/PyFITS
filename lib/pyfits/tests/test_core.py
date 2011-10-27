@@ -412,21 +412,6 @@ class TestStreamingFunctions(PyfitsTestCase):
             shdu = self._make_streaming_hdu(f)
             shdu.write(arr)
 
-    # TODO: This test is temporarily borrowed from the header-refactoring
-    # branch as a regression test for ticket #69; it can be removed when the
-    # header-refactoring branch is merged into trunk
-    def test_update_comment(self):
-        hdul = pyfits.open(self.data('arange.fits'))
-        hdul[0].header.update('FOO', 'BAR', 'BAZ')
-        hdul.writeto(self.temp('test.fits'))
-
-        hdul = pyfits.open(self.temp('test.fits'), mode='update')
-        hdul[0].header.ascard['FOO'].comment = 'QUX'
-        hdul.close()
-
-        hdul = pyfits.open(self.temp('test.fits'))
-        assert_equal(hdul[0].header.ascard['FOO'].comment, 'QUX')
-
     def _make_streaming_hdu(self, fileobj):
         hd = pyfits.Header()
         hd.update('SIMPLE', True, 'conforms to FITS standard')

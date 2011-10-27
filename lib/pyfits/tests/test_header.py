@@ -5,6 +5,20 @@ from pyfits.tests import PyfitsTestCase
 from nose.tools import assert_equal, assert_false, assert_raises, assert_true
 
 
+class TestHeaderFunctions(PyfitsTestCase):
+    def test_update_comment(self):
+        hdul = pyfits.open(self.data('arange.fits'))
+        hdul[0].header.update('FOO', 'BAR', 'BAZ')
+        hdul.writeto(self.temp('test.fits'))
+
+        hdul = pyfits.open(self.temp('test.fits'), mode='update')
+        hdul[0].header.ascard['FOO'].comment = 'QUX'
+        hdul.close()
+
+        hdul = pyfits.open(self.temp('test.fits'))
+        assert_equal(hdul[0].header.ascard['FOO'].comment, 'QUX')
+
+
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """Tests for handling of record-valued keyword cards as used by the FITS
     WCS Paper IV proposal.
