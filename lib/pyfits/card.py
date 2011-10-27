@@ -365,7 +365,11 @@ class Card(_Verify):
 
     _commentary_keywords = ['', 'COMMENT', 'HISTORY', 'END']
 
-    def __init__(self, keyword=None, value=None, comment=None):
+    def __init__(self, keyword=None, value=None, comment=None, **kwargs):
+        # For backwards compatibility, support the 'key' keyword argument:
+        if keyword is None and 'key' in kwargs:
+            keyword = kwargs['key']
+
         # TODO: A Card with a value and comment but no keyword should not be
         # allowed
         self._keyword = None
@@ -413,7 +417,7 @@ class Card(_Verify):
         if self._keyword is not None:
             return self._keyword
         elif self._image:
-            self._keyword = self._parsekeyword()
+            self._keyword = self._parse_keyword()
             return self._keyword
         else:
             self.keyword = ''
@@ -468,7 +472,7 @@ class Card(_Verify):
             self.value = self._valuestring
             return self._valuestring
         elif self._image:
-            self._value = self._parsevalue()
+            self._value = self._parse_value()
             return self._value
         else:
             self.value = ''
@@ -512,7 +516,7 @@ class Card(_Verify):
         if self._comment is not None:
             return self._comment
         elif self._image:
-            self._comment = self._parsecomment()
+            self._comment = self._parse_comment()
             return self._comment
         else:
             self.comment = ''
@@ -538,7 +542,7 @@ class Card(_Verify):
         if self._image and not self._parsed:
             self.verify('silentfix')
         if self._image is None or self._modified:
-            self._image = self._formatimage()
+            self._image = self._format_image()
         return self._image
 
     @property
@@ -657,7 +661,7 @@ class Card(_Verify):
                     self._value = _int_or_float(match.group('val'))
                     return True
 
-    def _parsekeyword(self):
+    def _parse_keyword(self):
         if self._value is not None and self._comment is not None:
             self._parsed = False
 
@@ -686,7 +690,7 @@ class Card(_Verify):
                 self._modified = True
             return keyword_upper
 
-    def _parsevalue(self):
+    def _parse_value(self):
         """Extract the keyword value from the card image."""
 
         if self._keyword is not None and self._comment is not None:
@@ -753,7 +757,7 @@ class Card(_Verify):
         self._valuestring = m.group('valu')
         return value
 
-    def _parsecomment(self):
+    def _parse_comment(self):
         """Extract the keyword value from the card image."""
 
         if self._keyword is not None and self._value is not None:
@@ -811,11 +815,11 @@ class Card(_Verify):
                 keyword, valuecomment = image.split('=', 1)
         return keyword.strip(), valuecomment.strip()
 
-    def _fixkeyword(self):
+    def _fix_keyword(self):
         self._keyword = self._keyword.upper()
         self._modified = True
 
-    def _fixvalue(self):
+    def _fix_value(self):
         """Fix the card image for fixable non-standard compliance."""
 
         value = None
@@ -833,7 +837,7 @@ class Card(_Verify):
             self._valuestring = self._value
             self._valuemodified = False
             return
-        # TODO: How much of this is redundant with _parsevalue?
+        # TODO: How much of this is redundant with _parse_value?
         elif m.group('numr') is not None:
             numr = self._number_NFSC_RE.match(m.group('numr'))
             value = translate(numr.group('digt'), FIX_FP_TABLE, ' ')
@@ -854,7 +858,7 @@ class Card(_Verify):
         self._valuestring = value
         self._valuemodified = False
 
-    def _formatkeyword(self):
+    def _format_keyword(self):
         if self.keyword:
             if self.field_specifier:
                 return '%-8s' % self.keyword.split('.', 1)[0]
@@ -865,7 +869,7 @@ class Card(_Verify):
         else:
             return ' ' * 8
 
-    def _formatvalue(self):
+    def _format_value(self):
         # value string
         float_types = (float, np.floating, complex, np.complexfloating)
         value = self.value # Force the value to be parsed out first
@@ -889,21 +893,21 @@ class Card(_Verify):
 
         return value
 
-    def _formatcomment(self):
+    def _format_comment(self):
         if not self.comment:
             return ''
         else:
             return ' / %s' % self._comment
 
-    def _formatimage(self):
-        keyword = self._formatkeyword()
+    def _format_image(self):
+        keyword = self._format_keyword()
 
-        value = self._formatvalue()
+        value = self._format_value()
         is_commentary = keyword.strip() in self._commentary_keywords
         if is_commentary:
             comment = ''
         else:
-            comment = self._formatcomment()
+            comment = self._format_comment()
 
         # equal sign string
         delimiter = '= '
@@ -935,13 +939,13 @@ class Card(_Verify):
             # Instead, just truncate the comment
             if (isinstance(self.value, str) and
                 len(value) > (self.length - 10)):
-                output = self._formatlongimage()
+                output = self._format_long_image()
             else:
                 warnings.warn('Card is too long, comment is truncated.')
                 output = output[:Card.length]
         return output
 
-    def _formatlongimage(self):
+    def _format_long_image(self):
         """
         Break up long string value/comment into ``CONTINUE`` cards.
         This is a primitive implementation: it will put the value
@@ -949,6 +953,9 @@ class Card(_Verify):
         it does not break at the blank space between words.  So it may
         not look pretty.
         """
+
+        if self.keyword in Card._commentary_keywords:
+            return self._format_long_commentary_image()
 
         value_length = 67
         comment_length = 64
@@ -976,6 +983,21 @@ class Card(_Verify):
 
         return ''.join(output)
 
+    def _format_long_commentary_image(self):
+        """
+        If a commentary card's value is too long to fit on a single card, this
+        will render the card as multiple consecutive commentary card of the
+        same type.
+        """
+
+        maxlen = Card.length - len(self.keyword) - 1
+        value = self._format_value()
+        output = []
+        idx = 0
+        while idx < len(value):
+            output.append(str(Card(self.keyword, value[idx:idx + maxlen])))
+            idx += maxlen
+        return ''.join(output)
 
     def _verify(self, option='warn'):
         errs = _ErrList([])
@@ -989,7 +1011,7 @@ class Card(_Verify):
                 err_text='Card image is not FITS standard (equal sign not '
                          'at column 8).',
                 fix_text=fix_text,
-                fix=self._fixvalue))
+                fix=self._fix_value))
 
         # verify the key, it is never fixable
         # always fix silently the case where "=" is before column 9,
@@ -1003,7 +1025,7 @@ class Card(_Verify):
                 option,
                 err_text='Card keyword is not upper case.',
                 fix_text=fix_text,
-                fix=self._fixkeyword))
+                fix=self._fix_keyword))
         elif not self._keywd_FSC_RE.match(self.keyword):
             errs.append(self.run_option(
                 option,
@@ -1019,7 +1041,7 @@ class Card(_Verify):
                 err_text='Card image is not FITS standard (unparsable value '
                          'string: %s).' % valuecomment,
                 fix_text=fix_text,
-                fix=self._fixvalue))
+                fix=self._fix_value))
 
         # verify the comment (string), it is never fixable
         m = self._value_NFSC_RE.match(valuecomment)

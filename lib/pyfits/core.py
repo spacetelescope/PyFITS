@@ -96,6 +96,11 @@ TRUE = True
 FALSE = False
 
 
+try:
+    USE_MEMMAP = bool(int(os.environ.get('PYFITS_USE_MEMMAP', 1)))
+except ValueError:
+    USE_MEMMAP = True
+
 # The following variable and function are used to support case sensitive
 # values for the value of a EXTNAME card in an extension header.  By default,
 # pyfits converts the value of EXTNAME cards to upper case when reading from

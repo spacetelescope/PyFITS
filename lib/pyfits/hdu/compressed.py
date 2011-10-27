@@ -12,16 +12,16 @@ from pyfits.util import lazyproperty, _pad_length
 
 try:
     from pyfits import compression
-    COMPRESSION_SUPPORTED = True
+    COMPRESSION_SUPPORTED = COMPRESSION_ENABLED = True
 except ImportError:
-    COMPRESSION_SUPPORTED = False
+    COMPRESSION_SUPPORTED = COMPRESSION_ENABLED = False
 
 
 # Default compression parameter values
 
 DEFAULT_COMPRESSION_TYPE = 'RICE_1'
 DEFAULT_QUANTIZE_LEVEL = 16.
-DEFAULT_HCOMP_SCALE = 0.
+DEFAULT_HCOMP_SCALE = 0
 DEFAULT_HCOMP_SMOOTH = 0
 DEFAULT_BLOCK_SIZE = 32
 DEFAULT_BYTE_PIX = 4
@@ -281,13 +281,15 @@ class CompImageHDU(BinTableHDU):
         if 'ZIMAGE' not in header or header['ZIMAGE'] != True:
             return False
 
-        if COMPRESSION_SUPPORTED: # Redundant
+        if COMPRESSION_SUPPORTED and COMPRESSION_ENABLED:
             return True
+        elif not COMPRESSION_SUPPORTED:
+            warnings.warn('Failure matching header to a compressed image '
+                          'HDU.\nThe compression module is not available.\n'
+                          'The HDU will be treated as a Binary Table HDU.')
+            return False
         else:
-            warnings.warn(
-                'Failure matching header to a compressed image HDU.')
-            warnings.warn('The compression module is not available.')
-            warnings.warn('The HDU will be treated as a Binary Table HDU.')
+            # Compression is supported but disabled; just pass silently (#92)
             return False
 
     def updateHeaderData(self, image_header,
@@ -675,23 +677,23 @@ class CompImageHDU(BinTableHDU):
                 break
             zval = 'ZVAL' + str(idx)
             if self._header[zname] == 'NOISEBIT':
-                if quantizeLevel == None:
+                if quantizeLevel is None:
                     quantizeLevel = self._header[zval]
             if self._header[zname] == 'SCALE   ':
-                if hcompScale == None:
+                if hcompScale is None:
                     hcompScale = self._header[zval]
             if self._header[zname] == 'SMOOTH  ':
-                if hcompSmooth == None:
+                if hcompSmooth is None:
                     hcompSmooth = self._header[zval]
             idx += 1
 
-        if quantizeLevel == None:
+        if quantizeLevel is None:
             quantizeLevel = DEFAULT_QUANTIZE_LEVEL
 
-        if hcompScale == None:
+        if hcompScale is None:
             hcompScale = DEFAULT_HCOMP_SCALE
 
-        if hcompSmooth == None:
+        if hcompSmooth is None:
             hcompSmooth = DEFAULT_HCOMP_SCALE
 
         # Next, strip the table header of all the ZNAMEn and ZVALn keywords

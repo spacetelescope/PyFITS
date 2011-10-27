@@ -26,13 +26,27 @@ Changelog
   column definition file (#14)
 
 
-3.0.3 (unreleased)
+3.0.4 (unreleased)
 ------------------
 
-- Fixed several small bugs related record-valued keyword cards (#70)
+- Fixed a crash when writing HCOMPRESS compressed images that could happen on
+  Python 2.5 and 2.6.
+
+
+3.0.3 (2011-10-05)
+------------------
+
+- Fixed several small bugs involving corner cases in record-valued keyword
+  cards (#70)
 
 - In some cases HDU creation failed if the first keyword value in the header
   was not a string value (#89)
+
+- Fixed a crash when trying to compute the HDU checksum when the data array
+  contains an odd number of bytes (#91)
+
+- Disabled an unnecessary warning that was displayed on opening compressed
+  HDUs with disable_image_compression = True (#92)
 
 - Fixed a typo in code for handling HCOMPRESS compressed images.
 

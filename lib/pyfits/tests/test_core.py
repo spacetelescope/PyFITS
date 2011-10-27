@@ -9,6 +9,7 @@ import zipfile
 import numpy as np
 
 import pyfits
+from pyfits.convenience import _getext
 from pyfits.util import BytesIO
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings
@@ -202,6 +203,54 @@ class TestCore(PyfitsTestCase):
         hdu = pyfits.ImageHDU()
         assert_raises(ValueError, hdu.verify, 'foobarbaz')
 
+    def test_getext(self):
+        """
+        Test the various different ways of specifying an extension header in
+        the convenience functions.
+        """
+
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', 1)
+        assert_equal(ext, 1)
+        assert_raises(ValueError, _getext, self.data('test0.fits'), 'readonly',
+                      1, 2)
+        assert_raises(ValueError, _getext, self.data('test0.fits'), 'readonly',
+                      (1, 2))
+        assert_raises(ValueError, _getext, self.data('test0.fits'), 'readonly',
+                      'sci', 'sci')
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      1, 2, 3)
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', ext=1)
+        assert_equal(ext, 1)
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', ext=('sci', 2))
+        assert_equal(ext, ('sci', 2))
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      1, ext=('sci', 2), extver=3)
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      ext=('sci', 2), extver=3)
+
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', 'sci')
+        assert_equal(ext, ('sci', 0))
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', 'sci', 1)
+        assert_equal(ext, ('sci', 1))
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', ('sci', 1))
+        assert_equal(ext, ('sci', 1))
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', 'sci',
+                          extver=1, do_not_scale_image_data=True)
+        assert_equal(ext, ('sci', 1))
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      'sci', ext=1)
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      'sci', 1, extver=2)
+
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', extname='sci')
+        assert_equal(ext, ('sci', 0))
+        hl, ext = _getext(self.data('test0.fits'), 'readonly', extname='sci',
+                          extver=1)
+        assert_equal(ext, ('sci', 1))
+        assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
+                      extver=1)
+
+
 
 class TestFileFunctions(PyfitsTestCase):
     """Tests various basic I/O operations, specifically in the
@@ -364,21 +413,6 @@ class TestStreamingFunctions(PyfitsTestCase):
         with open(self.temp('new.fits'), 'ab+') as f:
             shdu = self._make_streaming_hdu(f)
             shdu.write(arr)
-
-    # TODO: This test is temporarily borrowed from the header-refactoring
-    # branch as a regression test for ticket #69; it can be removed when the
-    # header-refactoring branch is merged into trunk
-    def test_update_comment(self):
-        hdul = pyfits.open(self.data('arange.fits'))
-        hdul[0].header.update('FOO', 'BAR', 'BAZ')
-        hdul.writeto(self.temp('test.fits'))
-
-        hdul = pyfits.open(self.temp('test.fits'), mode='update')
-        hdul[0].header.ascard['FOO'].comment = 'QUX'
-        hdul.close()
-
-        hdul = pyfits.open(self.temp('test.fits'))
-        assert_equal(hdul[0].header.ascard['FOO'].comment, 'QUX')
 
     def _make_streaming_hdu(self, fileobj):
         hd = pyfits.Header()

@@ -87,6 +87,27 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert_true(len(hdul2), 2)
         assert_true(hdul2[1].header.has_key('MYKEY'))
 
+    def test_long_commentary_card(self):
+        # Another version of this test using new API methods is found in
+        # TestHeaderFunctions
+        header = pyfits.Header()
+        header.update('FOO', 'BAR')
+        header.update('BAZ', 'QUX')
+        longval = 'ABC' * 30
+        header.add_history(longval)
+        header.update('FRED', 'BARNEY')
+        header.add_history(longval)
+
+        assert_equal(len(header.ascard), 7)
+        assert_equal(header.ascard[2].key, 'FRED')
+        assert_equal(str(header.cards[3]), 'HISTORY ' + longval[:72])
+        assert_equal(str(header.cards[4]).rstrip(), 'HISTORY ' + longval[72:])
+
+        header.add_history(longval, after='FOO')
+        assert_equal(len(header.ascard), 9)
+        assert_equal(str(header.cards[1]), 'HISTORY ' + longval[:72])
+        assert_equal(str(header.cards[2]).rstrip(), 'HISTORY ' + longval[72:])
+
 
 class TestHeaderFunctions(PyfitsTestCase):
     """Test PyFITS Header and Card objects."""
@@ -752,6 +773,25 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         hdul = pyfits.open(self.temp('test.fits'))
         assert_equal(hdul[0].header.comments['FOO'], 'QUX')
+
+    def test_long_commentary_card(self):
+        header = pyfits.Header()
+        header['FOO'] = 'BAR'
+        header['BAZ'] = 'QUX'
+        longval = 'ABC' * 30
+        header['HISTORY'] = longval
+        header['FRED'] = 'BARNEY'
+        header['HISTORY'] = longval
+
+        assert_equal(len(header), 7)
+        assert_equal(header.keys()[2], 'FRED')
+        assert_equal(str(header.cards[3]), 'HISTORY ' + longval[:72])
+        assert_equal(str(header.cards[4]).rstrip(), 'HISTORY ' + longval[72:])
+
+        header.set('HISTORY', longval, after='FOO')
+        assert_equal(len(header), 9)
+        assert_equal(str(header.cards[1]), 'HISTORY ' + longval[:72])
+        assert_equal(str(header.cards[2]).rstrip(), 'HISTORY ' + longval[72:])
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):

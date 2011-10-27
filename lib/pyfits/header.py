@@ -1048,12 +1048,17 @@ class Header(object):
                 existing_card.comment = card.comment
             if existing_card._modified:
                 self._modified = True
-        elif (keyword in Card._commentary_keywords and
-                keyword in self._keyword_indices):
-            # Append after the last keyword of the same type
-            idx = self.index(keyword, start=len(self) - 1, stop=-1)
-            isblank = not (card.keyword or card.value or card.comment)
-            self.insert(idx + 1, card, useblanks=(not isblank))
+        elif keyword in Card._commentary_keywords:
+            cards = self._splitcommentary(keyword, card.value)
+            if keyword in self._keyword_indices:
+                # Append after the last keyword of the same type
+                idx = self.index(keyword, start=len(self) - 1, stop=-1)
+                isblank = not (card.keyword or card.value or card.comment)
+                for c in reversed(cards):
+                    self.insert(idx + 1, c, useblanks=(not isblank))
+            else:
+                for c in cards:
+                    self.append(c, bottom=True)
         else:
             # A new keyword! self.append() will handle updating _modified
             self.append(card)
@@ -1135,10 +1140,16 @@ class Header(object):
             idx = self._cardindex(insertionkey)
         else:
             idx = insertionkey
-        if before is not None:
-            self.insert(idx, card)
+
+        if before is None:
+            idx += 1
+
+        if card[0] in Card._commentary_keywords:
+            cards = reversed(self._splitcommentary(card[0], card[1]))
         else:
-            self.insert(idx + 1, card)
+            cards = [card]
+        for c in cards:
+            self.insert(idx, c)
 
     def _updateindices(self, idx, increment=True):
         """
@@ -1196,6 +1207,32 @@ class Header(object):
 
         return [idx for idx, card in enumerate(self._cards)
                 if pattern_re.match(card.keyword)]
+
+    def _splitcommentary(self, keyword, value):
+        """
+        Given a commentary keyword and value, returns a list of the one or more
+        cards needed to represent the full value.  This is primarily used to
+        create the multiple commentary cards needed to represent a long value
+        that won't fit into a single commentary card.
+        """
+
+        # The maximum value in each card can be the maximum card length minus
+        # the key length minus a space (or just minus one if the key is blank)
+        maxlen = Card.length - len(keyword) - 1
+        valuestr = str(value)
+
+        if len(valuestr) <= maxlen:
+            # The value can fit in a single card
+            cards = [Card(keyword, value)]
+        else:
+            # The value must be split across multiple consecutive commentary
+            # cards
+            idx = 0
+            cards = []
+            while idx < len(valuestr):
+                cards.append(Card(keyword, valuestr[idx:idx + maxlen]))
+                idx += maxlen
+        return cards
 
     def _strip(self):
         """
@@ -1464,7 +1501,8 @@ class Header(object):
         """
 
         if before is not None or after is not None:
-            self._relativeinsert((key, value), before=before, after=after)
+            self._relativeinsert((key, value), before=before,
+                                 after=after)
         else:
             self[key] = value
 

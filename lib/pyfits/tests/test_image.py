@@ -8,9 +8,9 @@ import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import CaptureStdout
+from pyfits.tests.util import CaptureStdout, catch_warnings
 
-from nose.tools import assert_equal, assert_raises, assert_true
+from nose.tools import assert_equal, assert_raises, assert_true, assert_false
 
 
 class TestImageFunctions(PyfitsTestCase):
@@ -488,6 +488,17 @@ class TestImageFunctions(PyfitsTestCase):
                       np.zeros((2, 10, 10), dtype=np.float32), 'HCOMPRESS_1',
                       16)
         self._test_comp_image(np.zeros((100, 100)) + 1, 'HCOMPRESS_1', 16)
+
+    def test_disable_image_compression(self):
+        with catch_warnings():
+            # No warnings should be displayed in this case
+            warnings.simplefilter('error')
+            hdul = pyfits.open(self.data('comp.fits'),
+                               disable_image_compression=True)
+            # The compressed image HDU should show up as a BinTableHDU, but
+            # *not* a CompImageHDU
+            assert_true(isinstance(hdul[1], pyfits.BinTableHDU))
+            assert_false(isinstance(hdul[1], pyfits.CompImageHDU))
 
     def test_do_not_scale_image_data(self):
         hdul = pyfits.open(self.data('scale.fits'),

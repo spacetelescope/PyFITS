@@ -19,7 +19,8 @@ from pyfits.util import (Extendable, isreadable, iswritable, isfile,
 
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
                 'append': 'ab+', 'ostream': 'w'}  # open modes
-MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+'}
+MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+',
+                'append': 'c'}
 
 
 class _File(object):

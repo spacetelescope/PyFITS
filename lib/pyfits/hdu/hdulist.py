@@ -239,7 +239,7 @@ class HDUList(list, _Verify):
         try:
             if 'disable_image_compression' in kwargs and \
                kwargs['disable_image_compression']:
-                compressed.COMPRESSION_SUPPORTED = False
+                compressed.COMPRESSION_ENABLED = False
 
             if mode == 'ostream':
                 # Output stream--not interested in reading/parsing the HDUs--just
@@ -728,7 +728,7 @@ class HDUList(list, _Verify):
                     if hdu._data_loaded:
                         if hdu.data is not None:
                             if isinstance(hdu.data, Memmap):
-                                hdu.data.sync()
+                                hdu.data.flush()
                             else:
                                 hdu._file.seek(hdu._datLoc)
                                 # TODO: Fix this once new HDU writing API is settled on
@@ -769,7 +769,7 @@ class HDUList(list, _Verify):
 
     @_with_extensions
     def writeto(self, fileobj, output_verify='exception', clobber=False,
-                classExtensions={}, checksum=False):
+                checksum=False):
         """
         Write the `HDUList` to a new file.
 
@@ -786,12 +786,6 @@ class HDUList(list, _Verify):
 
         clobber : bool
             When `True`, overwrite the output file if exists.
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of
-            those classes.  When present in the dictionary, the
-            extension class will be constructed in place of the pyfits
-            class.
 
         checksum : bool
             When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
