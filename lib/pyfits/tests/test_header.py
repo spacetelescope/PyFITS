@@ -18,6 +18,27 @@ class TestHeaderFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('test.fits'))
         assert_equal(hdul[0].header.ascard['FOO'].comment, 'QUX')
 
+    def test_long_commentary_card(self):
+        header = pyfits.Header()
+        header.update('FOO', 'BAR')
+        header.update('BAZ', 'QUX')
+        longval = 'ABC' * 30
+        header.add_history(longval)
+        header.update('FRED', 'BARNEY')
+        header.add_history(longval)
+
+        assert_equal(len(header.ascard), 7)
+        assert_equal(header.ascard[2].key, 'FRED')
+        assert_equal(str(header[3:5]).rstrip(),
+                     'HISTORY ' + longval[:72] + '\nHISTORY ' + longval[72:])
+        assert_equal(str(header[5:]).rstrip(),
+                     'HISTORY ' + longval[:72] + '\nHISTORY ' + longval[72:])
+
+        header.add_history(longval, after='FOO')
+        assert_equal(len(header.ascard), 9)
+        assert_equal(str(header[1:3]).rstrip(),
+                     'HISTORY ' + longval[:72] + '\nHISTORY ' + longval[72:])
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """Tests for handling of record-valued keyword cards as used by the FITS
