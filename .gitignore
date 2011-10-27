@@ -25,3 +25,5 @@ develop-eggs
 
 # Other
 .*.swp
+.coverage
+cover
