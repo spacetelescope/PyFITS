@@ -1,9 +1,11 @@
 from __future__ import division
 
 import copy
+import inspect
 import itertools
 import os
 import re
+import sys
 import warnings
 
 from collections import defaultdict
@@ -195,11 +197,22 @@ class Header(object):
             # delete ALL cards with the same keyword name
             key = Card.normalize_keyword(key)
             if key not in self._keyword_indices:
-                # TODO: The old Header implementation allowed deletes of
-                # nonexistent keywords to pass
-                # There needs to be a note in the documentation that this
-                # behavior has changed
-                raise KeyError("Keyword '%s' not found." % key)
+                calling_mod = inspect.getmodule(sys._getframe(1))
+                if calling_mod and calling_mod.__name__.startswith('pyfits.'):
+                    # All internal code is designed to assume that this will
+                    # raise a KeyError, so go ahead and do so
+                    raise KeyError("Keyword '%s' not found." % key)
+                # Warn everyone else.
+                # TODO: Remove this warning and make KeyError the default after
+                # a couple versions (by 3.2 or 3.3, say)
+                warnings.warn(
+                    'Deletetion of non-existent keyword %r: '
+                    'In a future PyFITS version Header.__delitem__ may be '
+                    'changed so that this raises a KeyError just like a dict '
+                    'would. Please update your code so that KeyErrors are '
+                    'caught and handled when deleting non-existent keywords.' %
+                    key, DeprecationWarning)
+                return
             for idx in reversed(self._keyword_indices[key]):
                 # Have to copy the indices list since it will be modified below
                 del self[idx]
