@@ -20,7 +20,7 @@ __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
 """Convenience functions"""
 
 
-def getheader(filename, ext=None, extname=None, extver=None, **kwargs):
+def getheader(filename, *args, **kwargs):
     """
     Get the header from an extension of a FITS file.
 
@@ -43,7 +43,7 @@ def getheader(filename, ext=None, extname=None, extver=None, **kwargs):
     """
 
     mode, closed = _get_file_mode(filename)
-    hdulist, extidx = _getext(filename, mode, ext, extname, kwargs)
+    hdulist, extidx = _getext(filename, mode, *args, **kwargs)
     hdu = hdulist[extidx]
     header = hdu.header
     hdulist.close(closed=closed)
@@ -199,7 +199,7 @@ def getval(filename, keyword, *args, **kwargs):
         kwargs['do_not_scale_image_data'] = True
 
     hdr = getheader(filename, *args, **kwargs)
-    return hdr[key]
+    return hdr[keyword]
 
 
 def setval(filename, keyword, *args, **kwargs):
