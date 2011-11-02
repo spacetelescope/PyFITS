@@ -249,10 +249,26 @@ class TestCore(PyfitsTestCase):
                       extver=1)
 
 
+class TestConvenienceFunctions(PyfitsTestCase):
+    def test_writeto(self):
+        """
+        Simple test for writing a trivial header and some data to a file
+        with the `writeto()` convenience function.
+        """
+
+        data = np.zeros((100,100))
+        header = pyfits.Header()
+        pyfits.writeto(self.temp('array.fits'), data, header=header,
+                       clobber=True)
+        hdul = pyfits.open(self.temp('array.fits'))
+        assert_equal(len(hdul), 1)
+        assert_true((data == hdul[0].data).all())
+
 
 class TestFileFunctions(PyfitsTestCase):
-    """Tests various basic I/O operations, specifically in the
-    pyfits.file._File class.
+    """
+    Tests various basic I/O operations, specifically in the pyfits.file._File
+    class.
     """
 
     def test_open_gzipped(self):
@@ -287,7 +303,8 @@ class TestFileFunctions(PyfitsTestCase):
         assert_raises(IOError, pyfits.open, zf, 'append')
 
     def test_open_multipe_member_zipfile(self):
-        """Opening zip files containing more than one member files should fail
+        """
+        Opening zip files containing more than one member files should fail
         as there's no obvious way to specify which file is the FITS file to
         read.
         """
@@ -376,8 +393,9 @@ class TestStreamingFunctions(PyfitsTestCase):
         assert_equal(shdu.size, 100)
 
     def test_streaming_hdu_file_wrong_mode(self):
-        """Test that streaming an HDU to a file opened in the wrong mode
-        fails as expected.
+        """
+        Test that streaming an HDU to a file opened in the wrong mode fails as
+        expected.
         """
 
         with open(self.temp('new.fits'), 'wb') as f:

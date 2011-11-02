@@ -681,15 +681,18 @@ def _getext(filename, mode, *args, **kwargs):
 
 def _makehdu(data, header):
     if header is None:
+        header = Header()
+    hdu = _BaseHDU(data, header)
+    if hdu.__class__ is _BaseHDU:
+        # The HDU type was unrecognized, possibly due to a
+        # nonexistent/incomplete header
         if ((isinstance(data, np.ndarray) and data.dtype.fields is not None)
             or isinstance(data, np.recarray)):
             hdu = BinTableHDU(data)
         elif isinstance(data, np.ndarray):
             hdu = ImageHDU(data)
         else:
-            raise KeyError('Data must be numarray or table data.')
-    else:
-        hdu = _BaseHDU(data, header)
+            raise KeyError('Data must be a numpy array.')
     return hdu
 
 
