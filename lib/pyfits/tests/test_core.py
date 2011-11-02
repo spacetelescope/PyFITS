@@ -258,6 +258,11 @@ class TestFileFunctions(PyfitsTestCase):
     def test_open_gzipped(self):
         assert_equal(len(pyfits.open(self._make_gzip_file())), 5)
 
+    def test_detect_gzipped(self):
+        """Test detection of a gzip file when the extension is not .gz."""
+
+        assert_equal(len(pyfits.open(self._make_gzip_file('test0.fz'))), 5)
+
     def test_open_gzipped_writeable(self):
         """Opening gzipped files in a writeable mode should fail."""
 
@@ -267,6 +272,12 @@ class TestFileFunctions(PyfitsTestCase):
 
     def test_open_zipped(self):
         assert_equal(len(pyfits.open(self._make_zip_file())), 5)
+
+    def test_detect_zipped(self):
+        """Test detection of a zip file when the extension is not .zip."""
+
+        zf = self._make_zip_file(filename='test0.fz')
+        assert_equal(len(pyfits.open(zf)), 5)
 
     def test_open_zipped_writeable(self):
         """Opening zipped files in a writeable mode should fail."""
@@ -339,8 +350,8 @@ class TestFileFunctions(PyfitsTestCase):
 
         assert_equal(old_mode, os.stat(filename).st_mode)
 
-    def _make_gzip_file(self):
-        gzfile = self.temp('test0.fits.gz')
+    def _make_gzip_file(self, filename='test0.fits.gz'):
+        gzfile = self.temp(filename)
         with open(self.data('test0.fits'), 'rb') as f:
             gz = gzip.open(gzfile, 'wb')
             gz.write(f.read())
@@ -348,8 +359,8 @@ class TestFileFunctions(PyfitsTestCase):
 
         return gzfile
 
-    def _make_zip_file(self, mode='copyonwrite'):
-        zfile = zipfile.ZipFile(self.temp('test0.fits.zip'), 'w')
+    def _make_zip_file(self, mode='copyonwrite', filename='test0.fits.zip'):
+        zfile = zipfile.ZipFile(self.temp(filename), 'w')
         zfile.write(self.data('test0.fits'))
         zfile.close()
 
