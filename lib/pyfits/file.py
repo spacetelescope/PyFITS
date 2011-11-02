@@ -160,6 +160,19 @@ class _File(object):
                                   "method, required for mode 'readonly'."
                                   % self.mode)
 
+            if isinstance(fileobj, gzip.GzipFile):
+                self.compression = 'gzip'
+            elif isinstance(fileobj, zipfile.ZipFile):
+                # Reading from zip files is supported but not writing (yet)
+                self.compression = 'zip'
+
+            if (mode in ('readonly', 'copyonwrite') or
+                    (self.compression and mode == 'update')):
+                self.readonly = True
+            elif (mode == 'ostream' or
+                    (self.compression and mode == 'append')):
+                self.writeonly = True
+
             # For 'ab+' mode, the pointer is at the end after the open in
             # Linux, but is at the beginning in Solaris.
             if (mode == 'ostream' or self.compression or
@@ -172,19 +185,6 @@ class _File(object):
                 self.__file.seek(0, 2)
                 self.size = self.__file.tell()
                 self.__file.seek(pos)
-
-        if isinstance(fileobj, gzip.GzipFile):
-            self.compression = 'gzip'
-        elif isinstance(fileobj, zipfile.ZipFile):
-            # Reading from zip files is supported but not writing (yet)
-            self.compression = 'zip'
-
-        if (mode in ('readonly', 'copyonwrite') or
-                (self.compression and mode == 'update')):
-            self.readonly = True
-        elif (mode == 'ostream' or
-                (self.compression and mode == 'append')):
-            self.writeonly = True
 
         if self.memmap and not isfile(self.__file):
             self.memmap = False
