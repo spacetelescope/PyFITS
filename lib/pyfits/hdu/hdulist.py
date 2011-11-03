@@ -533,7 +533,7 @@ class HDUList(list, _Verify):
                 continue
 
     @_with_extensions
-    def flush(self, output_verify='exception', verbose=False,
+    def flush(self, output_verify='fix', verbose=False,
               classExtensions={}):
         """
         Force a write of the `HDUList` back to the file (for append and
