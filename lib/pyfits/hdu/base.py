@@ -352,6 +352,9 @@ class _BaseHDU(object):
             del self._header['BSCALE']
             del self._header['BZERO']
 
+        # Update hdrLoc with the new offset
+        self._hdrLoc = offset
+
         return offset, size
 
     def _writedata(self, fileobj):
@@ -381,6 +384,9 @@ class _BaseHDU(object):
         # flush, to make sure the content is written
         if not fileobj.simulateonly:
             fileobj.flush()
+
+        # Update datLoc with the new offset
+        self._datLoc = offset
 
         # return both the location and the size of the data area
         return offset, size + _pad_length(size)
@@ -450,6 +456,8 @@ _AllHDU = _BaseHDU # For backwards-compatibility, though nobody should have
 
 
 # For convenience...
+# TODO: register_hdu could be made into a class decorator which would be pretty
+# cool, but only once 2.6 support is dropped.
 register_hdu = _BaseHDU.register_hdu
 unregister_hdu = _BaseHDU.unregister_hdu
 
