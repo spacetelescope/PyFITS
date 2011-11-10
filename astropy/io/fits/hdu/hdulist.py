@@ -537,7 +537,7 @@ class HDUList(list, _Verify):
                 continue
 
     @_with_extensions
-    def flush(self, output_verify='exception', verbose=False,
+    def flush(self, output_verify='fix', verbose=False,
               classExtensions={}):
         """
         Force a write of the `HDUList` back to the file (for append and
@@ -774,7 +774,7 @@ class HDUList(list, _Verify):
 
     @_with_extensions
     def writeto(self, fileobj, output_verify='exception', clobber=False,
-                classExtensions={}, checksum=False):
+                checksum=False):
         """
         Write the `HDUList` to a new file.
 
@@ -791,12 +791,6 @@ class HDUList(list, _Verify):
 
         clobber : bool
             When `True`, overwrite the output file if exists.
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of
-            those classes.  When present in the dictionary, the
-            extension class will be constructed in place of the pyfits
-            class.
 
         checksum : bool
             When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
