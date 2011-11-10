@@ -821,3 +821,19 @@ class TestImageFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('test_new.fits'))
         assert_true((hdul[0].data == orig_data).all())
         hdul.close()
+
+        # Test opening/closing/reopening a scaled file in update mode
+        hdul = pyfits.open(self.data('fixed-1890.fits'),
+                           do_not_scale_image_data=True)
+        hdul.writeto(self.temp('test_new.fits'), clobber=True,
+                     output_verify='silentfix')
+        hdul.close()
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        orig_data = hdul[0].data
+        hdul.close()
+        hdul = pyfits.open(self.temp('test_new.fits'), mode='update')
+        hdul.close()
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        assert_true((hdul[0].data == orig_data).all())
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        hdul.close()

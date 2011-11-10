@@ -83,6 +83,7 @@ class _ImageBaseHDU(_ValidHDU):
 
         self._do_not_scale_image_data = do_not_scale_image_data
         self._uint = uint
+        self._rescaled = False
 
         if do_not_scale_image_data:
             self._bzero = 0
@@ -90,6 +91,8 @@ class _ImageBaseHDU(_ValidHDU):
         else:
             self._bzero = self._header.get('BZERO', 0)
             self._bscale = self._header.get('BSCALE', 1)
+            if not (self._bzero == 0 and self._bscale == 1):
+                self._resize = True
 
         self._bitpix = self._header['BITPIX']
 
@@ -226,6 +229,8 @@ class _ImageBaseHDU(_ValidHDU):
             if dtype is not None:
                 self._header['BITPIX'] = _ImageBaseHDU.ImgCode[dtype.name]
 
+            self._rescaled = True
+
     def scale(self, type=None, option="old", bscale=1, bzero=0):
         """
         Scale image data by using ``BSCALE``/``BZERO``.
@@ -358,6 +363,13 @@ class _ImageBaseHDU(_ValidHDU):
                     fileobj.writearray(output)
 
             size += output.size * output.itemsize
+
+        if self._rescaled:
+            # If the data was rescaled then the file written to was
+            # automatically resized on writing.  But now that the scaled data
+            # has been written we don't necessarily need to resize on
+            # subsequent writes
+            self._resize = False
 
         return size
 
