@@ -10,6 +10,10 @@ Changelog
 - GZIP/ZIP-compressed FITS files can be detected and opened regardless of
   their filename extension (#99)
 
+- Fixed a serious bug where opening scaled images in 'update' mode and then
+  closing the file without touching the data would cause the file to be
+  corrupted (#101)
+
 3.0.3 (2011-10-05)
 ------------------
 
