@@ -7,6 +7,14 @@ Changelog
 - Fixed a crash when writing HCOMPRESS compressed images that could happen on
   Python 2.5 and 2.6.
 
+- Fixed a bug where convenience functions such as getval() and getheader()
+  crashed when specifying just 'PRIMARY' as the extension to use.
+
+- Fixed a bug where long commentary cards (such as HISTORY and COMMENT) were
+  broken into multiple CONTINUE cards.  However, commentary cards are not
+  expected to be found in CONTINUE cards.  Instead these long cards are broken
+  into multiple commentary cards (#97)
+
 - GZIP/ZIP-compressed FITS files can be detected and opened regardless of
   their filename extension (#99)
 
