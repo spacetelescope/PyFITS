@@ -670,7 +670,7 @@ def _getext(filename, mode, *args, **kwargs):
         if extver:
             ext = (extname, extver)
         else:
-            ext = (extname, 0)
+            ext = (extname, 1)
     elif extver and extname is None:
         raise TypeError('extver alone cannot specify an extension.')
 
