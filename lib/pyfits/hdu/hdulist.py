@@ -25,7 +25,7 @@ from pyfits.verify import _Verify, _ErrList
 
 
 @_with_extensions
-def fitsopen(name, mode="copyonwrite", memmap=None, classExtensions={},
+def fitsopen(name, mode='readonly', memmap=None, classExtensions={},
              **kwargs):
     """Factory function to open a FITS file and return an `HDUList` object.
 
@@ -35,12 +35,13 @@ def fitsopen(name, mode="copyonwrite", memmap=None, classExtensions={},
         File to be opened.
 
     mode : str
-        Open mode, 'copyonwrite' (default), 'readonly', 'update',
-        'append', or 'ostream'.
+        Open mode, 'readonly' (default), 'update', 'append', 'denywrite', or
+        'ostream'.
 
         If `name` is a file object that is already opened, `mode` must
         match the mode the file was opened with, copyonwrite (rb),
-        readonly (rb), update (rb+), append (ab+), ostream (w)).
+        readonly (rb), update (rb+), append (ab+), ostream (w),
+        denywrite (rb)).
 
     memmap : bool
         Is memory mapping to be used?
@@ -272,13 +273,10 @@ class HDUList(list, _Verify):
 
             # If we're trying to read only and no header units were found,
             # raise and exception
-            if mode == 'readonly' and len(hdulist) == 0:
+            if mode in ('readonly', 'denywrite') and len(hdulist) == 0:
                 raise IOError('Empty FITS file')
 
             # initialize/reset attributes to be used in "update/append" mode
-            # CardList needs its own _mod attribute since it has methods to change
-            # the content of header without being able to pass it to the header
-            # object
             hdulist._resize = False
             hdulist._truncate = False
 
@@ -315,7 +313,7 @@ class HDUList(list, _Verify):
             file       File object associated with the HDU
             filename   Name of associated file object
             filemode   Mode in which the file was opened (readonly, copyonwrite,
-                       update, append, ostream)
+                       update, append, denywrite, ostream)
             resized    Flag that when `True` indicates that the data has been
                        resized since the last read/write so the returned values
                        may not be valid.

@@ -37,7 +37,7 @@ class TestHDUListFunctions(PyfitsTestCase):
             assert_equal(res['filename'], self.data('checksum.fits'))
             assert_equal(res['datLoc'], kwargs.get('datLoc', 8640))
             assert_equal(res['hdrLoc'], kwargs.get('hdrLoc', 0))
-            assert_equal(res['filemode'], 'copyonwrite')
+            assert_equal(res['filemode'], 'readonly')
 
         res = hdul.fileinfo(1)
         test_fileinfo(datLoc=17280, hdrLoc=11520)

@@ -18,10 +18,24 @@ from pyfits.util import (Extendable, isreadable, iswritable, isfile,
                          deprecated)
 
 
+# File object open modes
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
-                'append': 'ab+', 'ostream': 'w'}  # open modes
-MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+',
-                'append': 'c'}
+                'append': 'ab+', 'ostream': 'w', 'denywrite': 'rb'}
+
+# readonly actually uses copyonwrite for mmap so that readonly without mmap and
+# with mmap still have to same behavior with regard to updating the array.  To
+# get a truly readonly mmap use denywrite
+# the name 'denywrite' comes from a deprecated flag to mmap() on Linux--it
+# should be clarified that 'denywrite' mode is not directly analogous to the
+# use of that flag; it was just taken, for lack of anything better, as a name
+# that means something like "read only" but isn't readonly.
+MEMMAP_MODES = {'readonly': 'c', 'copyonwrite': 'c', 'update': 'r+',
+                'append': 'c', 'denywrite': 'r'}
+
+# TODO: Eventually raise a warning, and maybe even later disable the use of
+# 'copyonwrite' and 'denywrite' modes unless memmap=True.  For now, however,
+# that would generate too many warnings for too many users.  If nothing else,
+# wait until the new logging system is in place.
 
 GZIP_MAGIC = u'\x1f\x8b\x08'.encode('raw-unicode-escape')
 PKZIP_MAGIC = u'\x50\x4b\x03\x04'.encode('raw-unicode-escape')
@@ -34,7 +48,7 @@ class _File(object):
 
     __metaclass__ = Extendable
 
-    def __init__(self, fileobj=None, mode='copyonwrite', memmap=False):
+    def __init__(self, fileobj=None, mode='readonly', memmap=False):
         if fileobj is None:
             self.__file = None
             self.closed = False
@@ -150,9 +164,10 @@ class _File(object):
                               "method, required for mode '%s'."
                               % self.mode)
 
-            if self.mode == 'readonly' and not hasattr(self.__file, 'read'):
+            if (self.mode in ('readonly', 'denywrite') and
+                not hasattr(self.__file, 'read')):
                 raise IOError("File-like object does not have a 'read' "
-                              "method, required for mode 'readonly'."
+                              "method, required for mode %r."
                               % self.mode)
 
         if isinstance(fileobj, gzip.GzipFile):
@@ -161,7 +176,7 @@ class _File(object):
             # Reading from zip files is supported but not writing (yet)
             self.compression = 'zip'
 
-        if (mode in ('readonly', 'copyonwrite') or
+        if (mode in ('readonly', 'copyonwrite', 'denywrite') or
                 (self.compression and mode == 'update')):
             self.readonly = True
         elif (mode == 'ostream' or
