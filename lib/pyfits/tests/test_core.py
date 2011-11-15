@@ -227,7 +227,7 @@ class TestCore(PyfitsTestCase):
                       ext=('sci', 2), extver=3)
 
         hl, ext = _getext(self.data('test0.fits'), 'readonly', 'sci')
-        assert_equal(ext, ('sci', 0))
+        assert_equal(ext, ('sci', 1))
         hl, ext = _getext(self.data('test0.fits'), 'readonly', 'sci', 1)
         assert_equal(ext, ('sci', 1))
         hl, ext = _getext(self.data('test0.fits'), 'readonly', ('sci', 1))
@@ -241,7 +241,7 @@ class TestCore(PyfitsTestCase):
                       'sci', 1, extver=2)
 
         hl, ext = _getext(self.data('test0.fits'), 'readonly', extname='sci')
-        assert_equal(ext, ('sci', 0))
+        assert_equal(ext, ('sci', 1))
         hl, ext = _getext(self.data('test0.fits'), 'readonly', extname='sci',
                           extver=1)
         assert_equal(ext, ('sci', 1))
