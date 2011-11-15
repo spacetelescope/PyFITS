@@ -81,7 +81,7 @@ class _BaseHDU(object):
     # Byte to use for padding out blocks
     _padding_byte = '\x00'
 
-    def __new__(cls, data=None, header=None, **kwargs):
+    def __new__(cls, data=None, header=None, *args, **kwargs):
         """
         Iterates through the subclasses of _BaseHDU and uses that class's
         match_header() method to determine which subclass to instantiate.
@@ -98,7 +98,7 @@ class _BaseHDU(object):
         klass = _hdu_class_from_header(cls, header)
         return super(_BaseHDU, cls).__new__(klass)
 
-    def __init__(self, data=None, header=None, **kwargs):
+    def __init__(self, data=None, header=None, *args, **kwargs):
         self._header = header
         self._file = None
         self._hdrLoc = None

@@ -35,6 +35,10 @@ Changelog
 - Fixed a bug where convenience functions such as getval() and getheader()
   crashed when specifying just 'PRIMARY' as the extension to use.
 
+- Fixed a bug that prevented passing keyword arguments (beyond the standard
+  data and header arguments) as positional arguments to the constructors of
+  extension HDU classes.
+
 - Fixed a bug where long commentary cards (such as HISTORY and COMMENT) were
   broken into multiple CONTINUE cards.  However, commentary cards are not
   expected to be found in CONTINUE cards.  Instead these long cards are broken
