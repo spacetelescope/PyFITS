@@ -5,14 +5,22 @@ Changelog
 ------------------
 
 - Fixed a crash when writing HCOMPRESS compressed images that could happen on
-  Python 2.5 and 2.6.
+  Python 2.5 and 2.6 (r1217)
+
+- Fixed a crash when slicing an table in a file opened in 'readonly' mode with
+  memmap=True (r1230)
+
+- Writing changes to a file or writing to a new file verifies the output in
+  'fix' mode by default instead of 'exception'--that is, PyFITS will
+  automatically fix common FITS format errors rather than raising an
+  exception. (r1243)
 
 - Fixed a bug where convenience functions such as getval() and getheader()
-  crashed when specifying just 'PRIMARY' as the extension to use.
+  crashed when specifying just 'PRIMARY' as the extension to use. (r1263)
 
 - Fixed a bug that prevented passing keyword arguments (beyond the standard
   data and header arguments) as positional arguments to the constructors of
-  extension HDU classes.
+  extension HDU classes. (r1274)
 
 - Fixed a bug where long commentary cards (such as HISTORY and COMMENT) were
   broken into multiple CONTINUE cards.  However, commentary cards are not
