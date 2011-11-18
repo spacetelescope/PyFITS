@@ -729,8 +729,19 @@ class HDUList(list, _Verify):
                                   hdu.name, extver
                     if hdu._data_loaded:
                         if hdu.data is not None:
-                            if isinstance(hdu.data, Memmap):
-                                hdu.data.flush()
+                            memmap_array = None
+                            # Seek through the array's bases for an memmap'd
+                            # array; we can't rely on the _File object to give
+                            # us this info since the user may have replaced the
+                            # previous mmap'd array
+                            while (hasattr(hdu.data, 'base') and
+                                   hdu.data.base is not None):
+                                if isinstance(hdu.data.base, Memmap):
+                                    memmap_array = hdu.data.base
+                                    break
+
+                            if memmap_array is not None:
+                                memmap_array.flush()
                             else:
                                 hdu._file.seek(hdu._datLoc)
                                 # TODO: Fix this once new HDU writing API is settled on

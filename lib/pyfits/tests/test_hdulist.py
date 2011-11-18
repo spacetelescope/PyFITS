@@ -434,3 +434,15 @@ class TestHDUListFunctions(PyfitsTestCase):
 
         assert_true('EXTEND' in hdul[0].header)
         assert_equal(hdul[0].header['EXTEND'], True)
+
+    def test_replace_memmaped_array(self):
+        # Copy the original before we modify it
+        hdul = pyfits.open(self.data('test0.fits'))
+        hdul.writeto(self.temp('temp.fits'))
+
+        hdul = pyfits.open(self.temp('temp.fits'), mode='update', memmap=True)
+        old_data = hdul[1].data.copy()
+        hdul[1].data = hdul[1].data + 1
+        hdul.close()
+        hdul = pyfits.open(self.temp('temp.fits'), memmap=True)
+        assert_true(((old_data + 1) == hdul[1].data).all())

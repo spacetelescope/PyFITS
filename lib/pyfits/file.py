@@ -269,7 +269,7 @@ class _File(object):
         if self.memmap:
             return Memmap(self.__file, offset=offset,
                           mode=MEMMAP_MODES[self.mode], dtype=dtype,
-                          shape=shape)
+                          shape=shape).view(np.ndarray)
         else:
             count = reduce(lambda x, y: x * y, shape)
             pos = self.__file.tell()
