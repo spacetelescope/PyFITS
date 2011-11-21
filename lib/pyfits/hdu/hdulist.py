@@ -734,11 +734,13 @@ class HDUList(list, _Verify):
                             # array; we can't rely on the _File object to give
                             # us this info since the user may have replaced the
                             # previous mmap'd array
-                            while (hasattr(hdu.data, 'base') and
-                                   hdu.data.base is not None):
+                            base = hdu.data
+                            while (hasattr(base, 'base') and
+                                   base.base is not None):
                                 if isinstance(hdu.data.base, Memmap):
                                     memmap_array = hdu.data.base
                                     break
+                                base = base.base
 
                             if memmap_array is not None:
                                 memmap_array.flush()
