@@ -1,4 +1,3 @@
-import __builtin__
 import functools
 import itertools
 import os
@@ -750,6 +749,7 @@ def _tmp_name(input):
 
 
 if sys.version_info[:2] < (2, 6):
+    import __builtin__
     # Replace the builtin property to add support for the getter/setter/deleter
     # mechanism as introduced in Python 2.6 (this can go away if we ever drop
     # 2.5 support)
