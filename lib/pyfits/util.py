@@ -6,9 +6,12 @@ import tempfile
 import warnings
 
 try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
+    from io import StringIO
+except:
+    try:
+        from cStringIO import StringIO
+    except ImportError:
+        from StringIO import StringIO
 
 try:
     from io import BytesIO
