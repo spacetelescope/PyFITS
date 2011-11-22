@@ -49,8 +49,8 @@ class TestCore(PyfitsTestCase):
 
         l.writeto(self.temp('test.fits'), clobber=True)
 
-        p = pyfits.open(self.temp('test.fits'))
-        assert_equal(p[1].data[1]['foo'], 60000.0)
+        with pyfits.open(self.temp('test.fits')) as p:
+            assert_equal(p[1].data[1]['foo'], 60000.0)
 
     def test_add_del_columns(self):
         p = pyfits.ColDefs([])
@@ -85,10 +85,10 @@ class TestCore(PyfitsTestCase):
         assert_equal(table.columns.names, ['c2', 'c4', 'foo'])
 
         hdulist.writeto(self.temp('test.fits'), clobber=True)
-        hdulist = pyfits.open(self.temp('test.fits'))
-        table = hdulist[1]
-        assert_equal(table.data.dtype.names, ('c1', 'c2', 'c3'))
-        assert_equal(table.columns.names, ['c1', 'c2', 'c3'])
+        with pyfits.open(self.temp('test.fits')) as hdulist:
+            table = hdulist[1]
+            assert_equal(table.data.dtype.names, ('c1', 'c2', 'c3'))
+            assert_equal(table.columns.names, ['c1', 'c2', 'c3'])
 
     def test_update_header_card(self):
         """A very basic test for the Header.update method--I'd like to add a

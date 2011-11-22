@@ -1817,6 +1817,17 @@ def _float_format(value):
     value_str = '%.16G' % value
     if '.' not in value_str and 'E' not in value_str:
         value_str += '.0'
+    elif 'E' in value_str:
+        # On some Windows builds of Python (and possibly other platforms?) the
+        # exponent is zero-padded out to, it seems, three digits.  Normalize
+        # the format to pad only to two digits.
+        significand, exponent = value_str.split('E')
+        if exponent[0] in ('+', '-'):
+            sign = exponent[0]
+            exponent = exponent[1:]
+        else:
+            sign = ''
+        value_str = '%sE%s%02d' % (significand, sign, int(exponent))
 
     # Limit the value string to at most 20 characters.
     str_len = len(value_str)
