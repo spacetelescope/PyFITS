@@ -322,9 +322,9 @@ class TestTableFunctions(PyfitsTestCase):
         # Double check that the array is converted to the correct byte-order
         # for FITS (big-endian).
         tbhdu.writeto(self.temp('testendian.fits'), clobber=True)
-        hdul = pyfits.open(self.temp('testendian.fits'))
-        assert_true((hdul[1].data['a'] == a2).all())
-        assert_true((hdul[1].data['b'] == a2).all())
+        with pyfits.open(self.temp('testendian.fits')) as hdul:
+            assert_true((hdul[1].data['a'] == a2).all())
+            assert_true((hdul[1].data['b'] == a2).all())
 
     def test_recarray_to_bintablehdu(self):
         bright=np.rec.array([(1,'Serius',-1.45,'A1V'),\

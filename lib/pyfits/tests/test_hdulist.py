@@ -361,10 +361,11 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdul.append(hdu)
         hdul.flush()
         tmpfile.close()
+        hdul.close()
 
-        hdul2 = pyfits.open(self.temp('tmpfile.fits'))
         info = [(0, 'PRIMARY', 'PrimaryHDU', 5, (100,), 'int32', '')]
-        assert_equal(hdul2.info(output=False), info)
+        assert_equal(pyfits.info(self.temp('tmpfile.fits'), output=False),
+                     info)
 
     def test_file_like_3(self):
 
