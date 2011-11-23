@@ -737,8 +737,8 @@ class HDUList(list, _Verify):
                             base = hdu.data
                             while (hasattr(base, 'base') and
                                    base.base is not None):
-                                if isinstance(hdu.data.base, Memmap):
-                                    memmap_array = hdu.data.base
+                                if isinstance(base.base, Memmap):
+                                    memmap_array = base.base
                                     break
                                 base = base.base
 
