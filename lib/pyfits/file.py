@@ -212,9 +212,10 @@ class _File(object):
     def __exit__(self, type, value, traceback):
         self.close()
 
-    @deprecated
+    @deprecated('3.0', message='This method should not be treated as public.')
     def getfile(self):
-        """**Deprecated** Will be going away as soon as I figure out how."""
+        """Will be going away as soon as I figure out how."""
+
         return self.__file
 
     def readable(self):

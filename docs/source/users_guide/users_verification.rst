@@ -42,8 +42,8 @@ levels. Here are the 3 PyFITS verification levels:
 
 These three levels correspond to the three categories of PyFITS objects:
 `HDUList`, any HDU (e.g. `PrimaryHDU`, `ImageHDU`, etc.), and `Card`. They are
-the only objects having the ``verify()`` method. All other objects (e.g.
-`CardList`) do not have any ``verify()`` method.
+the only objects having the ``verify()`` method. Most other classes in PyFITS
+do not have a ``verify()`` method.
 
 If ``verify()`` is called at the HDU List level, it verifies standard
 compliance at all three levels, but a call of ``verify()`` at the Card level
@@ -219,14 +219,14 @@ We'll summarize the verification with a "life-cycle" example:
     >>> h = pyfits.PrimaryHDU() # create a PrimaryHDU
     # Try to add an non-standard FITS keyword 'P.I.' (FITS does no allow '.'
     # in the keyword), if using the update() method - doesn't work!
-    >>> h.update('P.I.', 'Hubble')
+    >>> h['P.I.'] = 'Hubble'
     ValueError: Illegal keyword name 'P.I.'
     # Have to do it the hard way (so a user will not do this by accident)
     # First, create a card image and give verbatim card content (including
     # the proper spacing, but no need to add the trailing blanks)
     >>> c = pyfits.Card().fromstring("P.I. = 'Hubble'")
-    # then append it to the header (must go through the CardList)
-    >>> h.header.ascardlist().append(c)
+    # then append it to the header
+    >>> h.header.append(c)
     # Now if we try to write to a FITS file, the default output verification
     # will not take it.
     >>> h.writeto('pi.fits')
@@ -296,28 +296,27 @@ header by supplying the checksum keyword argument with a value of 'datasum'.
 
 Here are some examples:
 
-     >>>
-     # Open the file pix.fits verifying the checksum values for all HDUs
+     >>> # Open the file pix.fits verifying the checksum values for all HDUs
      >>> hdul = pyfits.open('pix.fits', checksum=True)
      >>>
-     # Open the file in.fits where checksum verification fails for the
-     # primary HDU
+     >>> # Open the file in.fits where checksum verification fails for the
+     >>> # primary HDU
      >>> hdul = pyfits.open('in.fits', checksum=True)
      Warning:  Checksum verification failed for HDU #0.
      >>>
-     # Create file out.fits containing an HDU constructed from data and header
-     # containing both CHECKSUM and DATASUM cards.
+     >>> # Create file out.fits containing an HDU constructed from data and
+     >>> # header containing both CHECKSUM and DATASUM cards.
      >>> pyfits.writeto('out.fits', data, header, checksum=True)
      >>>
-     # Create file out.fits containing all the HDUs in the HDULIST
-     # hdul with each HDU header containing only the DATASUM card
+     >>> # Create file out.fits containing all the HDUs in the HDULIST
+     >>> # hdul with each HDU header containing only the DATASUM card
      >>> hdul.writeto('out.fits', checksum='datasum')
      >>>
-     # Create file out.fits containing the HDU hdu with both CHECKSUM
-     # and DATASUM cards in the header
+     >>> # Create file out.fits containing the HDU hdu with both CHECKSUM
+     >>> # and DATASUM cards in the header
      >>> hdu.writeto('out.fits', checksum=True)
      >>>
-     # Append a new HDU constructed from array data to the end of
-     # the file existingfile.fits with only the appended HDU
-     # containing both CHECKSUM and DATASUM cards.
+     >>> # Append a new HDU constructed from array data to the end of
+     >>> # the file existingfile.fits with only the appended HDU
+     >>> # containing both CHECKSUM and DATASUM cards.
      >>> pyfits.append('existingfile.fits', data, checksum=True)

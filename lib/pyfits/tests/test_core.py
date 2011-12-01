@@ -25,7 +25,7 @@ class TestCore(PyfitsTestCase):
     def test_naxisj_check(self):
         hdulist = pyfits.open(self.data('o4sp040b0_raw.fits'))
 
-        hdulist[1].header.update("NAXIS3", 500)
+        hdulist[1].header['NAXIS3'] = 500
 
         assert 'NAXIS3' in hdulist[1].header
         hdulist.verify('fix')
@@ -97,11 +97,13 @@ class TestCore(PyfitsTestCase):
 
         header = pyfits.Header()
         comment = 'number of bits per data pixel'
-        header.update('BITPIX', 16, comment)
+        header['BITPIX'] = (16, comment)
         assert 'BITPIX' in header
         assert_equal(header['BITPIX'], 16)
         assert_equal(header.ascard['BITPIX'].comment, comment)
 
+        # The new API doesn't support savecomment so leave this line here; at
+        # any rate good to have testing of the new API mixed with the old API
         header.update('BITPIX', 32, savecomment=True)
         # Make sure the value has been updated, but the comment was preserved
         assert_equal(header['BITPIX'], 32)
@@ -109,7 +111,7 @@ class TestCore(PyfitsTestCase):
 
         # The comment should still be preserved--savecomment only takes effect if
         # a new comment is also specified
-        header.update('BITPIX', 16)
+        header['BITPIX'] = 16
         assert_equal(header.ascard['BITPIX'].comment, comment)
         header.update('BITPIX', 16, 'foobarbaz', savecomment=True)
         assert_equal(header.ascard['BITPIX'].comment, comment)
@@ -150,7 +152,7 @@ class TestCore(PyfitsTestCase):
 
     def test_fix_invalid_keyword_value(self):
         hdu = pyfits.ImageHDU()
-        hdu.header.update('TESTKW', 'foo')
+        hdu.header['TESTKW'] = 'foo'
         errs = hdu.req_cards('TESTKW', None,
                              lambda v: v == 'foo', 'foo', 'ignore', [])
         assert_equal(len(errs), 0)
@@ -443,10 +445,10 @@ class TestStreamingFunctions(PyfitsTestCase):
 
     def _make_streaming_hdu(self, fileobj):
         hd = pyfits.Header()
-        hd.update('SIMPLE', True, 'conforms to FITS standard')
-        hd.update('BITPIX', 32, 'array data type')
-        hd.update('NAXIS', 2, 'number of array dimensions')
-        hd.update('NAXIS1', 5)
-        hd.update('NAXIS2', 5)
-        hd.update('EXTEND', True)
+        hd['SIMPLE'] = (True, 'conforms to FITS standard')
+        hd['BITPIX'] = (32, 'array data type')
+        hd['NAXIS'] = (2, 'number of array dimensions')
+        hd['NAXIS1'] = 5
+        hd['NAXIS2'] = 5
+        hd['EXTEND'] = True
         return pyfits.StreamingHDU(fileobj, hd)

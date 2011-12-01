@@ -1,4 +1,4 @@
-from __future__ import division # confidence high
+from __future__ import division  # confidence high
 from __future__ import with_statement
 
 import numpy as np
@@ -1468,7 +1468,7 @@ class TestTableFunctions(PyfitsTestCase):
 
             # And overriding a header with a different extname
             hdr = pyfits.Header()
-            hdr.update('EXTNAME', 'EVENTS')
+            hdr['EXTNAME'] = 'EVENTS'
             hdu = hducls(header=hdr, name='FOO')
             assert_equal(hdu.name, 'FOO')
             assert_equal(hdu.header['EXTNAME'], 'FOO')
@@ -1618,8 +1618,8 @@ class TestTableFunctions(PyfitsTestCase):
 
         thdu = pyfits.new_table(data)
         # Modify the TDIM fields to my own specification
-        thdu.header.update('TDIM1', '(2,3)')
-        thdu.header.update('TDIM2', '(4,2)')
+        thdu.header['TDIM1'] = '(2,3)'
+        thdu.header['TDIM2'] = '(4,2)'
 
         thdu.writeto(self.temp('newtable.fits'))
 
