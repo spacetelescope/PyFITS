@@ -21,14 +21,10 @@ class TestDivisionFunctions(PyfitsTestCase):
                 dtype=np.dtype([('c1', '>i4'), ('c2', '|S3'),
                                 ('c3', '>f4'), ('c4', '|i1')]))
 
-    def test_card_ncards(self):
-        c1 = pyfits.Card('temp', 80.0, 'temperature')
-        assert_equal(type(c1._ncards()), type(1))
-
     def test_card_with_continue(self):
         h = pyfits.PrimaryHDU()
         with CaptureStdout() as f:
-            h.header.update('abc', 'abcdefg'*20)
+            h.header['abc'] = 'abcdefg' * 20
             assert_equal(f.getvalue(), '')
 
     def test_valid_hdu_size(self):

@@ -1,6 +1,5 @@
 import gzip
 
-from pyfits.card import Card, CardList
 from pyfits.file import _File
 from pyfits.hdu.base import NonstandardExtHDU
 from pyfits.hdu.hdulist import HDUList
@@ -80,23 +79,23 @@ class FitsHDU(NonstandardExtHDU):
         bs.seek(0)
 
         cards = [
-            Card('XTENSION',  cls._extension, 'FITS extension'),
-            Card('BITPIX',    8, 'array data type'),
-            Card('NAXIS',     1, 'number of array dimensions'),
-            Card('NAXIS1',    len(bs.getvalue()), 'Axis length'),
-            Card('PCOUNT',    0, 'number of parameters'),
-            Card('GCOUNT',    1, 'number of groups'),
+            ('XTENSION',  cls._extension, 'FITS extension'),
+            ('BITPIX',    8, 'array data type'),
+            ('NAXIS',     1, 'number of array dimensions'),
+            ('NAXIS1',    len(bs.getvalue()), 'Axis length'),
+            ('PCOUNT',    0, 'number of parameters'),
+            ('GCOUNT',    1, 'number of groups'),
         ]
 
         # Add the XINDn keywords proposed by Perry, though nothing is done with
         # these at the moment
         if len(hdulist) > 1:
             for idx, hdu in enumerate(hdulist[1:]):
-                cards.append(Card('XIND' + str(idx + 1), hdu._hdrLoc,
-                                  'byte offset of extension %d' % (idx + 1)))
+                cards.append(('XIND' + str(idx + 1), hdu._hdrLoc,
+                              'byte offset of extension %d' % (idx + 1)))
 
-        cards.append(Card('COMPRESS',  compress, 'Uses gzip compression'))
-        header = Header(CardList(cards))
+        cards.append(('COMPRESS',  compress, 'Uses gzip compression'))
+        header = Header(cards)
         # TODO: This wrapping of the fileobj should probably be handled by
         # cls.fromstring, though cls.fromstring itself has a strange
         # implementation that I probably need to fix.  For example, it
@@ -115,8 +114,8 @@ class FitsHDU(NonstandardExtHDU):
         It is included here for forward-compatibility.
         """
 
-        card = header.ascard[0]
-        if card.key != 'XTENSION':
+        card = header.cards[0]
+        if card.keyword != 'XTENSION':
             return False
         xtension = card.value
         if isinstance(xtension, basestring):
@@ -127,5 +126,5 @@ class FitsHDU(NonstandardExtHDU):
 
     def _summary(self):
         # TODO: Perhaps make this more descriptive...
-        return (self.name, self.__class__.__name__, len(self._header.ascard))
+        return (self.name, self.__class__.__name__, len(self._header))
 

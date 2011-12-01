@@ -1,4 +1,4 @@
-from __future__ import division # confidence high
+from __future__ import division  # confidence high
 from __future__ import with_statement
 
 import numpy as np
@@ -329,9 +329,9 @@ class TestTableFunctions(PyfitsTestCase):
         # Double check that the array is converted to the correct byte-order
         # for FITS (big-endian).
         tbhdu.writeto(self.temp('testendian.fits'), clobber=True)
-        hdul = pyfits.open(self.temp('testendian.fits'))
-        assert_true((hdul[1].data['a'] == a2).all())
-        assert_true((hdul[1].data['b'] == a2).all())
+        with pyfits.open(self.temp('testendian.fits')) as hdul:
+            assert_true((hdul[1].data['a'] == a2).all())
+            assert_true((hdul[1].data['b'] == a2).all())
 
     def test_recarray_to_bintablehdu(self):
         bright=np.rec.array([(1,'Serius',-1.45,'A1V'),\
@@ -1468,7 +1468,7 @@ class TestTableFunctions(PyfitsTestCase):
 
             # And overriding a header with a different extname
             hdr = pyfits.Header()
-            hdr.update('EXTNAME', 'EVENTS')
+            hdr['EXTNAME'] = 'EVENTS'
             hdu = hducls(header=hdr, name='FOO')
             assert_equal(hdu.name, 'FOO')
             assert_equal(hdu.header['EXTNAME'], 'FOO')
@@ -1618,8 +1618,8 @@ class TestTableFunctions(PyfitsTestCase):
 
         thdu = pyfits.new_table(data)
         # Modify the TDIM fields to my own specification
-        thdu.header.update('TDIM1', '(2,3)')
-        thdu.header.update('TDIM2', '(4,2)')
+        thdu.header['TDIM1'] = '(2,3)'
+        thdu.header['TDIM2'] = '(4,2)'
 
         thdu.writeto(self.temp('newtable.fits'))
 
