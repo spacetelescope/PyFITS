@@ -1699,7 +1699,10 @@ class Header(object):
         Get all history cards as a list of string texts.
         """
 
-        return self['HISTORY']
+        if 'HISTORY' in self:
+            return self['HISTORY']
+        else:
+            return []
 
     @deprecated('3.1', alternative="``header['COMMENT']``", pending=True)
     def get_comment(self):
@@ -1707,7 +1710,10 @@ class Header(object):
         Get all comment cards as a list of string texts.
         """
 
-        return self['COMMENT']
+        if 'COMMENT' in self:
+            return self['COMMENT']
+        else:
+            return []
 
     @deprecated('3.1', alternative=':meth:`Header.totextfile`')
     def toTxtFile(self, fileobj, clobber=False):
