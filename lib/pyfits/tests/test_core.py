@@ -181,7 +181,7 @@ class TestCore(PyfitsTestCase):
 
     def test_exception_on_verification_error(self):
         hdu = pyfits.ImageHDU()
-        del hdu.header['NAXIS']
+        del hdu.header['XTENSION']
         assert_raises(pyfits.VerifyError, hdu.verify, 'exception')
 
     def test_ignore_verification_error(self):

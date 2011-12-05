@@ -1,7 +1,8 @@
-from __future__ import division # confidence high
+from __future__ import division  # confidence high
 from __future__ import with_statement
 
 import os
+import shutil
 import warnings
 
 import numpy as np
@@ -53,9 +54,9 @@ class TestImageFunctions(PyfitsTestCase):
     def test_open_2(self):
         r = pyfits.open(self.data('test0.fits'))
 
-        info = [(0, 'PRIMARY', 'PrimaryHDU', 138, (), 'int16', '')] + \
-               [(x, 'SCI', 'ImageHDU', 61, (40, 40), 'int16', '')
-                for x in range(1, 5)]
+        info = ([(0, 'PRIMARY', 'PrimaryHDU', 138, (), 'int16', '')] +
+                [(x, 'SCI', 'ImageHDU', 61, (40, 40), 'int16', '')
+                 for x in range(1, 5)])
 
         try:
             assert_equal(r.info(output=False), info)
@@ -586,3 +587,22 @@ class TestImageFunctions(PyfitsTestCase):
         assert_true((hdul[0].data == orig_data).all())
         hdul = pyfits.open(self.temp('test_new.fits'))
         hdul.close()
+
+    def test_image_update_header(self):
+        """
+        Regression test for #105.  Replacing the original header to an image
+        HDU and saving should update the NAXISn keywords appropriately and save
+        the image data correctly.
+        """
+
+        # Copy the original file before saving to it
+        shutil.copy(self.data('test0.fits'), self.temp('test_new.fits'))
+        hdul = pyfits.open(self.temp('test_new.fits'), mode='update')
+        orig_data = hdul[1].data.copy()
+        hdr_copy = hdul[1].header.copy()
+        del hdr_copy['NAXIS*']
+        hdul[1].header = hdr_copy
+        hdul.close()
+
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        assert_true((orig_data == hdul[1].data).all())
