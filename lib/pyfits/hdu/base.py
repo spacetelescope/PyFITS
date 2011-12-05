@@ -11,9 +11,9 @@ import numpy as np
 
 from pyfits.file import _File
 from pyfits.header import Header, HEADER_END_RE
-from pyfits.util import (Extendable, _with_extensions, lazyproperty, _is_int,
-                        _is_pseudo_unsigned, _unsigned_zero, _pad_length,
-                        itersubclasses, decode_ascii, BLOCK_SIZE, deprecated)
+from pyfits.util import (lazyproperty, _is_int, _is_pseudo_unsigned,
+                         _unsigned_zero, _pad_length, itersubclasses,
+                         decode_ascii, BLOCK_SIZE, deprecated)
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -28,6 +28,7 @@ class InvalidHDUException(Exception):
     an HDU cannot possibly be considered valid, and must be assumed to be
     corrupted.
     """
+
 
 def _hdu_class_from_header(cls, header):
     """
@@ -63,11 +64,7 @@ def _hdu_class_from_header(cls, header):
 # TODO: Come up with a better __repr__ for HDUs (and for HDULists, for that
 # matter)
 class _BaseHDU(object):
-    """
-    Base class for all HDU (header data unit) classes.
-    """
-
-    __metaclass__ = Extendable
+    """Base class for all HDU (header data unit) classes."""
 
     _hdu_registry = set()
 
@@ -402,9 +399,8 @@ class _BaseHDU(object):
         return (self._writeheader(fileobj, checksum)[0],) + \
                self._writedata(fileobj)
 
-    @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,
-                classExtensions={}, checksum=False):
+                checksum=False):
         """
         Write the HDU to a new file.  This is a convenience method to
         provide a user easier output interface if only one HDU needs
@@ -423,12 +419,6 @@ class _BaseHDU(object):
 
         clobber : bool
             Overwrite the output file if exists.
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of
-            those classes.  When present in the dictionary, the
-            extension class will be constructed in place of the pyfits
-            class.
 
         checksum : bool
             When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
@@ -1338,9 +1328,8 @@ class ExtensionHDU(_ValidHDU):
 
         raise NotImplementedError
 
-    @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,
-                classExtensions={}, checksum=False):
+                checksum=False):
         """
         Works similarly to the normal writeto(), but prepends a default
         `PrimaryHDU` are required by extension HDUs (which cannot stand on

@@ -18,13 +18,11 @@ from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
-from pyfits.util import (Extendable, _is_int, _tmp_name, _with_extensions,
-                         _pad_length, BLOCK_SIZE, isfile, fileobj_name,
-                         fileobj_closed, fileobj_mode)
+from pyfits.util import (_is_int, _tmp_name, _pad_length, BLOCK_SIZE, isfile,
+                         fileobj_name, fileobj_closed, fileobj_mode)
 from pyfits.verify import _Verify, _ErrList
 
 
-@_with_extensions
 def fitsopen(name, mode='readonly', memmap=None, classExtensions={},
              **kwargs):
     """Factory function to open a FITS file and return an `HDUList` object.
@@ -114,8 +112,6 @@ class HDUList(list, _Verify):
     file is opened, a `HDUList` object is returned.
     """
 
-    __metaclass__ = Extendable
-
     def __init__(self, hdus=[], file=None):
         """
         Construct a `HDUList` object.
@@ -150,8 +146,7 @@ class HDUList(list, _Verify):
         for idx in range(len(self)):
             yield self[idx]
 
-    @_with_extensions
-    def __getitem__(self, key, classExtensions={}):
+    def __getitem__(self, key):
         """
         Get an HDU from the `HDUList`, indexed by number or name.
         """
@@ -352,8 +347,7 @@ class HDUList(list, _Verify):
 
         return output
 
-    @_with_extensions
-    def insert(self, index, hdu, classExtensions={}):
+    def insert(self, index, hdu):
         """
         Insert an HDU into the `HDUList` at the given `index`.
 
@@ -424,8 +418,7 @@ class HDUList(list, _Verify):
         if len(self) > 1:
             self.update_extend()
 
-    @_with_extensions
-    def append(self, hdu, classExtensions={}):
+    def append(self, hdu):
         """
         Append a new HDU to the `HDUList`.
 
@@ -433,11 +426,6 @@ class HDUList(list, _Verify):
         ----------
         hdu : instance of _BaseHDU
             HDU to add to the `HDUList`.
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of those
-            classes.  When present in the dictionary, the extension class
-            will be constructed in place of the pyfits class.
         """
 
         if not isinstance(hdu, _BaseHDU):
@@ -534,9 +522,7 @@ class HDUList(list, _Verify):
             if hdu.data is not None:
                 continue
 
-    @_with_extensions
-    def flush(self, output_verify='fix', verbose=False,
-              classExtensions={}):
+    def flush(self, output_verify='fix', verbose=False):
         """
         Force a write of the `HDUList` back to the file (for append and
         update modes only).
@@ -550,12 +536,6 @@ class HDUList(list, _Verify):
 
         verbose : bool
             When `True`, print verbose messages
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of
-            those classes.  When present in the dictionary, the
-            extension class will be constructed in place of the pyfits
-            class.
         """
 
         # Get the name of the current thread and determine if this is a single treaded application
@@ -782,7 +762,6 @@ class HDUList(list, _Verify):
                 n = hdr['naxis']
                 hdr.set('extend', True, after='naxis' + str(n))
 
-    @_with_extensions
     def writeto(self, fileobj, output_verify='exception', clobber=False,
                 checksum=False):
         """
