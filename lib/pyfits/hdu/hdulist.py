@@ -23,8 +23,7 @@ from pyfits.util import (_is_int, _tmp_name, _pad_length, BLOCK_SIZE, isfile,
 from pyfits.verify import _Verify, _ErrList
 
 
-def fitsopen(name, mode='readonly', memmap=None, classExtensions={},
-             **kwargs):
+def fitsopen(name, mode='readonly', memmap=None, **kwargs):
     """Factory function to open a FITS file and return an `HDUList` object.
 
     Parameters
@@ -43,11 +42,6 @@ def fitsopen(name, mode='readonly', memmap=None, classExtensions={},
 
     memmap : bool
         Is memory mapping to be used?
-
-    classExtensions : dict (''Deprecated'')
-        A dictionary that maps pyfits classes to extensions of those
-        classes.  When present in the dictionary, the extension class
-        will be constructed in place of the pyfits class.
 
     kwargs : dict
         optional keyword arguments, possible values are:
@@ -358,11 +352,6 @@ class HDUList(list, _Verify):
 
         hdu : _BaseHDU instance
             The HDU object to insert
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of those
-            classes.  When present in the dictionary, the extension class
-            will be constructed in place of the pyfits class.
         """
 
         if not isinstance(hdu, _BaseHDU):

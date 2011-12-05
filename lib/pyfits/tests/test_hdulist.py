@@ -264,7 +264,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdul.insert(0, hdu)
         hdu = pyfits.GroupsHDU()
 
-        assert_raises(ValueError, hdul.insert, hdul, 1, hdu)
+        assert_raises(ValueError, hdul.insert, 1, hdu)
 
         info = [(0, 'PRIMARY', 'GroupsHDU', 8, (), 'uint8',
                  '   1 Groups  0 Parameters'),
@@ -289,7 +289,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdu = pyfits.GroupsHDU()
         hdul.insert(0, hdu)
 
-        assert_raises(ValueError, hdul.insert, hdul, 0, hdu)
+        assert_raises(ValueError, hdul.insert, 0, hdu)
 
     def test_insert_extension_to_primary_in_non_empty_list(self):
         # Tests inserting a Simple ExtensionHDU to a non-empty HDUList.
