@@ -151,7 +151,7 @@ following keywords:
 If any of the mandatory keywords are missing or in the wrong order, the fix
 option will fix them:
 
-    >>> print hdu.header           # has a 'bad' header
+    >>> hdu.header               # has a 'bad' header
     SIMPLE =                     T /
     NAXIS  =                     0
     BITPIX =                     8 /
@@ -159,7 +159,7 @@ option will fix them:
     Output verification result:
     'BITPIX' card at the wrong place (card 2). Fixed by moving it to the right
     place (card 1).
-    >>> print h.header             # voila!
+    >>> h.header                 # voila!
     SIMPLE =                     T / conforms to FITS standard
     BITPIX =                     8 / array data type
     NAXIS  =                     0
@@ -187,7 +187,7 @@ Fixable Cards:
 
 Here are some examples of fixable cards:
 
-    >>> print hdu.header.ascardlist()[4:] # has a bunch of fixable cards
+    >>> hdu.header[4:] # has a bunch of fixable cards
     FIX1 = 2.1e23
     FIX2= 2
     FIX3 = string value without quotes
@@ -202,7 +202,7 @@ Here are some examples of fixable cards:
     >>> hdu.header['fix5']
     2400.0
     >>> hdu.verify('silentfix')
-    >>> print hdu.header.ascard[4:]
+    >>> hdu.header[4:]
     FIX1 = 2.1E23
     FIX2 = 2
     FIX3 = 'string value without quotes'
@@ -224,7 +224,7 @@ We'll summarize the verification with a "life-cycle" example:
     # Have to do it the hard way (so a user will not do this by accident)
     # First, create a card image and give verbatim card content (including
     # the proper spacing, but no need to add the trailing blanks)
-    >>> c = pyfits.Card().fromstring("P.I. = 'Hubble'")
+    >>> c = pyfits.Card.fromstring("P.I. = 'Hubble'")
     # then append it to the header
     >>> h.header.append(c)
     # Now if we try to write to a FITS file, the default output verification
@@ -243,7 +243,7 @@ We'll summarize the verification with a "life-cycle" example:
     # Now reading a non-standard FITS file
     # pyfits is magnanimous in reading non-standard FITS file
     >>> hdus = pyfits.open('pi.fits')
-    >>> print hdus[0].header.ascardlist()
+    >>> hdus[0].header
     SIMPLE =            T / conforms to FITS standard
     BITPIX =            8 / array data type
     NAXIS  =            0 / number of array dimensions
