@@ -19,7 +19,7 @@ from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, decode_ascii,
 PY3K = sys.version_info[:2] >= (3, 0)
 
 
-HEADER_END_RE = re.compile('END {77}')
+HEADER_END_RE = re.compile('END {77} *$')
 
 
 class Header(object):
@@ -355,6 +355,8 @@ class Header(object):
         try:
             # Read the first header block.
             block = decode_ascii(fileobj.read(actual_block_size))
+            # Strip any zero-padding (see ticket #106)
+            block = block.strip('\0')
             if block == '':
                 raise EOFError()
 

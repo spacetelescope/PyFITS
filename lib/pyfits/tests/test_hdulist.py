@@ -447,3 +447,15 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('temp.fits'), memmap=True)
         assert_true(((old_data + 1) == hdul[1].data).all())
 
+    def test_open_file_with_end_padding(self):
+        """Regression test for #106; open files with end padding bytes."""
+
+        hdul = pyfits.open(self.data('test0.fits'),
+                           do_not_scale_image_data=True)
+        info = hdul.info(output=False)
+        hdul.writeto(self.temp('temp.fits'))
+        with open(self.temp('temp.fits'),'ab') as f:
+            f.seek(0, os.SEEK_END)
+            f.write('\0' * 2880)
+        assert_equal(info, pyfits.info(self.temp('temp.fits'), output=False,
+                                       do_not_scale_image_data=True))
