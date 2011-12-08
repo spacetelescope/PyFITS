@@ -86,7 +86,7 @@ class TestChecksumFunctions(PyfitsTestCase):
         c1 = pyfits.Column(name='var', format='PJ()',
             array=np.array([[45.0, 56], np.array([11, 12, 13])], 'O'))
         c2 = pyfits.Column(name='xyz', format='2I', array=[[11, 3], [12, 4]])
-        tbhdu = fits.new_table([c1, c2])
+        tbhdu = pyfits.new_table([c1, c2])
         tbhdu.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
         hdul = pyfits.open(self.temp('tmp.fits'), checksum=True)
         hdul.close()
