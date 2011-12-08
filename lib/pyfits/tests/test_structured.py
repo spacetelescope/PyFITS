@@ -42,8 +42,9 @@ def compare_arrays(arr1in, arr2in, verbose=False):
             if w.size > 0:
                 nfail += 1
                 if verbose:
-                    sys.stdout.write('\n        '+\
-                            '%s elements in field %s differ\n' % (w.size,n2))
+                    sys.stdout.write(
+                        '\n        %s elements in field %s differ\n' %
+                        (w.size, n2))
             else:
                 if verbose:
                     sys.stdout.write('OK\n')
@@ -92,7 +93,7 @@ class TestStructured(PyfitsTestCase):
         print st.dtype.descr
         print st
         assert st.dtype.isnative
-        assert np.all(st['f1'] == [1,3,5])
+        assert np.all(st['f1'] == [1, 3, 5])
 
         print 'Reading data back'
         data1check, h1check = pyfits.getdata(outfile, ext=1, header=True)

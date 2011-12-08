@@ -23,8 +23,7 @@ except ImportError:
 import numpy as np
 
 
-BLOCK_SIZE = 2880 # the FITS block size
-
+BLOCK_SIZE = 2880  # the FITS block size
 
 
 def itersubclasses(cls, _seen=None):
@@ -57,10 +56,11 @@ def itersubclasses(cls, _seen=None):
     if not isinstance(cls, type):
         raise TypeError('itersubclasses must be called with '
                         'new-style classes, not %.100r' % cls)
-    if _seen is None: _seen = set()
+    if _seen is None:
+        _seen = set()
     try:
         subs = cls.__subclasses__()
-    except TypeError: # fails only when cls is type
+    except TypeError:  # fails only when cls is type
         subs = cls.__subclasses__(cls)
     for sub in subs:
         if sub not in _seen:
@@ -210,7 +210,6 @@ def deprecated(since, message='', name='', alternative='', pending=False):
         message = ((message % {'func': name, 'alternative': alternative}) +
                    altmessage)
 
-
         @functools.wraps(func)
         def deprecated_func(*args, **kwargs):
             if pending:
@@ -280,6 +279,7 @@ def isiterable(obj):
         return True
     except TypeError:
         return False
+
 
 def encode_ascii(s):
     """
@@ -438,7 +438,6 @@ def translate(s, table, deletechars):
         for c in deletechars:
             table[ord(c)] = None
         return s.translate(table)
-
 
 
 def _array_from_file(infile, dtype, count, sep):
@@ -602,7 +601,7 @@ def _words_group(input, strlen):
     for idx in range(nmax):
         try:
             loc = np.nonzero(blank_loc >= strlen + offset)[0][0]
-            offset = blank_loc[loc-1] + 1
+            offset = blank_loc[loc - 1] + 1
             if loc == 0:
                 offset = -1
         except:

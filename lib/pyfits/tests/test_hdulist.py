@@ -176,7 +176,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         """Tests inserting a Simple ImageHDU to an empty HDUList."""
 
         hdul = pyfits.HDUList()
-        hdu = pyfits.ImageHDU(np.arange(100,dtype=np.int32))
+        hdu = pyfits.ImageHDU(np.arange(100, dtype=np.int32))
         hdul.insert(0, hdu)
 
         info = [(0, 'PRIMARY', 'PrimaryHDU', 4, (100,), 'int32', '')]

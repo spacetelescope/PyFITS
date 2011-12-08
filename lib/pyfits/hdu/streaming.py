@@ -7,6 +7,7 @@ from pyfits.hdu.hdulist import HDUList
 from pyfits.hdu.image import PrimaryHDU, _ImageBaseHDU
 from pyfits.util import _pad_length, fileobj_name
 
+
 class StreamingHDU(object):
     """
     A class that provides the capability to stream data to a FITS file
@@ -227,4 +228,3 @@ class StreamingHDU(object):
         """
 
         self._ffo.close()
-

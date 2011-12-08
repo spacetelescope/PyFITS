@@ -40,5 +40,5 @@ class TestDivisionFunctions(PyfitsTestCase):
         # section testing
         fs = pyfits.open(self.data('arange.fits'))
         with CaptureStdout() as f:
-            assert_equal(fs[0].section[3,2,5], np.array([357]))
+            assert_equal(fs[0].section[3, 2, 5], np.array([357]))
             assert_equal(f.getvalue(), '')

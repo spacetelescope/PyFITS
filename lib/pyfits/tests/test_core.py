@@ -258,7 +258,7 @@ class TestConvenienceFunctions(PyfitsTestCase):
         with the `writeto()` convenience function.
         """
 
-        data = np.zeros((100,100))
+        data = np.zeros((100, 100))
         header = pyfits.Header()
         pyfits.writeto(self.temp('array.fits'), data, header=header,
                        clobber=True)
