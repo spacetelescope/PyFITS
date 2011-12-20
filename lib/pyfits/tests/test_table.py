@@ -7,6 +7,7 @@ from numpy import char as chararray
 import pyfits
 from pyfits.util import decode_ascii
 from pyfits.tests import PyfitsTestCase
+from pyfits.tests.util import ignore_warnings
 
 from nose.tools import (assert_equal, assert_not_equal, assert_raises,
                         assert_true)
@@ -425,7 +426,8 @@ class TestTableFunctions(PyfitsTestCase):
                          np.array([-1.45, -0.73], dtype=np.float32).all())
         assert_equal(hdu.data[0][3], 'A1V')
         assert_equal(hdu.data[1][3], 'F0Ib')
-        hdu.writeto(self.temp('toto.fits'), clobber=True)
+        with ignore_warnings():
+            hdu.writeto(self.temp('toto.fits'), clobber=True)
         hdul = pyfits.open(self.temp('toto.fits'))
         assert_equal(hdul[1].data.field(0).all(),
                          np.array([1, 2], dtype=np.int16).all())
@@ -444,7 +446,8 @@ class TestTableFunctions(PyfitsTestCase):
                          formats='int16,a20,float32,a10',
                          names='order,name,mag,Sp')
         assert_equal(comparerecords(hdu.data,tmp), True)
-        hdu.writeto(self.temp('toto.fits'), clobber=True)
+        with ignore_warnings():
+            hdu.writeto(self.temp('toto.fits'), clobber=True)
         hdul = pyfits.open(self.temp('toto.fits'))
         assert_equal(comparerecords(hdu.data,hdul[1].data),True)
         hdul.close()
@@ -1644,7 +1647,8 @@ class TestTableFunctions(PyfitsTestCase):
         data = np.zeros(3, dtype=[('x', 'f4'), ('s', 'S5', 4)])
         data['x'] = 1, 2, 3
         data['s'] = 'ok'
-        pyfits.writeto(self.temp('newtable.fits'), data, clobber=True)
+        with ignore_warnings():
+            pyfits.writeto(self.temp('newtable.fits'), data, clobber=True)
 
         t = pyfits.getdata(self.temp('newtable.fits'))
 
@@ -1656,7 +1660,8 @@ class TestTableFunctions(PyfitsTestCase):
         data = np.zeros(3, dtype=[('x', 'f4'), ('s', 'S5', (4, 3))])
         data['x'] = 1, 2, 3
         data['s'] = 'ok'
-        pyfits.writeto(self.temp('newtable.fits'), data, clobber=True)
+        with ignore_warnings():
+            pyfits.writeto(self.temp('newtable.fits'), data, clobber=True)
 
         t = pyfits.getdata(self.temp('newtable.fits'))
 

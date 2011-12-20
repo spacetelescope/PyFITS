@@ -9,7 +9,7 @@ import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import CaptureStdout, catch_warnings
+from pyfits.tests.util import catch_warnings, ignore_warnings, CaptureStdio
 
 from nose.tools import assert_equal, assert_raises, assert_true, assert_false
 
@@ -216,18 +216,22 @@ class TestImageFunctions(PyfitsTestCase):
     def test_verification_on_output(self):
         # verification on output
         # make a defect HDUList first
-        with CaptureStdout() as f:
+        err_text = "HDUList's 0th element is not a primary HDU."
+        with catch_warnings(record=True) as w:
             x = pyfits.ImageHDU()
-            hdu = pyfits.HDUList(x) # HDUList can take a list or one single HDU
-            hdu.verify()
-            assert_true(
-                "HDUList's 0th element is not a primary HDU." in f.getvalue())
+            # HDUList can take a list or one single HDU
+            hdu = pyfits.HDUList(x)
+            with CaptureStdio():
+                hdu.verify()
+            assert_equal(len(w), 1)
+            assert_true(err_text in str(w[0].message))
 
-        with CaptureStdout() as f:
-            hdu.writeto(self.temp('test_new2.fits'), 'fix')
-            assert_true(
-                "HDUList's 0th element is not a primary HDU.  "
-                "Fixed by inserting one as 0th HDU." in f.getvalue())
+        fix_text = err_text + "  Fixed by inserting one as 0th HDU."
+        with catch_warnings(record=True) as w:
+            with CaptureStdio():
+                hdu.writeto(self.temp('test_new2.fits'), 'fix')
+            assert_equal(len(w), 1)
+            assert_true(fix_text in w[0].message)
 
     def test_section(self):
         # section testing
@@ -557,7 +561,8 @@ class TestImageFunctions(PyfitsTestCase):
 
         hdul = pyfits.open(self.data('fixed-1890.fits'))
         orig_data = hdul[0].data
-        hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        with ignore_warnings():
+            hdul.writeto(self.temp('test_new.fits'), clobber=True)
         hdul.close()
         hdul = pyfits.open(self.temp('test_new.fits'))
         assert_true((hdul[0].data == orig_data).all())
@@ -566,7 +571,8 @@ class TestImageFunctions(PyfitsTestCase):
         # Just as before, but this time don't touch hdul[0].data before writing
         # back out--this is the case that failed in #84
         hdul = pyfits.open(self.data('fixed-1890.fits'))
-        hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        with ignore_warnings():
+            hdul.writeto(self.temp('test_new.fits'), clobber=True)
         hdul.close()
         hdul = pyfits.open(self.temp('test_new.fits'))
         assert_true((hdul[0].data == orig_data).all())
