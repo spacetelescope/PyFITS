@@ -266,6 +266,23 @@ class TestConvenienceFunctions(PyfitsTestCase):
         assert_equal(len(hdul), 1)
         assert_true((data == hdul[0].data).all())
 
+    def test_writeto_2(self):
+        """
+        Test of `writeto()` with a trivial header containing a single keyword;
+        regression for #107.
+        """
+
+        data = np.zeros((100,100))
+        header = pyfits.Header()
+        header.update('CRPIX1', 1.)
+        pyfits.writeto(self.temp('array.fits'), data, header=header,
+                       clobber=True, output_verify='silentfix')
+        hdul = pyfits.open(self.temp('array.fits'))
+        assert_equal(len(hdul), 1)
+        assert_true((data == hdul[0].data).all())
+        assert_true('CRPIX1' in hdul[0].header)
+        assert_equal(hdul[0].header['CRPIX1'], 1.0)
+
 
 class TestFileFunctions(PyfitsTestCase):
     """
