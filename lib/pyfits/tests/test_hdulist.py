@@ -456,6 +456,6 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdul.writeto(self.temp('temp.fits'))
         with open(self.temp('temp.fits'),'ab') as f:
             f.seek(0, os.SEEK_END)
-            f.write('\0' * 2880)
+            f.write('\0'.encode('latin1') * 2880)
         assert_equal(info, pyfits.info(self.temp('temp.fits'), output=False,
                                        do_not_scale_image_data=True))
