@@ -36,7 +36,7 @@ class TestHDUListFunctions(PyfitsTestCase):
             assert_equal(res['filename'], self.data('checksum.fits'))
             assert_equal(res['datLoc'], kwargs.get('datLoc', 8640))
             assert_equal(res['hdrLoc'], kwargs.get('hdrLoc', 0))
-            assert_equal(res['filemode'], 'copyonwrite')
+            assert_equal(res['filemode'], 'readonly')
 
         res = hdul.fileinfo(1)
         test_fileinfo(datLoc=17280, hdrLoc=11520)
@@ -434,3 +434,28 @@ class TestHDUListFunctions(PyfitsTestCase):
 
         assert_true('EXTEND' in hdul[0].header)
         assert_equal(hdul[0].header['EXTEND'], True)
+
+    def test_replace_memmaped_array(self):
+        # Copy the original before we modify it
+        hdul = pyfits.open(self.data('test0.fits'))
+        hdul.writeto(self.temp('temp.fits'))
+
+        hdul = pyfits.open(self.temp('temp.fits'), mode='update', memmap=True)
+        old_data = hdul[1].data.copy()
+        hdul[1].data = hdul[1].data + 1
+        hdul.close()
+        hdul = pyfits.open(self.temp('temp.fits'), memmap=True)
+        assert_true(((old_data + 1) == hdul[1].data).all())
+
+    def test_open_file_with_end_padding(self):
+        """Regression test for #106; open files with end padding bytes."""
+
+        hdul = pyfits.open(self.data('test0.fits'),
+                           do_not_scale_image_data=True)
+        info = hdul.info(output=False)
+        hdul.writeto(self.temp('temp.fits'))
+        with open(self.temp('temp.fits'),'ab') as f:
+            f.seek(0, os.SEEK_END)
+            f.write('\0' * 2880)
+        assert_equal(info, pyfits.info(self.temp('temp.fits'), output=False,
+                                       do_not_scale_image_data=True))

@@ -1,7 +1,8 @@
-from __future__ import division # confidence high
+from __future__ import division  # confidence high
 from __future__ import with_statement
 
 import os
+import shutil
 import warnings
 
 import numpy as np
@@ -307,9 +308,9 @@ class TestImageFunctions(PyfitsTestCase):
     def test_open_2(self):
         r = pyfits.open(self.data('test0.fits'))
 
-        info = [(0, 'PRIMARY', 'PrimaryHDU', 138, (), 'int16', '')] + \
-               [(x, 'SCI', 'ImageHDU', 61, (40, 40), 'int16', '')
-                for x in range(1, 5)]
+        info = ([(0, 'PRIMARY', 'PrimaryHDU', 138, (), 'int16', '')] +
+                [(x, 'SCI', 'ImageHDU', 61, (40, 40), 'int16', '')
+                 for x in range(1, 5)])
 
         try:
             assert_equal(r.info(output=False), info)
@@ -702,46 +703,49 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(d.section[:,1,0,:].all(), dat[:,1,0,:].all())
         assert_equal(d.section[:,:,:,1].all(), dat[:,:,:,1].all())
 
-    def _test_comp_image(self, data, compression_type, quantize_level):
-        primary_hdu = pyfits.PrimaryHDU()
-        ofd = pyfits.HDUList(primary_hdu)
-        chdu = pyfits.CompImageHDU(data, name='SCI',
-                                   compressionType=compression_type,
-                                   quantizeLevel=quantize_level)
-        ofd.append(chdu)
-        ofd.writeto(self.temp('test_new.fits'))
-        ofd.close()
-        fd = pyfits.open(self.temp('test_new.fits'))
-        assert_equal(fd[1].data.all(), data.all())
-        assert_equal(fd[1].header['NAXIS'], chdu.header['NAXIS'])
-        assert_equal(fd[1].header['NAXIS1'], chdu.header['NAXIS1'])
-        assert_equal(fd[1].header['NAXIS2'], chdu.header['NAXIS2'])
-        assert_equal(fd[1].header['BITPIX'], chdu.header['BITPIX'])
-        fd.close()
+    def test_comp_image(self):
+        def _test_comp_image(self, data, compression_type, quantize_level,
+                             byte_order):
+            self.setup()
+            try:
+                data = data.newbyteorder(byte_order)
+                primary_hdu = pyfits.PrimaryHDU()
+                ofd = pyfits.HDUList(primary_hdu)
+                chdu = pyfits.CompImageHDU(data, name='SCI',
+                                           compressionType=compression_type,
+                                           quantizeLevel=quantize_level)
+                ofd.append(chdu)
+                ofd.writeto(self.temp('test_new.fits'), clobber=True)
+                ofd.close()
+                fd = pyfits.open(self.temp('test_new.fits'))
+                assert_equal(fd[1].data.all(), data.all())
+                assert_equal(fd[1].header['NAXIS'], chdu.header['NAXIS'])
+                assert_equal(fd[1].header['NAXIS1'], chdu.header['NAXIS1'])
+                assert_equal(fd[1].header['NAXIS2'], chdu.header['NAXIS2'])
+                assert_equal(fd[1].header['BITPIX'], chdu.header['BITPIX'])
+                fd.close()
+            finally:
+                self.teardown()
 
-    def test_comp_image_rice_1(self):
-        """Tests image compression with the RICE_1 algorithm."""
+        argslist = [
+            (np.zeros((2, 10, 10), dtype=np.float32), 'RICE_1', 16),
+            (np.zeros((2, 10, 10), dtype=np.float32), 'GZIP_1', -0.01),
+            (np.zeros((100, 100)) + 1, 'HCOMPRESS_1', 16)
+        ]
 
-        self._test_comp_image(np.zeros((2, 10, 10), dtype=np.float32),
-                              'RICE_1', 16)
+        for byte_order in ('<', '>'):
+            for args in argslist:
+                yield (_test_comp_image, self) + args + (byte_order,)
 
-    def test_comp_image_gzip_1(self):
-        """Tests image compression with the GZIP_1 algorithm."""
-
-        self._test_comp_image(np.zeros((2, 10, 10), dtype=np.float32),
-                              'GZIP_1', -0.01)
-
-    def test_comp_image_hcompression_1(self):
-        """Tests image compression with the HCOMPRESS_1 algorithm.
-
-        This is not a comprehensive test--just a simple round-trip test to make
-        sure the code for handling HCOMPRESS_1 at least gets exercised.
+    def test_comp_image_hcompression_1_invalid_data(self):
+        """
+        Tests compression with the HCOMPRESS_1 algorithm with data that is
+        not 2D (and thus should not work).
         """
 
-        assert_raises(ValueError, self._test_comp_image,
-                      np.zeros((2, 10, 10), dtype=np.float32), 'HCOMPRESS_1',
-                      16)
-        self._test_comp_image(np.zeros((100, 100)) + 1, 'HCOMPRESS_1', 16)
+        assert_raises(ValueError, pyfits.CompImageHDU,
+                      np.zeros((2, 10, 10), dtype=np.float32), name='SCI',
+                      compressionType='HCOMPRESS_1', quantizeLevel=16)
 
     def test_disable_image_compression(self):
         with catch_warnings():
@@ -837,3 +841,22 @@ class TestImageFunctions(PyfitsTestCase):
         assert_true((hdul[0].data == orig_data).all())
         hdul = pyfits.open(self.temp('test_new.fits'))
         hdul.close()
+
+    def test_image_update_header(self):
+        """
+        Regression test for #105.  Replacing the original header to an image
+        HDU and saving should update the NAXISn keywords appropriately and save
+        the image data correctly.
+        """
+
+        # Copy the original file before saving to it
+        shutil.copy(self.data('test0.fits'), self.temp('test_new.fits'))
+        hdul = pyfits.open(self.temp('test_new.fits'), mode='update')
+        orig_data = hdul[1].data.copy()
+        hdr_copy = hdul[1].header.copy()
+        del hdr_copy['NAXIS*']
+        hdul[1].header = hdr_copy
+        hdul.close()
+
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        assert_true((orig_data == hdul[1].data).all())

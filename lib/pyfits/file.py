@@ -18,9 +18,24 @@ from pyfits.util import (Extendable, isreadable, iswritable, isfile,
                          deprecated)
 
 
+# File object open modes
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
-                'append': 'ab+', 'ostream': 'w'}  # open modes
-MEMMAP_MODES = {'readonly': 'r', 'copyonwrite': 'c', 'update': 'r+'}
+                'append': 'ab+', 'ostream': 'w', 'denywrite': 'rb'}
+
+# readonly actually uses copyonwrite for mmap so that readonly without mmap and
+# with mmap still have to same behavior with regard to updating the array.  To
+# get a truly readonly mmap use denywrite
+# the name 'denywrite' comes from a deprecated flag to mmap() on Linux--it
+# should be clarified that 'denywrite' mode is not directly analogous to the
+# use of that flag; it was just taken, for lack of anything better, as a name
+# that means something like "read only" but isn't readonly.
+MEMMAP_MODES = {'readonly': 'c', 'copyonwrite': 'c', 'update': 'r+',
+                'append': 'c', 'denywrite': 'r'}
+
+# TODO: Eventually raise a warning, and maybe even later disable the use of
+# 'copyonwrite' and 'denywrite' modes unless memmap=True.  For now, however,
+# that would generate too many warnings for too many users.  If nothing else,
+# wait until the new logging system is in place.
 
 GZIP_MAGIC = u'\x1f\x8b\x08'.encode('raw-unicode-escape')
 PKZIP_MAGIC = u'\x50\x4b\x03\x04'.encode('raw-unicode-escape')
@@ -33,7 +48,7 @@ class _File(object):
 
     __metaclass__ = Extendable
 
-    def __init__(self, fileobj=None, mode='copyonwrite', memmap=False):
+    def __init__(self, fileobj=None, mode='readonly', memmap=False):
         if fileobj is None:
             self.__file = None
             self.closed = False
@@ -74,117 +89,113 @@ class _File(object):
         self.readonly = False
         self.writeonly = False
 
-        if memmap and mode not in ('readonly', 'copyonwrite', 'update'):
-            raise ValueError(
-                   "Memory mapping is not implemented for mode `%s`." % mode)
-        else:
-            # Initialize the internal self.__file object
-            if isfile(fileobj) or isinstance(fileobj, gzip.GzipFile):
-                closed = fileobj_closed(fileobj)
-                fmode = fileobj_mode(fileobj) or PYTHON_MODES[mode]
+        # Initialize the internal self.__file object
+        if isfile(fileobj) or isinstance(fileobj, gzip.GzipFile):
+            closed = fileobj_closed(fileobj)
+            fmode = fileobj_mode(fileobj) or PYTHON_MODES[mode]
 
-                if not closed:
-                    # In some cases (like on Python 3) a file opened for
-                    # appending still shows a mode of 'r+', hence the extra
-                    # check for the append case
-                    if ((mode == 'append' and fmode not in ('ab+', 'rb+')) or
-                        (mode != 'append' and PYTHON_MODES[mode] != fmode)):
-                        raise ValueError(
-                            "Input mode '%s' (%s) does not match mode of the "
-                            "input file (%s)." %
-                            (mode, PYTHON_MODES[mode], fmode))
-                    self.__file = fileobj
-                elif isfile(fileobj):
-                    self.__file = open(self.name, PYTHON_MODES[mode])
-                    # Return to the beginning of the file--in Python 3 when
-                    # opening in append mode the file pointer is at the end of
-                    # the file
-                    self.__file.seek(0)
-                else:
-                    self.__file = gzip.open(self.name, PYTHON_MODES[mode])
-            elif isinstance(fileobj, basestring):
-                if os.path.exists(self.name):
-                    with open(self.name, 'rb') as f:
-                        magic = f.read(4)
-                else:
-                    magic = ''.encode('raw-unicode-escape')
-                ext = os.path.splitext(self.name)[1]
-                if ext == '.gz' or magic.startswith(GZIP_MAGIC):
-                    # Handle gzip files
-                    if mode in ['update', 'append']:
-                        raise IOError(
-                              "Writing to gzipped fits files is not currently "
-                              "supported")
-                    self.__file = gzip.open(self.name)
-                    self.compression = 'gzip'
-                elif ext == '.zip' or magic.startswith(PKZIP_MAGIC):
-                    # Handle zip files
-                    if mode in ['update', 'append']:
-                        raise IOError(
-                              "Writing to zipped fits files is not currently "
-                              "supported")
-                    zfile = zipfile.ZipFile(self.name)
-                    namelist = zfile.namelist()
-                    if len(namelist) != 1:
-                        raise IOError(
-                          "Zip files with multiple members are not supported.")
-                    self.__file = tempfile.NamedTemporaryFile(suffix='.fits')
-                    self.__file.write(zfile.read(namelist[0]))
-                    zfile.close()
-                    self.compression = 'zip'
-                else:
-                    self.__file = open(self.name, PYTHON_MODES[mode])
-                    # Make certain we're back at the beginning of the file
+            if not closed:
+                # In some cases (like on Python 3) a file opened for
+                # appending still shows a mode of 'r+', hence the extra
+                # check for the append case
+                if ((mode == 'append' and fmode not in ('ab+', 'rb+')) or
+                    (mode != 'append' and PYTHON_MODES[mode] != fmode)):
+                    raise ValueError(
+                        "Input mode '%s' (%s) does not match mode of the "
+                        "input file (%s)." %
+                        (mode, PYTHON_MODES[mode], fmode))
+                self.__file = fileobj
+            elif isfile(fileobj):
+                self.__file = open(self.name, PYTHON_MODES[mode])
+                # Return to the beginning of the file--in Python 3 when
+                # opening in append mode the file pointer is at the end of
+                # the file
                 self.__file.seek(0)
             else:
-                # We are dealing with a file like object.
-                # Assume it is open.
-                self.file_like = True
-                self.__file = fileobj
-
-                # If there is not seek or tell methods then set the mode to
-                # output streaming.
-                if not hasattr(self.__file, 'seek') or \
-                   not hasattr(self.__file, 'tell'):
-                    self.mode = mode = 'ostream'
-
-                if (self.mode in ('copyonwrite', 'update', 'append') and
-                    not hasattr(self.__file, 'write')):
-                    raise IOError("File-like object does not have a 'write' "
-                                  "method, required for mode '%s'."
-                                  % self.mode)
-
-                if self.mode == 'readonly' and \
-                   not hasattr(self.__file, 'read'):
-                    raise IOError("File-like object does not have a 'read' "
-                                  "method, required for mode 'readonly'."
-                                  % self.mode)
-
-            if isinstance(fileobj, gzip.GzipFile):
-                self.compression = 'gzip'
-            elif isinstance(fileobj, zipfile.ZipFile):
-                # Reading from zip files is supported but not writing (yet)
-                self.compression = 'zip'
-
-            if (mode in ('readonly', 'copyonwrite') or
-                    (self.compression and mode == 'update')):
-                self.readonly = True
-            elif (mode == 'ostream' or
-                    (self.compression and mode == 'append')):
-                self.writeonly = True
-
-            # For 'ab+' mode, the pointer is at the end after the open in
-            # Linux, but is at the beginning in Solaris.
-            if (mode == 'ostream' or self.compression or
-                not hasattr(self.__file, 'seek')):
-                # For output stream start with a truncated file.
-                # For compressed files we can't really guess at the size
-                self.size = 0
+                self.__file = gzip.open(self.name, PYTHON_MODES[mode])
+        elif isinstance(fileobj, basestring):
+            if os.path.exists(self.name):
+                with open(self.name, 'rb') as f:
+                    magic = f.read(4)
             else:
-                pos = self.__file.tell()
-                self.__file.seek(0, 2)
-                self.size = self.__file.tell()
-                self.__file.seek(pos)
+                magic = ''.encode('raw-unicode-escape')
+            ext = os.path.splitext(self.name)[1]
+            if ext == '.gz' or magic.startswith(GZIP_MAGIC):
+                # Handle gzip files
+                if mode in ['update', 'append']:
+                    raise IOError(
+                          "Writing to gzipped fits files is not currently "
+                          "supported")
+                self.__file = gzip.open(self.name)
+                self.compression = 'gzip'
+            elif ext == '.zip' or magic.startswith(PKZIP_MAGIC):
+                # Handle zip files
+                if mode in ['update', 'append']:
+                    raise IOError(
+                          "Writing to zipped fits files is not currently "
+                          "supported")
+                zfile = zipfile.ZipFile(self.name)
+                namelist = zfile.namelist()
+                if len(namelist) != 1:
+                    raise IOError(
+                      "Zip files with multiple members are not supported.")
+                self.__file = tempfile.NamedTemporaryFile(suffix='.fits')
+                self.__file.write(zfile.read(namelist[0]))
+                zfile.close()
+                self.compression = 'zip'
+            else:
+                self.__file = open(self.name, PYTHON_MODES[mode])
+                # Make certain we're back at the beginning of the file
+            self.__file.seek(0)
+        else:
+            # We are dealing with a file like object.
+            # Assume it is open.
+            self.file_like = True
+            self.__file = fileobj
+
+            # If there is not seek or tell methods then set the mode to
+            # output streaming.
+            if not hasattr(self.__file, 'seek') or \
+               not hasattr(self.__file, 'tell'):
+                self.mode = mode = 'ostream'
+
+            if (self.mode in ('copyonwrite', 'update', 'append') and
+                not hasattr(self.__file, 'write')):
+                raise IOError("File-like object does not have a 'write' "
+                              "method, required for mode '%s'."
+                              % self.mode)
+
+            if (self.mode in ('readonly', 'denywrite') and
+                not hasattr(self.__file, 'read')):
+                raise IOError("File-like object does not have a 'read' "
+                              "method, required for mode %r."
+                              % self.mode)
+
+        if isinstance(fileobj, gzip.GzipFile):
+            self.compression = 'gzip'
+        elif isinstance(fileobj, zipfile.ZipFile):
+            # Reading from zip files is supported but not writing (yet)
+            self.compression = 'zip'
+
+        if (mode in ('readonly', 'copyonwrite', 'denywrite') or
+                (self.compression and mode == 'update')):
+            self.readonly = True
+        elif (mode == 'ostream' or
+                (self.compression and mode == 'append')):
+            self.writeonly = True
+
+        # For 'ab+' mode, the pointer is at the end after the open in
+        # Linux, but is at the beginning in Solaris.
+        if (mode == 'ostream' or self.compression or
+            not hasattr(self.__file, 'seek')):
+            # For output stream start with a truncated file.
+            # For compressed files we can't really guess at the size
+            self.size = 0
+        else:
+            pos = self.__file.tell()
+            self.__file.seek(0, 2)
+            self.size = self.__file.tell()
+            self.__file.seek(pos)
 
         if self.memmap and not isfile(self.__file):
             self.memmap = False
@@ -259,7 +270,7 @@ class _File(object):
         if self.memmap:
             return Memmap(self.__file, offset=offset,
                           mode=MEMMAP_MODES[self.mode], dtype=dtype,
-                          shape=shape)
+                          shape=shape).view(np.ndarray)
         else:
             count = reduce(lambda x, y: x * y, shape)
             pos = self.__file.tell()

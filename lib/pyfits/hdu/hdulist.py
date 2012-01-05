@@ -1,8 +1,6 @@
 import gzip
 import os
-import signal
 import sys
-import threading
 import warnings
 
 import numpy as np
@@ -20,12 +18,12 @@ from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
 from pyfits.util import (Extendable, _is_int, _tmp_name, _with_extensions,
                          _pad_length, BLOCK_SIZE, isfile, fileobj_name,
-                         fileobj_closed, fileobj_mode)
+                         fileobj_closed, fileobj_mode, ignore_sigint)
 from pyfits.verify import _Verify, _ErrList
 
 
 @_with_extensions
-def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
+def fitsopen(name, mode='readonly', memmap=None, classExtensions={},
              **kwargs):
     """Factory function to open a FITS file and return an `HDUList` object.
 
@@ -35,12 +33,13 @@ def fitsopen(name, mode="copyonwrite", memmap=False, classExtensions={},
         File to be opened.
 
     mode : str
-        Open mode, 'copyonwrite' (default), 'readonly', 'update',
-        'append', or 'ostream'.
+        Open mode, 'readonly' (default), 'update', 'append', 'denywrite', or
+        'ostream'.
 
         If `name` is a file object that is already opened, `mode` must
         match the mode the file was opened with, copyonwrite (rb),
-        readonly (rb), update (rb+), append (ab+), ostream (w)).
+        readonly (rb), update (rb+), append (ab+), ostream (w),
+        denywrite (rb)).
 
     memmap : bool
         Is memory mapping to be used?
@@ -268,13 +267,10 @@ class HDUList(list, _Verify):
 
             # If we're trying to read only and no header units were found,
             # raise and exception
-            if mode == 'readonly' and len(hdulist) == 0:
+            if mode in ('readonly', 'denywrite') and len(hdulist) == 0:
                 raise IOError('Empty FITS file')
 
             # initialize/reset attributes to be used in "update/append" mode
-            # CardList needs its own _mod attribute since it has methods to change
-            # the content of header without being able to pass it to the header
-            # object
             hdulist._resize = False
             hdulist._truncate = False
 
@@ -311,7 +307,7 @@ class HDUList(list, _Verify):
             file       File object associated with the HDU
             filename   Name of associated file object
             filemode   Mode in which the file was opened (readonly, copyonwrite,
-                       update, append, ostream)
+                       update, append, denywrite, ostream)
             resized    Flag that when `True` indicates that the data has been
                        resized since the last read/write so the returned values
                        may not be valid.
@@ -533,6 +529,7 @@ class HDUList(list, _Verify):
                 continue
 
     @_with_extensions
+    @ignore_sigint
     def flush(self, output_verify='fix', verbose=False,
               classExtensions={}):
         """
@@ -555,22 +552,6 @@ class HDUList(list, _Verify):
             extension class will be constructed in place of the pyfits
             class.
         """
-
-        # Get the name of the current thread and determine if this is a single treaded application
-        curr_thread = threading.currentThread()
-        single_thread = (threading.activeCount() == 1) and \
-                        (curr_thread.getName() == 'MainThread')
-
-        # Define new signal interput handler
-        if single_thread:
-            keyboard_interrupt_sent = False
-            def new_sigint(*args):
-                warnings.warn('KeyboardInterrupt ignored until flush is '
-                              'complete!')
-                keyboard_interrupt_sent = True
-
-            # Install new handler
-            old_handler = signal.signal(signal.SIGINT, new_sigint)
 
         if self.__file.mode not in ('append', 'update', 'ostream'):
             warnings.warn("Flush for '%s' mode is not supported."
@@ -727,8 +708,21 @@ class HDUList(list, _Verify):
                                   hdu.name, extver
                     if hdu._data_loaded:
                         if hdu.data is not None:
-                            if isinstance(hdu.data, Memmap):
-                                hdu.data.sync()
+                            memmap_array = None
+                            # Seek through the array's bases for an memmap'd
+                            # array; we can't rely on the _File object to give
+                            # us this info since the user may have replaced the
+                            # previous mmap'd array
+                            base = hdu.data
+                            while (hasattr(base, 'base') and
+                                   base.base is not None):
+                                if isinstance(base.base, Memmap):
+                                    memmap_array = base.base
+                                    break
+                                base = base.base
+
+                            if memmap_array is not None:
+                                memmap_array.flush()
                             else:
                                 hdu._file.seek(hdu._datLoc)
                                 # TODO: Fix this once new HDU writing API is settled on
@@ -742,15 +736,6 @@ class HDUList(list, _Verify):
                 for hdu in self:
                     hdu.header._mod = False
                     hdu.header.ascard._mod = False
-
-        if single_thread:
-            if keyboard_interrupt_sent:
-                raise KeyboardInterrupt
-
-            if old_handler is not None:
-                signal.signal(signal.SIGINT, old_handler)
-            else:
-                signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     def update_extend(self):
         """
@@ -787,12 +772,6 @@ class HDUList(list, _Verify):
 
         clobber : bool
             When `True`, overwrite the output file if exists.
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of
-            those classes.  When present in the dictionary, the
-            extension class will be constructed in place of the pyfits
-            class.
 
         checksum : bool
             When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards

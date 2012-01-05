@@ -115,8 +115,8 @@ class _BaseHDU(object):
 
     @property
     def _data_loaded(self):
-        return 'data' in self.__dict__ and self.data is not None and \
-               self.data is not DELAYED
+        return ('data' in self.__dict__ and self.data is not None and
+                self.data is not DELAYED)
 
     @classmethod
     def register_hdu(cls, hducls):
@@ -254,6 +254,8 @@ class _BaseHDU(object):
 
         # Read the first header block.
         block = decode_ascii(fileobj.read(BLOCK_SIZE))
+        # Strip any zero-padding (see ticket #106)
+        block = block.strip('\0')
         if block == '':
             raise EOFError()
 
@@ -290,6 +292,8 @@ class _BaseHDU(object):
         # NOTE: Right now this assumes fileobj is a _File object
         # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
         # cards to header
+        # I'm thinking maybe this code belongs in the ImageBaseHDU and/or
+        # GroupsHDU classes...
         if self._data_loaded and self.data is not None and \
            self._standard and _is_pseudo_unsigned(self.data.dtype):
             if 'GCOUNT' in self._header:
@@ -339,8 +343,8 @@ class _BaseHDU(object):
 
         # If data is unsigned integer 16, 32 or 64, remove the
         # BSCALE/BZERO cards
-        if self._data_loaded and self.data is not None and \
-           self._standard and _is_pseudo_unsigned(self.data.dtype):
+        if (self._data_loaded and self.data is not None and
+            self._standard and _is_pseudo_unsigned(self.data.dtype)):
             del self._header['BSCALE']
             del self._header['BZERO']
 
