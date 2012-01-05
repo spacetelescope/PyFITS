@@ -320,7 +320,7 @@ class Header(__HEADERBASE):
             raise ValueError('Can not rename to CONTINUE')
 
         if newkey in Card._commentary_keys or oldkey in Card._commentary_keys:
-            if not (newkey in Card._commentary_keys and 
+            if not (newkey in Card._commentary_keys and
                     oldkey in Card._commentary_keys):
                 raise ValueError('Regular and commentary keys can not be '
                                  'renamed to each other.')

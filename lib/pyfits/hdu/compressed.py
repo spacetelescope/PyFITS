@@ -1,3 +1,4 @@
+import sys
 import warnings
 
 import numpy as np
@@ -916,11 +917,6 @@ class CompImageHDU(BinTableHDU):
                 nullDvals = np.array(0,dtype='int32')
         else:
             cn_zblank = 1  # null value supplied as a column
-
-            #if sys.byteorder == 'little':
-            #    nullDvals = self.compData.field('ZBLANK').byteswap()
-            #else:
-            #    nullDvals = self.compData.field('ZBLANK')
             nullDvals = self.compData.field('ZBLANK')
 
         # Set up an array holding the linear scale factor values
@@ -944,11 +940,6 @@ class CompImageHDU(BinTableHDU):
                 zScaleVals = np.array(1.0,dtype='float64')
         else:
             cn_zscale = 1 # scale value supplied as a column
-
-            #if sys.byteorder == 'little':
-            #    zScaleVals = self.compData.field('ZSCALE').byteswap()
-            #else:
-            #    zScaleVals = self.compData.field('ZSCALE')
             zScaleVals = self.compData.field('ZSCALE')
 
         # Set up an array holding the zero point offset values
@@ -972,11 +963,6 @@ class CompImageHDU(BinTableHDU):
                 zZeroVals = np.array(1.0,dtype='float64')
         else:
             cn_zzero = 1 # zero value supplied as a column
-
-            #if sys.byteorder == 'little':
-            #    zZeroVals = self.compData.field('ZZERO').byteswap()
-            #else:
-            #    zZeroVals = self.compData.field('ZZERO')
             zZeroVals = self.compData.field('ZZERO')
 
         # Is uncompressed data supplied in a column?

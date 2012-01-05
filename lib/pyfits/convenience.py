@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 from pyfits.file import PYTHON_MODES, _File
-from pyfits.hdu.base import _BaseHDU
+from pyfits.hdu.base import _BaseHDU, _ValidHDU
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU, _TableBaseHDU
@@ -715,7 +715,7 @@ def _stat_filename_or_fileobj(filename):
 
 
 # TODO: Replace this with fileobj_mode
-def _get_file_mode(filename, default='readonly'):
+def _get_file_mode(filename, default='copyonwrite'):
     """
     Allow file object to already be opened in any of the valid modes and
     and leave the file in the same state (opened or closed) as when
