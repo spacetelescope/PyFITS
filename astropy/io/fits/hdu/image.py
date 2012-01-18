@@ -25,13 +25,22 @@ class _ImageBaseHDU(_ValidHDU):
     """
 
     # mappings between FITS and numpy typecodes
-    # NumCode = {8:'int8', 16:'int16', 32:'int32', 64:'int64', -32:'float32', -64:'float64'}
-    # ImgCode = {'<i2':8, '<i4':16, '<i8':32, '<i16':64, '<f8':-32, '<f16':-64)
-    NumCode = {8:'uint8', 16:'int16', 32:'int32', 64:'int64', -32:'float32',
-               -64:'float64'}
-    ImgCode = {'uint8':8, 'int16':16, 'uint16':16, 'int32':32,
-               'uint32':32, 'int64':64, 'uint64':64,
-               'float32':-32, 'float64':-64}
+    # TODO: Maybe make these module-level constants instead...
+    NumCode = {8: 'uint8', 16: 'int16', 32: 'int32', 64: 'int64',
+               -32: 'float32', -64: 'float64'}
+    ImgCode = {'uint8': 8, 'int16': 16, 'uint16': 16, 'int32': 32,
+               'uint32': 32, 'int64': 64, 'uint64': 64, 'float32': -32,
+               'float64': -64}
+
+    standard_keyword_comments = {
+        'SIMPLE': 'conforms to FITS standard',
+        'XTENSION': 'Image extension',
+        'BITPIX': 'array data type',
+        'NAXIS': 'number of array dimensions',
+        'GROUPS': 'has groups',
+        'PCOUNT': 'number of parameters',
+        'GCOUNT': 'number of groups'
+    }
 
     def __init__(self, data=None, header=None, do_not_scale_image_data=False,
                  uint=False, **kwargs):
@@ -41,16 +50,20 @@ class _ImageBaseHDU(_ValidHDU):
 
         if header is not None:
             if not isinstance(header, Header):
+                # TODO: Instead maybe try initializing a new Header object from
+                # whatever is passed in as the header--there are various types
+                # of objects that could work for this...
                 raise ValueError('header must be a Header object')
 
-
         if data is DELAYED:
-
-            # this should never happen
+            # Presumably if data is DELAYED then this HDU is coming from an
+            # open file, and was not created in memory
             if header is None:
+                # this should never happen
                 raise ValueError('No header to setup HDU.')
 
-            # if the file is read the first time, no need to copy, and keep it unchanged
+            # if the file is read the first time, no need to copy, and keep it
+            # unchanged
             else:
                 self._header = header
         else:
@@ -58,21 +71,24 @@ class _ImageBaseHDU(_ValidHDU):
             # PrimaryHDU and GroupsHDU subclasses
             # construct a list of cards of minimal header
             if isinstance(self, ExtensionHDU):
-                c0 = ('XTENSION', 'IMAGE', 'Image extension')
+                c0 = ('XTENSION', 'IMAGE',
+                      self.standard_keyword_comments['XTENSION'])
             else:
-                c0 = ('SIMPLE', True, 'conforms to FITS standard')
-
+                c0 = ('SIMPLE', True, self.standard_keyword_comments['SIMPLE'])
             cards = [
                 c0,
-                ('BITPIX',    8, 'array data type'),
-                ('NAXIS',     0, 'number of array dimensions')]
+                ('BITPIX',    8, self.standard_keyword_comments['BITPIX']),
+                ('NAXIS',     0, self.standard_keyword_comments['NAXIS'])]
 
             if isinstance(self, GroupsHDU):
-                cards.append(('GROUPS', True, 'has groups'))
+                cards.append(('GROUPS', True,
+                             self.standard_keyword_comments['GROUPS']))
 
             if isinstance(self, (ExtensionHDU, GroupsHDU)):
-                cards.append(('PCOUNT',    0, 'number of parameters'))
-                cards.append(('GCOUNT',    1, 'number of groups'))
+                cards.append(('PCOUNT',    0,
+                              self.standard_keyword_comments['PCOUNT']))
+                cards.append(('GCOUNT',    1,
+                              self.standard_keyword_comments['GCOUNT']))
 
             if header is not None:
                 hcopy = header.copy(strip=True)
@@ -93,13 +109,24 @@ class _ImageBaseHDU(_ValidHDU):
             if not (self._bzero == 0 and self._bscale == 1):
                 self._resize = True
 
-        self._bitpix = self._header['BITPIX']
+        # Save off other important values from the header needed to interpret
+        # the image data
+        self._axes = [self._header.get('NAXIS' + str(axis + 1), 0)
+                      for axis in xrange(self._header.get('NAXIS', 0))]
+        self._bitpix = self._header.get('BITPIX', 8)
+        self._gcount = self._header.get('GCOUNT', 1)
+        self._pcount = self._header.get('PCOUNT', 0)
+        self._blank = self._header.get('BLANK')
 
         # Set the name attribute if it was provided (if this is an ImageHDU
         # this will result in setting the EXTNAME keyword of the header as
         # well)
         if 'name' in kwargs and kwargs['name']:
             self.name = kwargs['name']
+
+        # Set to True if the data or header is replaced, indicating that
+        # update_header should be called
+        self._modified = False
 
         if data is DELAYED:
             return
@@ -120,20 +147,39 @@ class _ImageBaseHDU(_ValidHDU):
     def section(self):
         return Section(self)
 
+
+    @property
+    def shape(self):
+        """
+        Shape of the image array--should be equivalent to ``self.data.shape``.
+        """
+
+        # Determine from the values read from the header
+        return tuple(reversed(self._axes))
+
+    @property
+    def header(self):
+        return self._header
+
+    @header.setter
+    def header(self, header):
+        self._header = header
+        self._modified = True
+        self.update_header()
+
     @lazyproperty
     def data(self):
-        if self._header['NAXIS'] < 1:
+        if len(self._axes) < 1:
             return
 
-        dims = self._dimShape()
+        # Numpy array dimensions are in row/column order
         code = _ImageBaseHDU.NumCode[self._bitpix]
 
         raw_data = self._file.readarray(offset=self._datLoc, dtype=code,
-                                        shape=dims)
+                                        shape=self.shape)
         raw_data.dtype = raw_data.dtype.newbyteorder('>')
 
-        if (self._bzero == 0 and self._bscale == 1 and
-            'BLANK' not in self._header):
+        if (self._bzero == 0 and self._bscale == 1 and self._blank is None):
             # No further conversion of the data is necessary
             return raw_data
 
@@ -142,13 +188,11 @@ class _ImageBaseHDU(_ValidHDU):
             data = self._convert_pseudo_unsigned(raw_data)
 
         if data is None:
-            # In these cases, we end up with
-            # floating-point arrays and have to apply
-            # bscale and bzero. We may have to handle
-            # BLANK and convert to NaN in the resulting
-            # floating-point arrays.
-            if 'BLANK' in self._header:
-                blanks = raw_data.flat == self._header['BLANK']
+            # In these cases, we end up with floating-point arrays and have to
+            # apply bscale and bzero. We may have to handle BLANK and convert
+            # to NaN in the resulting floating-point arrays.
+            if self._blank is not None:
+                blanks = raw_data.flat == self._blank
                 # The size of blanks in bytes is the number of elements in
                 # raw_data.flat.  However, if we use np.where instead we will
                 # only use 8 bytes for each index where the condition is true.
@@ -174,52 +218,92 @@ class _ImageBaseHDU(_ValidHDU):
             if self._bzero != 0:
                 data += self._bzero
 
-            if 'BLANK' in self._header:
+            if self._blank is not None:
                 data.flat[blanks] = np.nan
 
         self._update_header_scale_info(data.dtype)
         self._bitpix = self._header['BITPIX']
+        self._bzero = 0
+        self._bscale = 1
 
         return data
+
+    @data.setter
+    def data(self, data):
+        self.__dict__['data'] = data
+        self._modified = True
+        if self.data is not None and not isinstance(data, np.ndarray):
+            # Try to coerce the data into a numpy array--this will work, on
+            # some level, for most objects
+            try:
+                data = np.array(data)
+            except:
+                raise TypeError('data object %r could not be coerced into an '
+                                'ndarray' % data)
+
+        if isinstance(data, np.ndarray):
+            self._bitpix = _ImageBaseHDU.ImgCode[data.dtype.name]
+            self._axes = list(data.shape)
+            self._axes.reverse()
+        elif self.data is None:
+            self._axes = []
+        else:
+            raise ValueError('not a valid data array')
+
+        self.update_header()
 
     def update_header(self):
         """
         Update the header keywords to agree with the data.
         """
 
+        if (not self._modified and not self._header._modified and
+            (self._data_loaded and self.shape == self.data.shape)):
+            # Not likely that anything needs updating
+            return
+
         old_naxis = self._header.get('NAXIS', 0)
 
-        if isinstance(self.data, np.ndarray):
-            self._bitpix = _ImageBaseHDU.ImgCode[self.data.dtype.name]
-            self._header['BITPIX'] = self._bitpix
-            axes = list(self.data.shape)
-            axes.reverse()
-
-        elif self.data is None:
-            axes = []
+        if 'BITPIX' not in self._header:
+            bitpix_comment = self.standard_keyword_comments['BITPIX']
         else:
-            raise ValueError('incorrect array type')
+            bitpix_comment = self._header.comments['BITPIX']
+        # Update the BITPIX keyword and ensure it's in the correct
+        # location in the header
+        self._header.set('BITPIX', self._bitpix, bitpix_comment, after=0)
 
-        self._header['NAXIS'] = len(axes)
+        # Update the NAXIS keyword and ensure it's in the correct location in
+        # the header
+        if 'NAXIS' in self._header:
+            naxis_comment = self._header.comments['NAXIS']
+        else:
+            naxis_comment = self.standard_keyword_comments['NAXIS']
+        self._header.set('NAXIS', len(self._axes), naxis_comment,
+                         after='BITPIX')
 
+        # TODO: This routine is repeated in several different classes--it
+        # should probably be made available as a methond on all standard HDU
+        # types
         # add NAXISi if it does not exist
-        for idx, axis in enumerate(axes):
+        for idx, axis in enumerate(self._axes):
             naxisn = 'NAXIS' + str(idx + 1)
             if naxisn in self._header:
                 self._header[naxisn] = axis
             else:
                 if (idx == 0):
-                    after = 'naxis'
-                else :
-                    after = 'naxis' + str(idx)
+                    after = 'NAXIS'
+                else:
+                    after = 'NAXIS' + str(idx)
                 self._header.set(naxisn, axis, after=after)
 
         # delete extra NAXISi's
-        for idx in range(len(axes)+1, old_naxis+1):
+        for idx in range(len(self._axes) + 1, old_naxis + 1):
             try:
                 del self._header['NAXIS' + str(idx)]
             except KeyError:
                 pass
+
+        self._modified = False
 
     def _update_header_scale_info(self, dtype=None):
         if (not self._do_not_scale_image_data and
@@ -275,7 +359,7 @@ class _ImageBaseHDU(_ValidHDU):
 
         # Determine how to scale the data
         # bscale and bzero takes priority
-        if (bscale != 1 or bzero !=0):
+        if (bscale != 1 or bzero != 0):
             _scale = bscale
             _zero = bzero
         else:
@@ -293,16 +377,18 @@ class _ImageBaseHDU(_ValidHDU):
 
                     if _type == np.uint8:  # uint8 case
                         _zero = min
-                        _scale = (max - min) / (2.**8 - 1)
+                        _scale = (max - min) / (2.0 ** 8 - 1)
                     else:
-                        _zero = (max + min) / 2.
+                        _zero = (max + min) / 2.0
 
                         # throw away -2^N
-                        _scale = (max - min) / (2.**(8*_type().itemsize) - 2)
+                        nbytes = 8 * _type().itemsize
+                        _scale = (max - min) / (2.0 ** nbytes - 2)
 
         # Do the scaling
         if _zero != 0:
-            self.data += -_zero # 0.9.6.3 to avoid out of range error for BZERO = +32768
+            # 0.9.6.3 to avoid out of range error for BZERO = +32768
+            self.data += -_zero
             self._header['BZERO'] = _zero
         else:
             try:
@@ -320,7 +406,7 @@ class _ImageBaseHDU(_ValidHDU):
                 pass
 
         if self.data.dtype.type != _type:
-            self.data = np.array(np.around(self.data), dtype=_type) #0.7.7.1
+            self.data = np.array(np.around(self.data), dtype=_type)
         #
         # Update the BITPIX Card to match the data
         #
@@ -328,17 +414,18 @@ class _ImageBaseHDU(_ValidHDU):
         self._header['BITPIX'] = self._bitpix
 
     def _verify(self, option='warn'):
-        if not self._data_loaded:
-            # This can affect the presence and order of certain header
-            # keywords, so run it before running the verification
-            self._update_header_scale_info()
+        # update_header can fix some things that would otherwise cause
+        # verification to fail, so do that now...
+        self.update_header()
 
         return super(_ImageBaseHDU, self)._verify(option)
 
     def _writeheader(self, fileobj, checksum=False):
-        if self._data_loaded:
-            self.update_header()
-        else:
+        self.update_header()
+        if not self._data_loaded:
+            # Normally this is done when the data is loaded, but since the data
+            # is not loaded yet we need to update the header appropriately
+            # before writing it
             self._update_header_scale_info()
         return super(_ImageBaseHDU, self)._writeheader(fileobj, checksum)
 
@@ -406,7 +493,6 @@ class _ImageBaseHDU(_ValidHDU):
         elif bitpix > 0:  # scale integers to Float32
             return np.dtype('float32')
 
-
     def _convert_pseudo_unsigned(self, data):
         """
         Handle "pseudo-unsigned" integers, if the user requested it.  Returns
@@ -430,62 +516,29 @@ class _ImageBaseHDU(_ValidHDU):
             data -= np.uint64(1 << (bits - 1))
             return data
 
-    def _dimShape(self):
-        """
-        Returns a tuple of image dimensions, reverse the order of ``NAXIS``.
-        """
-        naxis = self._header['NAXIS']
-        axes = naxis*[0]
-        for idx in range(naxis):
-            axes[idx] = self._header['NAXIS' + str(idx + 1)]
-        axes.reverse()
-#        print "axes in _dimShape line 2081:",axes
-        return tuple(axes)
-
     # TODO: Move the GroupsHDU-specific summary code to GroupsHDU itself
     def _summary(self):
         """
         Summarize the HDU: name, dimensions, and formats.
         """
-        from pyfits.hdu.groups import GroupsHDU
 
-        class_name  = self.__class__.__name__
+        class_name = self.__class__.__name__
 
         # if data is touched, use data info.
         if self._data_loaded:
             if self.data is None:
-                _shape, _format = (), ''
+                format = ''
             else:
-
-                # the shape will be in the order of NAXIS's which is the
-                # reverse of the numarray shape
-                if isinstance(self, GroupsHDU):
-                    _shape = list(self.data.data.shape)[1:]
-                    _format = \
-                       self.data.dtype.fields[self.data.dtype.names[0]][0].name
-                else:
-                    _shape = list(self.data.shape)
-                    _format = self.data.dtype.name
-                _shape.reverse()
-                _shape = tuple(_shape)
-                _format = _format[_format.rfind('.')+1:]
-
-        # if data is not touched yet, use header info.
+                format = self.data.dtype.name
+                format = format[format.rfind('.')+1:]
         else:
-            _shape = ()
-            for idx in range(self._header['NAXIS']):
-                if isinstance(self, GroupsHDU) and idx == 0:
-                    continue
-                _shape += (self._header['NAXIS' + str(idx + 1)],)
-            _format = self.NumCode[self._bitpix]
+            # if data is not touched yet, use header info.
+            format = self.NumCode[self._bitpix]
 
-        if isinstance(self, GroupsHDU):
-            _gcount = '   %d Groups  %d Parameters' \
-                      % (self._header['GCOUNT'], self._header['PCOUNT'])
-        else:
-            _gcount = ''
-        return (self.name, class_name, len(self._header), _shape,
-                _format, _gcount)
+        # Display shape in FITS-order
+        shape = tuple(reversed(self.shape))
+
+        return (self.name, class_name, len(self._header), shape, format, '')
 
     def _calculate_datasum(self, blocking):
         """
@@ -526,7 +579,7 @@ class _ImageBaseHDU(_ValidHDU):
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
             # all.  This can also be handled in a gereric manner.
-            return super(_ImageBaseHDU,self)._calculate_datasum(
+            return super(_ImageBaseHDU, self)._calculate_datasum(
                     blocking=blocking)
 
 
@@ -544,11 +597,11 @@ class Section(object):
         dims = []
         if not isinstance(key, tuple):
             key = (key,)
-        naxis = self.hdu.header['NAXIS']
+        naxis = len(self.hdu.shape)
         if naxis < len(key):
             raise IndexError('too many indices')
         elif naxis > len(key):
-            key = key + (slice(None),) * (naxis-len(key))
+            key = key + (slice(None),) * (naxis - len(key))
 
         offset = 0
 
@@ -556,9 +609,9 @@ class Section(object):
         # scope leak defect
         idx = 0
         for idx in range(naxis):
-            _naxis = self.hdu.header['NAXIS'+ str(naxis - idx)]
-            indx = _iswholeline(key[idx], _naxis)
-            offset = offset * _naxis + indx.offset
+            axis = self.hdu.shape[idx]
+            indx = _iswholeline(key[idx], axis)
+            offset = offset * axis + indx.offset
 
             # all elements after the first WholeLine must be WholeLine or
             # OnePointAxis
@@ -571,15 +624,15 @@ class Section(object):
         contiguousSubsection = True
 
         for jdx in range(idx + 1, naxis):
-            _naxis = self.hdu.header['NAXIS' + str(naxis - jdx)]
-            indx = _iswholeline(key[jdx], _naxis)
+            axis = self.hdu.shape[jdx]
+            indx = _iswholeline(key[jdx], axis)
             dims.append(indx.npts)
             if not isinstance(indx, _WholeLine):
                 contiguousSubsection = False
 
             # the offset needs to multiply the length of all remaining axes
             else:
-                offset *= _naxis
+                offset *= axis
 
         if contiguousSubsection:
             if not dims:
@@ -587,9 +640,14 @@ class Section(object):
 
             dims = tuple(dims)
 
-            _bitpix = self.hdu._bitpix
-            code = _ImageBaseHDU.NumCode[_bitpix]
-            offset = self.hdu._datLoc + (offset * abs(_bitpix) // 8)
+            bitpix = self.hdu._bitpix
+            offset = self.hdu._datLoc + (offset * abs(bitpix) // 8)
+            # If the data is already loaded use whatever dtype it was scaled
+            # to, else figure it out from the bitpix...
+            if self.hdu._data_loaded:
+                code = self.hdu.data.dtype.name
+            else:
+                code = _ImageBaseHDU.NumCode[bitpix]
             raw_data = self.hdu._file.readarray(offset=offset, dtype=code,
                                                 shape=dims)
             raw_data.dtype = raw_data.dtype.newbyteorder('>')
@@ -597,15 +655,16 @@ class Section(object):
         else:
             data = self._getdata(key)
 
-        converted_data = self.hdu._convert_pseudo_unsigned(data)
-        if converted_data is not None:
-            data = converted_data
+        if not (self.hdu._bzero == 0 and self.hdu._bscale == 1):
+            converted_data = self.hdu._convert_pseudo_unsigned(data)
+            if converted_data is not None:
+                data = converted_data
 
         return data
 
     def _getdata(self, keys):
         out = []
-        naxis = self.hdu.header['NAXIS']
+        naxis = len(self.hdu.shape)
 
         # Determine the number of slices in the set of input keys.
         # If there is only one slice then the result is a one dimensional
@@ -619,8 +678,8 @@ class Section(object):
             if isinstance(key, slice):
                 # OK, this element is a slice so see if we can get the data for
                 # each element of the slice.
-                _naxis = self.hdu.header['NAXIS' + str(naxis - idx)]
-                ns = _normalize_slice(key, _naxis)
+                axis = self.hdu.shape[idx]
+                ns = _normalize_slice(key, axis)
 
                 for k in range(ns.start, ns.stop):
                     key1 = list(keys)
@@ -645,7 +704,7 @@ class Section(object):
                         if k == ns.start:
                             out = self[key1]
                         else:
-                            out = np.append(out,self[key1])
+                            out = np.append(out, self[key1])
 
                 # We have the data so break out of the loop.
                 break
@@ -705,6 +764,17 @@ class PrimaryHDU(_ImageBaseHDU):
         return (card.keyword == 'SIMPLE' and
                 ('GROUPS' not in header or header['GROUPS'] != True) and
                 card.value == True)
+
+    def update_header(self):
+        super(PrimaryHDU, self).update_header()
+
+        # Update the position of the EXTEND keyword if it already exists
+        if 'EXTEND' in self._header:
+            if len(self._axes):
+                after = 'NAXIS' + str(len(self._axes))
+            else:
+                after = 'NAXIS'
+            self._header.set('EXTEND', after=after)
 
     def _verify(self, option='warn'):
         errs = super(PrimaryHDU, self)._verify(option=option)
@@ -782,8 +852,9 @@ class ImageHDU(_ImageBaseHDU, ExtensionHDU):
                        0, option, errs)
         return errs
 
+
 def _iswholeline(indx, naxis):
-    if isinstance(indx, (int, long,np.integer)):
+    if _is_int(indx):
         if indx >= 0 and indx < naxis:
             if naxis > 1:
                 return _SinglePoint(1, indx)
@@ -797,15 +868,15 @@ def _iswholeline(indx, naxis):
             return _WholeLine(naxis, 0)
         else:
             if indx.step == 1:
-                return _LineSlice(indx.stop-indx.start, indx.start)
+                return _LineSlice(indx.stop - indx.start, indx.start)
             else:
-                return _SteppedSlice((indx.stop-indx.start) // indx.step,
+                return _SteppedSlice((indx.stop - indx.start) // indx.step,
                                      indx.start)
     else:
         raise IndexError('Illegal index %s' % indx)
 
 
-class _KeyType:
+class _KeyType(object):
     def __init__(self, npts, offset):
         self.npts = npts
         self.offset = offset
@@ -829,7 +900,3 @@ class _LineSlice(_KeyType):
 
 class _SteppedSlice(_KeyType):
     pass
-
-
-
-

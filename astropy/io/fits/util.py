@@ -2,9 +2,11 @@ import __builtin__
 import functools
 import itertools
 import os
+import signal
 import sys
 import tempfile
 import textwrap
+import threading
 import warnings
 
 try:
@@ -23,203 +25,7 @@ except ImportError:
 import numpy as np
 
 
-__all__ = ['Extendable', 'register_extension', 'register_extensions',
-           'unregister_extensions']
-
-
-BLOCK_SIZE = 2880 # the FITS block size
-
-
-# TODO: I'm somewhat of the opinion that this should go in pyfits.core, but for
-# now that would create too much complication with imports (as many modules
-# need to use this).  Eventually all the intra-package imports will be removed
-# from pyfits.core, simplifying matters.  But for now they remain for
-# backwards-compatibility.
-class Extendable(type):
-    _extensions = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls in cls._extensions:
-            cls = cls._extensions[cls]
-        self = cls.__new__(cls, *args, **kwargs)
-        self.__init__(*args, **kwargs)
-        return self
-
-# TODO: Fix this in Python3--commented out in the meantime
-#    def __getattribute__(cls, attr):
-#        orig_cls = cls
-#        if attr != '_extensions' and cls in cls._extensions:
-#            cls = cls._extensions[cls]
-#        return super(Extendable, cls).__getattribute__(attr)
-
-    @classmethod
-    def register_extension(cls, extension, extends=None, silent=False):
-        """
-        Register an extension class.  This class will be used in all future
-        instances of the class it extends.
-
-        By default, the class it extends
-        will automatically be its immediate superclass.  In
-        multiple-inheritence cases, the left-most superclass is used.  In other
-        words, the first class in the extension's MRO (after itself).
-
-        Parameters
-        ----------
-        extension : class
-            The class object of a superclass of an Extendable class (that is,
-            any class with the `Extendable` metaclass
-
-        extends : class, optional
-            Override the default behavior of extending the immediate
-            superclass.  Either a single class to extend may be specified, or
-            an iterable of classes.  The classes to extend must still have the
-            `Extendable` metaclass.
-
-        silent : bool, optional
-            If `True`, does not output any warnings
-        """
-
-        # If the extension class itself is not Extendable then we know it's no
-        # good, since it has to be a sublcass of an Extendable.
-        if not isinstance(extension, Extendable):
-            raise TypeError("Class '%s' is not a subclass of an Extendable "
-                            "class." % extension.__name__)
-
-        if extends:
-            try:
-                extends = iter(extends)
-            except TypeError:
-                extends = [extends]
-        else:
-            extends = [extension.mro()[1]]
-
-        # Don't allow the extension to be registered if *any* of the classes it
-        # extends are not Extendable
-        for c in extends:
-            if not isinstance(c, Extendable):
-                raise TypeError("Class '%s' is not an Extendable class."
-                                % c.__name__)
-
-        for c in extends:
-            if c in cls._extensions:
-                if not silent:
-                    warnings.warn(
-                        "Extension '%s' for '%s' being replaced with '%s'."
-                        % (cls._extensions[c].__name__, c.__name__,
-                           extension.__name__))
-                # This class has already been extended by a different class, so
-                # first we need to undo that
-                cls._unextend_subclasses(c, extension)
-            # It's imperative that _extend_subclasses is called first;
-            # otherwise the extension will override c.__subclasses__!
-            cls._extend_subclasses(c, extension)
-            cls._extensions[c] = extension
-
-    @classmethod
-    def register_extensions(cls, extensions, silent=False):
-        """
-        Register multiple extensions at once from a dict mapping extensions to
-        the classes they extend.
-        """
-
-        for k, v in extensions.iteritems():
-            if not isinstance(k, Extendable):
-                raise TypeError("Extension class '%s' is not a subclass of "
-                                "an Extendable class." % k.__name__)
-            if not isinstance(v, Extendable):
-                raise TypeError("Class '%s' is not an Extendable class.")
-
-        for k, v in extensions.iteritems():
-            if not silent and v in cls._extensions:
-                warnings.showwarning(
-                    "Extension '%s' for '%s' being replaced with '%s'."
-                    % (cls._extensions[v].__name__, v.__name__, k.__name__))
-            cls._extend_subclasses(v, k)
-            cls._extensions[v] = k
-
-    @classmethod
-    def unregister_extensions(cls, extensions):
-        """
-        Remove one or more extension classes from the extension registry.
-
-        If the class is not in the registry this is silently ignored.
-        """
-
-        try:
-            extensions = set(extensions)
-        except TypeError:
-            extensions = set([extensions])
-
-        for k, v in cls._extensions.items():
-            if v in extensions:
-                del cls._extensions[k]
-                cls._unextend_subclasses(k, v)
-
-    @classmethod
-    def _extend_subclasses(cls, extendable, extension):
-        for s in extendable.__subclasses__():
-            if s is extension:
-                # Don't want the extension to have itself as a base
-                continue
-            bases = list(s.__bases__)
-            idx = bases.index(extendable)
-            bases = bases[:idx] + [extension] + bases[idx + 1:]
-            s.__bases__ = tuple(bases)
-
-    @classmethod
-    def _unextend_subclasses(cls, extendable, extension):
-        # Since the subclasses' bases were changed, they will now be listed as
-        # subclasses of the extension
-        for s in extension.__subclasses__():
-            if s is extension:
-                continue
-            bases = list(s.__bases__)
-            idx = bases.index(extension)
-            bases = bases[:idx] + [extendable] + bases[idx + 1:]
-            s.__bases__ = tuple(bases)
-
-# Some shortcuts
-register_extension = Extendable.register_extension
-register_extensions = Extendable.register_extensions
-# unregister_extension is currently the same as just unregister_extensions (it
-# won't balk if you still try to pass more than one)--it's just provided for
-# symmetry's sake
-unregister_extension = Extendable.unregister_extensions
-unregister_extensions = Extendable.unregister_extensions
-
-
-def _with_extensions(func):
-    """
-    This decorator exists mainly to support use of the new extension system in
-    functions that still have a classExtensions keyword argument (which should
-    be deprecated).
-
-    This registers the extensions passed in classExtensions and unregisters
-    them when the function exits.  It should be clear that any objects that
-    persist after the function exits will still use the extension classes they
-    were created from.
-    """
-
-    @functools.wraps(func)
-    def _with_extensions_wrapper(*args, **kwargs):
-        extension_classes = []
-        if 'classExtensions' in kwargs:
-            extensions = kwargs['classExtensions']
-            warnings.warn('The classExtensions argument is deprecated.  '
-                          'Instead call pyfits.register_extensions(%s) once '
-                          'before any code that uses those extensions.'
-                          % repr(extensions), DeprecationWarning)
-            if extensions:
-                register_extensions(extensions)
-                extension_classes = extensions.values()
-            del kwargs['classExtensions']
-        try:
-            return func(*args, **kwargs)
-        finally:
-            if extension_classes:
-                unregister_extensions(extension_classes)
-
-    return _with_extensions_wrapper
+BLOCK_SIZE = 2880  # the FITS block size
 
 
 def itersubclasses(cls, _seen=None):
@@ -252,10 +58,11 @@ def itersubclasses(cls, _seen=None):
     if not isinstance(cls, type):
         raise TypeError('itersubclasses must be called with '
                         'new-style classes, not %.100r' % cls)
-    if _seen is None: _seen = set()
+    if _seen is None:
+        _seen = set()
     try:
         subs = cls.__subclasses__()
-    except TypeError: # fails only when cls is type
+    except TypeError:  # fails only when cls is type
         subs = cls.__subclasses__(cls)
     for sub in subs:
         if sub not in _seen:
@@ -405,7 +212,6 @@ def deprecated(since, message='', name='', alternative='', pending=False):
         message = ((message % {'func': name, 'alternative': alternative}) +
                    altmessage)
 
-
         @functools.wraps(func)
         def deprecated_func(*args, **kwargs):
             if pending:
@@ -444,6 +250,51 @@ def deprecated(since, message='', name='', alternative='', pending=False):
     return deprecate
 
 
+def ignore_sigint(func):
+    """
+    This decorator registers a custom SIGINT handler to catch and ignore SIGINT
+    until the wrapped function is completed.
+    """
+
+    @functools.wraps(func)
+    def wrapped(*args, **kwargs):
+        # Get the name of the current thread and determine if this is a single
+        # treaded application
+        curr_thread = threading.currentThread()
+        single_thread = (threading.activeCount() == 1 and
+                         curr_thread.getName() == 'MainThread')
+
+        class SigintHandler(object):
+            def __init__(self):
+                self.sigint_received = False
+
+            def __call__(self, signum, frame):
+                warnings.warn('KeyboardInterrupt ignored until %s is '
+                              'complete!' % func.__name__)
+                self.sigint_received = True
+
+        sigint_handler = SigintHandler()
+
+        # Define new signal interput handler
+        if single_thread:
+            # Install new handler
+            old_handler = signal.signal(signal.SIGINT, sigint_handler)
+
+        try:
+            func(*args, **kwargs)
+        finally:
+            if single_thread:
+                if old_handler is not None:
+                    signal.signal(signal.SIGINT, old_handler)
+                else:
+                    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+                if sigint_handler.sigint_received:
+                    raise KeyboardInterrupt
+
+    return wrapped
+
+
 def pairwise(iterable):
     """Return the items of an iterable paired with its next item.
 
@@ -475,6 +326,7 @@ def isiterable(obj):
         return True
     except TypeError:
         return False
+
 
 def encode_ascii(s):
     """
@@ -633,7 +485,6 @@ def translate(s, table, deletechars):
         for c in deletechars:
             table[ord(c)] = None
         return s.translate(table)
-
 
 
 def _array_from_file(infile, dtype, count, sep):
@@ -797,7 +648,7 @@ def _words_group(input, strlen):
     for idx in range(nmax):
         try:
             loc = np.nonzero(blank_loc >= strlen + offset)[0][0]
-            offset = blank_loc[loc-1] + 1
+            offset = blank_loc[loc - 1] + 1
             if loc == 0:
                 offset = -1
         except:

@@ -1,8 +1,6 @@
 import gzip
 import os
-import signal
 import sys
-import threading
 import warnings
 
 import numpy as np
@@ -18,15 +16,13 @@ from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
-from pyfits.util import (Extendable, _is_int, _tmp_name, _with_extensions,
-                         _pad_length, BLOCK_SIZE, isfile, fileobj_name,
-                         fileobj_closed, fileobj_mode)
+from pyfits.util import (_is_int, _tmp_name, _pad_length, BLOCK_SIZE, isfile,
+                         fileobj_name, fileobj_closed, fileobj_mode,
+                         ignore_sigint)
 from pyfits.verify import _Verify, _ErrList
 
 
-@_with_extensions
-def fitsopen(name, mode='readonly', memmap=None, classExtensions={},
-             **kwargs):
+def fitsopen(name, mode='readonly', memmap=None, **kwargs):
     """Factory function to open a FITS file and return an `HDUList` object.
 
     Parameters
@@ -45,11 +41,6 @@ def fitsopen(name, mode='readonly', memmap=None, classExtensions={},
 
     memmap : bool
         Is memory mapping to be used?
-
-    classExtensions : dict (''Deprecated'')
-        A dictionary that maps pyfits classes to extensions of those
-        classes.  When present in the dictionary, the extension class
-        will be constructed in place of the pyfits class.
 
     kwargs : dict
         optional keyword arguments, possible values are:
@@ -114,8 +105,6 @@ class HDUList(list, _Verify):
     file is opened, a `HDUList` object is returned.
     """
 
-    __metaclass__ = Extendable
-
     def __init__(self, hdus=[], file=None):
         """
         Construct a `HDUList` object.
@@ -150,8 +139,7 @@ class HDUList(list, _Verify):
         for idx in range(len(self)):
             yield self[idx]
 
-    @_with_extensions
-    def __getitem__(self, key, classExtensions={}):
+    def __getitem__(self, key):
         """
         Get an HDU from the `HDUList`, indexed by number or name.
         """
@@ -243,8 +231,8 @@ class HDUList(list, _Verify):
                 compressed.COMPRESSION_ENABLED = False
 
             if mode == 'ostream':
-                # Output stream--not interested in reading/parsing the HDUs--just
-                # writing to the output file
+                # Output stream--not interested in reading/parsing the
+                # HDUs--just writing to the output file
                 return hdulist
 
             # read all HDUs
@@ -307,20 +295,20 @@ class HDUList(list, _Verify):
 
             Dictionary contents:
 
-            ========== =========================================================
+            ========== ========================================================
             Key        Value
-            ========== =========================================================
+            ========== ========================================================
             file       File object associated with the HDU
             filename   Name of associated file object
-            filemode   Mode in which the file was opened (readonly, copyonwrite,
-                       update, append, denywrite, ostream)
+            filemode   Mode in which the file was opened (readonly,
+                       copyonwrite, update, append, denywrite, ostream)
             resized    Flag that when `True` indicates that the data has been
                        resized since the last read/write so the returned values
                        may not be valid.
             hdrLoc     Starting byte location of header in file
             datLoc     Starting byte location of data block in file
             datSpan    Data size including padding
-            ========== =========================================================
+            ========== ========================================================
 
         """
 
@@ -335,12 +323,12 @@ class HDUList(list, _Verify):
                 f = None
 
                 for hdu in self:
-                   info = hdu.fileinfo()
+                    info = hdu.fileinfo()
 
-                   if info:
-                      f = info['file']
-                      fm = info['filemode']
-                      break
+                    if info:
+                        f = info['file']
+                        fm = info['filemode']
+                        break
 
                 output = {'file': f, 'filemode': fm, 'hdrLoc': None,
                           'datLoc': None, 'datSpan': None}
@@ -352,8 +340,7 @@ class HDUList(list, _Verify):
 
         return output
 
-    @_with_extensions
-    def insert(self, index, hdu, classExtensions={}):
+    def insert(self, index, hdu):
         """
         Insert an HDU into the `HDUList` at the given `index`.
 
@@ -364,11 +351,6 @@ class HDUList(list, _Verify):
 
         hdu : _BaseHDU instance
             The HDU object to insert
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of those
-            classes.  When present in the dictionary, the extension class
-            will be constructed in place of the pyfits class.
         """
 
         if not isinstance(hdu, _BaseHDU):
@@ -381,12 +363,12 @@ class HDUList(list, _Verify):
                 # We are inserting a new Primary HDU so we need to
                 # make the current Primary HDU into an extension HDU.
                 if isinstance(self[0], GroupsHDU):
-                   raise ValueError(
-                         "The current Primary HDU is a GroupsHDU.  "
-                         "It can't be made into an extension HDU, "
-                         "so you can't insert another HDU in front of it.")
+                    raise ValueError(
+                        "The current Primary HDU is a GroupsHDU.  "
+                        "It can't be made into an extension HDU, "
+                        "so another HDU cannot be inserted before it.")
 
-                hdu1= ImageHDU(self[0].data, self[0].header)
+                hdu1 = ImageHDU(self[0].data, self[0].header)
 
                 # Insert it into position 1, then delete HDU at position 0.
                 super(HDUList, self).insert(1, hdu1)
@@ -408,8 +390,8 @@ class HDUList(list, _Verify):
                     index = 1
         else:
             if isinstance(hdu, GroupsHDU):
-               raise ValueError('A GroupsHDU must be inserted as a '
-                                'Primary HDU.')
+                raise ValueError('A GroupsHDU must be inserted as a '
+                                 'Primary HDU.')
 
             if isinstance(hdu, PrimaryHDU):
                 # You passed a Primary HDU but we need an Extension HDU
@@ -424,8 +406,7 @@ class HDUList(list, _Verify):
         if len(self) > 1:
             self.update_extend()
 
-    @_with_extensions
-    def append(self, hdu, classExtensions={}):
+    def append(self, hdu):
         """
         Append a new HDU to the `HDUList`.
 
@@ -433,11 +414,6 @@ class HDUList(list, _Verify):
         ----------
         hdu : instance of _BaseHDU
             HDU to add to the `HDUList`.
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of those
-            classes.  When present in the dictionary, the extension class
-            will be constructed in place of the pyfits class.
         """
 
         if not isinstance(hdu, _BaseHDU):
@@ -445,8 +421,8 @@ class HDUList(list, _Verify):
 
         if len(self) > 0:
             if isinstance(hdu, GroupsHDU):
-               raise ValueError(
-                     "Can't append a GroupsHDU to a non-empty HDUList")
+                raise ValueError(
+                    "Can't append a GroupsHDU to a non-empty HDUList")
 
             if isinstance(hdu, PrimaryHDU):
                 # You passed a Primary HDU but we need an Extension HDU
@@ -534,9 +510,8 @@ class HDUList(list, _Verify):
             if hdu.data is not None:
                 continue
 
-    @_with_extensions
-    def flush(self, output_verify='fix', verbose=False,
-              classExtensions={}):
+    @ignore_sigint
+    def flush(self, output_verify='fix', verbose=False):
         """
         Force a write of the `HDUList` back to the file (for append and
         update modes only).
@@ -550,29 +525,7 @@ class HDUList(list, _Verify):
 
         verbose : bool
             When `True`, print verbose messages
-
-        classExtensions : dict
-            A dictionary that maps pyfits classes to extensions of
-            those classes.  When present in the dictionary, the
-            extension class will be constructed in place of the pyfits
-            class.
         """
-
-        # Get the name of the current thread and determine if this is a single treaded application
-        curr_thread = threading.currentThread()
-        single_thread = (threading.activeCount() == 1) and \
-                        (curr_thread.getName() == 'MainThread')
-
-        # Define new signal interput handler
-        if single_thread:
-            keyboard_interrupt_sent = False
-            def new_sigint(*args):
-                warnings.warn('KeyboardInterrupt ignored until flush is '
-                              'complete!')
-                keyboard_interrupt_sent = True
-
-            # Install new handler
-            old_handler = signal.signal(signal.SIGINT, new_sigint)
 
         if self.__file.mode not in ('append', 'update', 'ostream'):
             warnings.warn("Flush for '%s' mode is not supported."
@@ -757,15 +710,6 @@ class HDUList(list, _Verify):
                 for hdu in self:
                     hdu.header._modified = False
 
-        if single_thread:
-            if keyboard_interrupt_sent:
-                raise KeyboardInterrupt
-
-            if old_handler is not None:
-                signal.signal(signal.SIGINT, old_handler)
-            else:
-                signal.signal(signal.SIGINT, signal.SIG_DFL)
-
     def update_extend(self):
         """
         Make sure that if the primary header needs the keyword
@@ -782,7 +726,6 @@ class HDUList(list, _Verify):
                 n = hdr['naxis']
                 hdr.set('extend', True, after='naxis' + str(n))
 
-    @_with_extensions
     def writeto(self, fileobj, output_verify='exception', clobber=False,
                 checksum=False):
         """
@@ -854,7 +797,6 @@ class HDUList(list, _Verify):
             # TODO: Fix this once new HDU writing API is settled on
             hdu._writeto(hdulist.__file, checksum)
         hdulist.close(output_verify=output_verify, closed=closed)
-
 
     def close(self, output_verify='exception', verbose=False, closed=True):
         """
@@ -938,8 +880,8 @@ class HDUList(list, _Verify):
                    None.
         """
         if self.__file is not None:
-           if hasattr(self.__file, 'name'):
-              return self.__file.name
+            if hasattr(self.__file, 'name'):
+                return self.__file.name
         return None
 
     def _verify(self, option='warn'):
@@ -1031,10 +973,10 @@ class HDUList(list, _Verify):
                     break
 
             if self._truncate:
-               try:
-                   self.__file.truncate(hdu._datLoc + hdu._datSpan)
-               except IOError:
-                   self._resize = True
-               self._truncate = False
+                try:
+                    self.__file.truncate(hdu._datLoc + hdu._datSpan)
+                except IOError:
+                    self._resize = True
+                self._truncate = False
 
         return self._resize

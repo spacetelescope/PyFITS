@@ -19,7 +19,7 @@ from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, decode_ascii,
 PY3K = sys.version_info[:2] >= (3, 0)
 
 
-HEADER_END_RE = re.compile('END {77}')
+HEADER_END_RE = re.compile('END {77} *$')
 
 
 class Header(object):
@@ -104,7 +104,7 @@ class Header(object):
             return False
         return True
 
-    def __getitem__ (self, key):
+    def __getitem__(self, key):
         if isinstance(key, slice):
             return Header([copy.copy(c) for c in self._cards[key]])
         elif self._haswildcard(key):
@@ -117,7 +117,7 @@ class Header(object):
             return _HeaderCommentaryCards(self, key)
         return self._cards[self._cardindex(key)].value
 
-    def __setitem__ (self, key, value):
+    def __setitem__(self, key, value):
         if isinstance(key, slice) or self._haswildcard(key):
             if isinstance(key, slice):
                 indices = xrange(*key.indices(len(self)))
@@ -128,7 +128,6 @@ class Header(object):
             for idx, val in itertools.izip(indices, value):
                 self[idx] = val
             return
-
 
         if isinstance(value, tuple):
             if not (0 < len(value) <= 2):
@@ -355,6 +354,8 @@ class Header(object):
         try:
             # Read the first header block.
             block = decode_ascii(fileobj.read(actual_block_size))
+            # Strip any zero-padding (see ticket #106)
+            block = block.strip('\0')
             if block == '':
                 raise EOFError()
 
@@ -384,7 +385,6 @@ class Header(object):
                 actual_len = len(blocks) - actual_block_size + BLOCK_SIZE
                 raise ValueError('Header size is not multiple of %d: %d'
                                  % (BLOCK_SIZE, actual_len))
-
 
             return cls.fromstring(blocks, sep=sep)
         finally:
@@ -1036,7 +1036,7 @@ class Header(object):
             idx = len(self._cards) - 1
         else:
             idx = len(self._cards) - 1
-            while idx >=0 and str(self._cards[idx]) == blank:
+            while idx >= 0 and str(self._cards[idx]) == blank:
                 idx -= 1
 
             if not bottom and card.keyword not in Card._commentary_keywords:
@@ -1383,7 +1383,6 @@ class Header(object):
 
         self._add_commentary('', value, before=before, after=after)
 
-
     def _update(self, card):
         """
         The real update code.  If keyword already exists, its value and/or
@@ -1440,7 +1439,6 @@ class Header(object):
             if key < 0 or key >= len(self._cards):
                 raise IndexError('Header index out of range.')
             return key
-
 
         if isinstance(key, basestring):
             key = (Card.normalize_keyword(key), 0)
@@ -1699,7 +1697,10 @@ class Header(object):
         Get all history cards as a list of string texts.
         """
 
-        return self['HISTORY']
+        if 'HISTORY' in self:
+            return self['HISTORY']
+        else:
+            return []
 
     @deprecated('3.1', alternative="``header['COMMENT']``", pending=True)
     def get_comment(self):
@@ -1707,7 +1708,10 @@ class Header(object):
         Get all comment cards as a list of string texts.
         """
 
-        return self['COMMENT']
+        if 'COMMENT' in self:
+            return self['COMMENT']
+        else:
+            return []
 
     @deprecated('3.1', alternative=':meth:`Header.totextfile`')
     def toTxtFile(self, fileobj, clobber=False):
@@ -1808,7 +1812,6 @@ class _CardAccessor(object):
     Header used to use CardList to get lists of cards, this uses Header to get
     lists of cards.
     """
-
 
     # TODO: Consider giving this dict/list methods like Header itself
     def __init__(self, header):
@@ -1930,4 +1933,3 @@ def _block_size(sep):
     """
 
     return BLOCK_SIZE + (len(sep) * (BLOCK_SIZE // Card.length - 1))
-

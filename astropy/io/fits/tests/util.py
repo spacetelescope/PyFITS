@@ -5,20 +5,29 @@ import warnings
 
 from pyfits.util import StringIO
 
-class CaptureStdout(object):
-    """A simple context manager for redirecting stdout to a StringIO buffer."""
 
-    def __init__(self):
-        self.io = StringIO()
+class CaptureStdio(object):
+    """
+    A simple context manager for redirecting stdout and stderr to a StringIO
+    buffer.
+    """
+
+    def __init__(self, stdout=True, stderr=True):
+        self.stdout = StringIO()
+        self.stderr = StringIO()
 
     def __enter__(self):
         self._original_stdout = sys.stdout
-        sys.stdout = self.io
-        return self.io
+        self._original_stderr = sys.stderr
+        sys.stdout = self.stdout
+        sys.stderr = self.stderr
+        return self.stdout, self.stderr
 
     def __exit__(self, *args, **kwargs):
         sys.stdout = self._original_stdout
-        self.io.close()
+        sys.stderr = self._original_stderr
+        self.stdout.close()
+        self.stderr.close()
 
 
 if hasattr(warnings, 'catch_warnings'):
@@ -104,3 +113,10 @@ else:
                                    self)
             self._module.filters = self._filters
             self._module.showwarning = self._showwarning
+
+
+class ignore_warnings(catch_warnings):
+    def __enter__(self):
+        retval = super(ignore_warnings, self).__enter__()
+        warnings.simplefilter('ignore')
+        return retval

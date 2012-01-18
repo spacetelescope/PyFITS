@@ -38,7 +38,7 @@ class TestChecksumFunctions(PyfitsTestCase):
         hdul.close()
 
     def test_nonstandard_checksum(self):
-        hdu = pyfits.PrimaryHDU(np.arange(10.**6))
+        hdu = pyfits.PrimaryHDU(np.arange(10.0 ** 6))
         hdu.writeto(self.temp('tmp.fits'), clobber=True,
                     checksum='nonstandard')
         del hdu
@@ -60,9 +60,9 @@ class TestChecksumFunctions(PyfitsTestCase):
         hdul1.close()
 
     def test_groups_hdu_data(self):
-        imdata = np.arange(100.)
-        imdata.shape=(10,1,1,2,5)
-        pdata1 = np.arange(10)+0.1
+        imdata = np.arange(100.0)
+        imdata.shape = (10, 1, 1, 2, 5)
+        pdata1 = np.arange(10) + 0.1
         pdata2 = 42
         x = pyfits.hdu.groups.GroupData(imdata, parnames=['abc', 'xyz'],
                                         pardata=[pdata1, pdata2], bitpix=-32)
@@ -72,8 +72,8 @@ class TestChecksumFunctions(PyfitsTestCase):
         hdul1.close()
 
     def test_binary_table_data(self):
-        a1 = np.array(['NGC1001','NGC1002','NGC1003'])
-        a2 = np.array([11.1,12.3,15.2])
+        a1 = np.array(['NGC1001', 'NGC1002', 'NGC1003'])
+        a2 = np.array([11.1, 12.3, 15.2])
         col1 = pyfits.Column(name='target', format='20A', array=a1)
         col2 = pyfits.Column(name='V_mag', format='E', array=a2)
         cols = pyfits.ColDefs([col1, col2])
@@ -84,7 +84,7 @@ class TestChecksumFunctions(PyfitsTestCase):
 
     def test_variable_length_table_data(self):
         c1 = pyfits.Column(name='var', format='PJ()',
-            array=np.array([[45., 56], np.array([11, 12, 13])], 'O'))
+            array=np.array([[45.0, 56], np.array([11, 12, 13])], 'O'))
         c2 = pyfits.Column(name='xyz', format='2I', array=[[11, 3], [12, 4]])
         tbhdu = pyfits.new_table([c1, c2])
         tbhdu.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
@@ -93,11 +93,11 @@ class TestChecksumFunctions(PyfitsTestCase):
 
     def test_ascii_table_data(self):
         a1 = np.array(['abc', 'def'])
-        r1 = np.array([11., 12.])
+        r1 = np.array([11.0, 12.0])
         c1 = pyfits.Column(name='abc', format='A3', array=a1)
         c2 = pyfits.Column(name='def', format='E', array=r1, bscale=2.3,
                            bzero=0.6)
-        c3 = pyfits.Column(name='t1', format='I', array=[91,92,93])
+        c3 = pyfits.Column(name='t1', format='I', array=[91, 92, 93])
         x = pyfits.ColDefs([c1, c2, c3], tbtype='TableHDU')
         hdu = pyfits.new_table(x, tbtype='TableHDU')
         hdu.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
@@ -107,7 +107,7 @@ class TestChecksumFunctions(PyfitsTestCase):
     def test_compressed_image_data(self):
         hdul = pyfits.open(self.data('comp.fits'))
         hdul.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
-        hdul1=pyfits.open(self.temp('tmp.fits'), checksum=True)
+        hdul1 = pyfits.open(self.temp('tmp.fits'), checksum=True)
         hdul1.close()
         hdul.close()
 

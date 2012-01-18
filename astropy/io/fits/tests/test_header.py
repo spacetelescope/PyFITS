@@ -7,7 +7,7 @@ import warnings
 import pyfits
 
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import CaptureStdout, catch_warnings
+from pyfits.tests.util import catch_warnings, ignore_warnings, CaptureStdio
 
 from nose.tools import assert_equal, assert_false, assert_raises, assert_true
 
@@ -99,8 +99,9 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert_false(hdu.header.has_key('EXTENSION'))
         assert_true(hdu.header.has_key('SIMPLE'))
 
-        hdu.writeto(self.temp('test.fits'), output_verify='ignore',
-                    clobber=True)
+        with ignore_warnings():
+            hdu.writeto(self.temp('test.fits'), output_verify='ignore',
+                        clobber=True)
         hdul2 = pyfits.open(self.temp('test.fits'))
         assert_true(len(hdul2), 2)
         assert_true(hdul2[1].header.has_key('MYKEY'))
@@ -213,12 +214,13 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         # card image constructed from key/value/comment is too long
         # (non-string value)
-        c = pyfits.Card('abc', 9, 'abcde'*20)
-        assert_equal(str(c),
-                     "ABC     =                    9 / abcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeab")
-        c = pyfits.Card('abc', 'a'*68, 'abcdefg')
-        assert_equal(str(c),
-                     "ABC     = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'")
+        with ignore_warnings():
+            c = pyfits.Card('abc', 9, 'abcde'*20)
+            assert_equal(str(c),
+                         "ABC     =                    9 / abcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeab")
+            c = pyfits.Card('abc', 'a'*68, 'abcdefg')
+            assert_equal(str(c),
+                         "ABC     = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'")
 
     def test_constructor_filter_illegal_data_structures(self):
         """Test that Card constructor raises exceptions on bad arguments"""
@@ -333,18 +335,25 @@ class TestHeaderFunctions(PyfitsTestCase):
     def test_verify_invalid_equal_sign(self):
         # verification
         c = pyfits.Card.fromstring('abc= a6')
-        with CaptureStdout() as f:
-            c.verify()
-            assert_true(
-                'Card image is not FITS standard (equal sign not at column 8)'
-                in f.getvalue())
+        with catch_warnings(record=True) as w:
+            with CaptureStdio():
+                c.verify()
+            err_text1 = ('Card image is not FITS standard (equal sign not at '
+                         'column 8)')
+            err_text2 = ('Card image is not FITS standard (unparsable value '
+                         'string: a6')
+            assert_equal(len(w), 2)
+            assert_true(err_text1 in str(w[0].message))
+            assert_true(err_text2 in str(w[1].message))
 
     def test_fix_invalid_equal_sign(self):
         c = pyfits.Card.fromstring('abc= a6')
-        with CaptureStdout() as f:
-            c.verify('fix')
+        with catch_warnings(record=True) as w:
+            with CaptureStdio():
+                c.verify('fix')
             fix_text = 'Fixed card to meet the FITS standard: ABC'
-            assert_true(fix_text in f.getvalue())
+            assert_equal(len(w), 2)
+            assert_true(fix_text in str(w[0].message))
         assert_equal(str(c),
                      "ABC     = 'a6      '                                                            ")
 
@@ -1026,7 +1035,8 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         assert_equal(c.value, 2.0)
         assert_equal(c.field_specifier, 'NAXIS')
 
-        c = pyfits.Card('DP1.NAXIS', 'a')
+        with ignore_warnings():
+            c = pyfits.Card('DP1.NAXIS', 'a')
         assert_equal(c.keyword, 'DP1.NAXIS')
         assert_equal(c.value, 'a')
         assert_equal(c.field_specifier, None)

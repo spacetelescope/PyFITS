@@ -12,7 +12,7 @@ import pyfits
 from pyfits.convenience import _getext
 from pyfits.util import BytesIO
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings
+from pyfits.tests.util import catch_warnings, ignore_warnings
 
 from nose.tools import assert_equal, assert_raises, assert_true, assert_false
 
@@ -28,7 +28,7 @@ class TestCore(PyfitsTestCase):
         hdulist[1].header['NAXIS3'] = 500
 
         assert 'NAXIS3' in hdulist[1].header
-        hdulist.verify('fix')
+        hdulist.verify('silentfix')
         assert 'NAXIS3' not in hdulist[1].header
 
     def test_byteswap(self):
@@ -181,7 +181,7 @@ class TestCore(PyfitsTestCase):
 
     def test_exception_on_verification_error(self):
         hdu = pyfits.ImageHDU()
-        del hdu.header['NAXIS']
+        del hdu.header['XTENSION']
         assert_raises(pyfits.VerifyError, hdu.verify, 'exception')
 
     def test_ignore_verification_error(self):
@@ -258,13 +258,30 @@ class TestConvenienceFunctions(PyfitsTestCase):
         with the `writeto()` convenience function.
         """
 
-        data = np.zeros((100,100))
+        data = np.zeros((100, 100))
         header = pyfits.Header()
         pyfits.writeto(self.temp('array.fits'), data, header=header,
                        clobber=True)
         hdul = pyfits.open(self.temp('array.fits'))
         assert_equal(len(hdul), 1)
         assert_true((data == hdul[0].data).all())
+
+    def test_writeto_2(self):
+        """
+        Test of `writeto()` with a trivial header containing a single keyword;
+        regression for #107.
+        """
+
+        data = np.zeros((100,100))
+        header = pyfits.Header()
+        header.update('CRPIX1', 1.)
+        pyfits.writeto(self.temp('array.fits'), data, header=header,
+                       clobber=True, output_verify='silentfix')
+        hdul = pyfits.open(self.temp('array.fits'))
+        assert_equal(len(hdul), 1)
+        assert_true((data == hdul[0].data).all())
+        assert_true('CRPIX1' in hdul[0].header)
+        assert_equal(hdul[0].header['CRPIX1'], 1.0)
 
 
 class TestFileFunctions(PyfitsTestCase):
@@ -274,12 +291,14 @@ class TestFileFunctions(PyfitsTestCase):
     """
 
     def test_open_gzipped(self):
-        assert_equal(len(pyfits.open(self._make_gzip_file())), 5)
+        with ignore_warnings():
+            assert_equal(len(pyfits.open(self._make_gzip_file())), 5)
 
     def test_detect_gzipped(self):
         """Test detection of a gzip file when the extension is not .gz."""
 
-        assert_equal(len(pyfits.open(self._make_gzip_file('test0.fz'))), 5)
+        with ignore_warnings():
+            assert_equal(len(pyfits.open(self._make_gzip_file('test0.fz'))), 5)
 
     def test_open_gzipped_writeable(self):
         """Opening gzipped files in a writeable mode should fail."""
@@ -289,13 +308,15 @@ class TestFileFunctions(PyfitsTestCase):
         assert_raises(IOError, pyfits.open, gf, 'append')
 
     def test_open_zipped(self):
-        assert_equal(len(pyfits.open(self._make_zip_file())), 5)
+        with ignore_warnings():
+            assert_equal(len(pyfits.open(self._make_zip_file())), 5)
 
     def test_detect_zipped(self):
         """Test detection of a zip file when the extension is not .zip."""
 
         zf = self._make_zip_file(filename='test0.fz')
-        assert_equal(len(pyfits.open(zf)), 5)
+        with ignore_warnings():
+            assert_equal(len(pyfits.open(zf)), 5)
 
     def test_open_zipped_writeable(self):
         """Opening zipped files in a writeable mode should fail."""
@@ -347,7 +368,8 @@ class TestFileFunctions(PyfitsTestCase):
         with open(self.data('test0.fits'), 'rb') as f:
             filelike.write(f.read())
         filelike.seek(0)
-        assert_equal(len(pyfits.open(filelike)), 5)
+        with ignore_warnings():
+            assert_equal(len(pyfits.open(filelike)), 5)
 
     def test_updated_file_permissions(self):
         """

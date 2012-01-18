@@ -105,16 +105,7 @@ def setExtensionNameCaseSensitive(value=True):
 
 
 # Warnings routines
-_showwarning = warnings.showwarning
 _formatwarning = warnings.formatwarning
-
-def showwarning(message, category, filename, lineno, file=None, line=None):
-    if file is None:
-        file = sys.stdout
-    if sys.version_info[:2] < (2, 6):
-        _showwarning(message, category, filename, lineno, file)
-    else:
-        _showwarning(message, category, filename, lineno, file, line)
 
 def formatwarning(message, category, filename, lineno, line=None):
     if issubclass(category, UserWarning):
@@ -126,7 +117,6 @@ def formatwarning(message, category, filename, lineno, line=None):
         else:
             return _formatwarning(message, category, filename, lineno, line)
 
-warnings.showwarning = showwarning
 warnings.formatwarning = formatwarning
 warnings.filterwarnings('always', category=UserWarning, append=True)
 

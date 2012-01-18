@@ -5,7 +5,7 @@ import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import CaptureStdout
+from pyfits.tests.util import catch_warnings
 
 from nose.tools import assert_equal
 
@@ -23,22 +23,22 @@ class TestDivisionFunctions(PyfitsTestCase):
 
     def test_card_with_continue(self):
         h = pyfits.PrimaryHDU()
-        with CaptureStdout() as f:
+        with catch_warnings(record=True) as w:
             h.header['abc'] = 'abcdefg' * 20
-            assert_equal(f.getvalue(), '')
+            assert_equal(len(w), 0)
 
     def test_valid_hdu_size(self):
         t1 = pyfits.open(self.data('tb.fits'))
         assert_equal(type(t1[1].size), type(1))
 
     def test_hdu_get_size(self):
-        with CaptureStdout() as f:
+        with catch_warnings(record=True) as w:
             t1 = pyfits.open(self.data('tb.fits'))
-            assert_equal(f.getvalue(), '')
+            assert_equal(len(w), 0)
 
     def test_section(self):
         # section testing
         fs = pyfits.open(self.data('arange.fits'))
-        with CaptureStdout() as f:
-            assert_equal(fs[0].section[3,2,5], np.array([357]))
-            assert_equal(f.getvalue(), '')
+        with catch_warnings(record=True) as w:
+            assert_equal(fs[0].section[3, 2, 5], np.array([357]))
+            assert_equal(len(w), 0)

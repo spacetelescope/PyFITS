@@ -176,7 +176,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         """Tests inserting a Simple ImageHDU to an empty HDUList."""
 
         hdul = pyfits.HDUList()
-        hdu = pyfits.ImageHDU(np.arange(100,dtype=np.int32))
+        hdu = pyfits.ImageHDU(np.arange(100, dtype=np.int32))
         hdul.insert(0, hdu)
 
         info = [(0, 'PRIMARY', 'PrimaryHDU', 4, (100,), 'int32', '')]
@@ -264,7 +264,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdul.insert(0, hdu)
         hdu = pyfits.GroupsHDU()
 
-        assert_raises(ValueError, hdul.insert, hdul, 1, hdu)
+        assert_raises(ValueError, hdul.insert, 1, hdu)
 
         info = [(0, 'PRIMARY', 'GroupsHDU', 8, (), 'uint8',
                  '   1 Groups  0 Parameters'),
@@ -289,7 +289,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdu = pyfits.GroupsHDU()
         hdul.insert(0, hdu)
 
-        assert_raises(ValueError, hdul.insert, hdul, 0, hdu)
+        assert_raises(ValueError, hdul.insert, 0, hdu)
 
     def test_insert_extension_to_primary_in_non_empty_list(self):
         # Tests inserting a Simple ExtensionHDU to a non-empty HDUList.
@@ -447,3 +447,15 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('temp.fits'), memmap=True)
         assert_true(((old_data + 1) == hdul[1].data).all())
 
+    def test_open_file_with_end_padding(self):
+        """Regression test for #106; open files with end padding bytes."""
+
+        hdul = pyfits.open(self.data('test0.fits'),
+                           do_not_scale_image_data=True)
+        info = hdul.info(output=False)
+        hdul.writeto(self.temp('temp.fits'))
+        with open(self.temp('temp.fits'),'ab') as f:
+            f.seek(0, os.SEEK_END)
+            f.write('\0' * 2880)
+        assert_equal(info, pyfits.info(self.temp('temp.fits'), output=False,
+                                       do_not_scale_image_data=True))
