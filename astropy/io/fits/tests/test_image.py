@@ -231,7 +231,7 @@ class TestImageFunctions(PyfitsTestCase):
             with CaptureStdio():
                 hdu.writeto(self.temp('test_new2.fits'), 'fix')
             assert_equal(len(w), 1)
-            assert_true(fix_text in w[0].message)
+            assert_true(fix_text in str(w[0].message))
 
     def test_section(self):
         # section testing
