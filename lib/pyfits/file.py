@@ -13,9 +13,9 @@ import numpy as np
 from numpy import memmap as Memmap
 
 from pyfits.util import (Extendable, isreadable, iswritable, isfile,
-                         fileobj_name, fileobj_closed, fileobj_mode,
-                         _array_from_file, _array_to_file, _write_string,
-                         deprecated)
+                         fileobj_open, fileobj_name, fileobj_closed,
+                         fileobj_mode, _array_from_file, _array_to_file,
+                         _write_string, deprecated)
 
 
 # File object open modes
@@ -106,7 +106,7 @@ class _File(object):
                         (mode, PYTHON_MODES[mode], fmode))
                 self.__file = fileobj
             elif isfile(fileobj):
-                self.__file = open(self.name, PYTHON_MODES[mode])
+                self.__file = fileobj_open(self.name, PYTHON_MODES[mode])
                 # Return to the beginning of the file--in Python 3 when
                 # opening in append mode the file pointer is at the end of
                 # the file
@@ -115,7 +115,7 @@ class _File(object):
                 self.__file = gzip.open(self.name, PYTHON_MODES[mode])
         elif isinstance(fileobj, basestring):
             if os.path.exists(self.name):
-                with open(self.name, 'rb') as f:
+                with fileobj_open(self.name, 'rb') as f:
                     magic = f.read(4)
             else:
                 magic = ''.encode('raw-unicode-escape')
@@ -144,7 +144,7 @@ class _File(object):
                 zfile.close()
                 self.compression = 'zip'
             else:
-                self.__file = open(self.name, PYTHON_MODES[mode])
+                self.__file = fileobj_open(self.name, PYTHON_MODES[mode])
                 # Make certain we're back at the beginning of the file
             self.__file.seek(0)
         else:

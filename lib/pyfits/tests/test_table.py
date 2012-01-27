@@ -1593,10 +1593,25 @@ class TestTableFunctions(PyfitsTestCase):
                              array=chararray.array(a))
         ahdu = pyfits.new_table([acol])
         assert_equal(ahdu.data.tostring().decode('raw-unicode-escape'), s)
+        ahdu.writeto(self.temp('newtable.fits'))
+        hdul = pyfits.open(self.temp('newtable.fits'))
+        assert_equal(hdul[1].data.tostring().decode('raw-unicode-escape'), s)
+        assert_true((hdul[1].data['MEMNAME'] == a).all())
 
         ahdu = pyfits.new_table([acol], tbtype='TableHDU')
-        assert_equal(ahdu.data.tostring().decode('raw-unicode-escape'),
-                         s.replace('\x00', ' '))
+        ahdu.writeto(self.temp('newtable.fits'), clobber=True)
+        hdul = pyfits.open(self.temp('newtable.fits'))
+        assert_equal(hdul[1].data.tostring().decode('raw-unicode-escape'),
+                     s.replace('\x00', ' '))
+        assert_true((hdul[1].data['MEMNAME'] == a).all())
+
+        # Now serialize once more as a binary table; padding bytes should
+        # revert to zeroes
+        ahdu = pyfits.new_table(hdul[1].data)
+        ahdu.writeto(self.temp('newtable.fits'), clobber=True)
+        hdul = pyfits.open(self.temp('newtable.fits'))
+        assert_equal(hdul[1].data.tostring().decode('raw-unicode-escape'), s)
+        assert_true((hdul[1].data['MEMNAME'] == a).all())
 
     def test_multi_dimensional_columns(self):
         """

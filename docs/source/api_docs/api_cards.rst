@@ -1,4 +1,4 @@
-.. currentmodule:: pyfits.core
+.. currentmodule:: pyfits
 
 *****
 Cards

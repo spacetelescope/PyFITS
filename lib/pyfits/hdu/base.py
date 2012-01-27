@@ -255,7 +255,11 @@ class _BaseHDU(object):
         # Read the first header block.
         block = decode_ascii(fileobj.read(BLOCK_SIZE))
         # Strip any zero-padding (see ticket #106)
-        block = block.strip('\0')
+        if block and block[-1] == '\0':
+            block = block.strip('\0')
+            warnings.warn('Unexpected extra padding at the end of the file.  '
+                          'This padding may not be preserved when saving '
+                          'changes.')
         if block == '':
             raise EOFError()
 
