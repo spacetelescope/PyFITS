@@ -24,7 +24,7 @@ Changelog
 
 - Fixed an issue in Python 3 where a workaround for a bug in Numpy on Python 3
   interacted badly with some other software, namely to vo.table package (and
-  possibly others). (r1320)
+  possibly others). (r1320, r1337, and #110)
 
 - Fixed buggy behavior in the handling of SIGINTs (i.e. Ctrl-C keyboard
   interrupts) while flushing changes to a FITS file.  PyFITS already prevented
@@ -32,8 +32,18 @@ Changelog
   handlers properly afterwards, or reraise the keyboard interrupt once the
   flush was complete. (r1321)
 
+- Fixed a crash that could occur in Python 3 when opening files with checksum
+  checking enabled. (r1336)
+
 - Fixed a crash that could occur when creating a new `CompImageHDU` from an
   array of big-endian data. (#104)
+
+- Fixed a crash when opening a file with extra zero padding at the end.
+  Though FITS files should not have such padding, it's not explictly forbidden
+  by the format either, and PyFITS shouldn't stumble over it. (#106)
+
+- Fixed a major slowdown in opening tables containing large columns of string
+  values.  (#111)
 
 
 3.0.4 (2011-11-22)
