@@ -1,65 +1,12 @@
-.. currentmodule:: pyfits.core
+.. currentmodule:: pyfits
 
-*****
-Files
-*****
-
-Convenience Functions
-=====================
-
-open
-----
+*************
+Opening Files
+*************
 
 .. autofunction:: open
 
-
-getdata
--------
-
-.. autofunction:: getdata
-
-getheader
----------
-
-.. autofunction:: getheader
-
-getval
-------
-
-.. autofunction:: getval
-
-setval
-------
-
-.. autofunction:: setval
-
-delval
-------
-
-.. autofunction:: delval
-
-
-writeto
--------
-
-.. autofunction:: writeto
-
-
-append
--------
-
-.. autofunction:: append
-
-
-update
-------
-
-.. autofunction:: update
-
-
-info
-----
-
-.. autofunction:: info
-
+.. automodule:: pyfits.convenience
+   :members: getdata, getheader, getval, setval, delval, writeto, append,
+             update, info
 
