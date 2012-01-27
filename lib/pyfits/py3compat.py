@@ -40,6 +40,12 @@ if sys.version_info[0] >= 3:
         return s
     pyfits.util.decode_ascii = decode_ascii
 
+    # See the docstring for pyfits.util.fileobj_open for why we need to replace
+    # this function
+    def fileobj_open(filename, mode):
+        return open(filename, mode, buffering=0)
+    pyfits.util.fileobj_open = fileobj_open
+
     # Support the io.IOBase.readable/writable methods
     from pyfits.util import isreadable as _isreadable
 
