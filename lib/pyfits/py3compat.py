@@ -119,15 +119,26 @@ if sys.version_info[0] >= 3:
 
         formats = []
         offsets = []
-        for field in (dtype.fields[name] for name in dtype.names):
+        titles = []
+        for name in dtype.names:
+            field = dtype.fields[name]
             shape = field[0].shape
             if not isinstance(shape, tuple):
                 shape = (shape,)
             formats.append((field[0].base, shape))
             offsets.append(field[1])
 
+            # There seems to be no obvious way to extract the titles from
+            # a dtype, so this just searches for duplicate fields
+            title = None
+            for key, dup in dtype.fields.items():
+                if key != name and dup == field:
+                    title = key
+                    break
+            titles.append(title)
+
         return numpy.dtype({'names': dtype.names, 'formats': formats,
-                            'offsets': offsets})
+                            'offsets': offsets, 'titles': titles})
 
     _recarray = numpy.recarray
 
