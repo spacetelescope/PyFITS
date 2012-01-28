@@ -7,9 +7,6 @@ Exceptions and Utility Classes
 Exceptions
 ==========
 
-.. inheritance-diagram:: VerifyError
-   :parts: 2
-
 :class:`VerifyError`
 --------------------
 
@@ -20,9 +17,6 @@ Exceptions
 
 Utility Classes
 ===============
-
-.. inheritance-diagram:: Delayed Undefined ErrorURLopener
-   :parts: 2
 
 :class:`Delayed`
 ----------------
@@ -36,14 +30,6 @@ Utility Classes
 ------------------
 
 .. autoclass:: Undefined
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-:class:`ErrorURLopener`
------------------------
-
-.. autoclass:: ErrorURLopener
    :members:
    :undoc-members:
    :show-inheritance:
