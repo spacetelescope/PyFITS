@@ -35,6 +35,9 @@ Changelog
 - Fixed a crash that could occur in Python 3 when opening files with checksum
   checking enabled. (r1336)
 
+- Fixed a small bug that could cause a crash in the `StreamingHDU` interface
+  when using Numpy below version 1.5.
+
 - Fixed a crash that could occur when creating a new `CompImageHDU` from an
   array of big-endian data. (#104)
 
