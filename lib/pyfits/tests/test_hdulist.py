@@ -7,7 +7,7 @@ import numpy as np
 import pyfits
 from pyfits.util import BytesIO
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings
+from pyfits.tests.util import catch_warnings, ignore_warnings
 
 from nose.tools import assert_equal, assert_raises, assert_true
 
@@ -345,7 +345,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdu = pyfits.PrimaryHDU(np.arange(100, dtype=np.int32))
         hdul = pyfits.HDUList()
         hdul.append(hdu)
-        tmpfile = open(self.temp('tmpfile.fits'), 'w')
+        tmpfile = open(self.temp('tmpfile.fits'), 'wb')
         hdul.writeto(tmpfile)
         tmpfile.close()
 
@@ -356,7 +356,7 @@ class TestHDUListFunctions(PyfitsTestCase):
 
     def test_file_like_2(self):
         hdu = pyfits.PrimaryHDU(np.arange(100, dtype=np.int32))
-        tmpfile = open(self.temp('tmpfile.fits'), 'w')
+        tmpfile = open(self.temp('tmpfile.fits'), 'wb')
         hdul = pyfits.open(tmpfile, mode='ostream')
         hdul.append(hdu)
         hdul.flush()
@@ -369,7 +369,7 @@ class TestHDUListFunctions(PyfitsTestCase):
 
     def test_file_like_3(self):
 
-        tmpfile = open(self.temp('tmpfile.fits'), 'w')
+        tmpfile = open(self.temp('tmpfile.fits'), 'wb')
         pyfits.writeto(tmpfile, np.arange(100, dtype=np.int32))
         tmpfile.close()
         info = [(0, 'PRIMARY', 'PrimaryHDU', 5, (100,), 'int32', '')]
@@ -457,5 +457,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         with open(self.temp('temp.fits'), 'ab') as f:
             f.seek(0, os.SEEK_END)
             f.write('\0'.encode('latin1') * 2880)
-        assert_equal(info, pyfits.info(self.temp('temp.fits'), output=False,
-                                       do_not_scale_image_data=True))
+        with ignore_warnings():
+            assert_equal(info,
+                         pyfits.info(self.temp('temp.fits'), output=False,
+                                     do_not_scale_image_data=True))
