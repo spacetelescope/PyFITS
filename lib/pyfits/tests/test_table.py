@@ -1642,22 +1642,21 @@ class TestTableFunctions(PyfitsTestCase):
 
         thdu.writeto(self.temp('newtable.fits'))
 
-        hdul = pyfits.open(self.temp('newtable.fits'))
-        thdu = hdul[1]
+        with pyfits.open(self.temp('newtable.fits')) as hdul:
+            thdu = hdul[1]
 
-        c1 = thdu.data.field(0)
-        c2 = thdu.data.field(1)
+            c1 = thdu.data.field(0)
+            c2 = thdu.data.field(1)
 
-        hdul.close()
-
-        assert_equal(c1.shape, (3, 3, 2))
-        assert_equal(c2.shape, (3, 2))
-        assert_true((c1 == np.array([[[0, 1], [2, 3], [4, 5]],
-                                     [[6, 7], [8, 9], [0, 1]],
-                                     [[2, 3], [4, 5], [6, 7]]])).all())
-        assert_true((c2 == np.array([['row1', 'row1'],
-                                     ['row2', 'row2'],
-                                     ['row3', 'row3']])).all())
+            assert_equal(c1.shape, (3, 3, 2))
+            assert_equal(c2.shape, (3, 2))
+            assert_true((c1 == np.array([[[0, 1], [2, 3], [4, 5]],
+                                         [[6, 7], [8, 9], [0, 1]],
+                                         [[2, 3], [4, 5], [6, 7]]])).all())
+            assert_true((c2 == np.array([['row1', 'row1'],
+                                         ['row2', 'row2'],
+                                         ['row3', 'row3']])).all())
+        del hdul
 
         # Test setting the TDIMn header based on the column data
         data = np.zeros(3, dtype=[('x', 'f4'), ('s', 'S5', 4)])
