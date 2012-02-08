@@ -1,6 +1,5 @@
 from __future__ import division # confidence high
 
-import gc
 import os
 import shutil
 import tempfile
@@ -12,7 +11,6 @@ class PyfitsTestCase(object):
         self.temp_dir = tempfile.mkdtemp(prefix='pyfits-test-')
 
     def teardown(self):
-        gc.collect()
         shutil.rmtree(self.temp_dir)
 
     def data(self, filename):
