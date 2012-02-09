@@ -3,6 +3,7 @@ from __future__ import with_statement
 
 import os
 import signal
+import sys
 
 import nose
 from nose.tools import assert_equal, assert_raises
@@ -14,7 +15,7 @@ from pyfits.util import ignore_sigint
 
 class TestUtils(PyfitsTestCase):
     def test_ignore_sigint(self):
-        if not hasattr(os, 'kill'):
+        if sys.platform.startswith('win'):
             # Not available in some Python versions on Windows
             raise nose.SkipTest('os.kill() not available')
 
