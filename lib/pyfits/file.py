@@ -20,7 +20,7 @@ from pyfits.util import (Extendable, isreadable, iswritable, isfile,
 
 # File object open modes
 PYTHON_MODES = {'readonly': 'rb', 'copyonwrite': 'rb', 'update': 'rb+',
-                'append': 'ab+', 'ostream': 'w', 'denywrite': 'rb'}
+                'append': 'ab+', 'ostream': 'wb', 'denywrite': 'rb'}
 
 # readonly actually uses copyonwrite for mmap so that readonly without mmap and
 # with mmap still have to same behavior with regard to updating the array.  To

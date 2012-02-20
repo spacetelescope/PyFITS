@@ -113,3 +113,10 @@ else:
                                    self)
             self._module.filters = self._filters
             self._module.showwarning = self._showwarning
+
+
+class ignore_warnings(catch_warnings):
+    def __enter__(self):
+        retval = super(ignore_warnings, self).__enter__()
+        warnings.simplefilter('ignore')
+        return retval
