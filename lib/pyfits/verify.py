@@ -1,7 +1,6 @@
 import warnings
 
-
-_TAB = '   '
+from pyfits.util import indent
 
 
 class VerifyError(Exception):
@@ -82,7 +81,7 @@ class _ErrList(list):
     def __str__(self):
         return self._display()
 
-    def _display(self, indent=0):
+    def _display(self, ind=0):
         """
         Print out nested structure with corresponding indentations.
         """
@@ -90,23 +89,22 @@ class _ErrList(list):
         result = []
         element = 0
 
-        tab = _TAB * indent
-
         # go through the list twice, first time print out all top level messages
         for item in self:
             if not isinstance(item, _ErrList):
-                result.append('%s%s\n' % (tab, item))
+                result.append('%s\n' % indent(item, shift=ind))
 
         # second time go through the next level items, each of the next level
         # must present, even it has nothing.
         for item in self:
             if isinstance(item, _ErrList):
-                tmp = item._display(indent=indent + 1)
+                tmp = item._display(ind=ind + 1)
 
                 # print out a message only if there is something
                 if tmp.strip():
                     if self.unit:
-                        result.append('%s%s %s:\n' % (tab, self.unit, element))
+                        result.append(indent('%s %s:\n' % (self.unit, element),
+                                      shift=ind))
                     result.append(tmp)
                 element += 1
 
