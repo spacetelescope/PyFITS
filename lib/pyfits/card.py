@@ -1,3 +1,4 @@
+import copy
 import re
 import string
 import sys
@@ -1316,6 +1317,11 @@ class CardList(list):
     def __str__(self):
         """Format a list of cards into a printable string."""
         return '\n'.join(map(str, self))
+
+    def __deepcopy__(self, memo):
+        dup = CardList([copy.deepcopy(c, memo) for c in self])
+        memo[id(self)] = dup
+        return dup
 
     def _get_mod(self):
         mod = self.__dict__.get('_mod', False)

@@ -4,7 +4,7 @@ Changelog
 3.0.6 (unreleased)
 ----------------------
 
-- Nothing changed yet.
+- Fixed a crash when deepcopying a Header object in Python < 2.7. (#115)
 
 
 3.0.5 (2012-01-30)
