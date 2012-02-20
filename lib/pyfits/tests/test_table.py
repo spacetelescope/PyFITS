@@ -152,7 +152,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(tbhdu.data[1][4], a5[1])
         assert_true((tbhdu.data[1][5] == a6[1].view('bool')).all())
         assert_equal(tbhdu.data[1][6], a7[1])
-        assert_equal(tbhdu.data[1][7].all(), a8[1].all())
+        assert_true((tbhdu.data[1][7] == a8[1]).all())
 
         # and a column like this:
         assert_equal(str(tbhdu.data.field('abc')), "['abc' 'def' 'xx']")
@@ -209,7 +209,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(str(np.rec.recarray.field(t[1].data,'c4')), "[84 84]")
 
         # look at data column-wise
-        assert_equal(t[1].data.field(0).all(), np.array([1, 2]).all())
+        assert_true((t[1].data.field(0) == np.array([1, 2])).all())
 
         # When there are scaled columns, the raw data are in data._parent
 
@@ -228,11 +228,11 @@ class TestTableFunctions(PyfitsTestCase):
 
         # Test slicing
         a2 = a[1].data[2:][2:]
-        ra2 = np.rec.array([(345.0,345)],names='c1, c2')
+        ra2 = np.rec.array([(345.0,345)], names='c1, c2')
 
         assert_equal(comparerecords(a2, ra2), True)
 
-        assert_equal(a2.field(1).all(),np.array([345]).all())
+        assert_true((a2.field(1) == np.array([345])).all())
 
         ra3 = np.rec.array([
             (10.123000144958496, 37),
@@ -271,8 +271,7 @@ class TestTableFunctions(PyfitsTestCase):
         hdu_list.writeto(self.temp('toto.fits'), clobber=True)
         toto = pyfits.open(self.temp('toto.fits'))
         q = toto[1].data.field('QUAL_SPE')
-        assert_equal(q[0][4:8].all(),
-                         np.array([0, 0, 0, 0],dtype=np.uint8).all())
+        assert_true((q[0][4:8] == np.array([0, 0, 0, 0],dtype=np.uint8)).all())
         toto.close()
 
     def test_extend_variable_length_array(self):
@@ -306,7 +305,7 @@ class TestTableFunctions(PyfitsTestCase):
         rfiHDU = hduL['RFI']
         data = rfiHDU.data
         channelsOut = data.field('Channels')[0]
-        assert_equal(channelsIn.all(),channelsOut.all())
+        assert_true((channelsIn == channelsOut).all())
         hduL.close()
 
     def test_column_endianness(self):
@@ -418,12 +417,12 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(hdu.columns._arrays[0][0], 800)
         assert_equal(hdu.columns.columns[0].array[0], 800)
 
-        assert_equal(hdu.data.field(0).all(),
-                         np.array([1, 2],dtype=np.int16).all())
+        assert_true((hdu.data.field(0) ==
+                     np.array([800, 2],dtype=np.int16)).all())
         assert_equal(hdu.data[0][1], 'Serius')
         assert_equal(hdu.data[1][1], 'Canopys')
-        assert_equal(hdu.data.field(2).all(),
-                         np.array([-1.45, -0.73], dtype=np.float32).all())
+        assert_true((hdu.data.field(2) ==
+                     np.array([-1.45, -0.73], dtype=np.float32)).all())
         assert_equal(hdu.data[0][3], 'A1V')
         assert_equal(hdu.data[1][3], 'F0Ib')
 
@@ -820,8 +819,8 @@ class TestTableFunctions(PyfitsTestCase):
         a,b,c = row[1:4]
         assert_equal(a, counts[2])
         assert_equal(b, '0.0')
-        assert_equal(c.all(), np.array([ 0.,  0.,  0.,  0.,  0.],
-                                           dtype=np.float32).all())
+        assert_true((c == np.array([ 0.,  0.,  0.,  0.,  0.],
+                                   dtype=np.float32)).all())
         row['counts'] = 310
         assert_equal(row['counts'], 310)
 
@@ -943,8 +942,8 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(tbhdu.columns.columns[1].array[0], 312)
         assert_equal(tbhdu.columns.columns[0].array[0], 'NGC1')
         assert_equal(tbhdu.columns.columns[2].array[0], '0.0')
-        assert_equal(tbhdu.columns.columns[3].array[0].all(),
-                         np.array([0., 0., 0., 0., 0.],dtype=np.float32).all())
+        assert_true((tbhdu.columns.columns[3].array[0] ==
+                     np.array([0., 0., 0., 0., 0.],dtype=np.float32)).all())
         assert_equal(tbhdu.columns.columns[4].array[0], True)
 
         assert_equal(tbhdu.data[3][1], 33)
@@ -954,8 +953,8 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(tbhdu.columns.columns[1].array[3], 33)
         assert_equal(tbhdu.columns.columns[0].array[3], 'JIM1')
         assert_equal(tbhdu.columns.columns[2].array[3], 'A Note')
-        assert_equal(tbhdu.columns.columns[3].array[3].all(),
-                         np.array([1., 2., 3., 4., 5.],dtype=np.float32).all())
+        assert_true((tbhdu.columns.columns[3].array[3] ==
+                     np.array([1., 2., 3., 4., 5.],dtype=np.float32)).all())
         assert_equal(tbhdu.columns.columns[4].array[3], True)
 
     def test_assign_multiple_rows_to_table(self):
@@ -1005,8 +1004,8 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(tbhdu2.columns.columns[1].array[0], 312)
         assert_equal(tbhdu2.columns.columns[0].array[0], 'NGC1')
         assert_equal(tbhdu2.columns.columns[2].array[0], '0.0')
-        assert_equal(tbhdu2.columns.columns[3].array[0].all(),
-                         np.array([0., 0., 0., 0., 0.],dtype=np.float32).all())
+        assert_true((tbhdu2.columns.columns[3].array[0] ==
+                     np.array([0., 0., 0., 0., 0.],dtype=np.float32)).all())
         assert_equal(tbhdu2.columns.columns[4].array[0], True)
 
         assert_equal(tbhdu2.data[4][1], 112)
@@ -1016,15 +1015,15 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(tbhdu2.columns.columns[1].array[4], 112)
         assert_equal(tbhdu2.columns.columns[0].array[4], 'NGC5')
         assert_equal(tbhdu2.columns.columns[2].array[4], '0.0')
-        assert_equal(tbhdu2.columns.columns[3].array[4].all(),
-                         np.array([1., 2., 3., 4., 5.],dtype=np.float32).all())
+        assert_true((tbhdu2.columns.columns[3].array[4] ==
+                     np.array([1., 2., 3., 4., 5.],dtype=np.float32)).all())
         assert_equal(tbhdu2.columns.columns[4].array[4], False)
 
         assert_equal(tbhdu2.columns.columns[1].array[8], 0)
         assert_equal(tbhdu2.columns.columns[0].array[8], '0.0')
         assert_equal(tbhdu2.columns.columns[2].array[8], '0.0')
-        assert_equal(tbhdu2.columns.columns[3].array[8].all(),
-                         np.array([0., 0., 0., 0., 0.],dtype=np.float32).all())
+        assert_true((tbhdu2.columns.columns[3].array[8] ==
+                     np.array([0., 0., 0., 0., 0.],dtype=np.float32)).all())
         assert_equal(tbhdu2.columns.columns[4].array[8], False)
 
     def test_verify_data_references(self):
@@ -1298,7 +1297,7 @@ class TestTableFunctions(PyfitsTestCase):
         for row in tbhdu1.data:
             for j in range(0,len(row)):
                 if isinstance(row[j], np.ndarray):
-                    assert_equal(row[j].all(), tbhdu.data[i][j].all())
+                    assert_true((row[j] == tbhdu.data[i][j]).all())
                 else:
                     assert_equal(row[j], tbhdu.data[i][j])
             i = i + 1
@@ -1484,21 +1483,17 @@ class TestTableFunctions(PyfitsTestCase):
 
         tbhdu1 = pyfits.new_table(coldefs)
 
-        assert_equal(tbhdu1.data.field('flag')[0].all(),
-                         np.array([True, False],
-                                  dtype = np.bool).all())
-        assert_equal(tbhdu1.data.field('flag')[1].all(),
-                         np.array([False, True],
-                                  dtype = np.bool).all())
+        assert_true((tbhdu1.data.field('flag')[0] ==
+                     np.array([True, False], dtype = np.bool)).all())
+        assert_true((tbhdu1.data.field('flag')[1] ==
+                     np.array([False, True], dtype = np.bool)).all())
 
         tbhdu = pyfits.new_table(tbhdu1.data)
 
-        assert_equal(tbhdu.data.field('flag')[0].all(),
-                         np.array([True, False],
-                                  dtype = np.bool).all())
-        assert_equal(tbhdu.data.field('flag')[1].all(),
-                         np.array([False, True],
-                                  dtype = np.bool).all())
+        assert_true((tbhdu.data.field('flag')[0] ==
+                     np.array([True, False], dtype = np.bool)).all())
+        assert_true((tbhdu.data.field('flag')[1] ==
+                      np.array([False, True], dtype = np.bool)).all())
 
     def test_variable_length_table_format_pd_from_object_array(self):
         a = np.array([np.array([7.2e-20, 7.3e-20]), np.array([0.0]),
@@ -1557,8 +1552,8 @@ class TestTableFunctions(PyfitsTestCase):
     def test_fits_rec_column_access(self):
         t=pyfits.open(self.data('table.fits'))
         tbdata = t[1].data
-        assert_equal(tbdata.V_mag.all(), tbdata.field('V_mag').all())
-        assert_equal(tbdata.V_mag.all(), tbdata['V_mag'].all())
+        assert_true((tbdata.V_mag == tbdata.field('V_mag')).all())
+        assert_true((tbdata.V_mag == tbdata['V_mag']).all())
 
         t.close()
 
