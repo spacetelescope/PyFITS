@@ -13,8 +13,10 @@ import numpy as np
 __all__ = ['Extendable', 'register_extension', 'register_extensions',
            'unregister_extensions']
 
+from numpy import memmap as Memmap
 
-BLOCK_SIZE = 2880 # the FITS block size
+
+BLOCK_SIZE = 2880  # the FITS block size
 
 
 # TODO: I'm somewhat of the opinion that this should go in pyfits.core, but for
@@ -782,3 +784,19 @@ def _tmp_name(input):
     f, fn = tempfile.mkstemp(dir=input)
     os.close(f)
     return fn
+
+
+def _get_array_memmap(array):
+    """
+    If the array has a numpy.memmap as one of its bases, return the memmap
+    base; otherwise return None.
+    """
+
+    if isinstance(array, Memmap):
+        return array
+
+    base = array
+    while hasattr(base, 'base') and base.base is not None:
+        if isinstance(base.base, Memmap):
+            return base.base
+        base = base.base

@@ -4,6 +4,16 @@ Changelog
 3.0.6 (unreleased)
 ----------------------
 
+- Fixed a possible reference cycle/memory leak that was caught through more
+  extensive testing on Windows. (#112)
+
+- Fixed 'ostream' mode to open the underlying file in 'wb' mode instead of 'w'
+  mode. (#112)
+
+- Fixed a Windows-only issue where trying to save updates to a resized FITS
+  file could result in a crash due to there being open mmaps on that file.
+  (#112)
+
 - Fixed a crash when deepcopying a Header object in Python < 2.7. (#115)
 
 

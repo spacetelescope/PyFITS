@@ -320,135 +320,130 @@ class TestImageFunctions(PyfitsTestCase):
     def test_io_manipulation(self):
         # Get a keyword value.  An extension can be referred by name or by
         # number.  Both extension and keyword names are case insensitive.
-        r = pyfits.open(self.data('test0.fits'))
-        assert_equal(r['primary'].header['naxis'], 0)
-        assert_equal(r[0].header['naxis'], 0)
+        with pyfits.open(self.data('test0.fits')) as r:
+            assert_equal(r['primary'].header['naxis'], 0)
+            assert_equal(r[0].header['naxis'], 0)
 
-        # If there are more than one extension with the same EXTNAME value, the
-        # EXTVER can be used (as the second argument) to distinguish the
-        # extension.
-        assert_equal(r['sci',1].header['detector'], 1)
+            # If there are more than one extension with the same EXTNAME value,
+            # the EXTVER can be used (as the second argument) to distinguish
+            # the extension.
+            assert_equal(r['sci',1].header['detector'], 1)
 
-        # append (using "update()") a new card
-        r[0].header.update('xxx', 1.234e56)
+            # append (using "update()") a new card
+            r[0].header.update('xxx', 1.234e56)
 
-        if str(r[0].header.ascard[-3:]) != \
-           "EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                \n" \
-           "FILENAME= 'vtest3.fits'        / File name                                      \n" \
-           "XXX     =            1.234E+56                                                  " and \
-           str(r[0].header.ascard[-3:]) != \
-           "EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                \n" \
-           "FILENAME= 'vtest3.fits'        / File name                                      \n" \
-           "XXX     =           1.234E+056                                                  ":
             assert_equal(str(r[0].header.ascard[-3:]),
                 "EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                \n"
                 "FILENAME= 'vtest3.fits'        / File name                                      \n"
                 "XXX     =            1.234E+56                                                  ")
 
-        # rename a keyword
-        r[0].header.rename_key('filename', 'fname')
-        assert_raises(ValueError, r[0].header.rename_key,
-                          'fname', 'history')
+            # rename a keyword
+            r[0].header.rename_key('filename', 'fname')
+            assert_raises(ValueError, r[0].header.rename_key, 'fname',
+                          'history')
 
-        assert_raises(ValueError, r[0].header.rename_key,
-                          'fname', 'simple')
-        r[0].header.rename_key('fname', 'filename')
+            assert_raises(ValueError, r[0].header.rename_key, 'fname',
+                          'simple')
+            r[0].header.rename_key('fname', 'filename')
 
-        # get a subsection of data
-        assert_equal(r[2].data[:3,:3].all(),
+            # get a subsection of data
+            assert_true((r[2].data[:3,:3] ==
                          np.array([[349, 349, 348],
-                                   [348, 348, 348],
-                                   [349, 349, 350]], dtype=np.int16).all())
+                                   [349, 349, 347],
+                                   [347, 350, 349]], dtype=np.int16)).all())
 
-        # We can create a new FITS file by opening a new file with "append"
-        # mode.
-        n=pyfits.open(self.temp('test_new.fits'), mode='append')
+            # We can create a new FITS file by opening a new file with "append"
+            # mode.
+            with pyfits.open(self.temp('test_new.fits'), mode='append') as n:
+                # Append the primary header and the 2nd extension to the new
+                # file.
+                n.append(r[0])
+                n.append(r[2])
 
-        # Append the primary header and the 2nd extension to the new file.
-        n.append(r[0])
-        n.append(r[2])
+                # The flush method will write the current HDUList object back
+                # to the newly created file on disk.  The HDUList is still open
+                # and can be further operated.
+                n.flush()
+                assert_equal(n[1].data[1,1], 349)
 
-        # The flush method will write the current HDUList object back to the
-        # newly created file on disk.  The HDUList is still open and can be
-        # further operated.
-        n.flush()
-        assert_equal(n[1].data[1,1], 349)
+                # modify a data point
+                n[1].data[1,1] = 99
 
-        #modify a data point
-        n[1].data[1,1] = 99
+                # When the file is closed, the most recent additions of
+                # extension(s) since last flush() will be appended, but any HDU
+                # already existed at the last flush will not be modified
+            del n
 
-        # When the file is closed, the most recent additions of extension(s)
-        # since last flush() will be appended, but any HDU already existed at
-        # the last flush will not be modified
-        n.close()
+            # If an existing file is opened with "append" mode, like the
+            # readonly mode, the HDU's will be read into the HDUList which can
+            # be modified in memory but can not be written back to the original
+            # file.  A file opened with append mode can only add new HDU's.
+            os.rename(self.temp('test_new.fits'),
+                      self.temp('test_append.fits'))
 
-        # If an existing file is opened with "append" mode, like the readonly
-        # mode, the HDU's will be read into the HDUList which can be modified
-        # in memory but can not be written back to the original file.  A file
-        # opened with append mode can only add new HDU's.
-        os.rename(self.temp('test_new.fits'), self.temp('test_append.fits'))
-        a = pyfits.open(self.temp('test_append.fits'), mode='append')
+            with pyfits.open(self.temp('test_append.fits'),
+                             mode='append') as a:
 
-        # The above change did not take effect since this was made after the
-        # flush().
-        assert_equal(a[1].data[1,1], 349)
+                # The above change did not take effect since this was made
+                # after the flush().
+                assert_equal(a[1].data[1,1], 349)
+                a.append(r[1])
+            del a
 
-        a.append(r[1])
-        a.close()
+            # When changes are made to an HDUList which was opened with
+            # "update" mode, they will be written back to the original file
+            # when a flush/close is called.
+            os.rename(self.temp('test_append.fits'),
+                      self.temp('test_update.fits'))
 
-        # When changes are made to an HDUList which was opened with "update"
-        # mode, they will be written back to the original file when a
-        # flush/close is called.
-        os.rename(self.temp('test_append.fits'), self.temp('test_update.fits'))
+            with pyfits.open(self.temp('test_update.fits'),
+                             mode='update') as u:
 
-        u = pyfits.open(self.temp('test_update.fits'), mode='update')
+                # When the changes do not alter the size structures of the
+                # original (or since last flush) HDUList, the changes are
+                # written back "in place".
+                assert_equal(u[0].header['rootname'], 'U2EQ0201T')
+                u[0].header['rootname'] = 'abc'
+                assert_equal(u[1].data[1,1], 349)
+                u[1].data[1,1] = 99
+                u.flush()
 
-        # When the changes do not alter the size structures of the original (or
-        # since last flush) HDUList, the changes are written back "in place".
-        assert_equal(u[0].header['rootname'], 'U2EQ0201T')
-        u[0].header['rootname'] = 'abc'
-        assert_equal(u[1].data[1,1], 349)
-        u[1].data[1,1] = 99
-        u.flush()
+                # If the changes affect the size structure, e.g. adding or
+                # deleting HDU(s), header was expanded or reduced beyond
+                # existing number of blocks (2880 bytes in each block), or
+                # change the data size, the HDUList is written to a temporary
+                # file, the original file is deleted, and the temporary file is
+                # renamed to the original file name and reopened in the update
+                # mode.  To a user, these two kinds of updating writeback seem
+                # to be the same, unless the optional argument in flush or
+                # close is set to 1.
+                del u[2]
+                u.flush()
 
-        # If the changes affect the size structure, e.g. adding or deleting
-        # HDU(s), header was expanded or reduced beyond existing number of
-        # blocks (2880 bytes in each block), or change the data size, the
-        # HDUList is written to a temporary file, the original file is deleted,
-        # and the temporary file is renamed to the original file name and
-        # reopened in the update mode.
-        # To a user, these two kinds of updating writeback seem to be the same,
-        # unless the optional argument in flush or close is set to 1.
-        del u[2]
-        u.flush()
-
-        # the write method in HDUList class writes the current HDUList, with
-        # all changes made up to now, to a new file.  This method works the
-        # same disregard the mode the HDUList was opened with.
-        u.append(r[3])
-        u.writeto(self.temp('test_new.fits'))
-
-        # Remove temporary files created by this test
-        u.close()
+                # the write method in HDUList class writes the current HDUList,
+                # with all changes made up to now, to a new file.  This method
+                # works the same disregard the mode the HDUList was opened
+                # with.
+                u.append(r[3])
+                u.writeto(self.temp('test_new.fits'))
+            del u
 
 
-        #Another useful new HDUList method is readall.  It will "touch" the
+        # Another useful new HDUList method is readall.  It will "touch" the
         # data parts in all HDUs, so even if the HDUList is closed, we can
         # still operate on the data.
-        r = pyfits.open(self.data('test0.fits'))
-        r.readall()
-        r.close()
-        assert_equal(r[1].data[1,1], 315)
+        with pyfits.open(self.data('test0.fits')) as r:
+            r.readall()
+            assert_equal(r[1].data[1,1], 315)
 
         # create an HDU with data only
         data = np.ones((3,5), dtype=np.float32)
         hdu = pyfits.ImageHDU(data=data, name='SCI')
-        assert_equal(hdu.data.all(),
+        assert_true((hdu.data ==
                      np.array([[ 1.,  1.,  1.,  1.,  1.],
                                [ 1.,  1.,  1.,  1.,  1.],
                                [ 1.,  1.,  1.,  1.,  1.]],
-                               dtype=np.float32).all())
-
+                              dtype=np.float32)).all())
 
         # create an HDU with header and data
         # notice that the header has the right NAXIS's since it is constructed
@@ -487,33 +482,33 @@ class TestImageFunctions(PyfitsTestCase):
         # section testing
         fs = pyfits.open(self.data('arange.fits'))
         assert_equal(fs[0].section[3,2,5], np.array([357]))
-        assert_equal(fs[0].section[3,2,:].all(),
+        assert_true((fs[0].section[3,2,:] ==
                      np.array([352, 353, 354, 355, 356, 357, 358, 359, 360,
-                               361, 362]).all())
-        assert_equal(fs[0].section[3,2,4:].all(),
-                     np.array([356, 357, 358, 359, 360, 361, 362]).all())
-        assert_equal(fs[0].section[3,2,:8].all(),
-                     np.array([352, 353, 354, 355, 356, 357, 358, 359]).all())
-        assert_equal(fs[0].section[3,2,-8:8].all(),
-                     np.array([355, 356, 357, 358, 359]).all())
-        assert_equal(fs[0].section[3,2:5,:].all(),
+                               361, 362])).all())
+        assert_true((fs[0].section[3,2,4:] ==
+                     np.array([356, 357, 358, 359, 360, 361, 362])).all())
+        assert_true((fs[0].section[3,2,:8] ==
+                     np.array([352, 353, 354, 355, 356, 357, 358, 359])).all())
+        assert_true((fs[0].section[3,2,-8:8] ==
+                     np.array([355, 356, 357, 358, 359])).all())
+        assert_true((fs[0].section[3,2:5,:] ==
                      np.array([[352, 353, 354, 355, 356, 357, 358, 359,
                                 360, 361, 362],
                                [363, 364, 365, 366, 367, 368, 369, 370,
                                 371, 372, 373],
                                [374, 375, 376, 377, 378, 379, 380, 381,
-                                382, 383, 384]]).all())
+                                382, 383, 384]])).all())
 
-        assert_equal(fs[0].section[3,:,:][:3,:3].all(),
+        assert_true((fs[0].section[3,:,:][:3,:3] ==
                      np.array([[330, 331, 332],
                                [341, 342, 343],
-                               [352, 353, 354]]).all())
+                               [352, 353, 354]])).all())
 
         dat = fs[0].data
-        assert_equal(fs[0].section[3,2:5,:8].all(), dat[3,2:5,:8].all())
-        assert_equal(fs[0].section[3,2:5,3].all(), dat[3,2:5,3].all())
+        assert_true((fs[0].section[3,2:5,:8] == dat[3,2:5,:8]).all())
+        assert_true((fs[0].section[3,2:5,3] == dat[3,2:5,3]).all())
 
-        assert_equal(fs[0].section[3:6,:,:][:3,:3,:3].all(),
+        assert_true((fs[0].section[3:6,:,:][:3,:3,:3] ==
                      np.array([[[330, 331, 332],
                                 [341, 342, 343],
                                 [352, 353, 354]],
@@ -522,20 +517,20 @@ class TestImageFunctions(PyfitsTestCase):
                                 [462, 463, 464]],
                                [[550, 551, 552],
                                 [561, 562, 563],
-                                [572, 573, 574]]]).all())
+                                [572, 573, 574]]])).all())
 
-        assert_equal(fs[0].section[:,:,:][:3,:2,:2].all(),
+        assert_true((fs[0].section[:,:,:][:3,:2,:2] ==
                      np.array([[[  0,   1],
                                 [ 11,  12]],
                                [[110, 111],
                                 [121, 122]],
                                [[220, 221],
-                                [231, 232]]]).all())
+                                [231, 232]]])).all())
 
-        assert_equal(fs[0].section[:,2,:].all(), dat[:,2,:].all())
-        assert_equal(fs[0].section[:,2:5,:].all(), dat[:,2:5,:].all())
-        assert_equal(fs[0].section[3:6,3,:].all(), dat[3:6,3,:].all())
-        assert_equal(fs[0].section[3:6,3:7,:].all(), dat[3:6,3:7,:].all())
+        assert_true((fs[0].section[:,2,:] == dat[:,2,:]).all())
+        assert_true((fs[0].section[:,2:5,:] == dat[:,2:5,:]).all())
+        assert_true((fs[0].section[3:6,3,:] == dat[3:6,3,:]).all())
+        assert_true((fs[0].section[3:6,3:7,:] == dat[3:6,3:7,:]).all())
 
     def test_section_data_square(self):
         a = np.arange(4).reshape((2, 2))
@@ -545,19 +540,19 @@ class TestImageFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('test_new.fits'))
         d = hdul[0]
         dat = hdul[0].data
-        assert_equal(d.section[:,:].all(), dat[:,:].all())
-        assert_equal(d.section[0,:].all(), dat[0,:].all())
-        assert_equal(d.section[1,:].all(), dat[1,:].all())
-        assert_equal(d.section[:,0].all(), dat[:,0].all())
-        assert_equal(d.section[:,1].all(), dat[:,1].all())
-        assert_equal(d.section[0,0].all(), dat[0,0].all())
-        assert_equal(d.section[0,1].all(), dat[0,1].all())
-        assert_equal(d.section[1,0].all(), dat[1,0].all())
-        assert_equal(d.section[1,1].all(), dat[1,1].all())
-        assert_equal(d.section[0:1,0:1].all(), dat[0:1,0:1].all())
-        assert_equal(d.section[0:2,0:1].all(), dat[0:2,0:1].all())
-        assert_equal(d.section[0:1,0:2].all(), dat[0:1,0:2].all())
-        assert_equal(d.section[0:2,0:2].all(), dat[0:2,0:2].all())
+        assert_true((d.section[:,:] == dat[:,:]).all())
+        assert_true((d.section[0,:] == dat[0,:]).all())
+        assert_true((d.section[1,:] == dat[1,:]).all())
+        assert_true((d.section[:,0] == dat[:,0]).all())
+        assert_true((d.section[:,1] == dat[:,1]).all())
+        assert_true((d.section[0,0] == dat[0,0]).all())
+        assert_true((d.section[0,1] == dat[0,1]).all())
+        assert_true((d.section[1,0] == dat[1,0]).all())
+        assert_true((d.section[1,1] == dat[1,1]).all())
+        assert_true((d.section[0:1,0:1] == dat[0:1,0:1]).all())
+        assert_true((d.section[0:2,0:1] == dat[0:2,0:1]).all())
+        assert_true((d.section[0:1,0:2] == dat[0:1,0:2]).all())
+        assert_true((d.section[0:2,0:2] == dat[0:2,0:2]).all())
 
     def test_section_data_cube(self):
         a=np.arange(18).reshape((2,3,3))
@@ -567,166 +562,143 @@ class TestImageFunctions(PyfitsTestCase):
         hdul=pyfits.open(self.temp('test_new.fits'))
         d = hdul[0]
         dat = hdul[0].data
-        assert_equal(d.section[:,:,:].all(), dat[:,:,:].all())
-        assert_equal(d.section[:,:].all(), dat[:,:].all())
-        assert_equal(d.section[:].all(), dat[:].all())
-        assert_equal(d.section[0,:,:].all(), dat[0,:,:].all())
-        assert_equal(d.section[1,:,:].all(), dat[1,:,:].all())
-        assert_equal(d.section[0,0,:].all(), dat[0,0,:].all())
-        assert_equal(d.section[0,1,:].all(), dat[0,1,:].all())
-        assert_equal(d.section[0,2,:].all(), dat[0,2,:].all())
-        assert_equal(d.section[1,0,:].all(), dat[1,0,:].all())
-        assert_equal(d.section[1,1,:].all(), dat[1,1,:].all())
-        assert_equal(d.section[1,2,:].all(), dat[1,2,:].all())
-        assert_equal(d.section[0,0,0].all(), dat[0,0,0].all())
-        assert_equal(d.section[0,0,1].all(), dat[0,0,1].all())
-        assert_equal(d.section[0,0,2].all(), dat[0,0,2].all())
-        assert_equal(d.section[0,1,0].all(), dat[0,1,0].all())
-        assert_equal(d.section[0,1,1].all(), dat[0,1,1].all())
-        assert_equal(d.section[0,1,2].all(), dat[0,1,2].all())
-        assert_equal(d.section[0,2,0].all(), dat[0,2,0].all())
-        assert_equal(d.section[0,2,1].all(), dat[0,2,1].all())
-        assert_equal(d.section[0,2,2].all(), dat[0,2,2].all())
-        assert_equal(d.section[1,0,0].all(), dat[1,0,0].all())
-        assert_equal(d.section[1,0,1].all(), dat[1,0,1].all())
-        assert_equal(d.section[1,0,2].all(), dat[1,0,2].all())
-        assert_equal(d.section[1,1,0].all(), dat[1,1,0].all())
-        assert_equal(d.section[1,1,1].all(), dat[1,1,1].all())
-        assert_equal(d.section[1,1,2].all(), dat[1,1,2].all())
-        assert_equal(d.section[1,2,0].all(), dat[1,2,0].all())
-        assert_equal(d.section[1,2,1].all(), dat[1,2,1].all())
-        assert_equal(d.section[1,2,2].all(), dat[1,2,2].all())
-        assert_equal(d.section[:,0,0].all(), dat[:,0,0].all())
-        assert_equal(d.section[:,0,1].all(), dat[:,0,1].all())
-        assert_equal(d.section[:,0,2].all(), dat[:,0,2].all())
-        assert_equal(d.section[:,1,0].all(), dat[:,1,0].all())
-        assert_equal(d.section[:,1,1].all(), dat[:,1,1].all())
-        assert_equal(d.section[:,1,2].all(), dat[:,1,2].all())
-        assert_equal(d.section[:,2,0].all(), dat[:,2,0].all())
-        assert_equal(d.section[:,2,1].all(), dat[:,2,1].all())
-        assert_equal(d.section[:,2,2].all(), dat[:,2,2].all())
-        assert_equal(d.section[0,:,0].all(), dat[0,:,0].all())
-        assert_equal(d.section[0,:,1].all(), dat[0,:,1].all())
-        assert_equal(d.section[0,:,2].all(), dat[0,:,2].all())
-        assert_equal(d.section[1,:,0].all(), dat[1,:,0].all())
-        assert_equal(d.section[1,:,1].all(), dat[1,:,1].all())
-        assert_equal(d.section[1,:,2].all(), dat[1,:,2].all())
-        assert_equal(d.section[:,:,0].all(), dat[:,:,0].all())
-        assert_equal(d.section[:,:,1].all(), dat[:,:,1].all())
-        assert_equal(d.section[:,:,2].all(), dat[:,:,2].all())
-        assert_equal(d.section[:,0,:].all(), dat[:,0,:].all())
-        assert_equal(d.section[:,1,:].all(), dat[:,1,:].all())
-        assert_equal(d.section[:,2,:].all(), dat[:,2,:].all())
+        assert_true((d.section[:,:,:] == dat[:,:,:]).all())
+        assert_true((d.section[:,:] == dat[:,:]).all())
+        assert_true((d.section[:] == dat[:]).all())
+        assert_true((d.section[0,:,:] == dat[0,:,:]).all())
+        assert_true((d.section[1,:,:] == dat[1,:,:]).all())
+        assert_true((d.section[0,0,:] == dat[0,0,:]).all())
+        assert_true((d.section[0,1,:] == dat[0,1,:]).all())
+        assert_true((d.section[0,2,:] == dat[0,2,:]).all())
+        assert_true((d.section[1,0,:] == dat[1,0,:]).all())
+        assert_true((d.section[1,1,:] == dat[1,1,:]).all())
+        assert_true((d.section[1,2,:] == dat[1,2,:]).all())
+        assert_true((d.section[0,0,0] == dat[0,0,0]).all())
+        assert_true((d.section[0,0,1] == dat[0,0,1]).all())
+        assert_true((d.section[0,0,2] == dat[0,0,2]).all())
+        assert_true((d.section[0,1,0] == dat[0,1,0]).all())
+        assert_true((d.section[0,1,1] == dat[0,1,1]).all())
+        assert_true((d.section[0,1,2] == dat[0,1,2]).all())
+        assert_true((d.section[0,2,0] == dat[0,2,0]).all())
+        assert_true((d.section[0,2,1] == dat[0,2,1]).all())
+        assert_true((d.section[0,2,2] == dat[0,2,2]).all())
+        assert_true((d.section[1,0,0] == dat[1,0,0]).all())
+        assert_true((d.section[1,0,1] == dat[1,0,1]).all())
+        assert_true((d.section[1,0,2] == dat[1,0,2]).all())
+        assert_true((d.section[1,1,0] == dat[1,1,0]).all())
+        assert_true((d.section[1,1,1] == dat[1,1,1]).all())
+        assert_true((d.section[1,1,2] == dat[1,1,2]).all())
+        assert_true((d.section[1,2,0] == dat[1,2,0]).all())
+        assert_true((d.section[1,2,1] == dat[1,2,1]).all())
+        assert_true((d.section[1,2,2] == dat[1,2,2]).all())
+        assert_true((d.section[:,0,0] == dat[:,0,0]).all())
+        assert_true((d.section[:,0,1] == dat[:,0,1]).all())
+        assert_true((d.section[:,0,2] == dat[:,0,2]).all())
+        assert_true((d.section[:,1,0] == dat[:,1,0]).all())
+        assert_true((d.section[:,1,1] == dat[:,1,1]).all())
+        assert_true((d.section[:,1,2] == dat[:,1,2]).all())
+        assert_true((d.section[:,2,0] == dat[:,2,0]).all())
+        assert_true((d.section[:,2,1] == dat[:,2,1]).all())
+        assert_true((d.section[:,2,2] == dat[:,2,2]).all())
+        assert_true((d.section[0,:,0] == dat[0,:,0]).all())
+        assert_true((d.section[0,:,1] == dat[0,:,1]).all())
+        assert_true((d.section[0,:,2] == dat[0,:,2]).all())
+        assert_true((d.section[1,:,0] == dat[1,:,0]).all())
+        assert_true((d.section[1,:,1] == dat[1,:,1]).all())
+        assert_true((d.section[1,:,2] == dat[1,:,2]).all())
+        assert_true((d.section[:,:,0] == dat[:,:,0]).all())
+        assert_true((d.section[:,:,1] == dat[:,:,1]).all())
+        assert_true((d.section[:,:,2] == dat[:,:,2]).all())
+        assert_true((d.section[:,0,:] == dat[:,0,:]).all())
+        assert_true((d.section[:,1,:] == dat[:,1,:]).all())
+        assert_true((d.section[:,2,:] == dat[:,2,:]).all())
 
-        assert_equal(d.section[:,:,0:1].all(), dat[:,:,0:1].all())
-        assert_equal(d.section[:,:,0:2].all(), dat[:,:,0:2].all())
-        assert_equal(d.section[:,:,0:3].all(), dat[:,:,0:3].all())
-        assert_equal(d.section[:,:,1:2].all(), dat[:,:,1:2].all())
-        assert_equal(d.section[:,:,1:3].all(), dat[:,:,1:3].all())
-        assert_equal(d.section[:,:,2:3].all(), dat[:,:,2:3].all())
-        assert_equal(d.section[0:1,0:1,0:1].all(), dat[0:1,0:1,0:1].all())
-        assert_equal(d.section[0:1,0:1,0:2].all(), dat[0:1,0:1,0:2].all())
-        assert_equal(d.section[0:1,0:1,0:3].all(), dat[0:1,0:1,0:3].all())
-        assert_equal(d.section[0:1,0:1,1:2].all(), dat[0:1,0:1,1:2].all())
-        assert_equal(d.section[0:1,0:1,1:3].all(), dat[0:1,0:1,1:3].all())
-        assert_equal(d.section[0:1,0:1,2:3].all(), dat[0:1,0:1,2:3].all())
-        assert_equal(d.section[0:1,0:2,0:1].all(), dat[0:1,0:2,0:1].all())
-        assert_equal(d.section[0:1,0:2,0:2].all(), dat[0:1,0:2,0:2].all())
-        assert_equal(d.section[0:1,0:2,0:3].all(), dat[0:1,0:2,0:3].all())
-        assert_equal(d.section[0:1,0:2,1:2].all(), dat[0:1,0:2,1:2].all())
-        assert_equal(d.section[0:1,0:2,1:3].all(), dat[0:1,0:2,1:3].all())
-        assert_equal(d.section[0:1,0:2,2:3].all(), dat[0:1,0:2,2:3].all())
-        assert_equal(d.section[0:1,0:3,0:1].all(), dat[0:1,0:3,0:1].all())
-        assert_equal(d.section[0:1,0:3,0:2].all(), dat[0:1,0:3,0:2].all())
-        assert_equal(d.section[0:1,0:3,0:3].all(), dat[0:1,0:3,0:3].all())
-        assert_equal(d.section[0:1,0:3,1:2].all(), dat[0:1,0:3,1:2].all())
-        assert_equal(d.section[0:1,0:3,1:3].all(), dat[0:1,0:3,1:3].all())
-        assert_equal(d.section[0:1,0:3,2:3].all(), dat[0:1,0:3,2:3].all())
-        assert_equal(d.section[0:1,1:2,0:1].all(), dat[0:1,1:2,0:1].all())
-        assert_equal(d.section[0:1,1:2,0:2].all(), dat[0:1,1:2,0:2].all())
-        assert_equal(d.section[0:1,1:2,0:3].all(), dat[0:1,1:2,0:3].all())
-        assert_equal(d.section[0:1,1:2,1:2].all(), dat[0:1,1:2,1:2].all())
-        assert_equal(d.section[0:1,1:2,1:3].all(), dat[0:1,1:2,1:3].all())
-        assert_equal(d.section[0:1,1:2,2:3].all(), dat[0:1,1:2,2:3].all())
-        assert_equal(d.section[0:1,1:3,0:1].all(), dat[0:1,1:3,0:1].all())
-        assert_equal(d.section[0:1,1:3,0:2].all(), dat[0:1,1:3,0:2].all())
-        assert_equal(d.section[0:1,1:3,0:3].all(), dat[0:1,1:3,0:3].all())
-        assert_equal(d.section[0:1,1:3,1:2].all(), dat[0:1,1:3,1:2].all())
-        assert_equal(d.section[0:1,1:3,1:3].all(), dat[0:1,1:3,1:3].all())
-        assert_equal(d.section[0:1,1:3,2:3].all(), dat[0:1,1:3,2:3].all())
-        assert_equal(d.section[1:2,0:1,0:1].all(), dat[1:2,0:1,0:1].all())
-        assert_equal(d.section[1:2,0:1,0:2].all(), dat[1:2,0:1,0:2].all())
-        assert_equal(d.section[1:2,0:1,0:3].all(), dat[1:2,0:1,0:3].all())
-        assert_equal(d.section[1:2,0:1,1:2].all(), dat[1:2,0:1,1:2].all())
-        assert_equal(d.section[1:2,0:1,1:3].all(), dat[1:2,0:1,1:3].all())
-        assert_equal(d.section[1:2,0:1,2:3].all(), dat[1:2,0:1,2:3].all())
-        assert_equal(d.section[1:2,0:2,0:1].all(), dat[1:2,0:2,0:1].all())
-        assert_equal(d.section[1:2,0:2,0:2].all(), dat[1:2,0:2,0:2].all())
-        assert_equal(d.section[1:2,0:2,0:3].all(), dat[1:2,0:2,0:3].all())
-        assert_equal(d.section[1:2,0:2,1:2].all(), dat[1:2,0:2,1:2].all())
-        assert_equal(d.section[1:2,0:2,1:3].all(), dat[1:2,0:2,1:3].all())
-        assert_equal(d.section[1:2,0:2,2:3].all(), dat[1:2,0:2,2:3].all())
-        assert_equal(d.section[1:2,0:3,0:1].all(), dat[1:2,0:3,0:1].all())
-        assert_equal(d.section[1:2,0:3,0:2].all(), dat[1:2,0:3,0:2].all())
-        assert_equal(d.section[1:2,0:3,0:3].all(), dat[1:2,0:3,0:3].all())
-        assert_equal(d.section[1:2,0:3,1:2].all(), dat[1:2,0:3,1:2].all())
-        assert_equal(d.section[1:2,0:3,1:3].all(), dat[1:2,0:3,1:3].all())
-        assert_equal(d.section[1:2,0:3,2:3].all(), dat[1:2,0:3,2:3].all())
-        assert_equal(d.section[1:2,1:2,0:1].all(), dat[1:2,1:2,0:1].all())
-        assert_equal(d.section[1:2,1:2,0:2].all(), dat[1:2,1:2,0:2].all())
-        assert_equal(d.section[1:2,1:2,0:3].all(), dat[1:2,1:2,0:3].all())
-        assert_equal(d.section[1:2,1:2,1:2].all(), dat[1:2,1:2,1:2].all())
-        assert_equal(d.section[1:2,1:2,1:3].all(), dat[1:2,1:2,1:3].all())
-        assert_equal(d.section[1:2,1:2,2:3].all(), dat[1:2,1:2,2:3].all())
-        assert_equal(d.section[1:2,1:3,0:1].all(), dat[1:2,1:3,0:1].all())
-        assert_equal(d.section[1:2,1:3,0:2].all(), dat[1:2,1:3,0:2].all())
-        assert_equal(d.section[1:2,1:3,0:3].all(), dat[1:2,1:3,0:3].all())
-        assert_equal(d.section[1:2,1:3,1:2].all(), dat[1:2,1:3,1:2].all())
-        assert_equal(d.section[1:2,1:3,1:3].all(), dat[1:2,1:3,1:3].all())
-        assert_equal(d.section[1:2,1:3,2:3].all(), dat[1:2,1:3,2:3].all())
+        assert_true((d.section[:,:,0:1] == dat[:,:,0:1]).all())
+        assert_true((d.section[:,:,0:2] == dat[:,:,0:2]).all())
+        assert_true((d.section[:,:,0:3] == dat[:,:,0:3]).all())
+        assert_true((d.section[:,:,1:2] == dat[:,:,1:2]).all())
+        assert_true((d.section[:,:,1:3] == dat[:,:,1:3]).all())
+        assert_true((d.section[:,:,2:3] == dat[:,:,2:3]).all())
+        assert_true((d.section[0:1,0:1,0:1] == dat[0:1,0:1,0:1]).all())
+        assert_true((d.section[0:1,0:1,0:2] == dat[0:1,0:1,0:2]).all())
+        assert_true((d.section[0:1,0:1,0:3] == dat[0:1,0:1,0:3]).all())
+        assert_true((d.section[0:1,0:1,1:2] == dat[0:1,0:1,1:2]).all())
+        assert_true((d.section[0:1,0:1,1:3] == dat[0:1,0:1,1:3]).all())
+        assert_true((d.section[0:1,0:1,2:3] == dat[0:1,0:1,2:3]).all())
+        assert_true((d.section[0:1,0:2,0:1] == dat[0:1,0:2,0:1]).all())
+        assert_true((d.section[0:1,0:2,0:2] == dat[0:1,0:2,0:2]).all())
+        assert_true((d.section[0:1,0:2,0:3] == dat[0:1,0:2,0:3]).all())
+        assert_true((d.section[0:1,0:2,1:2] == dat[0:1,0:2,1:2]).all())
+        assert_true((d.section[0:1,0:2,1:3] == dat[0:1,0:2,1:3]).all())
+        assert_true((d.section[0:1,0:2,2:3] == dat[0:1,0:2,2:3]).all())
+        assert_true((d.section[0:1,0:3,0:1] == dat[0:1,0:3,0:1]).all())
+        assert_true((d.section[0:1,0:3,0:2] == dat[0:1,0:3,0:2]).all())
+        assert_true((d.section[0:1,0:3,0:3] == dat[0:1,0:3,0:3]).all())
+        assert_true((d.section[0:1,0:3,1:2] == dat[0:1,0:3,1:2]).all())
+        assert_true((d.section[0:1,0:3,1:3] == dat[0:1,0:3,1:3]).all())
+        assert_true((d.section[0:1,0:3,2:3] == dat[0:1,0:3,2:3]).all())
+        assert_true((d.section[0:1,1:2,0:1] == dat[0:1,1:2,0:1]).all())
+        assert_true((d.section[0:1,1:2,0:2] == dat[0:1,1:2,0:2]).all())
+        assert_true((d.section[0:1,1:2,0:3] == dat[0:1,1:2,0:3]).all())
+        assert_true((d.section[0:1,1:2,1:2] == dat[0:1,1:2,1:2]).all())
+        assert_true((d.section[0:1,1:2,1:3] == dat[0:1,1:2,1:3]).all())
+        assert_true((d.section[0:1,1:2,2:3] == dat[0:1,1:2,2:3]).all())
+        assert_true((d.section[0:1,1:3,0:1] == dat[0:1,1:3,0:1]).all())
+        assert_true((d.section[0:1,1:3,0:2] == dat[0:1,1:3,0:2]).all())
+        assert_true((d.section[0:1,1:3,0:3] == dat[0:1,1:3,0:3]).all())
+        assert_true((d.section[0:1,1:3,1:2] == dat[0:1,1:3,1:2]).all())
+        assert_true((d.section[0:1,1:3,1:3] == dat[0:1,1:3,1:3]).all())
+        assert_true((d.section[0:1,1:3,2:3] == dat[0:1,1:3,2:3]).all())
+        assert_true((d.section[1:2,0:1,0:1] == dat[1:2,0:1,0:1]).all())
+        assert_true((d.section[1:2,0:1,0:2] == dat[1:2,0:1,0:2]).all())
+        assert_true((d.section[1:2,0:1,0:3] == dat[1:2,0:1,0:3]).all())
+        assert_true((d.section[1:2,0:1,1:2] == dat[1:2,0:1,1:2]).all())
+        assert_true((d.section[1:2,0:1,1:3] == dat[1:2,0:1,1:3]).all())
+        assert_true((d.section[1:2,0:1,2:3] == dat[1:2,0:1,2:3]).all())
+        assert_true((d.section[1:2,0:2,0:1] == dat[1:2,0:2,0:1]).all())
+        assert_true((d.section[1:2,0:2,0:2] == dat[1:2,0:2,0:2]).all())
+        assert_true((d.section[1:2,0:2,0:3] == dat[1:2,0:2,0:3]).all())
+        assert_true((d.section[1:2,0:2,1:2] == dat[1:2,0:2,1:2]).all())
+        assert_true((d.section[1:2,0:2,1:3] == dat[1:2,0:2,1:3]).all())
+        assert_true((d.section[1:2,0:2,2:3] == dat[1:2,0:2,2:3]).all())
+        assert_true((d.section[1:2,0:3,0:1] == dat[1:2,0:3,0:1]).all())
+        assert_true((d.section[1:2,0:3,0:2] == dat[1:2,0:3,0:2]).all())
+        assert_true((d.section[1:2,0:3,0:3] == dat[1:2,0:3,0:3]).all())
+        assert_true((d.section[1:2,0:3,1:2] == dat[1:2,0:3,1:2]).all())
+        assert_true((d.section[1:2,0:3,1:3] == dat[1:2,0:3,1:3]).all())
+        assert_true((d.section[1:2,0:3,2:3] == dat[1:2,0:3,2:3]).all())
+        assert_true((d.section[1:2,1:2,0:1] == dat[1:2,1:2,0:1]).all())
+        assert_true((d.section[1:2,1:2,0:2] == dat[1:2,1:2,0:2]).all())
+        assert_true((d.section[1:2,1:2,0:3] == dat[1:2,1:2,0:3]).all())
+        assert_true((d.section[1:2,1:2,1:2] == dat[1:2,1:2,1:2]).all())
+        assert_true((d.section[1:2,1:2,1:3] == dat[1:2,1:2,1:3]).all())
+        assert_true((d.section[1:2,1:2,2:3] == dat[1:2,1:2,2:3]).all())
+        assert_true((d.section[1:2,1:3,0:1] == dat[1:2,1:3,0:1]).all())
+        assert_true((d.section[1:2,1:3,0:2] == dat[1:2,1:3,0:2]).all())
+        assert_true((d.section[1:2,1:3,0:3] == dat[1:2,1:3,0:3]).all())
+        assert_true((d.section[1:2,1:3,1:2] == dat[1:2,1:3,1:2]).all())
+        assert_true((d.section[1:2,1:3,1:3] == dat[1:2,1:3,1:3]).all())
+        assert_true((d.section[1:2,1:3,2:3] == dat[1:2,1:3,2:3]).all())
 
     def test_section_data_four(self):
         a = np.arange(256).reshape((4, 4, 4, 4))
         hdu = pyfits.PrimaryHDU(a)
         hdu.writeto(self.temp('test_new.fits'))
 
-        hdul=pyfits.open(self.temp('test_new.fits'))
-        d=hdul[0]
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        d = hdul[0]
         dat = hdul[0].data
-        assert_equal(d.section[:,:,:,:].all(), dat[:,:,:,:].all())
-        assert_equal(d.section[:,:,:].all(), dat[:,:,:].all())
-        assert_equal(d.section[:,:].all(), dat[:,:].all())
-        assert_equal(d.section[:].all(), dat[:].all())
-        assert_equal(d.section[0,:,:,:].all(), dat[0,:,:,:].all())
-        assert_equal(d.section[0,:,0,:].all(), dat[0,:,0,:].all())
-        assert_equal(d.section[:,:,0,:].all(), dat[:,:,0,:].all())
-        assert_equal(d.section[:,1,0,:].all(), dat[:,1,0,:].all())
-        assert_equal(d.section[:,:,:,1].all(), dat[:,:,:,1].all())
+        assert_true((d.section[:,:,:,:] == dat[:,:,:,:]).all())
+        assert_true((d.section[:,:,:] == dat[:,:,:]).all())
+        assert_true((d.section[:,:] == dat[:,:]).all())
+        assert_true((d.section[:] == dat[:]).all())
+        assert_true((d.section[0,:,:,:] == dat[0,:,:,:]).all())
+        assert_true((d.section[0,:,0,:] == dat[0,:,0,:]).all())
+        assert_true((d.section[:,:,0,:] == dat[:,:,0,:]).all())
+        assert_true((d.section[:,1,0,:] == dat[:,1,0,:]).all())
+        assert_true((d.section[:,:,:,1] == dat[:,:,:,1]).all())
 
     def test_comp_image(self):
-        def _test_comp_image(self, data, compression_type, quantize_level,
-                             byte_order):
-            self.setup()
-            try:
-                data = data.newbyteorder(byte_order)
-                primary_hdu = pyfits.PrimaryHDU()
-                ofd = pyfits.HDUList(primary_hdu)
-                chdu = pyfits.CompImageHDU(data, name='SCI',
-                                           compressionType=compression_type,
-                                           quantizeLevel=quantize_level)
-                ofd.append(chdu)
-                ofd.writeto(self.temp('test_new.fits'), clobber=True)
-                ofd.close()
-                fd = pyfits.open(self.temp('test_new.fits'))
-                assert_equal(fd[1].data.all(), data.all())
-                assert_equal(fd[1].header['NAXIS'], chdu.header['NAXIS'])
-                assert_equal(fd[1].header['NAXIS1'], chdu.header['NAXIS1'])
-                assert_equal(fd[1].header['NAXIS2'], chdu.header['NAXIS2'])
-                assert_equal(fd[1].header['BITPIX'], chdu.header['BITPIX'])
-                fd.close()
-            finally:
-                self.teardown()
-
         argslist = [
             (np.zeros((2, 10, 10), dtype=np.float32), 'RICE_1', 16),
             (np.zeros((2, 10, 10), dtype=np.float32), 'GZIP_1', -0.01),
@@ -735,7 +707,25 @@ class TestImageFunctions(PyfitsTestCase):
 
         for byte_order in ('<', '>'):
             for args in argslist:
-                yield (_test_comp_image, self) + args + (byte_order,)
+                yield (self._test_comp_image,) + args + (byte_order,)
+
+    def _test_comp_image(self, data, compression_type, quantize_level,
+                         byte_order):
+        data = data.newbyteorder(byte_order)
+        primary_hdu = pyfits.PrimaryHDU()
+        ofd = pyfits.HDUList(primary_hdu)
+        chdu = pyfits.CompImageHDU(data, name='SCI',
+                                   compressionType=compression_type,
+                                   quantizeLevel=quantize_level)
+        ofd.append(chdu)
+        ofd.writeto(self.temp('test_new.fits'), clobber=True)
+        ofd.close()
+        with pyfits.open(self.temp('test_new.fits')) as fd:
+            assert_true((fd[1].data == data).all())
+            assert_equal(fd[1].header['NAXIS'], chdu.header['NAXIS'])
+            assert_equal(fd[1].header['NAXIS1'], chdu.header['NAXIS1'])
+            assert_equal(fd[1].header['NAXIS2'], chdu.header['NAXIS2'])
+            assert_equal(fd[1].header['BITPIX'], chdu.header['BITPIX'])
 
     def test_comp_image_hcompression_1_invalid_data(self):
         """
@@ -851,12 +841,11 @@ class TestImageFunctions(PyfitsTestCase):
 
         # Copy the original file before saving to it
         shutil.copy(self.data('test0.fits'), self.temp('test_new.fits'))
-        hdul = pyfits.open(self.temp('test_new.fits'), mode='update')
-        orig_data = hdul[1].data.copy()
-        hdr_copy = hdul[1].header.copy()
-        del hdr_copy['NAXIS*']
-        hdul[1].header = hdr_copy
-        hdul.close()
+        with pyfits.open(self.temp('test_new.fits'), mode='update') as hdul:
+            orig_data = hdul[1].data.copy()
+            hdr_copy = hdul[1].header.copy()
+            del hdr_copy['NAXIS*']
+            hdul[1].header = hdr_copy
 
-        hdul = pyfits.open(self.temp('test_new.fits'))
-        assert_true((orig_data == hdul[1].data).all())
+        with pyfits.open(self.temp('test_new.fits')) as hdul:
+            assert_true((orig_data == hdul[1].data).all())
