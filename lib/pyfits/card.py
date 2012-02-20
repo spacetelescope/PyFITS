@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 
 from pyfits.util import _str_to_num, _is_int, deprecated, maketrans, translate
-from pyfits.verify import _Verify, _ErrList
+from pyfits.verify import _Verify, _ErrList, VerifyError
 
 
 __all__ = ['Card', 'CardList', 'RecordValuedKeywordCard', 'create_card',

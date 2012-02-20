@@ -4,6 +4,9 @@ Changelog
 3.0.6 (unreleased)
 ----------------------
 
+- More accurate error messages when opening files containing invalid header
+  cards. (#109)
+
 - Fixed a possible reference cycle/memory leak that was caught through more
   extensive testing on Windows. (#112)
 
