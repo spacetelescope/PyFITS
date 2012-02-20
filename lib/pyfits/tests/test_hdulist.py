@@ -435,6 +435,20 @@ class TestHDUListFunctions(PyfitsTestCase):
         assert_true('EXTEND' in hdul[0].header)
         assert_equal(hdul[0].header['EXTEND'], True)
 
+    def test_new_hdulist_extend_keyword(self):
+        """
+        Tests that adding a PrimaryHDU to a new HDUList object updates the
+        EXTEND keyword on that HDU.  Regression test for #114.
+        """
+
+        h0 = pyfits.Header()
+        hdu = pyfits.PrimaryHDU(header=h0)
+        sci = pyfits.ImageHDU(data=np.array(10))
+        image = pyfits.HDUList([hdu, sci])
+        image.writeto(self.temp('temp.fits'))
+        assert_true('EXTEND' in hdu.header)
+        assert_equal(hdu.header['EXTEND'], True)
+
     def test_replace_memmaped_array(self):
         # Copy the original before we modify it
         hdul = pyfits.open(self.data('test0.fits'))

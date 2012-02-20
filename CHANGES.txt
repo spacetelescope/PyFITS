@@ -43,6 +43,10 @@ Changelog
   file could result in a crash due to there being open mmaps on that file.
   (#112)
 
+- Fixed a bug where manually initializing an ``HDUList`` with a list of of
+  HDUs wouldn't set the correct EXTEND keyword value on the primary HDU.
+  (#114)
+
 
 3.0.5 (2012-01-30)
 ------------------
