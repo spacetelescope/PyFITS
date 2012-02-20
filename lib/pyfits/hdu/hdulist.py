@@ -18,7 +18,7 @@ from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
 from pyfits.util import (_is_int, _tmp_name, _pad_length, BLOCK_SIZE, isfile,
                          fileobj_name, fileobj_closed, fileobj_mode,
-                         ignore_sigint, _get_array_memmap)
+                         ignore_sigint, _get_array_memmap, indent)
 from pyfits.verify import _Verify, _ErrList, VerifyError
 
 
@@ -250,11 +250,11 @@ class HDUList(list, _Verify):
                 # corrupted HDU
                 except (VerifyError, ValueError), err:
                     warnings.warn(
-                        'Required keywords missing when trying to read '
-                        'HDU #%d (note: PyFITS uses zero-based indexing.\n'
-                        '          %s\n          There may be extra '
-                        'bytes after the last HDU or the file is corrupted.' %
-                        (len(hdulist), err))
+                        'Error validating header for HDU #%d (note: PyFITS '
+                        'uses zero-based indexing).\n%s\n'
+                        'There may be extra bytes after the last HDU or the '
+                        'file is corrupted.' %
+                        (len(hdulist), indent(str(err))))
                     break
                 except IOError, err:
                     if ffo.writeonly:
@@ -265,7 +265,7 @@ class HDUList(list, _Verify):
             # If we're trying to read only and no header units were found,
             # raise and exception
             if mode in ('readonly', 'denywrite') and len(hdulist) == 0:
-                raise IOError('Empty FITS file')
+                raise IOError('Empty or corrupt FITS file')
 
             # initialize/reset attributes to be used in "update/append" mode
             hdulist._resize = False
