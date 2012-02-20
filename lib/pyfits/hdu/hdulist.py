@@ -19,7 +19,7 @@ from pyfits.hdu.table import _TableBaseHDU
 from pyfits.util import (_is_int, _tmp_name, _pad_length, BLOCK_SIZE, isfile,
                          fileobj_name, fileobj_closed, fileobj_mode,
                          ignore_sigint, _get_array_memmap)
-from pyfits.verify import _Verify, _ErrList
+from pyfits.verify import _Verify, _ErrList, VerifyError
 
 
 def fitsopen(name, mode='readonly', memmap=None, **kwargs):
@@ -248,7 +248,7 @@ class HDUList(list, _Verify):
                     break
                 # check in the case there is extra space after the last HDU or
                 # corrupted HDU
-                except ValueError, err:
+                except (VerifyError, ValueError), err:
                     warnings.warn(
                         'Required keywords missing when trying to read '
                         'HDU #%d (note: PyFITS uses zero-based indexing.\n'
