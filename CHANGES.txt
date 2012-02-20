@@ -14,6 +14,10 @@ Changelog
   file could result in a crash due to there being open mmaps on that file.
   (#112)
 
+- Fixed a bug where manually initializing an ``HDUList`` with a list of of
+  HDUs wouldn't set the correct EXTEND keyword value on the primary HDU.
+  (#114)
+
 - Fixed a crash when deepcopying a Header object in Python < 2.7. (#115)
 
 

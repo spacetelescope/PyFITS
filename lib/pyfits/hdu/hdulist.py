@@ -139,7 +139,10 @@ class HDUList(list, _Verify):
             if not isinstance(hdu, _BaseHDU):
                 raise TypeError(
                       "Element %d in the HDUList input is not an HDU." % idx)
+
         super(HDUList, self).__init__(hdus)
+
+        self.update_extend()
 
     def __iter__(self):
         for idx in range(len(self)):
@@ -416,8 +419,7 @@ class HDUList(list, _Verify):
         self._resize = True
         self._truncate = False
         # make sure the EXTEND keyword is in primary HDU if there is extension
-        if len(self) > 1:
-            self.update_extend()
+        self.update_extend()
 
     @_with_extensions
     def append(self, hdu, classExtensions={}):
@@ -470,8 +472,7 @@ class HDUList(list, _Verify):
         self._truncate = False
 
         # make sure the EXTEND keyword is in primary HDU if there is extension
-        if len(self) > 1:
-            self.update_extend()
+        self.update_extend()
 
     def index_of(self, key):
         """
@@ -781,16 +782,28 @@ class HDUList(list, _Verify):
         Make sure that if the primary header needs the keyword
         ``EXTEND`` that it has it and it is correct.
         """
+
+        if not len(self):
+            return
+
+        if not isinstance(self[0], PrimaryHDU):
+            # A PrimaryHDU will be automatically inserted at some point, but it
+            # might not have been added yet
+            return
+
         hdr = self[0].header
-        if 'extend' in hdr:
-            if (hdr['extend'] == False):
-                hdr['extend'] = True
-        else:
-            if hdr['naxis'] == 0:
-                hdr.update('extend', True, after='naxis')
+
+        if 'EXTEND' in hdr:
+            if len(self) > 1 and hdr['EXTEND'] == False:
+                hdr['EXTEND'] = True
+            elif len(self) == 1 and hdr['EXTEND'] == True:
+                hdr['EXTEND'] = False
+        elif len(self) > 1:
+            if hdr['NAXIS'] == 0:
+                hdr.update('EXTEND', True, after='NAXIS')
             else:
-                n = hdr['naxis']
-                hdr.update('extend', True, after='naxis' + str(n))
+                n = hdr['NAXIS']
+                hdr.update('EXTEND', True, after='NAXIS' + str(n))
 
     @_with_extensions
     def writeto(self, fileobj, output_verify='exception', clobber=False,
@@ -849,8 +862,7 @@ class HDUList(list, _Verify):
                 raise IOError("File '%s' already exists." % filename)
 
         # make sure the EXTEND keyword is there if there is extension
-        if len(self) > 1:
-            self.update_extend()
+        self.update_extend()
 
         mode = 'copyonwrite'
         for key, val in PYTHON_MODES.iteritems():
