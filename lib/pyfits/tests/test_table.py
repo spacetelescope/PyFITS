@@ -1826,3 +1826,21 @@ class TestTableFunctions(PyfitsTestCase):
         assert_true((t.data['names'] == [1]).all())
         assert_true((t.data['formats'] == [2]).all())
         assert_true((t.data.other == [3]).all())
+
+    def test_table_from_bool_fields(self):
+        """
+        Regression test for #113.
+
+        Tests creating a table from a recarray containing numpy.bool columns.
+        """
+
+        array = np.rec.array([(True, False), (False, True)], formats='|b1,|b1')
+        thdu = pyfits.new_table(array)
+        assert_equal(thdu.columns.formats, ['L', 'L'])
+        assert_true(comparerecords(thdu.data, array))
+
+        # Test round trip
+        thdu.writeto(self.temp('table.fits'))
+        data = pyfits.getdata(self.temp('table.fits'), ext=1)
+        assert_equal(thdu.columns.formats, ['L', 'L'])
+        assert_true(comparerecords(data, array))

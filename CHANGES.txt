@@ -50,6 +50,9 @@ Changelog
   HDUs wouldn't set the correct EXTEND keyword value on the primary HDU.
   (#114)
 
+- Fixed a crash when trying to create a FITS table (i.e. with new_table())
+  from a Numpy array containing bool fields. (#115)
+
 
 3.0.5 (2012-01-30)
 ------------------
