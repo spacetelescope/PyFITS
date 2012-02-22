@@ -1021,7 +1021,6 @@ class Header(object):
 
         if isinstance(card, basestring):
             card = Card(card)
-            self._cards.append(card)
         elif isinstance(card, tuple):
             card = Card(*card)
         elif card is None:

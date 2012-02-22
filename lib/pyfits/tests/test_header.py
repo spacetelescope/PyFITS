@@ -900,6 +900,28 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(header[-1], '')
         assert_equal(header[-2], 'H')
 
+    def test_header_append_keyword_only(self):
+        """
+        Test appending a new card with just the keyword, and no value or
+        comment given.
+        """
+
+        header = pyfits.Header([('A', 'B'), ('C', 'D')])
+        header.append('E')
+        assert_equal(len(header), 3)
+        assert_equal(header.keys()[-1], 'E')
+        assert_equal(header[-1], '')
+        assert_equal(header.comments['E'], '')
+
+        # Try appending a blank--normally this can be accomplished with just
+        # header.append(), but header.append('') should also work (and is maybe
+        # a little more clear)
+        header.append('')
+        assert_equal(len(header), 4)
+        # Blank keywords are ignored in the keys list
+        assert_equal(header.keys()[-1], 'E')
+        assert_equal(header[''], '')
+
     def test_header_insert_use_blanks(self):
         header = pyfits.Header([('A', 'B'), ('C', 'D')])
 
