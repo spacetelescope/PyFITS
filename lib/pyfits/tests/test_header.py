@@ -407,6 +407,22 @@ class TestHeaderFunctions(PyfitsTestCase):
             "CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  "
             "CONTINUE  '&' / comments in line 1 comments with ''.                            ")
 
+    def test_continue_card_with_equals_in_value(self):
+        """
+        Regression test for #117.
+        """
+
+        c = pyfits.Card.fromstring(
+            pyfits.card._pad("EXPR    = '/grp/hst/cdbs//grid/pickles/dat_uvk/pickles_uk_10.fits * &'") +
+            pyfits.card._pad("CONTINUE  '5.87359e-12 * MWAvg(Av=0.12)&'") +
+            pyfits.card._pad("CONTINUE  '&' / pysyn expression"))
+
+        assert_equal(c.keyword, 'EXPR')
+        assert_equal(c.value,
+                     '/grp/hst/cdbs//grid/pickles/dat_uvk/pickles_uk_10.fits '
+                     '* 5.87359e-12 * MWAvg(Av=0.12)')
+        assert_equal(c.comment, 'pysyn expression')
+
     def test_hierarch_card_creation(self):
         # Test automatic upgrade to hierarch card
         with catch_warnings(record=True) as w:

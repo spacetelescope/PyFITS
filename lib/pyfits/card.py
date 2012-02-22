@@ -738,7 +738,7 @@ class Card(_Verify):
 
         keyword = self._image[:8].strip()
         keyword_upper = keyword.upper()
-        if keyword_upper in self._commentary_keywords:
+        if keyword_upper in self._commentary_keywords + ['CONTINUE']:
             if keyword_upper != keyword:
                 self._modified = True
             return keyword_upper
