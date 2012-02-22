@@ -891,7 +891,7 @@ class Header(object):
 
         """
 
-        legacy_args = ['key', 'value', 'args', 'comment', 'before', 'after',
+        legacy_args = ['key', 'value', 'comment', 'before', 'after',
                        'savecomment']
 
         # This if statement covers all the cases in which this could be a

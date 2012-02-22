@@ -109,6 +109,9 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
     def test_update_comment(self):
         hdul = pyfits.open(self.data('arange.fits'))
         hdul[0].header.update('FOO', 'BAR', 'BAZ')
+        assert_equal(hdul[0].header['FOO'], 'BAR')
+        assert_equal(hdul[0].header.ascard['FOO'].comment, 'BAZ')
+
         hdul.writeto(self.temp('test.fits'))
 
         hdul = pyfits.open(self.temp('test.fits'), mode='update')
