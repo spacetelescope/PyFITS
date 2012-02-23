@@ -46,12 +46,15 @@ Changelog
   file could result in a crash due to there being open mmaps on that file.
   (#112)
 
+- Fixed a crash when trying to create a FITS table (i.e. with new_table())
+  from a Numpy array containing bool fields. (#113)
+
 - Fixed a bug where manually initializing an ``HDUList`` with a list of of
   HDUs wouldn't set the correct EXTEND keyword value on the primary HDU.
   (#114)
 
-- Fixed a crash when trying to create a FITS table (i.e. with new_table())
-  from a Numpy array containing bool fields. (#115)
+- Fixed a crash that could occur when trying to deepcopy a Header in Python <
+  2.7. (#115)
 
 
 3.0.5 (2012-01-30)
