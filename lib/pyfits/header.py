@@ -1920,9 +1920,8 @@ class _HeaderCommentaryCards(_CardAccessor):
         self._keyword = keyword
 
     def __repr__(self):
-        return '\n'.join('%d: %s' % (idx, c.value)
-                         for idx, c in enumerate(self._header._cards)
-                         if c.keyword == self._keyword)
+        return '\n'.join('%d: %s' % (idx, value)
+                         for idx, value in enumerate(self))
 
     def __getitem__(self, idx):
         if not isinstance(idx, int):
