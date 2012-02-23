@@ -148,8 +148,12 @@ class Header(object):
         else:
             comment = None
 
+        card = None
         if isinstance(key, int):
             card = self._cards[key]
+        elif isinstance(key, tuple):
+            card = self._cards[self._cardindex(key)]
+        if card:
             card.value = value
             if comment is not None:
                 card.comment = comment
@@ -1843,6 +1847,24 @@ class _CardAccessor(object):
         idx = self._header._cardindex(item)
         return self._header._cards[idx]
 
+    def _setslice(self, item, value):
+        """
+        Helper for implementing __setitem__ on _CardAccessor subclasses; slices
+        should always be handled in this same way.
+        """
+
+        if isinstance(item, slice) or self._header._haswildcard(item):
+            if isinstance(item, slice):
+                indices = xrange(*item.indices(len(self)))
+            else:
+                indices = self._header._wildcardmatch(item)
+            if isinstance(value, basestring) or not isiterable(value):
+                value = itertools.repeat(value, len(indices))
+            for idx, val in itertools.izip(indices, value):
+                self[idx] = val
+            return True
+        return False
+
 
 class _HeaderComments(_CardAccessor):
     """
@@ -1877,20 +1899,12 @@ class _HeaderComments(_CardAccessor):
 
     def __setitem__(self, item, comment):
         """
-        Set the comment on specified card or cards.
+        Set/update the comment on specified card or cards.
 
         Slice/filter updates work similarly to how Header.__setitem__ works.
         """
 
-        if isinstance(item, slice) or self._header._haswildcard(item):
-            if isinstance(item, slice):
-                indices = xrange(*item.indices(len(self._header)))
-            else:
-                indices = self._header._wildcardmatch(item)
-            if isinstance(comment, basestring) or not isiterable(comment):
-                comment = itertools.repeat(comment, len(indices))
-            for idx, val in itertools.izip(indices, comment):
-                self[idx] = val
+        if self._setslice(item, comment):
             return
 
         # In this case, key/index errors should be raised; don't update
@@ -1914,6 +1928,20 @@ class _HeaderCommentaryCards(_CardAccessor):
         if not isinstance(idx, int):
             raise ValueError('%s index must be an integer' % self._keyword)
         return self._header[(self._keyword, idx)]
+
+    def __setitem__(self, item, value):
+        """
+        Set the value of a specified commentary card or cards.
+
+        Slice/filter updates work similarly to how Header.__setitem__ works.
+        """
+
+        if self._setslice(item, value):
+            return
+
+        # In this case, key/index errors should be raised; don't update
+        # comments of nonexistent cards
+        self._header[(self._keyword, item)] = value
 
 
 def _is_pyfits_internal():

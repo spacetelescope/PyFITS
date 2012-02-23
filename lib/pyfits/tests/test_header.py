@@ -988,6 +988,28 @@ class TestHeaderFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('test.fits'))
         assert_equal(hdul[0].header.comments['FOO'], 'QUX')
 
+    def test_update_commentary(self):
+        header = pyfits.Header()
+        header['FOO'] = 'BAR'
+        header['HISTORY'] = 'ABC'
+        header['FRED'] = 'BARNEY'
+        header['HISTORY'] = 'DEF'
+        header['HISTORY'] = 'GHI'
+
+        assert_equal(header['HISTORY'], ['ABC', 'DEF', 'GHI'])
+
+        # Single value update
+        header['HISTORY'][0] = 'FOO'
+        assert_equal(header['HISTORY'], ['FOO', 'DEF', 'GHI'])
+
+        # Single value partial slice update
+        header['HISTORY'][1:] = 'BAR'
+        assert_equal(header['HISTORY'], ['FOO', 'BAR', 'BAR'])
+
+        # Multi-value update
+        header['HISTORY'][:] = ['BAZ', 'QUX']
+        assert_equal(header['HISTORY'], ['BAZ', 'QUX', 'BAR'])
+
     def test_long_commentary_card(self):
         header = pyfits.Header()
         header['FOO'] = 'BAR'
