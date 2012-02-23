@@ -237,7 +237,7 @@ class Header(object):
         looked at, but it should not be modified directly.
         """
 
-        return tuple(self._cards)
+        return _CardAccessor(self)
 
     @property
     def comments(self):
@@ -1822,7 +1822,7 @@ class _CardAccessor(object):
         self._header = header
 
     def __repr__(self):
-        '\n'.join(str(c) for c in self._header._cards)
+        return '\n'.join(str(c) for c in self._header._cards)
 
     def __len__(self):
         return len([c for c in self])
