@@ -1822,7 +1822,7 @@ class _CardAccessor(object):
         self._header = header
 
     def __repr__(self):
-        return '\n'.join(str(c) for c in self._header._cards)
+        return '\n'.join(repr(c) for c in self._header._cards)
 
     def __len__(self):
         return len([c for c in self])
