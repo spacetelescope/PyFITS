@@ -994,12 +994,6 @@ class HDUList(list, _Verify):
 
             # determine if any of the HDU is resized
             for hdu in self:
-                # A shortcut to let an HDU tell us for itself whether or not it
-                # will be resized
-                if hasattr(hdu, '_resize') and hdu._resize:
-                    self._resize = True
-                    break
-
                 # Header:
                 nbytes = len(str(hdu.header))
                 if nbytes != (hdu._datLoc - hdu._hdrLoc):
