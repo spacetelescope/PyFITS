@@ -378,7 +378,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         hdu.writeto(self.temp('test_new.fits'))
 
         hdul = pyfits.open(self.temp('test_new.fits'))
-        c = hdul[0].header.ascard['abc']
+        c = hdul[0].header.cards['abc']
         hdul.close()
         assert_equal(str(c),
             "ABC     = 'long string value long string value long string value long string &' "
@@ -1028,6 +1028,24 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(len(header), 9)
         assert_equal(str(header.cards[1]), 'HISTORY ' + longval[:72])
         assert_equal(str(header.cards[2]).rstrip(), 'HISTORY ' + longval[72:])
+
+    def test_header_fromtextfile(self):
+        """Regression test for #122.
+
+        Manually write a text file containing some header cards ending with
+        newlines and ensure that fromtextfile can read them back in.
+        """
+
+        header = pyfits.Header()
+        header['A'] = ('B', 'C')
+        header['B'] = ('C', 'D')
+        header['C'] = ('D', 'E')
+
+        with open(self.temp('test.hdr'), 'w') as f:
+            f.write('\n'.join(str(c).strip() for c in header.cards))
+
+        header2 = pyfits.Header.fromtextfile(self.temp('test.hdr'))
+        assert_equal(header, header2)
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):

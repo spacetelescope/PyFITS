@@ -22,6 +22,11 @@ PY3K = sys.version_info[:2] >= (3, 0)
 HEADER_END_RE = re.compile('END {77} *$')
 
 
+# According to the FITS standard the only characters that may appear in a
+# header record are the restricted ASCII chars from 0x20 through 0x7E.
+VALID_HEADER_CHARS = set(chr(x) for x in range(0x20, 0x7F))
+
+
 class Header(object):
     """
     FITS header class.  This class exposes both a dict-like interface and a
@@ -225,6 +230,14 @@ class Header(object):
     def __str__(self):
         return self.tostring()
 
+    def __eq__(self, other):
+        """
+        Two Headers are equal only if they have the exact same string
+        representation.
+        """
+
+        return str(self) == str(other)
+
     def __add__(self, other):
         temp = self.copy(strip=False)
         temp.extend(other)
@@ -283,34 +296,48 @@ class Header(object):
             A new `Header` instance.
         """
 
-        actual_block_size = _block_size(sep)
-
         cards = []
-
-        # Split the header into individual cards
-        idx = 0
-
-        def peeknext():
-            if idx + Card.length < len(data):
-                return data[idx + Card.length:idx + Card.length * 2]
-            else:
-                return None
 
         end = 'END' + ' ' * 77
 
+        # If the card separator contains characters that may validly appear in
+        # a card, the only way to unambiguously distinguish between cards is to
+        # require that they be Card.length long.  However, if the separator
+        # contains non-valid characters (namely \n) the cards may be split
+        # immediately at the separator
+        require_full_cardlength = set(sep).issubset(VALID_HEADER_CHARS)
+
+        # Split the header into individual cards
+        idx = 0
+        image = []
+
         while idx < len(data):
-            image = [data[idx:idx + Card.length]]
-            if image[0] == end:
+            if require_full_cardlength:
+                end_idx = idx + Card.length
+            else:
+                try:
+                    end_idx = data.index(sep, idx)
+                except ValueError:
+                    end_idx = len(data)
+
+            next_image = data[idx:end_idx]
+            idx = end_idx + len(sep)
+
+            if image:
+                if next_image[:8] == 'CONTINUE':
+                    image.append(next_image)
+                    continue
+                cards.append(Card.fromstring(''.join(image)))
+
+            if next_image == end:
+                image = []
                 break
 
-            next = peeknext()
-            while next and next[:8] == 'CONTINUE':
-                image.append(next)
-                idx += Card.length + len(sep)
-                next = peeknext()
+            image = [next_image]
 
+        # Add the last image that was found before the end, if any
+        if image:
             cards.append(Card.fromstring(''.join(image)))
-            idx += Card.length + len(sep)
 
         return cls(cards)
 
