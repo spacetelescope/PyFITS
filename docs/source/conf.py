@@ -42,7 +42,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'PyFITS'
-copyright = ('2011, J. C. Hsu, Paul Barrett, Christopher Hanley, '
+copyright = ('2012, J. C. Hsu, Paul Barrett, Christopher Hanley, '
              'James Taylor, Michael Droettboom, Erik M. Bray' )
 
 # The version info for the project you're documenting, acts as replacement for
