@@ -25,7 +25,7 @@ log = None
 
 
 PYFITS_HOMEPAGE_BASE_URL = \
-    'http://www.stsci.edu/resources/software_hardware/pyfits'
+        'http://www.stsci.edu:8072/institute/software_hardware/pyfits'
 # These are the pages to run find/replace of the version number on
 PYFITS_HOMEPAGE_SUBPAGES = ['localProductDescription', 'Download']
 
