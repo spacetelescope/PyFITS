@@ -4,6 +4,25 @@ Changelog
 3.0.6 (unreleased)
 ----------------------
 
+Highlights
+++++++++++
+
+The main reason for this release is to fix an issue that was introduced in
+PyFITS 3.0.5 where merely opening a file containing scaled data (that is, with
+non-trivial BSCALE and BZERO keywords) in 'update' mode would cause the data
+to be automatically rescaled--possibly converting the data from ints to
+floats--as soon as the file is closed, even if the application did not touch
+the data.  Now PyFITS will only rescale the data in an extension when the data
+is actually accessed by the application.  So opening a file in 'update' mode
+in order to modify the header or append new extensions will not cause any
+change to the data in existing extensions.
+
+This release also fixes a few Windows-specific bugs found through more
+extensive Windows testing, and other miscellaneous bugs.
+
+Bug Fixes
++++++++++
+
 - More accurate error messages when opening files containing invalid header
   cards. (#109)
 
@@ -26,6 +45,9 @@ Changelog
 
 - Fixed a crash that could occur when trying to deepcopy a Header in Python <
   2.7. (#115)
+
+- Fixed an issue where merely opening a scaled image in 'update' mode would
+  cause the data to be converted to floats when the file is closed. (#119)
 
 
 3.0.5 (2012-01-30)
