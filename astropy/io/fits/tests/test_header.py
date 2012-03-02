@@ -109,6 +109,9 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
     def test_update_comment(self):
         hdul = pyfits.open(self.data('arange.fits'))
         hdul[0].header.update('FOO', 'BAR', 'BAZ')
+        assert_equal(hdul[0].header['FOO'], 'BAR')
+        assert_equal(hdul[0].header.ascard['FOO'].comment, 'BAZ')
+
         hdul.writeto(self.temp('test.fits'))
 
         hdul = pyfits.open(self.temp('test.fits'), mode='update')
@@ -375,7 +378,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         hdu.writeto(self.temp('test_new.fits'))
 
         hdul = pyfits.open(self.temp('test_new.fits'))
-        c = hdul[0].header.ascard['abc']
+        c = hdul[0].header.cards['abc']
         hdul.close()
         assert_equal(str(c),
             "ABC     = 'long string value long string value long string value long string &' "
@@ -406,6 +409,22 @@ class TestHeaderFunctions(PyfitsTestCase):
             "ABC     = 'longstring''s testing  continue with long string but without the &'  "
             "CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  "
             "CONTINUE  '&' / comments in line 1 comments with ''.                            ")
+
+    def test_continue_card_with_equals_in_value(self):
+        """
+        Regression test for #117.
+        """
+
+        c = pyfits.Card.fromstring(
+            pyfits.card._pad("EXPR    = '/grp/hst/cdbs//grid/pickles/dat_uvk/pickles_uk_10.fits * &'") +
+            pyfits.card._pad("CONTINUE  '5.87359e-12 * MWAvg(Av=0.12)&'") +
+            pyfits.card._pad("CONTINUE  '&' / pysyn expression"))
+
+        assert_equal(c.keyword, 'EXPR')
+        assert_equal(c.value,
+                     '/grp/hst/cdbs//grid/pickles/dat_uvk/pickles_uk_10.fits '
+                     '* 5.87359e-12 * MWAvg(Av=0.12)')
+        assert_equal(c.comment, 'pysyn expression')
 
     def test_hierarch_card_creation(self):
         # Test automatic upgrade to hierarch card
@@ -884,6 +903,28 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(header[-1], '')
         assert_equal(header[-2], 'H')
 
+    def test_header_append_keyword_only(self):
+        """
+        Test appending a new card with just the keyword, and no value or
+        comment given.
+        """
+
+        header = pyfits.Header([('A', 'B'), ('C', 'D')])
+        header.append('E')
+        assert_equal(len(header), 3)
+        assert_equal(header.keys()[-1], 'E')
+        assert_equal(header[-1], '')
+        assert_equal(header.comments['E'], '')
+
+        # Try appending a blank--normally this can be accomplished with just
+        # header.append(), but header.append('') should also work (and is maybe
+        # a little more clear)
+        header.append('')
+        assert_equal(len(header), 4)
+        # Blank keywords are ignored in the keys list
+        assert_equal(header.keys()[-1], 'E')
+        assert_equal(header[''], '')
+
     def test_header_insert_use_blanks(self):
         header = pyfits.Header([('A', 'B'), ('C', 'D')])
 
@@ -947,6 +988,28 @@ class TestHeaderFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('test.fits'))
         assert_equal(hdul[0].header.comments['FOO'], 'QUX')
 
+    def test_update_commentary(self):
+        header = pyfits.Header()
+        header['FOO'] = 'BAR'
+        header['HISTORY'] = 'ABC'
+        header['FRED'] = 'BARNEY'
+        header['HISTORY'] = 'DEF'
+        header['HISTORY'] = 'GHI'
+
+        assert_equal(header['HISTORY'], ['ABC', 'DEF', 'GHI'])
+
+        # Single value update
+        header['HISTORY'][0] = 'FOO'
+        assert_equal(header['HISTORY'], ['FOO', 'DEF', 'GHI'])
+
+        # Single value partial slice update
+        header['HISTORY'][1:] = 'BAR'
+        assert_equal(header['HISTORY'], ['FOO', 'BAR', 'BAR'])
+
+        # Multi-value update
+        header['HISTORY'][:] = ['BAZ', 'QUX']
+        assert_equal(header['HISTORY'], ['BAZ', 'QUX', 'BAR'])
+
     def test_long_commentary_card(self):
         header = pyfits.Header()
         header['FOO'] = 'BAR'
@@ -965,6 +1028,24 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(len(header), 9)
         assert_equal(str(header.cards[1]), 'HISTORY ' + longval[:72])
         assert_equal(str(header.cards[2]).rstrip(), 'HISTORY ' + longval[72:])
+
+    def test_header_fromtextfile(self):
+        """Regression test for #122.
+
+        Manually write a text file containing some header cards ending with
+        newlines and ensure that fromtextfile can read them back in.
+        """
+
+        header = pyfits.Header()
+        header['A'] = ('B', 'C')
+        header['B'] = ('C', 'D')
+        header['C'] = ('D', 'E')
+
+        with open(self.temp('test.hdr'), 'w') as f:
+            f.write('\n'.join(str(c).strip() for c in header.cards))
+
+        header2 = pyfits.Header.fromtextfile(self.temp('test.hdr'))
+        assert_equal(header, header2)
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):

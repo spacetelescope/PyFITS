@@ -11,7 +11,8 @@ import pyfits
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings, ignore_warnings, CaptureStdio
 
-from nose.tools import assert_equal, assert_raises, assert_true, assert_false
+from nose.tools import (assert_equal, assert_raises, assert_true, assert_false,
+                        assert_not_equal)
 
 
 class TestImageFunctions(PyfitsTestCase):
@@ -232,33 +233,33 @@ class TestImageFunctions(PyfitsTestCase):
         # section testing
         fs = pyfits.open(self.data('arange.fits'))
         assert_equal(fs[0].section[3,2,5], np.array([357]))
-        assert_equal(fs[0].section[3,2,:].all(),
+        assert_true((fs[0].section[3,2,:] ==
                      np.array([352, 353, 354, 355, 356, 357, 358, 359, 360,
-                               361, 362]).all())
-        assert_equal(fs[0].section[3,2,4:].all(),
-                     np.array([356, 357, 358, 359, 360, 361, 362]).all())
-        assert_equal(fs[0].section[3,2,:8].all(),
-                     np.array([352, 353, 354, 355, 356, 357, 358, 359]).all())
-        assert_equal(fs[0].section[3,2,-8:8].all(),
-                     np.array([355, 356, 357, 358, 359]).all())
-        assert_equal(fs[0].section[3,2:5,:].all(),
+                               361, 362])).all())
+        assert_true((fs[0].section[3,2,4:] ==
+                     np.array([356, 357, 358, 359, 360, 361, 362])).all())
+        assert_true((fs[0].section[3,2,:8] ==
+                     np.array([352, 353, 354, 355, 356, 357, 358, 359])).all())
+        assert_true((fs[0].section[3,2,-8:8] ==
+                     np.array([355, 356, 357, 358, 359])).all())
+        assert_true((fs[0].section[3,2:5,:] ==
                      np.array([[352, 353, 354, 355, 356, 357, 358, 359,
                                 360, 361, 362],
                                [363, 364, 365, 366, 367, 368, 369, 370,
                                 371, 372, 373],
                                [374, 375, 376, 377, 378, 379, 380, 381,
-                                382, 383, 384]]).all())
+                                382, 383, 384]])).all())
 
-        assert_equal(fs[0].section[3,:,:][:3,:3].all(),
+        assert_true((fs[0].section[3,:,:][:3,:3] ==
                      np.array([[330, 331, 332],
                                [341, 342, 343],
-                               [352, 353, 354]]).all())
+                               [352, 353, 354]])).all())
 
         dat = fs[0].data
-        assert_equal(fs[0].section[3,2:5,:8].all(), dat[3,2:5,:8].all())
-        assert_equal(fs[0].section[3,2:5,3].all(), dat[3,2:5,3].all())
+        assert_true((fs[0].section[3,2:5,:8] == dat[3,2:5,:8]).all())
+        assert_true((fs[0].section[3,2:5,3] == dat[3,2:5,3]).all())
 
-        assert_equal(fs[0].section[3:6,:,:][:3,:3,:3].all(),
+        assert_true((fs[0].section[3:6,:,:][:3,:3,:3] ==
                      np.array([[[330, 331, 332],
                                 [341, 342, 343],
                                 [352, 353, 354]],
@@ -267,20 +268,20 @@ class TestImageFunctions(PyfitsTestCase):
                                 [462, 463, 464]],
                                [[550, 551, 552],
                                 [561, 562, 563],
-                                [572, 573, 574]]]).all())
+                                [572, 573, 574]]])).all())
 
-        assert_equal(fs[0].section[:,:,:][:3,:2,:2].all(),
+        assert_true((fs[0].section[:,:,:][:3,:2,:2] ==
                      np.array([[[  0,   1],
                                 [ 11,  12]],
                                [[110, 111],
                                 [121, 122]],
                                [[220, 221],
-                                [231, 232]]]).all())
+                                [231, 232]]])).all())
 
-        assert_equal(fs[0].section[:,2,:].all(), dat[:,2,:].all())
-        assert_equal(fs[0].section[:,2:5,:].all(), dat[:,2:5,:].all())
-        assert_equal(fs[0].section[3:6,3,:].all(), dat[3:6,3,:].all())
-        assert_equal(fs[0].section[3:6,3:7,:].all(), dat[3:6,3:7,:].all())
+        assert_true((fs[0].section[:,2,:] == dat[:,2,:]).all())
+        assert_true((fs[0].section[:,2:5,:] == dat[:,2:5,:]).all())
+        assert_true((fs[0].section[3:6,3,:] == dat[3:6,3,:]).all())
+        assert_true((fs[0].section[3:6,3:7,:] == dat[3:6,3:7,:]).all())
 
     def test_section_data_square(self):
         a = np.arange(4).reshape((2, 2))
@@ -290,19 +291,19 @@ class TestImageFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('test_new.fits'))
         d = hdul[0]
         dat = hdul[0].data
-        assert_equal(d.section[:,:].all(), dat[:,:].all())
-        assert_equal(d.section[0,:].all(), dat[0,:].all())
-        assert_equal(d.section[1,:].all(), dat[1,:].all())
-        assert_equal(d.section[:,0].all(), dat[:,0].all())
-        assert_equal(d.section[:,1].all(), dat[:,1].all())
-        assert_equal(d.section[0,0].all(), dat[0,0].all())
-        assert_equal(d.section[0,1].all(), dat[0,1].all())
-        assert_equal(d.section[1,0].all(), dat[1,0].all())
-        assert_equal(d.section[1,1].all(), dat[1,1].all())
-        assert_equal(d.section[0:1,0:1].all(), dat[0:1,0:1].all())
-        assert_equal(d.section[0:2,0:1].all(), dat[0:2,0:1].all())
-        assert_equal(d.section[0:1,0:2].all(), dat[0:1,0:2].all())
-        assert_equal(d.section[0:2,0:2].all(), dat[0:2,0:2].all())
+        assert_true((d.section[:,:] == dat[:,:]).all())
+        assert_true((d.section[0,:] == dat[0,:]).all())
+        assert_true((d.section[1,:] == dat[1,:]).all())
+        assert_true((d.section[:,0] == dat[:,0]).all())
+        assert_true((d.section[:,1] == dat[:,1]).all())
+        assert_true((d.section[0,0] == dat[0,0]).all())
+        assert_true((d.section[0,1] == dat[0,1]).all())
+        assert_true((d.section[1,0] == dat[1,0]).all())
+        assert_true((d.section[1,1] == dat[1,1]).all())
+        assert_true((d.section[0:1,0:1] == dat[0:1,0:1]).all())
+        assert_true((d.section[0:2,0:1] == dat[0:2,0:1]).all())
+        assert_true((d.section[0:1,0:2] == dat[0:1,0:2]).all())
+        assert_true((d.section[0:2,0:2] == dat[0:2,0:2]).all())
 
     def test_section_data_cube(self):
         a=np.arange(18).reshape((2,3,3))
@@ -312,141 +313,141 @@ class TestImageFunctions(PyfitsTestCase):
         hdul=pyfits.open(self.temp('test_new.fits'))
         d = hdul[0]
         dat = hdul[0].data
-        assert_equal(d.section[:,:,:].all(), dat[:,:,:].all())
-        assert_equal(d.section[:,:].all(), dat[:,:].all())
-        assert_equal(d.section[:].all(), dat[:].all())
-        assert_equal(d.section[0,:,:].all(), dat[0,:,:].all())
-        assert_equal(d.section[1,:,:].all(), dat[1,:,:].all())
-        assert_equal(d.section[0,0,:].all(), dat[0,0,:].all())
-        assert_equal(d.section[0,1,:].all(), dat[0,1,:].all())
-        assert_equal(d.section[0,2,:].all(), dat[0,2,:].all())
-        assert_equal(d.section[1,0,:].all(), dat[1,0,:].all())
-        assert_equal(d.section[1,1,:].all(), dat[1,1,:].all())
-        assert_equal(d.section[1,2,:].all(), dat[1,2,:].all())
-        assert_equal(d.section[0,0,0].all(), dat[0,0,0].all())
-        assert_equal(d.section[0,0,1].all(), dat[0,0,1].all())
-        assert_equal(d.section[0,0,2].all(), dat[0,0,2].all())
-        assert_equal(d.section[0,1,0].all(), dat[0,1,0].all())
-        assert_equal(d.section[0,1,1].all(), dat[0,1,1].all())
-        assert_equal(d.section[0,1,2].all(), dat[0,1,2].all())
-        assert_equal(d.section[0,2,0].all(), dat[0,2,0].all())
-        assert_equal(d.section[0,2,1].all(), dat[0,2,1].all())
-        assert_equal(d.section[0,2,2].all(), dat[0,2,2].all())
-        assert_equal(d.section[1,0,0].all(), dat[1,0,0].all())
-        assert_equal(d.section[1,0,1].all(), dat[1,0,1].all())
-        assert_equal(d.section[1,0,2].all(), dat[1,0,2].all())
-        assert_equal(d.section[1,1,0].all(), dat[1,1,0].all())
-        assert_equal(d.section[1,1,1].all(), dat[1,1,1].all())
-        assert_equal(d.section[1,1,2].all(), dat[1,1,2].all())
-        assert_equal(d.section[1,2,0].all(), dat[1,2,0].all())
-        assert_equal(d.section[1,2,1].all(), dat[1,2,1].all())
-        assert_equal(d.section[1,2,2].all(), dat[1,2,2].all())
-        assert_equal(d.section[:,0,0].all(), dat[:,0,0].all())
-        assert_equal(d.section[:,0,1].all(), dat[:,0,1].all())
-        assert_equal(d.section[:,0,2].all(), dat[:,0,2].all())
-        assert_equal(d.section[:,1,0].all(), dat[:,1,0].all())
-        assert_equal(d.section[:,1,1].all(), dat[:,1,1].all())
-        assert_equal(d.section[:,1,2].all(), dat[:,1,2].all())
-        assert_equal(d.section[:,2,0].all(), dat[:,2,0].all())
-        assert_equal(d.section[:,2,1].all(), dat[:,2,1].all())
-        assert_equal(d.section[:,2,2].all(), dat[:,2,2].all())
-        assert_equal(d.section[0,:,0].all(), dat[0,:,0].all())
-        assert_equal(d.section[0,:,1].all(), dat[0,:,1].all())
-        assert_equal(d.section[0,:,2].all(), dat[0,:,2].all())
-        assert_equal(d.section[1,:,0].all(), dat[1,:,0].all())
-        assert_equal(d.section[1,:,1].all(), dat[1,:,1].all())
-        assert_equal(d.section[1,:,2].all(), dat[1,:,2].all())
-        assert_equal(d.section[:,:,0].all(), dat[:,:,0].all())
-        assert_equal(d.section[:,:,1].all(), dat[:,:,1].all())
-        assert_equal(d.section[:,:,2].all(), dat[:,:,2].all())
-        assert_equal(d.section[:,0,:].all(), dat[:,0,:].all())
-        assert_equal(d.section[:,1,:].all(), dat[:,1,:].all())
-        assert_equal(d.section[:,2,:].all(), dat[:,2,:].all())
+        assert_true((d.section[:,:,:] == dat[:,:,:]).all())
+        assert_true((d.section[:,:] == dat[:,:]).all())
+        assert_true((d.section[:] == dat[:]).all())
+        assert_true((d.section[0,:,:] == dat[0,:,:]).all())
+        assert_true((d.section[1,:,:] == dat[1,:,:]).all())
+        assert_true((d.section[0,0,:] == dat[0,0,:]).all())
+        assert_true((d.section[0,1,:] == dat[0,1,:]).all())
+        assert_true((d.section[0,2,:] == dat[0,2,:]).all())
+        assert_true((d.section[1,0,:] == dat[1,0,:]).all())
+        assert_true((d.section[1,1,:] == dat[1,1,:]).all())
+        assert_true((d.section[1,2,:] == dat[1,2,:]).all())
+        assert_true((d.section[0,0,0] == dat[0,0,0]).all())
+        assert_true((d.section[0,0,1] == dat[0,0,1]).all())
+        assert_true((d.section[0,0,2] == dat[0,0,2]).all())
+        assert_true((d.section[0,1,0] == dat[0,1,0]).all())
+        assert_true((d.section[0,1,1] == dat[0,1,1]).all())
+        assert_true((d.section[0,1,2] == dat[0,1,2]).all())
+        assert_true((d.section[0,2,0] == dat[0,2,0]).all())
+        assert_true((d.section[0,2,1] == dat[0,2,1]).all())
+        assert_true((d.section[0,2,2] == dat[0,2,2]).all())
+        assert_true((d.section[1,0,0] == dat[1,0,0]).all())
+        assert_true((d.section[1,0,1] == dat[1,0,1]).all())
+        assert_true((d.section[1,0,2] == dat[1,0,2]).all())
+        assert_true((d.section[1,1,0] == dat[1,1,0]).all())
+        assert_true((d.section[1,1,1] == dat[1,1,1]).all())
+        assert_true((d.section[1,1,2] == dat[1,1,2]).all())
+        assert_true((d.section[1,2,0] == dat[1,2,0]).all())
+        assert_true((d.section[1,2,1] == dat[1,2,1]).all())
+        assert_true((d.section[1,2,2] == dat[1,2,2]).all())
+        assert_true((d.section[:,0,0] == dat[:,0,0]).all())
+        assert_true((d.section[:,0,1] == dat[:,0,1]).all())
+        assert_true((d.section[:,0,2] == dat[:,0,2]).all())
+        assert_true((d.section[:,1,0] == dat[:,1,0]).all())
+        assert_true((d.section[:,1,1] == dat[:,1,1]).all())
+        assert_true((d.section[:,1,2] == dat[:,1,2]).all())
+        assert_true((d.section[:,2,0] == dat[:,2,0]).all())
+        assert_true((d.section[:,2,1] == dat[:,2,1]).all())
+        assert_true((d.section[:,2,2] == dat[:,2,2]).all())
+        assert_true((d.section[0,:,0] == dat[0,:,0]).all())
+        assert_true((d.section[0,:,1] == dat[0,:,1]).all())
+        assert_true((d.section[0,:,2] == dat[0,:,2]).all())
+        assert_true((d.section[1,:,0] == dat[1,:,0]).all())
+        assert_true((d.section[1,:,1] == dat[1,:,1]).all())
+        assert_true((d.section[1,:,2] == dat[1,:,2]).all())
+        assert_true((d.section[:,:,0] == dat[:,:,0]).all())
+        assert_true((d.section[:,:,1] == dat[:,:,1]).all())
+        assert_true((d.section[:,:,2] == dat[:,:,2]).all())
+        assert_true((d.section[:,0,:] == dat[:,0,:]).all())
+        assert_true((d.section[:,1,:] == dat[:,1,:]).all())
+        assert_true((d.section[:,2,:] == dat[:,2,:]).all())
 
-        assert_equal(d.section[:,:,0:1].all(), dat[:,:,0:1].all())
-        assert_equal(d.section[:,:,0:2].all(), dat[:,:,0:2].all())
-        assert_equal(d.section[:,:,0:3].all(), dat[:,:,0:3].all())
-        assert_equal(d.section[:,:,1:2].all(), dat[:,:,1:2].all())
-        assert_equal(d.section[:,:,1:3].all(), dat[:,:,1:3].all())
-        assert_equal(d.section[:,:,2:3].all(), dat[:,:,2:3].all())
-        assert_equal(d.section[0:1,0:1,0:1].all(), dat[0:1,0:1,0:1].all())
-        assert_equal(d.section[0:1,0:1,0:2].all(), dat[0:1,0:1,0:2].all())
-        assert_equal(d.section[0:1,0:1,0:3].all(), dat[0:1,0:1,0:3].all())
-        assert_equal(d.section[0:1,0:1,1:2].all(), dat[0:1,0:1,1:2].all())
-        assert_equal(d.section[0:1,0:1,1:3].all(), dat[0:1,0:1,1:3].all())
-        assert_equal(d.section[0:1,0:1,2:3].all(), dat[0:1,0:1,2:3].all())
-        assert_equal(d.section[0:1,0:2,0:1].all(), dat[0:1,0:2,0:1].all())
-        assert_equal(d.section[0:1,0:2,0:2].all(), dat[0:1,0:2,0:2].all())
-        assert_equal(d.section[0:1,0:2,0:3].all(), dat[0:1,0:2,0:3].all())
-        assert_equal(d.section[0:1,0:2,1:2].all(), dat[0:1,0:2,1:2].all())
-        assert_equal(d.section[0:1,0:2,1:3].all(), dat[0:1,0:2,1:3].all())
-        assert_equal(d.section[0:1,0:2,2:3].all(), dat[0:1,0:2,2:3].all())
-        assert_equal(d.section[0:1,0:3,0:1].all(), dat[0:1,0:3,0:1].all())
-        assert_equal(d.section[0:1,0:3,0:2].all(), dat[0:1,0:3,0:2].all())
-        assert_equal(d.section[0:1,0:3,0:3].all(), dat[0:1,0:3,0:3].all())
-        assert_equal(d.section[0:1,0:3,1:2].all(), dat[0:1,0:3,1:2].all())
-        assert_equal(d.section[0:1,0:3,1:3].all(), dat[0:1,0:3,1:3].all())
-        assert_equal(d.section[0:1,0:3,2:3].all(), dat[0:1,0:3,2:3].all())
-        assert_equal(d.section[0:1,1:2,0:1].all(), dat[0:1,1:2,0:1].all())
-        assert_equal(d.section[0:1,1:2,0:2].all(), dat[0:1,1:2,0:2].all())
-        assert_equal(d.section[0:1,1:2,0:3].all(), dat[0:1,1:2,0:3].all())
-        assert_equal(d.section[0:1,1:2,1:2].all(), dat[0:1,1:2,1:2].all())
-        assert_equal(d.section[0:1,1:2,1:3].all(), dat[0:1,1:2,1:3].all())
-        assert_equal(d.section[0:1,1:2,2:3].all(), dat[0:1,1:2,2:3].all())
-        assert_equal(d.section[0:1,1:3,0:1].all(), dat[0:1,1:3,0:1].all())
-        assert_equal(d.section[0:1,1:3,0:2].all(), dat[0:1,1:3,0:2].all())
-        assert_equal(d.section[0:1,1:3,0:3].all(), dat[0:1,1:3,0:3].all())
-        assert_equal(d.section[0:1,1:3,1:2].all(), dat[0:1,1:3,1:2].all())
-        assert_equal(d.section[0:1,1:3,1:3].all(), dat[0:1,1:3,1:3].all())
-        assert_equal(d.section[0:1,1:3,2:3].all(), dat[0:1,1:3,2:3].all())
-        assert_equal(d.section[1:2,0:1,0:1].all(), dat[1:2,0:1,0:1].all())
-        assert_equal(d.section[1:2,0:1,0:2].all(), dat[1:2,0:1,0:2].all())
-        assert_equal(d.section[1:2,0:1,0:3].all(), dat[1:2,0:1,0:3].all())
-        assert_equal(d.section[1:2,0:1,1:2].all(), dat[1:2,0:1,1:2].all())
-        assert_equal(d.section[1:2,0:1,1:3].all(), dat[1:2,0:1,1:3].all())
-        assert_equal(d.section[1:2,0:1,2:3].all(), dat[1:2,0:1,2:3].all())
-        assert_equal(d.section[1:2,0:2,0:1].all(), dat[1:2,0:2,0:1].all())
-        assert_equal(d.section[1:2,0:2,0:2].all(), dat[1:2,0:2,0:2].all())
-        assert_equal(d.section[1:2,0:2,0:3].all(), dat[1:2,0:2,0:3].all())
-        assert_equal(d.section[1:2,0:2,1:2].all(), dat[1:2,0:2,1:2].all())
-        assert_equal(d.section[1:2,0:2,1:3].all(), dat[1:2,0:2,1:3].all())
-        assert_equal(d.section[1:2,0:2,2:3].all(), dat[1:2,0:2,2:3].all())
-        assert_equal(d.section[1:2,0:3,0:1].all(), dat[1:2,0:3,0:1].all())
-        assert_equal(d.section[1:2,0:3,0:2].all(), dat[1:2,0:3,0:2].all())
-        assert_equal(d.section[1:2,0:3,0:3].all(), dat[1:2,0:3,0:3].all())
-        assert_equal(d.section[1:2,0:3,1:2].all(), dat[1:2,0:3,1:2].all())
-        assert_equal(d.section[1:2,0:3,1:3].all(), dat[1:2,0:3,1:3].all())
-        assert_equal(d.section[1:2,0:3,2:3].all(), dat[1:2,0:3,2:3].all())
-        assert_equal(d.section[1:2,1:2,0:1].all(), dat[1:2,1:2,0:1].all())
-        assert_equal(d.section[1:2,1:2,0:2].all(), dat[1:2,1:2,0:2].all())
-        assert_equal(d.section[1:2,1:2,0:3].all(), dat[1:2,1:2,0:3].all())
-        assert_equal(d.section[1:2,1:2,1:2].all(), dat[1:2,1:2,1:2].all())
-        assert_equal(d.section[1:2,1:2,1:3].all(), dat[1:2,1:2,1:3].all())
-        assert_equal(d.section[1:2,1:2,2:3].all(), dat[1:2,1:2,2:3].all())
-        assert_equal(d.section[1:2,1:3,0:1].all(), dat[1:2,1:3,0:1].all())
-        assert_equal(d.section[1:2,1:3,0:2].all(), dat[1:2,1:3,0:2].all())
-        assert_equal(d.section[1:2,1:3,0:3].all(), dat[1:2,1:3,0:3].all())
-        assert_equal(d.section[1:2,1:3,1:2].all(), dat[1:2,1:3,1:2].all())
-        assert_equal(d.section[1:2,1:3,1:3].all(), dat[1:2,1:3,1:3].all())
-        assert_equal(d.section[1:2,1:3,2:3].all(), dat[1:2,1:3,2:3].all())
+        assert_true((d.section[:,:,0:1] == dat[:,:,0:1]).all())
+        assert_true((d.section[:,:,0:2] == dat[:,:,0:2]).all())
+        assert_true((d.section[:,:,0:3] == dat[:,:,0:3]).all())
+        assert_true((d.section[:,:,1:2] == dat[:,:,1:2]).all())
+        assert_true((d.section[:,:,1:3] == dat[:,:,1:3]).all())
+        assert_true((d.section[:,:,2:3] == dat[:,:,2:3]).all())
+        assert_true((d.section[0:1,0:1,0:1] == dat[0:1,0:1,0:1]).all())
+        assert_true((d.section[0:1,0:1,0:2] == dat[0:1,0:1,0:2]).all())
+        assert_true((d.section[0:1,0:1,0:3] == dat[0:1,0:1,0:3]).all())
+        assert_true((d.section[0:1,0:1,1:2] == dat[0:1,0:1,1:2]).all())
+        assert_true((d.section[0:1,0:1,1:3] == dat[0:1,0:1,1:3]).all())
+        assert_true((d.section[0:1,0:1,2:3] == dat[0:1,0:1,2:3]).all())
+        assert_true((d.section[0:1,0:2,0:1] == dat[0:1,0:2,0:1]).all())
+        assert_true((d.section[0:1,0:2,0:2] == dat[0:1,0:2,0:2]).all())
+        assert_true((d.section[0:1,0:2,0:3] == dat[0:1,0:2,0:3]).all())
+        assert_true((d.section[0:1,0:2,1:2] == dat[0:1,0:2,1:2]).all())
+        assert_true((d.section[0:1,0:2,1:3] == dat[0:1,0:2,1:3]).all())
+        assert_true((d.section[0:1,0:2,2:3] == dat[0:1,0:2,2:3]).all())
+        assert_true((d.section[0:1,0:3,0:1] == dat[0:1,0:3,0:1]).all())
+        assert_true((d.section[0:1,0:3,0:2] == dat[0:1,0:3,0:2]).all())
+        assert_true((d.section[0:1,0:3,0:3] == dat[0:1,0:3,0:3]).all())
+        assert_true((d.section[0:1,0:3,1:2] == dat[0:1,0:3,1:2]).all())
+        assert_true((d.section[0:1,0:3,1:3] == dat[0:1,0:3,1:3]).all())
+        assert_true((d.section[0:1,0:3,2:3] == dat[0:1,0:3,2:3]).all())
+        assert_true((d.section[0:1,1:2,0:1] == dat[0:1,1:2,0:1]).all())
+        assert_true((d.section[0:1,1:2,0:2] == dat[0:1,1:2,0:2]).all())
+        assert_true((d.section[0:1,1:2,0:3] == dat[0:1,1:2,0:3]).all())
+        assert_true((d.section[0:1,1:2,1:2] == dat[0:1,1:2,1:2]).all())
+        assert_true((d.section[0:1,1:2,1:3] == dat[0:1,1:2,1:3]).all())
+        assert_true((d.section[0:1,1:2,2:3] == dat[0:1,1:2,2:3]).all())
+        assert_true((d.section[0:1,1:3,0:1] == dat[0:1,1:3,0:1]).all())
+        assert_true((d.section[0:1,1:3,0:2] == dat[0:1,1:3,0:2]).all())
+        assert_true((d.section[0:1,1:3,0:3] == dat[0:1,1:3,0:3]).all())
+        assert_true((d.section[0:1,1:3,1:2] == dat[0:1,1:3,1:2]).all())
+        assert_true((d.section[0:1,1:3,1:3] == dat[0:1,1:3,1:3]).all())
+        assert_true((d.section[0:1,1:3,2:3] == dat[0:1,1:3,2:3]).all())
+        assert_true((d.section[1:2,0:1,0:1] == dat[1:2,0:1,0:1]).all())
+        assert_true((d.section[1:2,0:1,0:2] == dat[1:2,0:1,0:2]).all())
+        assert_true((d.section[1:2,0:1,0:3] == dat[1:2,0:1,0:3]).all())
+        assert_true((d.section[1:2,0:1,1:2] == dat[1:2,0:1,1:2]).all())
+        assert_true((d.section[1:2,0:1,1:3] == dat[1:2,0:1,1:3]).all())
+        assert_true((d.section[1:2,0:1,2:3] == dat[1:2,0:1,2:3]).all())
+        assert_true((d.section[1:2,0:2,0:1] == dat[1:2,0:2,0:1]).all())
+        assert_true((d.section[1:2,0:2,0:2] == dat[1:2,0:2,0:2]).all())
+        assert_true((d.section[1:2,0:2,0:3] == dat[1:2,0:2,0:3]).all())
+        assert_true((d.section[1:2,0:2,1:2] == dat[1:2,0:2,1:2]).all())
+        assert_true((d.section[1:2,0:2,1:3] == dat[1:2,0:2,1:3]).all())
+        assert_true((d.section[1:2,0:2,2:3] == dat[1:2,0:2,2:3]).all())
+        assert_true((d.section[1:2,0:3,0:1] == dat[1:2,0:3,0:1]).all())
+        assert_true((d.section[1:2,0:3,0:2] == dat[1:2,0:3,0:2]).all())
+        assert_true((d.section[1:2,0:3,0:3] == dat[1:2,0:3,0:3]).all())
+        assert_true((d.section[1:2,0:3,1:2] == dat[1:2,0:3,1:2]).all())
+        assert_true((d.section[1:2,0:3,1:3] == dat[1:2,0:3,1:3]).all())
+        assert_true((d.section[1:2,0:3,2:3] == dat[1:2,0:3,2:3]).all())
+        assert_true((d.section[1:2,1:2,0:1] == dat[1:2,1:2,0:1]).all())
+        assert_true((d.section[1:2,1:2,0:2] == dat[1:2,1:2,0:2]).all())
+        assert_true((d.section[1:2,1:2,0:3] == dat[1:2,1:2,0:3]).all())
+        assert_true((d.section[1:2,1:2,1:2] == dat[1:2,1:2,1:2]).all())
+        assert_true((d.section[1:2,1:2,1:3] == dat[1:2,1:2,1:3]).all())
+        assert_true((d.section[1:2,1:2,2:3] == dat[1:2,1:2,2:3]).all())
+        assert_true((d.section[1:2,1:3,0:1] == dat[1:2,1:3,0:1]).all())
+        assert_true((d.section[1:2,1:3,0:2] == dat[1:2,1:3,0:2]).all())
+        assert_true((d.section[1:2,1:3,0:3] == dat[1:2,1:3,0:3]).all())
+        assert_true((d.section[1:2,1:3,1:2] == dat[1:2,1:3,1:2]).all())
+        assert_true((d.section[1:2,1:3,1:3] == dat[1:2,1:3,1:3]).all())
+        assert_true((d.section[1:2,1:3,2:3] == dat[1:2,1:3,2:3]).all())
 
     def test_section_data_four(self):
         a = np.arange(256).reshape((4, 4, 4, 4))
         hdu = pyfits.PrimaryHDU(a)
         hdu.writeto(self.temp('test_new.fits'))
 
-        hdul=pyfits.open(self.temp('test_new.fits'))
-        d=hdul[0]
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        d = hdul[0]
         dat = hdul[0].data
-        assert_equal(d.section[:,:,:,:].all(), dat[:,:,:,:].all())
-        assert_equal(d.section[:,:,:].all(), dat[:,:,:].all())
-        assert_equal(d.section[:,:].all(), dat[:,:].all())
-        assert_equal(d.section[:].all(), dat[:].all())
-        assert_equal(d.section[0,:,:,:].all(), dat[0,:,:,:].all())
-        assert_equal(d.section[0,:,0,:].all(), dat[0,:,0,:].all())
-        assert_equal(d.section[:,:,0,:].all(), dat[:,:,0,:].all())
-        assert_equal(d.section[:,1,0,:].all(), dat[:,1,0,:].all())
-        assert_equal(d.section[:,:,:,1].all(), dat[:,:,:,1].all())
+        assert_true((d.section[:,:,:,:] == dat[:,:,:,:]).all())
+        assert_true((d.section[:,:,:] == dat[:,:,:]).all())
+        assert_true((d.section[:,:] == dat[:,:]).all())
+        assert_true((d.section[:] == dat[:]).all())
+        assert_true((d.section[0,:,:,:] == dat[0,:,:,:]).all())
+        assert_true((d.section[0,:,0,:] == dat[0,:,0,:]).all())
+        assert_true((d.section[:,:,0,:] == dat[:,:,0,:]).all())
+        assert_true((d.section[:,1,0,:] == dat[:,1,0,:]).all())
+        assert_true((d.section[:,:,:,1] == dat[:,:,:,1]).all())
 
     def test_comp_image(self):
         argslist = [
@@ -506,7 +507,7 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(hdul[0].data.dtype, np.dtype('float32'))
 
     def test_append_uint_data(self):
-        """Test for ticket #56 (BZERO and BSCALE added in the wrong location
+        """Regression test for #56 (BZERO and BSCALE added in the wrong location
         when appending scaled data)
         """
 
@@ -547,7 +548,7 @@ class TestImageFunctions(PyfitsTestCase):
         assert_true((hdul[1].data == arr).all())
 
     def test_rewriting_large_scaled_image(self):
-        """Regression test for #84"""
+        """Regression test for #84 and #101."""
 
         hdul = pyfits.open(self.data('fixed-1890.fits'))
         orig_data = hdul[0].data
@@ -586,9 +587,10 @@ class TestImageFunctions(PyfitsTestCase):
 
     def test_image_update_header(self):
         """
-        Regression test for #105.  Replacing the original header to an image
-        HDU and saving should update the NAXISn keywords appropriately and save
-        the image data correctly.
+        Regression test for #105.
+
+        Replacing the original header to an image HDU and saving should update
+        the NAXISn keywords appropriately and save the image data correctly.
         """
 
         # Copy the original file before saving to it
@@ -601,3 +603,47 @@ class TestImageFunctions(PyfitsTestCase):
 
         with pyfits.open(self.temp('test_new.fits')) as hdul:
             assert_true((orig_data == hdul[1].data).all())
+
+    def test_open_scaled_in_update_mode(self):
+        """
+        Regression test for #119 (Don't update scaled image data if the data is
+        not read)
+
+        This ensures that merely opening and closing a file containing scaled
+        image data does not cause any change to the data (or the header).
+        Changes should only occur if the data is accessed.
+        """
+
+        # Copy the original file before making any possible changes to it
+        shutil.copy(self.data('scale.fits'), self.temp('scale.fits'))
+        mtime = os.stat(self.temp('scale.fits'))
+
+        pyfits.open(self.temp('scale.fits'), mode='update').close()
+
+        # Ensure that no changes were made to the file merely by immediately
+        # opening and closing it.
+        assert_equal(mtime, os.stat(self.temp('scale.fits')))
+
+        hdul = pyfits.open(self.temp('scale.fits'), 'update')
+        hdul[0].data
+        hdul.close()
+
+        # Now the file should be updated with the rescaled data
+        assert_not_equal(mtime, os.stat(self.temp('scale.fits')))
+        hdul = pyfits.open(self.temp('scale.fits'), mode='update')
+        assert_equal(hdul[0].data.dtype, np.dtype('>f4'))
+        assert_equal(hdul[0].header['BITPIX'], -32)
+        assert_true('BZERO' not in hdul[0].header)
+        assert_true('BSCALE' not in hdul[0].header)
+
+        # Try reshaping the data, then closing and reopening the file; let's
+        # see if all the changes are preseved properly
+        hdul[0].data.shape = (42, 10)
+        hdul.close()
+
+        hdul = pyfits.open(self.temp('scale.fits'))
+        assert_equal(hdul[0].shape, (42, 10))
+        assert_equal(hdul[0].data.dtype, np.dtype('>f4'))
+        assert_equal(hdul[0].header['BITPIX'], -32)
+        assert_true('BZERO' not in hdul[0].header)
+        assert_true('BSCALE' not in hdul[0].header)
