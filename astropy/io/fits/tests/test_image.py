@@ -3,6 +3,7 @@ from __future__ import with_statement
 
 import os
 import shutil
+import time
 import warnings
 
 import numpy as np
@@ -616,20 +617,26 @@ class TestImageFunctions(PyfitsTestCase):
 
         # Copy the original file before making any possible changes to it
         shutil.copy(self.data('scale.fits'), self.temp('scale.fits'))
-        mtime = os.stat(self.temp('scale.fits'))
+        mtime = os.stat(self.temp('scale.fits')).st_mtime
+
+        time.sleep(1)
 
         pyfits.open(self.temp('scale.fits'), mode='update').close()
 
         # Ensure that no changes were made to the file merely by immediately
         # opening and closing it.
-        assert_equal(mtime, os.stat(self.temp('scale.fits')))
+        assert_equal(mtime, os.stat(self.temp('scale.fits')).st_mtime)
+
+        # Insert a slight delay to ensure the mtime does change when the file
+        # is changed
+        time.sleep(1)
 
         hdul = pyfits.open(self.temp('scale.fits'), 'update')
         hdul[0].data
         hdul.close()
 
         # Now the file should be updated with the rescaled data
-        assert_not_equal(mtime, os.stat(self.temp('scale.fits')))
+        assert_not_equal(mtime, os.stat(self.temp('scale.fits')).st_mtime)
         hdul = pyfits.open(self.temp('scale.fits'), mode='update')
         assert_equal(hdul[0].data.dtype, np.dtype('>f4'))
         assert_equal(hdul[0].header['BITPIX'], -32)
