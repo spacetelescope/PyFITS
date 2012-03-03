@@ -619,6 +619,8 @@ class TestImageFunctions(PyfitsTestCase):
         shutil.copy(self.data('scale.fits'), self.temp('scale.fits'))
         mtime = os.stat(self.temp('scale.fits')).st_mtime
 
+        time.sleep(1)
+
         pyfits.open(self.temp('scale.fits'), mode='update').close()
 
         # Ensure that no changes were made to the file merely by immediately

@@ -1047,6 +1047,45 @@ class TestHeaderFunctions(PyfitsTestCase):
         header2 = pyfits.Header.fromtextfile(self.temp('test.hdr'))
         assert_equal(header, header2)
 
+    def test_unnecessary_move(self):
+        """Regression test for #125.
+
+        Ensures that a header is not modified when setting the position of a
+        keyword that's already in its correct position.
+        """
+
+        header = pyfits.Header([('A', 'B'), ('B', 'C'), ('C', 'D')])
+
+        header.set('B', before=2)
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._modified)
+
+        header.set('B', after=0)
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._modified)
+
+        header.set('B', before='C')
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._modified)
+
+        header.set('B', after='A')
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._modified)
+
+        header.set('B', before=2)
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._modified)
+
+        # 123 is well past the end, and C is already at the end, so it's in the
+        # right place already
+        header.set('C', before=123)
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._modified)
+
+        header.set('C', after=123)
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._modified)
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """
