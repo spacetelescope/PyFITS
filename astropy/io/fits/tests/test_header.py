@@ -921,9 +921,10 @@ class TestHeaderFunctions(PyfitsTestCase):
         # a little more clear)
         header.append('')
         assert_equal(len(header), 4)
-        # Blank keywords are ignored in the keys list
-        assert_equal(header.keys()[-1], 'E')
+
+        assert_equal(header.keys()[-1], '')
         assert_equal(header[''], '')
+        assert_equal(header.comments[''], '')
 
     def test_header_insert_use_blanks(self):
         header = pyfits.Header([('A', 'B'), ('C', 'D')])
