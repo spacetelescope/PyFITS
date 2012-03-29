@@ -40,6 +40,7 @@ def comparefloats(a, b):
             return False
     return True
 
+
 def comparerecords(a, b):
     """
     Compare two record arrays
@@ -115,7 +116,7 @@ class TestTableFunctions(PyfitsTestCase):
         a8 = np.array([[1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1],
                        [0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0],
                        [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1]], dtype=np.uint8)
-        c8=pyfits.Column(name='t5', format='11X', array=a8)
+        c8 = pyfits.Column(name='t5', format='11X', array=a8)
 
         # second, create a column-definitions object for all columns in a table
 
@@ -159,11 +160,10 @@ class TestTableFunctions(PyfitsTestCase):
         fout.append(tbhdu)
         fout.writeto(self.temp('tableout1.fits'), clobber=True)
 
-        f2 = pyfits.open(self.temp('tableout1.fits'))
-        temp = f2[1].data.field(7)
-        assert_true((temp[0] == [True, True, False, True, False, True, True,
-                                 True, False, False, True]).all())
-        f2.close()
+        with pyfits.open(self.temp('tableout1.fits')) as f2:
+            temp = f2[1].data.field(7)
+            assert_true((temp[0] == [True, True, False, True, False, True,
+                                     True, True, False, False, True]).all())
 
         # An alternative way to create an output table FITS file:
         fout2 = pyfits.open(self.temp('tableout2.fits'), 'append')
