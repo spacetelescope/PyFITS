@@ -94,7 +94,8 @@ Changelog
 3.0.7 (unreleased)
 ----------------------
 
-- Changes in behavior:
+Changes in Behavior
++++++++++++++++++++
 
   * Slices of GroupData objects now return new GroupData objects instead of
     extended multi-row _Group objects. This is analogous to how PyFITS 3.0
@@ -104,27 +105,46 @@ Changelog
     rare usecase with a rare feature most users are unlikely to be affected by
     this change.
 
-- Bug fixes:
+  * The previously internal _Group object for representing individual group
+    records in a GroupData object are renamed Group and are now a public
+    interface.  However, there's almost no good reason to create Group objects
+    directly, so it shouldn't be considered a "new feature".
+
+Bug Fixes
++++++++++
   
   * Fixed GroupData objects to return new GroupData objects when sliced
     instead of _Group record objects.  See "Changes in behavior" above for
     more details.
 
+  * Fixed slicing of Group objects--previously it was not possible to slice
+    slice them at all.
 
-3.0.6 (unreleased)
-----------------------
+  * Fixed a bug where the values of the PTYPEn keywords in a random groups HDU
+    were forced to be all lower-case when saving the file. (#130)
 
-- Highlights:
 
-  * The main reason for this release is to fix an issue that was introduced in
-    PyFITS 3.0.5 where merely opening a file containing scaled data (that is,
-    with non-trivial BSCALE and BZERO keywords) in 'update' mode would cause
-    the data to be automatically rescaled--possibly converting the data from
-    ints to floats--as soon as the file is closed, even if the application did
-    not touch the data.  Now PyFITS will only rescale the data in an extension
-    when the data is actually accessed by the application.  So opening a file
-    in 'update' mode in order to modify the header or append new extensions
-    will not cause any change to the data in existing extensions.
+3.0.6 (2012-02-29)
+------------------
+
+Highlights
+++++++++++
+
+The main reason for this release is to fix an issue that was introduced in
+PyFITS 3.0.5 where merely opening a file containing scaled data (that is, with
+non-trivial BSCALE and BZERO keywords) in 'update' mode would cause the data
+to be automatically rescaled--possibly converting the data from ints to
+floats--as soon as the file is closed, even if the application did not touch
+the data.  Now PyFITS will only rescale the data in an extension when the data
+is actually accessed by the application.  So opening a file in 'update' mode
+in order to modify the header or append new extensions will not cause any
+change to the data in existing extensions.
+
+This release also fixes a few Windows-specific bugs found through more
+extensive Windows testing, and other miscellaneous bugs.
+
+Bug Fixes
++++++++++
 
 - More accurate error messages when opening files containing invalid header
   cards. (#109)
