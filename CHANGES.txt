@@ -123,6 +123,10 @@ Bug Fixes
   * Fixed a bug where the values of the PTYPEn keywords in a random groups HDU
     were forced to be all lower-case when saving the file. (#130)
 
+  * Removed an unnecessary inline import in `ExtensionHDU.__setattr__` that
+    was causing some slowdown when opening files containing a large number of
+    extensions. (#133)
+
 
 3.0.6 (2012-02-29)
 ------------------
