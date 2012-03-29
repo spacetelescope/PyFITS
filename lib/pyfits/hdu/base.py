@@ -9,6 +9,7 @@ import warnings
 
 import numpy as np
 
+import pyfits
 from pyfits.file import _File
 from pyfits.header import Header, HEADER_END_RE
 from pyfits.util import (lazyproperty, _is_int, _is_pseudo_unsigned,
@@ -1308,12 +1309,10 @@ class ExtensionHDU(_ValidHDU):
         Set an HDU attribute.
         """
 
-        from pyfits import EXTENSION_NAME_CASE_SENSITIVE
-
         if attr == 'name' and value:
             if not isinstance(value, basestring):
                 raise TypeError("'name' attribute must be a string")
-            if not EXTENSION_NAME_CASE_SENSITIVE:
+            if not pyfits.EXTENSION_NAME_CASE_SENSITIVE:
                 value = value.upper()
             if 'EXTNAME' in self._header:
                 self._header['EXTNAME'] = value

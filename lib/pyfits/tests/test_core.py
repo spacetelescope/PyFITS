@@ -250,6 +250,33 @@ class TestCore(PyfitsTestCase):
         assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
                       extver=1)
 
+    def test_extension_name_case_sensitive(self):
+        """
+        Tests that setting pyfits.EXTENSION_NAME_CASE_SENSITIVE at runtime
+        works.
+        """
+
+        if 'PYFITS_EXTENSION_NAME_CASE_SENSITIVE' in os.environ:
+            del os.environ['PYFITS_EXTENSION_NAME_CASE_SENSITIVE']
+
+        hdu = pyfits.ImageHDU()
+        hdu.name = 'sCi'
+        assert_equal(hdu.name, 'SCI')
+        assert_equal(hdu.header['EXTNAME'], 'SCI')
+
+        try:
+            pyfits.EXTENSION_NAME_CASE_SENSITIVE = True
+            hdu = pyfits.ImageHDU()
+            hdu.name = 'sCi'
+            assert_equal(hdu.name, 'sCi')
+            assert_equal(hdu.header['EXTNAME'], 'sCi')
+        finally:
+            pyfits.EXTENSION_NAME_CASE_SENSITIVE = False
+
+        hdu.name = 'sCi'
+        assert_equal(hdu.name, 'SCI')
+        assert_equal(hdu.header['EXTNAME'], 'SCI')
+
 
 class TestConvenienceFunctions(PyfitsTestCase):
     def test_writeto(self):
