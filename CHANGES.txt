@@ -4,7 +4,34 @@ Changelog
 3.0.7 (unreleased)
 ------------------
 
-- Nothing changed yet.
+Changes in Behavior
++++++++++++++++++++
+
+  * Slices of GroupData objects now return new GroupData objects instead of
+    extended multi-row _Group objects. This is analogous to how PyFITS 3.0
+    fixed FITS_rec slicing, and should have been fixed for GroupData at the
+    same time.  The old behavior caused bugs where functions internal to Numpy
+    expected that slicing an ndarray would return a new ndarray.  As this is a
+    rare usecase with a rare feature most users are unlikely to be affected by
+    this change.
+
+  * The previously internal _Group object for representing individual group
+    records in a GroupData object are renamed Group and are now a public
+    interface.  However, there's almost no good reason to create Group objects
+    directly, so it shouldn't be considered a "new feature".
+
+Bug Fixes
++++++++++
+  
+  * Fixed GroupData objects to return new GroupData objects when sliced
+    instead of _Group record objects.  See "Changes in behavior" above for
+    more details.
+
+  * Fixed slicing of Group objects--previously it was not possible to slice
+    slice them at all.
+
+  * Fixed a bug where the values of the PTYPEn keywords in a random groups HDU
+    were forced to be all lower-case when saving the file. (#130)
 
 
 3.0.6 (2012-02-29)
