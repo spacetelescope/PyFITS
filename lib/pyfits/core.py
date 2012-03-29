@@ -48,7 +48,6 @@ from pyfits.convenience import *
 from pyfits.fitsrec import FITS_record, FITS_rec
 from pyfits.hdu import *
 
-from pyfits.hdu.groups import GroupData
 from pyfits.hdu.hdulist import fitsopen as open
 from pyfits.hdu.image import Section
 from pyfits.hdu.table import new_table
@@ -80,9 +79,9 @@ for varname, default in GLOBALS:
 
 __all__ = (pyfits.card.__all__ + pyfits.column.__all__ +
            pyfits.convenience.__all__ + pyfits.hdu.__all__ +
-          ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',
-           'new_table', 'Header', 'VerifyError', 'TRUE', 'FALSE',
-           'setExtensionNameCaseSensitive'] + [g[0] for g in GLOBALS])
+          ['FITS_record', 'FITS_rec', 'open', 'Section', 'new_table', 'Header',
+           'VerifyError', 'TRUE', 'FALSE', 'setExtensionNameCaseSensitive'] +
+          [g[0] for g in GLOBALS])
 
 
 # These are of course deprecated, but a handful of external code still uses

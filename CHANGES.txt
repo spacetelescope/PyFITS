@@ -91,6 +91,26 @@ Changelog
     supported by PyFITS). (r1330)
 
 
+3.0.7 (unreleased)
+----------------------
+
+- Changes in behavior:
+
+  * Slices of GroupData objects now return new GroupData objects instead of
+    extended multi-row _Group objects. This is analogous to how PyFITS 3.0
+    fixed FITS_rec slicing, and should have been fixed for GroupData at the
+    same time.  The old behavior caused bugs where functions internal to Numpy
+    expected that slicing an ndarray would return a new ndarray.  As this is a
+    rare usecase with a rare feature most users are unlikely to be affected by
+    this change.
+
+- Bug fixes:
+  
+  * Fixed GroupData objects to return new GroupData objects when sliced
+    instead of _Group record objects.  See "Changes in behavior" above for
+    more details.
+
+
 3.0.6 (unreleased)
 ----------------------
 

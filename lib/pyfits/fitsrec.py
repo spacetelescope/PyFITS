@@ -69,7 +69,7 @@ class FITS_record(object):
             if indx < self.start or indx > self.end - 1:
                 raise KeyError("Key '%s' does not exist." % key)
         elif isinstance(key, slice):
-            return FITS_record(self.array, self.row, key.start, key.stop,
+            return type(self)(self.array, self.row, key.start, key.stop,
                                key.step, self)
         else:
             indx = self._get_index(key)
@@ -155,6 +155,8 @@ class FITS_rec(np.recarray):
 
     It inherits all of the standard methods from `numpy.ndarray`.
     """
+
+    _record_type = FITS_record
 
     def __new__(subtype, input):
         """
@@ -247,7 +249,8 @@ class FITS_rec(np.recarray):
             # Have to view as a recarray then back as a FITS_rec, otherwise the
             # circular reference fix/hack in FITS_rec.field() won't preserve
             # the slice
-            out = self.view(np.recarray).__getitem__(key).view(FITS_rec)
+            subtype = type(self)
+            out = self.view(np.recarray).__getitem__(key).view(subtype)
             out._coldefs = ColDefs(self._coldefs)
             arrays = []
             out._convert = [None] * len(self.dtype.names)
@@ -277,7 +280,7 @@ class FITS_rec(np.recarray):
             if isinstance(key, int) and key >= len(self):
                 raise IndexError("Index out of bounds")
 
-            newrecord = FITS_record(self, key)
+            newrecord = self._record_type(self, key)
             return newrecord
 
     def __setitem__(self, row, value):

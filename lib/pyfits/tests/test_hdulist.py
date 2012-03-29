@@ -104,7 +104,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdul.append(hdu)
 
         info = [(0, 'PRIMARY', 'GroupsHDU', 8, (), 'uint8',
-                 '   1 Groups  0 Parameters')]
+                 '1 Groups  0 Parameters')]
 
         assert_equal(hdul.info(output=False), info)
 
@@ -213,7 +213,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         hdul.insert(0, hdu)
 
         info = [(0, 'PRIMARY', 'GroupsHDU', 8, (), 'uint8',
-                 '   1 Groups  0 Parameters')]
+                 '1 Groups  0 Parameters')]
 
         assert_equal(hdul.info(output=False), info)
 
@@ -267,7 +267,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         assert_raises(ValueError, hdul.insert, 1, hdu)
 
         info = [(0, 'PRIMARY', 'GroupsHDU', 8, (), 'uint8',
-                 '   1 Groups  0 Parameters'),
+                 '1 Groups  0 Parameters'),
                 (1, '', 'ImageHDU', 6, (100,), 'int32', '')]
 
         hdul.insert(0, hdu)
