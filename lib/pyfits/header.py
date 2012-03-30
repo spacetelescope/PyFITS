@@ -10,7 +10,7 @@ import warnings
 
 from collections import defaultdict
 
-from pyfits.card import Card, CardList, _pad
+from pyfits.card import Card, CardList, BLANK_CARD, _pad
 from pyfits.file import _File, PYTHON_MODES
 from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, decode_ascii,
                          fileobj_mode, _pad_length)
@@ -1072,8 +1072,7 @@ class Header(object):
                 'The value appended to a Header must be either a keyword or '
                 '(keyword, value, [comment]) tuple; got: %r' % card)
 
-        blank = ' ' * Card.length
-        if str(card) == blank:
+        if not end and str(card) == BLANK_CARD:
             # Blank cards should always just be appended to the end
             end = True
 
@@ -1082,7 +1081,7 @@ class Header(object):
             idx = len(self._cards) - 1
         else:
             idx = len(self._cards) - 1
-            while idx >= 0 and str(self._cards[idx]) == blank:
+            while idx >= 0 and str(self._cards[idx]) == BLANK_CARD:
                 idx -= 1
 
             if not bottom and card.keyword not in Card._commentary_keywords:
@@ -1606,16 +1605,14 @@ class Header(object):
     def _countblanks(self):
         """Returns the number of blank cards at the end of the Header."""
 
-        blank = ' ' * 80
         for idx in xrange(1, len(self._cards)):
-            if str(self._cards[-idx]) != blank:
+            if str(self._cards[-idx]) != BLANK_CARD:
                 return idx - 1
         return 0
 
     def _useblanks(self, count):
-        blank = ' ' * 80
         for _ in range(count):
-            if str(self._cards[-1]) == blank:
+            if str(self._cards[-1]) == BLANK_CARD:
                 del self[-1]
             else:
                 break

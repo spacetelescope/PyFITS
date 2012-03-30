@@ -20,6 +20,9 @@ FIX_FP_TABLE = maketrans('de', 'DE')
 FIX_FP_TABLE2 = maketrans('dD', 'eE')
 
 
+BLANK_CARD = ' ' * 80
+
+
 class Undefined:
     """Undefined value."""
 
