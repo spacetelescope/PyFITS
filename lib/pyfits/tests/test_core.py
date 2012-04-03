@@ -352,7 +352,7 @@ class TestFileFunctions(PyfitsTestCase):
         assert_raises(IOError, pyfits.open, zf, 'update')
         assert_raises(IOError, pyfits.open, zf, 'append')
 
-    def test_open_multipe_member_zipfile(self):
+    def test_open_multiple_member_zipfile(self):
         """
         Opening zip files containing more than one member files should fail
         as there's no obvious way to specify which file is the FITS file to
