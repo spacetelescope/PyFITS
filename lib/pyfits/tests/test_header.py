@@ -6,6 +6,7 @@ import warnings
 
 import pyfits
 
+from pyfits.card import _pad
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings, ignore_warnings, CaptureStdio
 
@@ -300,7 +301,7 @@ class TestHeaderFunctions(PyfitsTestCase):
     def test_fixable_non_standard_fits_card(self):
         # fixable non-standard FITS card will keep the original format
         c = pyfits.Card.fromstring('abc     = +  2.1   e + 12')
-        assert_equal(c.value,2100000000000.0)
+        assert_equal(c.value, 2100000000000.0)
         assert_equal(str(c),
                      "ABC     =             +2.1E+12                                                  ")
 
@@ -402,9 +403,9 @@ class TestHeaderFunctions(PyfitsTestCase):
     def test_long_string_value_via_fromstring(self):
         # long string value via fromstring() method
         c = pyfits.Card.fromstring(
-            pyfits.card._pad("abc     = 'longstring''s testing  &  ' / comments in line 1") +
-            pyfits.card._pad("continue  'continue with long string but without the ampersand at the end' /") +
-            pyfits.card._pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
+            _pad("abc     = 'longstring''s testing  &  ' / comments in line 1") +
+            _pad("continue  'continue with long string but without the ampersand at the end' /") +
+            _pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
         assert_equal(str(c),
             "ABC     = 'longstring''s testing  continue with long string but without the &'  "
             "CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  "
@@ -416,9 +417,9 @@ class TestHeaderFunctions(PyfitsTestCase):
         """
 
         c = pyfits.Card.fromstring(
-            pyfits.card._pad("EXPR    = '/grp/hst/cdbs//grid/pickles/dat_uvk/pickles_uk_10.fits * &'") +
-            pyfits.card._pad("CONTINUE  '5.87359e-12 * MWAvg(Av=0.12)&'") +
-            pyfits.card._pad("CONTINUE  '&' / pysyn expression"))
+            _pad("EXPR    = '/grp/hst/cdbs//grid/pickles/dat_uvk/pickles_uk_10.fits * &'") +
+            _pad("CONTINUE  '5.87359e-12 * MWAvg(Av=0.12)&'") +
+            _pad("CONTINUE  '&' / pysyn expression"))
 
         assert_equal(c.keyword, 'EXPR')
         assert_equal(c.value,
@@ -1086,6 +1087,74 @@ class TestHeaderFunctions(PyfitsTestCase):
         header.set('C', after=123)
         assert_equal(header.keys(), ['A', 'B', 'C'])
         assert_false(header._modified)
+
+    def test_invalid_float_cards(self):
+        """Regression test for #137."""
+
+        # Create a header containing two of the problematic cards in the test
+        # case where this came up:
+        hstr = "FOCALLEN= +1.550000000000e+002\nAPERTURE=+0.000000000000e+000"
+        h = pyfits.Header.fromstring(hstr, sep='\n')
+
+        # First the case that *does* work prior to fixing this issue
+        assert_equal(h['FOCALLEN'], 155.0)
+        assert_equal(h['APERTURE'], 0.0)
+
+        # Now if this were reserialized, would new values for these cards be
+        # written with repaired exponent signs?
+        assert_equal(str(h.cards['FOCALLEN']),
+                     _pad("FOCALLEN= +1.550000000000E+002"))
+        assert_true(h.cards['FOCALLEN']._modified)
+        assert_equal(str(h.cards['APERTURE']),
+                     _pad("APERTURE= +0.000000000000E+000"))
+        assert_true(h.cards['APERTURE']._modified)
+        assert_true(h._modified)
+
+        # This is the case that was specifically causing problems; generating
+        # the card strings *before* parsing the values.  Also, the card strings
+        # really should be "fixed" before being returned to the user
+        h = pyfits.Header.fromstring(hstr, sep='\n')
+        assert_equal(str(h.cards['FOCALLEN']),
+                     _pad("FOCALLEN= +1.550000000000E+002"))
+        assert_true(h.cards['FOCALLEN']._modified)
+        assert_equal(str(h.cards['APERTURE']),
+                     _pad("APERTURE= +0.000000000000E+000"))
+        assert_true(h.cards['APERTURE']._modified)
+
+        assert_equal(h['FOCALLEN'], 155.0)
+        assert_equal(h['APERTURE'], 0.0)
+        assert_true(h._modified)
+
+        # For the heck of it, try assigning the identical values and ensure
+        # that the newly fixed value strings are left intact
+        h['FOCALLEN'] = 155.0
+        h['APERTURE'] = 0.0
+        assert_equal(str(h.cards['FOCALLEN']),
+                     _pad("FOCALLEN= +1.550000000000E+002"))
+        assert_equal(str(h.cards['APERTURE']),
+                     _pad("APERTURE= +0.000000000000E+000"))
+
+    def test_leading_zeros(self):
+        """
+        Regression test for #137, part 2.
+
+        Ticket #137 also showed that in float values like 0.001 the leading
+        zero was unnecessarily being stripped off when rewriting the header.
+        Though leading zeros should be removed from integer values to prevent
+        misinterpretation as octal by python (for now PyFITS will still
+        maintain the leading zeros if now changes are made to the value, but
+        will drop them if changes are made).
+        """
+
+        c = pyfits.Card.fromstring("APERTURE= +0.000000000000E+000")
+        assert_equal(str(c), _pad("APERTURE= +0.000000000000E+000"))
+        assert_equal(c.value, 0.0)
+        c = pyfits.Card.fromstring("APERTURE= 0.000000000000E+000")
+        assert_equal(str(c), _pad("APERTURE= 0.000000000000E+000"))
+        assert_equal(c.value, 0.0)
+        c = pyfits.Card.fromstring("APERTURE= 017")
+        assert_equal(str(c), _pad("APERTURE= 017"))
+        assert_equal(c.value, 17)
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):

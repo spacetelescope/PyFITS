@@ -311,10 +311,11 @@ class Card(_Verify):
     _numr_NFSC = r'[+-]? *' + _digits_NFSC
 
     # This regex helps delete leading zeros from numbers, otherwise
-    # Python might evaluate them as octal values.
-    _number_FSC_RE = re.compile(r'(?P<sign>[+-])?0*(?P<digt>%s)'
+    # Python might evaluate them as octal values (this is not-greedy, however,
+    # so it may not strip leading zeros from a float, which is fine)
+    _number_FSC_RE = re.compile(r'(?P<sign>[+-])?0*?(?P<digt>%s)'
                                 % _digits_FSC)
-    _number_NFSC_RE = re.compile(r'(?P<sign>[+-])? *0*(?P<digt>%s)'
+    _number_NFSC_RE = re.compile(r'(?P<sign>[+-])? *0*?(?P<digt>%s)'
                                  % _digits_NFSC)
 
     # FSC commentary card string which must contain printable ASCII characters.
@@ -435,7 +436,6 @@ class Card(_Verify):
 
     def __str__(self):
         return self.image
-        self._modified = True
 
     def __len__(self):
         return 3
@@ -505,10 +505,7 @@ class Card(_Verify):
             return float(self._value)
         if self._value is not None:
             return self._value
-        elif self._valuestring is not None:
-            self.value = self._valuestring
-            return self._valuestring
-        elif self._image:
+        elif self._valuestring is not None or self._image:
             self._value = self._parse_value()
             return self._value
         else:
@@ -824,7 +821,8 @@ class Card(_Verify):
         else:
             value = UNDEFINED
 
-        self._valuestring = m.group('valu')
+        if not self._valuestring:
+            self._valuestring = m.group('valu')
         return value
 
     def _parse_comment(self):
@@ -909,7 +907,6 @@ class Card(_Verify):
             except (ValueError, IndexError):
                 self.value = valuecomment
             self._valuestring = self._value
-            self._valuemodified = False
             return
         elif m.group('numr') is not None:
             numr = self._number_NFSC_RE.match(m.group('numr'))
@@ -929,7 +926,10 @@ class Card(_Verify):
                 idigt = imag.group('sign') + idigt
             value = '(%s, %s)' % (rdigt, idigt)
         self._valuestring = value
-        self._valuemodified = False
+        # The value itself has not been modified, but its serialized
+        # representation (as stored in self._valuestring) has been changed, so
+        # still set this card as having been modified (see ticket #137)
+        self._modified = True
 
     def _format_keyword(self):
         if self.keyword:
@@ -951,7 +951,7 @@ class Card(_Verify):
             # string
             value = str(value)
         elif (self._valuestring and not self._valuemodified and
-                isinstance(self.value, float_types)):
+              isinstance(self.value, float_types)):
             # Keep the existing formatting for float/complex numbers
             value = '%20s' % self._valuestring
         elif self.field_specifier:
