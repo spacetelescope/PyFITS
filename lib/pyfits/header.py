@@ -19,7 +19,7 @@ from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, decode_ascii,
 PY3K = sys.version_info[:2] >= (3, 0)
 
 
-HEADER_END_RE = re.compile('END {77} *$')
+HEADER_END_RE = re.compile('END {77} *')
 
 
 # According to the FITS standard the only characters that may appear in a
@@ -407,17 +407,12 @@ class Header(object):
         try:
             # Read the first header block.
             block = decode_ascii(fileobj.read(actual_block_size))
-            # Strip any zero-padding (see ticket #106)
-            if block and block[-1] == '\0':
-                block = block.strip('\0')
-                warnings.warn('Unexpected extra padding at the end of the '
-                              'file.  This padding may not be preserved when '
-                              'saving changes.')
 
             if block == '':
                 raise EOFError()
 
             blocks = []
+            is_eof = False
 
             # continue reading header blocks until END card is reached
             while True:
@@ -427,15 +422,34 @@ class Header(object):
                     blocks.append(block)
                     block = decode_ascii(fileobj.read(actual_block_size))
                     if block == '':
+                        is_eof = True
                         break
                 else:
                     break
+
+            last_block = block
             blocks.append(block)
 
-            if not HEADER_END_RE.search(block) and endcard:
-                raise IOError('Header missing END card.')
-
             blocks = ''.join(blocks)
+
+            # Strip any zero-padding (see ticket #106)
+            if blocks and blocks[-1] == '\0':
+                if is_eof and blocks.strip('\0') == '':
+                    warnings.warn('Unexpected extra padding at the end of the '
+                                  'file.  This padding may not be preserved '
+                                  'when saving changes.')
+                    raise EOFError()
+                else:
+                    # Replace the illegal null bytes with spaces as required by
+                    # the FITS standard, and issue a nasty warning
+                    warnings.warn('Header block contains null bytes instead '
+                                  'of spaces for padding, and is not FITS-'
+                                  'compliant. Nulls may be replaced with '
+                                  'spaces upon writing.')
+                    blocks.replace('\0', ' ')
+
+            if not HEADER_END_RE.search(last_block) and endcard:
+                raise IOError('Header missing END card.')
 
             if padding and (len(blocks) % actual_block_size) != 0:
                 # This error message ignores the length of the separator for
