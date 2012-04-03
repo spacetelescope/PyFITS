@@ -1486,7 +1486,7 @@ class Header(object):
             return key
 
         if isinstance(key, basestring):
-            key = (Card.normalize_keyword(key), 0)
+            key = (key, 0)
 
         if isinstance(key, tuple):
             if (len(key) != 2 or not isinstance(key[0], basestring) or
