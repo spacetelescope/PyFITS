@@ -6,6 +6,7 @@ import warnings
 
 import numpy as np
 
+import pyfits
 from pyfits.util import (_str_to_num, _is_int, deprecated, maketrans,
                          translate, _words_group, lazyproperty)
 from pyfits.verify import _Verify, _ErrList, VerifyError
@@ -691,9 +692,7 @@ class Card(_Verify):
         >>> self._check_if_rvkc('DP1     = AXIS.1: 2')
         """
 
-        from pyfits import ENABLE_RECORD_VALUED_KEYWORD_CARDS
-
-        if not ENABLE_RECORD_VALUED_KEYWORD_CARDS:
+        if not pyfits.ENABLE_RECORD_VALUED_KEYWORD_CARDS:
             return False
 
         if len(args) == 1:
