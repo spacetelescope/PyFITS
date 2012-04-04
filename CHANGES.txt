@@ -97,35 +97,48 @@ Changelog
 Changes in Behavior
 +++++++++++++++++++
 
-  * Slices of GroupData objects now return new GroupData objects instead of
-    extended multi-row _Group objects. This is analogous to how PyFITS 3.0
-    fixed FITS_rec slicing, and should have been fixed for GroupData at the
-    same time.  The old behavior caused bugs where functions internal to Numpy
-    expected that slicing an ndarray would return a new ndarray.  As this is a
-    rare usecase with a rare feature most users are unlikely to be affected by
-    this change.
+- Slices of GroupData objects now return new GroupData objects instead of
+  extended multi-row _Group objects. This is analogous to how PyFITS 3.0 fixed
+  FITS_rec slicing, and should have been fixed for GroupData at the same time.
+  The old behavior caused bugs where functions internal to Numpy expected that
+  slicing an ndarray would return a new ndarray.  As this is a rare usecase
+  with a rare feature most users are unlikely to be affected by this change.
 
-  * The previously internal _Group object for representing individual group
-    records in a GroupData object are renamed Group and are now a public
-    interface.  However, there's almost no good reason to create Group objects
-    directly, so it shouldn't be considered a "new feature".
+- The previously internal _Group object for representing individual group
+  records in a GroupData object are renamed Group and are now a public
+  interface.  However, there's almost no good reason to create Group objects
+  directly, so it shouldn't be considered a "new feature".
 
 Bug Fixes
 +++++++++
   
-  * Fixed GroupData objects to return new GroupData objects when sliced
-    instead of _Group record objects.  See "Changes in behavior" above for
-    more details.
+- Fixed GroupData objects to return new GroupData objects when sliced instead
+  of _Group record objects.  See "Changes in behavior" above for more details.
 
-  * Fixed slicing of Group objects--previously it was not possible to slice
-    slice them at all.
+- Fixed slicing of Group objects--previously it was not possible to slice
+  slice them at all.
 
-  * Fixed a bug where the values of the PTYPEn keywords in a random groups HDU
-    were forced to be all lower-case when saving the file. (#130)
+- Fixed a bug where the values of the PTYPEn keywords in a random groups HDU
+  were forced to be all lower-case when saving the file. (#130)
 
-  * Removed an unnecessary inline import in `ExtensionHDU.__setattr__` that
-    was causing some slowdown when opening files containing a large number of
-    extensions. (#133)
+- Removed an unnecessary inline import in `ExtensionHDU.__setattr__` that was
+  causing some slowdown when opening files containing a large number of
+  extensions, plus a few other small (but not insignficant) performance
+  improvements thanks to Julian Taylor. (#133)
+
+- Fixed a regression where header blocks containing invalid end-of-header
+  padding (i.e. null bytes instead of spaces) couldn't be parsed by PyFITS.
+  Such headers can be parsed again, but a warning is raised, as such headers
+  are not valid FITS. (#136)
+
+- Fixed a rare corner case where, in some use cases, (mildly, recoverably)
+  malformatted float values in headers were not properly returned as floats.
+  (#137)
+
+- Fixed a corollary to the previous bug where float values with a leading zero
+  before the decimal point had the leading zero unnecessarily removed when
+  saving changes to the file (eg. "0.001" would be written back as ".001" even
+  if no changes were otherwise made to the file). (#137)
 
 
 3.0.6 (2012-02-29)
