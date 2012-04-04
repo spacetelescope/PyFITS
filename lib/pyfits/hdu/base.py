@@ -9,6 +9,7 @@ import warnings
 
 import numpy as np
 
+import pyfits.core
 from pyfits.card import Card, _pad
 from pyfits.file import _File
 from pyfits.header import Header
@@ -254,16 +255,12 @@ class _BaseHDU(object):
 
         # Read the first header block.
         block = decode_ascii(fileobj.read(BLOCK_SIZE))
-        # Strip any zero-padding (see ticket #106)
-        if block and block[-1] == '\0':
-            block = block.strip('\0')
-            warnings.warn('Unexpected extra padding at the end of the file.  '
-                          'This padding may not be preserved when saving '
-                          'changes.')
+
         if block == '':
             raise EOFError()
 
         blocks = []
+        is_eof = False
 
         # continue reading header blocks until END card is reached
         while True:
@@ -273,15 +270,34 @@ class _BaseHDU(object):
                 blocks.append(block)
                 block = decode_ascii(fileobj.read(BLOCK_SIZE))
                 if block == '':
+                    is_eof = True
                     break
             else:
                 break
+
+        last_block = block
         blocks.append(block)
+
+        blocks = ''.join(blocks)
+
+        # Strip any zero-padding (see ticket #106)
+        if blocks and blocks[-1] == '\0':
+            if is_eof and  block.strip('\0') == '':
+                warnings.warn('Unexpected extra padding at the end of the '
+                              'file.  This padding may not be preserved when '
+                              'saving changes.')
+                raise EOFError()
+            else:
+                # Replace the illegal null bytes with spaces as required by the
+                # FITS standard, and issue a nasty warning
+                warnings.warn('Header block contains null bytes instead of '
+                              'spaces for padding, and is not FITS-'
+                              'compliant.  Nulls may be replaced with spaces '
+                              'upon writing.')
+                blocks.replace('\0', ' ')
 
         if not HEADER_END_RE.search(block) and not ignore_missing_end:
             raise IOError('Header missing END card.')
-
-        blocks = ''.join(blocks)
 
         hdu = cls.fromstring(blocks, fileobj=fileobj, offset=hdr_offset,
                              checksum=checksum,
@@ -1315,12 +1331,10 @@ class ExtensionHDU(_ValidHDU):
         Set an HDU attribute.
         """
 
-        from pyfits.core import EXTENSION_NAME_CASE_SENSITIVE
-
         if attr == 'name' and value:
             if not isinstance(value, basestring):
                 raise TypeError("'name' attribute must be a string")
-            if not EXTENSION_NAME_CASE_SENSITIVE:
+            if not pyfits.core.EXTENSION_NAME_CASE_SENSITIVE:
                 value = value.upper()
             if 'EXTNAME' in self._header:
                 self._header['EXTNAME'] = value
