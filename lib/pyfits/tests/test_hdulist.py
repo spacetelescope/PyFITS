@@ -475,3 +475,31 @@ class TestHDUListFunctions(PyfitsTestCase):
             assert_equal(info,
                          pyfits.info(self.temp('temp.fits'), output=False,
                                      do_not_scale_image_data=True))
+
+    def test_open_file_with_bad_header_padding(self):
+        """
+        Regression test for #136; open files with nulls for header block
+        padding instead of spaces.
+        """
+
+        a = np.arange(100).reshape((10, 10))
+        hdu = pyfits.PrimaryHDU(data=a)
+        hdu.writeto(self.temp('temp.fits'))
+
+        # Figure out where the header padding begins and fill it with nulls
+        end_card_pos = len(repr(hdu.header.ascard))
+        padding_start = end_card_pos + 80
+        padding_len = 2880 - padding_start
+        with open(self.temp('temp.fits'), 'r+b') as f:
+            f.seek(padding_start)
+            f.write('\0' * padding_len)
+
+        with catch_warnings(record=True) as w:
+            with pyfits.open(self.temp('temp.fits')) as hdul:
+                assert_true('contains null bytes instead of spaces' in
+                            str(w[0].message))
+                assert_equal(len(w), 1)
+                assert_equal(len(hdul), 1)
+                assert_equal(repr(hdul[0].header.ascard),
+                             repr(hdu.header.ascard))
+                assert_true((hdul[0].data == a).all())

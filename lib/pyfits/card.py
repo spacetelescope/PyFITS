@@ -1163,7 +1163,6 @@ class RecordValuedKeywordCard(Card):
                 self._fixable = False
                 raise ValueError(self._err_text)
 
-
     def _check(self, option='ignore'):
         """Verify the card image with the specified `option`."""
 
@@ -1568,7 +1567,7 @@ class CardList(list):
         else:
             return False
 
-    def _pos_insert(self, card, before, after, useblanks=True):
+    def _pos_insert(self, card, before, after, useblanks=True, replace=False):
         """
         Insert a `Card` to the location specified by before or after.
 
@@ -1576,12 +1575,40 @@ class CardList(list):
         specified.  They can be either a keyword name or index.
         """
 
-        if before is not None:
-            loc = self.index_of(before)
-            self.insert(loc, card, useblanks=useblanks)
-        elif after is not None:
-            loc = self.index_of(after)
-            self.insert(loc + 1, card, useblanks=useblanks)
+        if before is None:
+            insertionkey = after
+        else:
+            insertionkey = before
+
+        def get_insertion_idx():
+            if not (isinstance(insertionkey, int) and
+                    insertionkey >= len(self)):
+                idx = self.index_of(insertionkey)
+            else:
+                idx = insertionkey
+
+            if before is None:
+                idx += 1
+
+            return idx
+
+        if replace:
+            old_idx = self.index_of(card.key)
+            insertion_idx = get_insertion_idx()
+
+            if insertion_idx >= len(self) and old_idx == len(self) - 1:
+                return
+
+            if before is not None:
+                if old_idx == insertion_idx - 1:
+                    return
+            elif after is not None and old_idx == insertion_idx:
+                return
+
+            del self[old_idx]
+
+        idx = get_insertion_idx()
+        self.insert(idx, card, useblanks=useblanks)
 
     def _use_blanks(self, how_many):
         if self._blanks > 0:

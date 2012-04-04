@@ -259,18 +259,17 @@ class Header(__HEADERBASE):
             else:
                 _comment = self.ascard[j].comment
             _card = create_card(key, value, _comment)
+            self.ascard[j] = _card
             if before is not None or after is not None:
-                del self.ascard[j]
-                self.ascard._pos_insert(_card, before=before, after=after)
-            else:
-                self.ascard[j] = _card
+                self.ascard._pos_insert(_card, before=before, after=after,
+                                        replace=True)
         elif before is not None or after is not None:
             _card = create_card(key, value, comment)
             self.ascard._pos_insert(_card, before=before, after=after)
         else:
             self.ascard.append(create_card(key, value, comment))
-
-        self._mod = True
+        if self.ascard._mod:
+            self._mod = True
 
     def copy(self, strip=False):
         """

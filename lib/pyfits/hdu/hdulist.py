@@ -796,8 +796,6 @@ class HDUList(list, _Verify):
         if 'EXTEND' in hdr:
             if len(self) > 1 and hdr['EXTEND'] == False:
                 hdr['EXTEND'] = True
-            elif len(self) == 1 and hdr['EXTEND'] == True:
-                hdr['EXTEND'] = False
         elif len(self) > 1:
             if hdr['NAXIS'] == 0:
                 hdr.update('EXTEND', True, after='NAXIS')

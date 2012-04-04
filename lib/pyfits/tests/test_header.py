@@ -1,5 +1,6 @@
 import pyfits
 
+from pyfits.card import _pad
 from pyfits.tests import PyfitsTestCase
 
 from nose.tools import assert_equal, assert_false, assert_raises, assert_true
@@ -38,6 +39,59 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(len(header.ascard), 9)
         assert_equal(str(header[1:3]).rstrip(),
                      'HISTORY ' + longval[:72] + '\nHISTORY ' + longval[72:])
+
+    def test_wildcard_slice(self):
+        """Test selecting a subsection of a header via wildcard matching."""
+
+        header = pyfits.Header()
+        header.update('ABC', 0)
+        header.update('DEF', 1)
+        header.update('ABD', 2)
+        cards = header.ascard['AB*']
+        assert_equal(len(cards), 2)
+        assert_equal(cards[0].value, 0)
+        assert_equal(cards[1].value, 2)
+
+    def test_unnecessary_move(self):
+        """Regression test for #125.
+
+        Ensures that a header is not modified when setting the position of a
+        keyword that's already in its correct position.
+        """
+
+        cl = pyfits.CardList([pyfits.Card('A', 'B'), pyfits.Card('B', 'C'),
+                              pyfits.Card('C', 'D')])
+        header = pyfits.Header(cl)
+
+        header.update('B', 'C', before=2)
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._mod)
+
+        header.update('B', 'C', after=0)
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._mod)
+
+        header.update('B', 'C', before='C')
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._mod)
+
+        header.update('B', 'C', after='A')
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._mod)
+
+        header.update('B', 'C', before=2)
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._mod)
+
+        # 123 is well past the end, and C is already at the end, so it's in the
+        # right place already
+        header.update('C', 'D', before=123)
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._mod)
+
+        header.update('C', 'D', after=123)
+        assert_equal(header.keys(), ['A', 'B', 'C'])
+        assert_false(header._mod)
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):

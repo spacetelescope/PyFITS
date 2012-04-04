@@ -247,6 +247,48 @@ class TestCore(PyfitsTestCase):
         assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
                       extver=1)
 
+    def test_extension_name_case_sensitive(self):
+        """
+        Tests that setting pyfits.EXTENSION_NAME_CASE_SENSITIVE at runtime
+        works.
+        """
+
+        if 'PYFITS_EXTENSION_NAME_CASE_SENSITIVE' in os.environ:
+            del os.environ['PYFITS_EXTENSION_NAME_CASE_SENSITIVE']
+
+        hdu = pyfits.ImageHDU()
+        hdu.name = 'sCi'
+        assert_equal(hdu.name, 'SCI')
+        assert_equal(hdu.header['EXTNAME'], 'SCI')
+
+        try:
+            pyfits.setExtensionNameCaseSensitive(True)
+            hdu = pyfits.ImageHDU()
+            hdu.name = 'sCi'
+            assert_equal(hdu.name, 'sCi')
+            assert_equal(hdu.header['EXTNAME'], 'sCi')
+        finally:
+            pyfits.setExtensionNameCaseSensitive(False)
+
+        hdu.name = 'sCi'
+        assert_equal(hdu.name, 'SCI')
+        assert_equal(hdu.header['EXTNAME'], 'SCI')
+
+
+class TestConvenienceFunctions(PyfitsTestCase):
+    def test_writeto(self):
+        """
+        Simple test for writing a trivial header and some data to a file
+        with the `writeto()` convenience function.
+        """
+
+        data = np.zeros((100, 100))
+        header = pyfits.Header()
+        pyfits.writeto(self.temp('array.fits'), data, header=header,
+                       clobber=True)
+        hdul = pyfits.open(self.temp('array.fits'))
+        assert_equal(len(hdul), 1)
+        assert_true((data == hdul[0].data).all())
 
     def test_writeto_2(self):
         """
