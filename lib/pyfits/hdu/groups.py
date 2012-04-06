@@ -47,15 +47,11 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
         data.
         """
 
-        # Nearly the same code as in _TableBaseHDU
-        if self.size:
-            data = GroupData(self._get_tbdata())
-            data._coldefs = self.columns
-            data.formats = self.columns.formats
-            data.parnames = self.parnames
-            del self.columns
-        else:
-            data = None
+        data = GroupData(self._get_tbdata())
+        data._coldefs = self.columns
+        data.formats = self.columns.formats
+        data.parnames = self.parnames
+        del self.columns
         return data
 
     @lazyproperty
