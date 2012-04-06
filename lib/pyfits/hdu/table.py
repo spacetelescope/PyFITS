@@ -44,6 +44,8 @@ class _TableLikeHDU(_ValidHDU):
     otherwise too dissimlary for tables to use _TableBaseHDU directly).
     """
 
+    _data_type = FITS_rec
+
     @classmethod
     def match_header(cls, header):
         """
@@ -76,7 +78,7 @@ class _TableLikeHDU(_ValidHDU):
                                         shape=columns._shape)
         data = raw_data.view(np.rec.recarray)
         self._init_tbdata(data)
-        return data.view(FITS_rec)
+        return data.view(self._data_type)
 
     def _init_tbdata(self, data):
         columns = self.columns
@@ -157,10 +159,10 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             self._header = Header(cards)
 
             if isinstance(data, np.ndarray) and data.dtype.fields is not None:
-                if isinstance(data, FITS_rec):
+                if isinstance(data, self._data_type):
                     self.data = data
                 else:
-                    self.data = data.view(FITS_rec)
+                    self.data = data.view(self._data_type)
 
                 self._header['NAXIS1'] = self.data.itemsize
                 self._header['NAXIS2'] = self.data.shape[0]
@@ -416,7 +418,7 @@ class TableHDU(_TableBaseHDU):
                                         shape=columns._shape)
         data = raw_data.view(np.rec.recarray)
         self._init_tbdata(data)
-        return data.view(FITS_rec)
+        return data.view(self._data_type)
 
     def _calculate_datasum(self, blocking):
         """
