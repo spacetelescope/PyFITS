@@ -1721,12 +1721,12 @@ class CompImageHDU(BinTableHDU):
 
         return size
 
-    def _writeto(self, fileobj, checksum=False):
+    def _writeto(self, fileobj, checksum=False, inplace=False):
         self.updateCompressedData()
         # Doesn't call the super's writeto, since it calls
         # self.data._scale_back(), which is meaningless here.
-        return ((self._writeheader(fileobj, checksum)[0],) +
-                 self._writedata(fileobj))
+        return ExtensionHDU._writeto(self, fileobj, checksum=checksum,
+                                     inplace=inplace)
 
     def _calculate_datasum(self, blocking):
         """
