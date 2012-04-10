@@ -222,7 +222,8 @@ class Card(_Verify):
         """Set the value attribute."""
 
         if isinstance(val, (str, int, long, float, complex, bool, Undefined,
-                            np.floating, np.integer, np.complexfloating)):
+                            np.floating, np.integer, np.complexfloating,
+                            np.bool_)):
             if isinstance(val, str):
                 self._check_text(val)
             if not hasattr(self, '_value') or self._value != val:

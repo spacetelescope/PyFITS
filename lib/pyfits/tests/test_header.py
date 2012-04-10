@@ -1,3 +1,5 @@
+import numpy as np
+
 import pyfits
 
 from pyfits.card import _pad
@@ -52,46 +54,38 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(cards[0].value, 0)
         assert_equal(cards[1].value, 2)
 
-    def test_unnecessary_move(self):
-        """Regression test for #125.
-
-        Ensures that a header is not modified when setting the position of a
-        keyword that's already in its correct position.
+    def test_assign_boolean(self):
+        """
+        Regression test for #123. Tests assigning Python and Numpy boolean
+        values to keyword values.
         """
 
-        cl = pyfits.CardList([pyfits.Card('A', 'B'), pyfits.Card('B', 'C'),
-                              pyfits.Card('C', 'D')])
-        header = pyfits.Header(cl)
+        fooimg = _pad('FOO     =                    T')
+        barimg = _pad('BAR     =                    F')
+        h = pyfits.Header()
+        h.update('FOO', True)
+        h.update('BAR', False)
+        assert_equal(h['FOO'], True)
+        assert_equal(h['BAR'], False)
+        assert_equal(h.ascard['FOO'].cardimage, fooimg)
+        assert_equal(h.ascard['BAR'].cardimage, barimg)
 
-        header.update('B', 'C', before=2)
-        assert_equal(header.keys(), ['A', 'B', 'C'])
-        assert_false(header._mod)
+        h = pyfits.Header()
+        h.update('FOO', np.bool_(True))
+        h.update('BAR', np.bool_(False))
+        assert_equal(h['FOO'], True)
+        assert_equal(h['BAR'], False)
+        assert_equal(h.ascard['FOO'].cardimage, fooimg)
+        assert_equal(h.ascard['BAR'].cardimage, barimg)
 
-        header.update('B', 'C', after=0)
-        assert_equal(header.keys(), ['A', 'B', 'C'])
-        assert_false(header._mod)
+        h = pyfits.Header()
+        h.ascard.append(pyfits.Card.fromstring(fooimg))
+        h.ascard.append(pyfits.Card.fromstring(barimg))
+        assert_equal(h['FOO'], True)
+        assert_equal(h['BAR'], False)
+        assert_equal(h.ascard['FOO'].cardimage, fooimg)
+        assert_equal(h.ascard['BAR'].cardimage, barimg)
 
-        header.update('B', 'C', before='C')
-        assert_equal(header.keys(), ['A', 'B', 'C'])
-        assert_false(header._mod)
-
-        header.update('B', 'C', after='A')
-        assert_equal(header.keys(), ['A', 'B', 'C'])
-        assert_false(header._mod)
-
-        header.update('B', 'C', before=2)
-        assert_equal(header.keys(), ['A', 'B', 'C'])
-        assert_false(header._mod)
-
-        # 123 is well past the end, and C is already at the end, so it's in the
-        # right place already
-        header.update('C', 'D', before=123)
-        assert_equal(header.keys(), ['A', 'B', 'C'])
-        assert_false(header._mod)
-
-        header.update('C', 'D', after=123)
-        assert_equal(header.keys(), ['A', 'B', 'C'])
-        assert_false(header._mod)
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
