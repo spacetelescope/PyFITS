@@ -7,35 +7,55 @@ Changelog
 Changes in Behavior
 +++++++++++++++++++
 
-  * Slices of GroupData objects now return new GroupData objects instead of
-    extended multi-row _Group objects. This is analogous to how PyFITS 3.0
-    fixed FITS_rec slicing, and should have been fixed for GroupData at the
-    same time.  The old behavior caused bugs where functions internal to Numpy
-    expected that slicing an ndarray would return a new ndarray.  As this is a
-    rare usecase with a rare feature most users are unlikely to be affected by
-    this change.
+- Slices of GroupData objects now return new GroupData objects instead of
+  extended multi-row _Group objects. This is analogous to how PyFITS 3.0 fixed
+  FITS_rec slicing, and should have been fixed for GroupData at the same time.
+  The old behavior caused bugs where functions internal to Numpy expected that
+  slicing an ndarray would return a new ndarray.  As this is a rare usecase
+  with a rare feature most users are unlikely to be affected by this change.
 
-  * The previously internal _Group object for representing individual group
-    records in a GroupData object are renamed Group and are now a public
-    interface.  However, there's almost no good reason to create Group objects
-    directly, so it shouldn't be considered a "new feature".
+- The previously internal _Group object for representing individual group
+  records in a GroupData object are renamed Group and are now a public
+  interface.  However, there's almost no good reason to create Group objects
+  directly, so it shouldn't be considered a "new feature".
+
+- An annoyance from PyFITS 3.0.6 was fixed, where the value of the EXTEND
+  keyword was always being set to F if there are not actually any extension
+  HDUs.  It was unnecessary to modify this value.
 
 Bug Fixes
 +++++++++
   
-  * Fixed GroupData objects to return new GroupData objects when sliced
-    instead of _Group record objects.  See "Changes in behavior" above for
-    more details.
+- Fixed GroupData objects to return new GroupData objects when sliced instead
+  of _Group record objects.  See "Changes in behavior" above for more details.
 
-  * Fixed slicing of Group objects--previously it was not possible to slice
-    slice them at all.
+- Fixed slicing of Group objects--previously it was not possible to slice
+  slice them at all.
 
-  * Fixed a bug where the values of the PTYPEn keywords in a random groups HDU
-    were forced to be all lower-case when saving the file. (#130)
+- Made it possible to assign np.bool_ objects as header values. (#123)
 
-  * Removed an unnecessary inline import in `ExtensionHDU.__setattr__` that
-    was causing some slowdown when opening files containing a large number of
-    extensions. (#133)
+- Fixed overly strict handling of the EXTEND keyword; see "Changes in
+  behavior" above. (#124)
+
+- Fixed many cases where an HDU's header would be marked as "modified" by
+  PyFITS and rewritten, even when no changes to the header are necessary.
+  (#125)
+
+- Fixed a bug where the values of the PTYPEn keywords in a random groups HDU
+  were forced to be all lower-case when saving the file. (#130)
+
+- Removed an unnecessary inline import in `ExtensionHDU.__setattr__` that was
+  causing some slowdown when opening files containing a large number of
+  extensions, plus a few other small (but not insignficant) performance
+  improvements thanks to Julian Taylor. (#133)
+
+- Fixed a regression where header blocks containing invalid end-of-header
+  padding (i.e. null bytes instead of spaces) couldn't be parsed by PyFITS.
+  Such headers can be parsed again, but a warning is raised, as such headers
+  are not valid FITS. (#136)
+
+- Fixed a memory leak where table data in random groups HDUs weren't being
+  garbage collected. (#138)
 
 
 3.0.6 (2012-02-29)
@@ -154,7 +174,7 @@ Bug Fixes
 
 - Fixed a bug that prevented passing keyword arguments (beyond the standard
   data and header arguments) as positional arguments to the constructors of
-  extension HDU classes. (r1274)
+  extension HDU classes.
 
 - Fixed some tests that were failing on Windows--in this case the tests
   themselves failed to close some temp files and Windows refused to delete them
@@ -177,6 +197,7 @@ Bug Fixes
 - Fixed a serious bug where opening scaled images in 'update' mode and then
   closing the file without touching the data would cause the file to be
   corrupted. (#101)
+
 
 3.0.3 (2011-10-05)
 ------------------
@@ -273,6 +294,10 @@ Bug Fixes
   preserve public API backwards-compatibility with older versions (private API
   has many changes and is not guaranteed to be backwards-compatible).  There
   are a few small public API changes to be aware of:
+
+  * The pyfits.rec module has been removed completely.  If your version of
+    numpy does not have the numpy.core.records module it is too old to be used
+    with PyFITS.
 
   * The ``Header.ascardlist()`` method is deprecated--use the ``.ascard``
     attribute instead.
