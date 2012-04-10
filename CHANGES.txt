@@ -122,6 +122,10 @@ Changes in Behavior
   interface.  However, there's almost no good reason to create Group objects
   directly, so it shouldn't be considered a "new feature".
 
+- An annoyance from PyFITS 3.0.6 was fixed, where the value of the EXTEND
+  keyword was always being set to F if there are not actually any extension
+  HDUs.  It was unnecessary to modify this value.
+
 Bug Fixes
 +++++++++
   
@@ -130,6 +134,15 @@ Bug Fixes
 
 - Fixed slicing of Group objects--previously it was not possible to slice
   slice them at all.
+
+- Made it possible to assign np.bool_ objects as header values. (#123)
+
+- Fixed overly strict handling of the EXTEND keyword; see "Changes in
+  behavior" above. (#124)
+
+- Fixed many cases where an HDU's header would be marked as "modified" by
+  PyFITS and rewritten, even when no changes to the header are necessary.
+  (#125)
 
 - Fixed a bug where the values of the PTYPEn keywords in a random groups HDU
   were forced to be all lower-case when saving the file. (#130)
@@ -143,6 +156,9 @@ Bug Fixes
   padding (i.e. null bytes instead of spaces) couldn't be parsed by PyFITS.
   Such headers can be parsed again, but a warning is raised, as such headers
   are not valid FITS. (#136)
+
+- Fixed a memory leak where table data in random groups HDUs weren't being
+  garbage collected. (#138)
 
 
 3.0.6 (2012-02-29)
