@@ -310,7 +310,6 @@ Data: Image Data
 The image array of the data portion is accessible by the ``.data`` attribute of
 the data object. A numpy array is returned:
 
-    # image part of the data
     >>> print f[0].data.data[99]
     array([[[[[ 12.4308672 , 0.56860745, 3.99993873],
     [ 12.74043655, 0.31398511, 3.99993873],
