@@ -521,7 +521,7 @@ class Card(_Verify):
             oldvalue = ''
         if isinstance(value, (basestring, int, long, float, complex, bool,
                               Undefined, np.floating, np.integer,
-                              np.complexfloating)):
+                              np.complexfloating, np.bool_)):
             if value != oldvalue:
                 self._value = value
                 self._modified = True

@@ -4,6 +4,8 @@ from __future__ import with_statement
 import itertools
 import warnings
 
+import numpy as np
+
 import pyfits
 
 from pyfits.card import _pad
@@ -154,6 +156,38 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert_equal(len(cards), 2)
         assert_equal(cards[0].value, 0)
         assert_equal(cards[1].value, 2)
+
+    def test_assign_boolean(self):
+        """
+        Regression test for #123. Tests assigning Python and Numpy boolean
+        values to keyword values.
+        """
+
+        fooimg = _pad('FOO     =                    T')
+        barimg = _pad('BAR     =                    F')
+        h = pyfits.Header()
+        h.update('FOO', True)
+        h.update('BAR', False)
+        assert_equal(h['FOO'], True)
+        assert_equal(h['BAR'], False)
+        assert_equal(h.ascard['FOO'].cardimage, fooimg)
+        assert_equal(h.ascard['BAR'].cardimage, barimg)
+
+        h = pyfits.Header()
+        h.update('FOO', np.bool_(True))
+        h.update('BAR', np.bool_(False))
+        assert_equal(h['FOO'], True)
+        assert_equal(h['BAR'], False)
+        assert_equal(h.ascard['FOO'].cardimage, fooimg)
+        assert_equal(h.ascard['BAR'].cardimage, barimg)
+
+        h = pyfits.Header()
+        h.ascard.append(pyfits.Card.fromstring(fooimg))
+        h.ascard.append(pyfits.Card.fromstring(barimg))
+        assert_equal(h['FOO'], True)
+        assert_equal(h['BAR'], False)
+        assert_equal(h.ascard['FOO'].cardimage, fooimg)
+        assert_equal(h.ascard['BAR'].cardimage, barimg)
 
 
 class TestHeaderFunctions(PyfitsTestCase):
@@ -1155,6 +1189,38 @@ class TestHeaderFunctions(PyfitsTestCase):
         c = pyfits.Card.fromstring("APERTURE= 017")
         assert_equal(str(c), _pad("APERTURE= 017"))
         assert_equal(c.value, 17)
+
+    def test_assign_boolean(self):
+        """
+        Regression test for #123. Tests assigning Python and Numpy boolean
+        values to keyword values.
+        """
+
+        fooimg = _pad('FOO     =                    T')
+        barimg = _pad('BAR     =                    F')
+        h = pyfits.Header()
+        h['FOO'] = True
+        h['BAR'] = False
+        assert_equal(h['FOO'], True)
+        assert_equal(h['BAR'], False)
+        assert_equal(str(h.cards['FOO']), fooimg)
+        assert_equal(str(h.cards['BAR']), barimg)
+
+        h = pyfits.Header()
+        h['FOO'] = np.bool_(True)
+        h['BAR'] = np.bool_(False)
+        assert_equal(h['FOO'], True)
+        assert_equal(h['BAR'], False)
+        assert_equal(str(h.cards['FOO']), fooimg)
+        assert_equal(str(h.cards['BAR']), barimg)
+
+        h = pyfits.Header()
+        h.append(pyfits.Card.fromstring(fooimg))
+        h.append(pyfits.Card.fromstring(barimg))
+        assert_equal(h['FOO'], True)
+        assert_equal(h['BAR'], False)
+        assert_equal(str(h.cards['FOO']), fooimg)
+        assert_equal(str(h.cards['BAR']), barimg)
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
