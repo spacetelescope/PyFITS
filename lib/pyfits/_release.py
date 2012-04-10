@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import sys
+import textwrap
 import xmlrpclib
 
 from ConfigParser import ConfigParser
@@ -27,7 +28,7 @@ log = None
 PYFITS_HOMEPAGE_BASE_URL = \
         'http://www.stsci.edu:8072/institute/software_hardware/pyfits'
 # These are the pages to run find/replace of the version number on
-PYFITS_HOMEPAGE_SUBPAGES = ['localProductDescription', 'Download']
+PYFITS_HOMEPAGE_SUBPAGES = ['content', 'Download']
 
 # The website will only have final release up on it, so we can use a simplified
 # version regexp
@@ -184,18 +185,7 @@ class ReleaseManager(object):
             except Exception, e:
                 continue
 
-        # Update the release notes
-        parts = publish_parts('\n'.join(self.history_lines),
-                              writer_name='html')
-        # Get just the body of the HTML and convert headers to <h3> tags
-        # instead of <h1> (there might be a 'better' way to do this, but
-        # this is a simple enough case to suffice for our purposes
-        content = parts['html_body']
-
-        # A quickie regexp--no good for general use, but should work fine
-        # in this case; this will prevent replacement of the <h1> tag in
-        # the title, but will take care of all the others
-        content = re.sub(r'<h1>([^<]+)</h1>', r'<h3>\1</h3>', content)
+        content = generate_release_notes(self.history_lines)
 
         try:
             url = os.path.join(PYFITS_HOMEPAGE_BASE_URL, 'release')
@@ -204,6 +194,60 @@ class ReleaseManager(object):
             proxy.update(content)
         except Exception, e:
             pass
+
+
+def generate_release_notes(lines):
+    """
+    Generates the release notes page from the lines of restructuredText in the
+    changelog.  This converts the RST to HTML and reformats it a bit to fit in
+    the content area of the web site.
+    """
+
+    header = textwrap.dedent("""
+    <h1>Hubble Space Telescope <br /><dtml-var title></h1>
+
+    <dtml-if "(_.has_key('navigation')) and (navigation.isViewable(REQUEST))">
+      <dtml-var navigation>
+    </dtml-if>
+
+    <div id="info">
+    <article>
+
+    <h2 class="title">Changelog</h2>
+    """).lstrip()
+
+    footer = textwrap.dedent("""
+    </article>
+    </div>
+    """)
+
+    # Update the release notes
+    parts = publish_parts('\n'.join(lines), writer_name='html')
+    # Get just the body of the HTML and convert headers to <h3> tags
+    # instead of <h1> (there might be a 'better' way to do this, but
+    # this is a simple enough case to suffice for our purposes
+    content = parts['html_body']
+
+    # A quickie regexp--no good for general use, but should work fine
+    # in this case; this will prevent replacement of the <h1> tag in
+    # the title, but will take care of all the others
+    # This increments each header it finds by 2
+    def increment_header(match):
+        hlvl = int(match.group(1))
+        cont = match.group(2)
+        return '<h%d>%s</h%d>' % (hlvl + 2, cont, hlvl + 2)
+
+    content = re.sub(r'<h(\d)>([^<]+)</h\d>', increment_header, content)
+
+    # A few more quickie formatting hacks...
+    content = content.splitlines()
+
+    # Drop the first two lines containing the top-level div and the first
+    # header (which will be rewritten) and drops the closing </div> for the
+    # first div that was removed
+    content = '\n'.join(content[2:-1])
+
+    return header + content + footer
 
 
 # TODO: This is also a handy utility that could probaby be used elsewhere
