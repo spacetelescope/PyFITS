@@ -1,7 +1,7 @@
 Changelog
 ===========
 
-3.0.7 (unreleased)
+3.0.7 (2012-04-10)
 ------------------
 
 Changes in Behavior
