@@ -492,7 +492,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         padding_len = 2880 - padding_start
         with open(self.temp('temp.fits'), 'r+b') as f:
             f.seek(padding_start)
-            f.write('\0' * padding_len)
+            f.write('\0'.encode('ascii') * padding_len)
 
         with catch_warnings(record=True) as w:
             with pyfits.open(self.temp('temp.fits')) as hdul:
