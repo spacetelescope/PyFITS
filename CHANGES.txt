@@ -32,7 +32,7 @@ Bug Fixes
 - Fixed slicing of Group objects--previously it was not possible to slice
   slice them at all.
 
-- Made it possible to assign np.bool_ objects as header values. (#123)
+- Made it possible to assign `np.bool_` objects as header values. (#123)
 
 - Fixed overly strict handling of the EXTEND keyword; see "Changes in
   behavior" above. (#124)
