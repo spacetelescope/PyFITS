@@ -105,9 +105,112 @@ some automation.
 
 Why is the PyFITS installation failing on Windows?
 --------------------------------------------------
+The most likely cause of installation failure on Windows is if building/
+installing from source fails due to the lack of a compiler for the optional C
+extension module.  Such a failure would produce an error that looks something
+like::
+
+    building 'pyfits.compression' extension
+    error: Unable to find vcvarsall.bat
+
+Your best bet in cases like this is to install from one of the binary
+executable installers available for Windows on PyPI.  However, there are still
+cases where you may need to install from source: For example, it's difficult to
+use the binary installers with virtualenv.  See `How do I install PyFITS from
+source on Windows?`_ for more detailed instructions on building on Windows.
+
+For other installation errors not mentioned by this FAQ, please contact
+help@stsci.edu with a description of the problem.
 
 How do I install PyFITS from source on Windows?
 -----------------------------------------------
+
+There are a few options for building/installing PyFITS from source on Windows.
+
+First of all, as mentioned elsewhere, most of PyFITS is pure-Python.  Only the
+C extension module for reading/writing compressed images needs to be compiled.
+If you don't need compressed image support, PyFITS can be installed without it.
+
+In future releases this will hopefully be even easier, but for now it's
+necessary to edit one file in order to disable the extension module.  Locate
+the `setup.cfg`_ file at the root of the PyFITS source code.  This is the file
+that describes what needs to be installed for PyFITS.  Find the line that reads
+``[extension=pyfits.compression]``.  This is the section that lists what needs
+to be compiled for the extension module.  Comment out every line in the
+extension section by prepending it with a ``#`` character (stopping at the 
+``[build_ext]`` line).  It should look like this::
+
+    ...
+    scripts = scripts/fitscheck
+
+    #[extension=pyfits.compression]
+    #sources = 
+    #    src/compress.c
+    #    src/fits_hcompress.c
+    #    src/fits_hdecompress.c
+    #    src/fitsio.c
+    #    src/pliocomp.c
+    #    src/compressionmodule.c
+    #    src/quantize.c
+    #    src/ricecomp.c
+    #    src/zlib.c
+    #    src/inffast.c
+    #    src/inftrees.c
+    #    src/trees.c
+    #include_dirs = numpy
+    # Squelch a handful of warnings (which actually cause pip to break in tox and
+    # other environments due to gcc outputting non-ASCII characters in some
+    # terminals; see python issue6135)
+    #extra_compile_args =
+    #    -Wno-unused-function
+    #    -Wno-strict-prototypes
+
+    [build_ext]
+    ...
+
+With these lines properly commented out, rerun ``python setup.py install``, and
+it should skip building/installing the compression module.  PyFITS will work
+fine with out it, but will issue warnings when encountering a compressed image
+that it can't read.
+
+If you do need to compile the compression module, this can still be done on
+Windows with just a little extra work.  By default, Python tries to compile
+extension modules with the same compiler that Python itself was compiled with.
+
+To check what compiler Python was built with, the easiest way is to run::
+
+    python -c "import platform; print platform.python_compiler()"
+
+For the official builds of recent Python versions this should be something
+like::
+
+    MSC v.1500 32 bit (Intel)
+
+For unofficial Windows distributions of Python, such as ActiveState, EPD, or
+Cygwin, your mileage may vary.
+
+As it so happens, MSC v.15xx is the compiler version included with Visual
+C++ 2008.  Luckily, Microsoft distributes a free version of this as `Visual C++
+Express Edition`_.  So for building Python extension modules on Windows this is
+one of the simpler routes.  Just install the free VC++ 2008.  It should install
+a link to the Start Menu at All Programs->Microsoft Visual C++ Express
+Edition->Visual Studio Tools->Visual Studio 2008 Command Prompt.
+
+If you run that link, it should launch a command prompt with reasonable
+environment variables set up for using Visual C++.  Then change directories to
+your copy of the PyFITS source code and re-run ``python setup.py install``.
+You may also need to comment out the ``extra_compile_args`` option in the
+``setup.cfg`` file (its value is the two lines under it after the equal sign).
+Though the need to manually disable this option for MSC will be fixed in a
+future PyFITS version.
+
+Another option is to use gcc through `MinGW`_, which is in fact how the PyFITS
+releases for Windows are currently built.  This article provides a good
+overview of how to set this up: http://seewhatever.de/blog/?p=217
+
+.. _setup.cfg: https://trac.assembla.com/pyfits/browser/trunk/setup.cfg
+.. _Visual C++ Express Edition: http://www.microsoft.com/visualstudio/en-us/products/2008-editions/express
+.. _MinGW: http://www.mingw.org/
 
 Is PyFITS available for Mac OSX?
 --------------------------------
