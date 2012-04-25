@@ -1,5 +1,6 @@
-from __future__ import division, with_statement # confidence high
+from __future__ import division, with_statement  # confidence high
 
+import shutil
 import warnings
 
 import numpy as np
@@ -204,3 +205,21 @@ class TestChecksumFunctions(PyfitsTestCase):
                     msg='CHECKSUM Card comment should be blank')
 
         hdul.close()
+
+    def test_open_update_mode_preserve_checksum(self):
+        """
+        Regression test for #148 where checksums are being removed from headers
+        when a file is opened in update mode, even though no changes were made
+        to the file.
+        """
+
+        shutil.copy(self.data('checksum.fits'), self.temp('tmp.fits'))
+
+        hdul = pyfits.open(self.temp('tmp.fits'), mode='update')
+        data = hdul[1].data.copy()
+        hdul.close()
+
+        with pyfits.open(self.temp('tmp.fits')) as hdul:
+            assert_true('CHECKSUM' in hdul[1].header)
+            assert_true('DATASUM' in hdul[1].header)
+            assert_true((data == hdul[1].data).all())

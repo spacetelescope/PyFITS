@@ -120,8 +120,10 @@ class Header(__HEADERBASE):
         Set a header keyword value.
         """
 
+        card = self.ascard[key]
         self.ascard[key].value = value
-        self._mod = 1
+        if card._modified:
+            self._mod = True
 
     def __delitem__(self, key):
         """
