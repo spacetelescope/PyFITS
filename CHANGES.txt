@@ -7,12 +7,12 @@ Changelog
 Highlights
 ++++++++++
 
-- Memory maps are now used by default to access HDU data.  See API Changes
-  below for more details.
-
 - The ``Header`` object has been significantly reworked, and ``CardList``
   objects are now deprecated (their functionality folded into the ``Header``
   class).  See API Changes below for more details.
+
+- Memory maps are now used by default to access HDU data.  See API Changes
+  below for more details.
 
 API Changes and Additions
 +++++++++++++++++++++++++
@@ -34,9 +34,9 @@ API Changes and Additions
     Set ``PYFITS_USE_MEMMAP = 0`` in your environment to change the default
     behavior.
 
-- The size() method on HDU objects is now a .size property--this returns the
-  size in bytes of the data portion of the HDU, and in most cases is
-  equivalent to hdu.data.nbytes (#83)
+- The ``size()`` method on HDU objects is now a ``.size`` property--this
+  returns the size in bytes of the data portion of the HDU, and in most cases
+  is equivalent to ``hdu.data.nbytes`` (#83)
 
 - ``BinTableHDU.tdump`` and ``BinTableHDU.tcreate`` are deprecated--use
   ``BinTableHDU.dump`` and ``BinTableHDU.load`` instead.  The new methods
@@ -76,10 +76,10 @@ New Features
   returns the raw data array.  However, they have a special ``.hdulist``
   attribute which processes the data as a FITS file and returns it as an
   in-memory HDUList object.  FitsHDU objects also support a
-  ``FitsHDU.fromhdulist()`` which returns a new `FitsHDU` object that embeds
-  the supplied HDUList. (#80)
+  ``FitsHDU.fromhdulist()`` classmethod which returns a new `FitsHDU` object
+  that embeds the supplied HDUList. (#80)
 
-- Added a new .is_image attribute on HDU objects, which is True if the HDU
+- Added a new ``.is_image`` attribute on HDU objects, which is True if the HDU
   data is an 'image' as opposed to a table or something else.  Here the
   meaning of 'image' is fairly loose, and mostly just means a Primary or Image
   extension HDU, or possibly a compressed image HDU (#71)
