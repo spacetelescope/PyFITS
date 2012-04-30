@@ -263,7 +263,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         return new_table(self.columns, header=self._header,
                          tbtype=self.columns._tbtype)
 
-    def _writeto(self, fileobj, checksum=False, inplace=False):
+    def _prewriteto(self, checksum=False):
         if self._data_loaded and self.data is not None:
             self.data._scale_back()
             # check TFIELDS and NAXIS2
@@ -285,7 +285,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                     max = self.data.field(idx).max
                     format = _FormatP(format, repeat=format.repeat, max=max)
                     self._header['TFORM' + str(idx + 1)] = format.tform
-        return super(_TableBaseHDU, self)._writeto(fileobj, checksum, inplace)
+        return super(_TableBaseHDU, self)._prewriteto(checksum)
 
     def _verify(self, option='warn'):
         """

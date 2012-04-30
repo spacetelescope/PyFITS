@@ -282,8 +282,9 @@ class _BaseHDU(object):
         fileobj.seek(hdu._datLoc + hdu._datSpan, os.SEEK_SET)
         return hdu
 
-    def _writeheader(self, fileobj, checksum=False):
-        # NOTE: Right now this assumes fileobj is a _File object
+    # TODO: Rework checksum handling so that it's not necessary to add a
+    # checksum argument here
+    def _prewriteto(self, checksum=False):
         # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
         # cards to header
         if self._data_loaded and self.data is not None and \
@@ -314,6 +315,18 @@ class _BaseHDU(object):
         elif checksum:
             self.add_checksum(blocking='standard')
 
+    def _postwriteto(self):
+        # If data is unsigned integer 16, 32 or 64, remove the
+        # BSCALE/BZERO cards
+        if (self._data_loaded and self.data is not None and
+            self._standard and _is_pseudo_unsigned(self.data.dtype)):
+            for keyword in ('BSCALE', 'BZERO'):
+                try:
+                    del self._header[keyword]
+                except KeyError:
+                    pass
+
+    def _writeheader(self, fileobj):
         offset = 0
         if not fileobj.simulateonly:
             try:
@@ -329,16 +342,6 @@ class _BaseHDU(object):
                 size = len(str(self._header))
         else:
             size = len(str(self._header))
-
-        # If data is unsigned integer 16, 32 or 64, remove the
-        # BSCALE/BZERO cards
-        if (self._data_loaded and self.data is not None and
-            self._standard and _is_pseudo_unsigned(self.data.dtype)):
-            for keyword in ('BSCALE', 'BZERO'):
-                try:
-                    del self._header[keyword]
-                except KeyError:
-                    pass
 
         # Update hdrLoc with the new offset
         self._hdrLoc = offset
@@ -396,15 +399,15 @@ class _BaseHDU(object):
     # Though right now this is an internal private method (though still used by
     # HDUList, eventually the plan is to have this be moved into writeto()
     # somehow...
-    def _writeto(self, fileobj, checksum=False, inplace=False):
+    def _writeto(self, fileobj, inplace=False):
         # For now fileobj is assumed to be a _File object
         if not inplace:
-            return ((self._writeheader(fileobj, checksum)[0],) +
+            return ((self._writeheader(fileobj)[0],) +
                     self._writedata(fileobj))
 
         if self.header._modified:
             self._file.seek(self._hdrLoc)
-            self._writeheader(fileobj, checksum=checksum)
+            self._writeheader(fileobj)
         if self._data_loaded:
             if self.data is not None:
                 # Seek through the array's bases for an memmap'd array; we

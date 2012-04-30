@@ -321,6 +321,10 @@ class _ImageBaseHDU(_ValidHDU):
             for keyword in ['BSCALE', 'BZERO']:
                 try:
                     del self._header[keyword]
+                    # Since _update_header_scale_info can, currently, be called
+                    # *after* _prewriteto(), replace these with blank cards so
+                    # the header size doesn't change
+                    self._header.append()
                 except KeyError:
                     pass
 
@@ -440,9 +444,9 @@ class _ImageBaseHDU(_ValidHDU):
 
         return super(_ImageBaseHDU, self)._verify(option)
 
-    def _writeheader(self, fileobj, checksum=False):
+    def _prewriteto(self, checksum=False):
         self.update_header()
-        return super(_ImageBaseHDU, self)._writeheader(fileobj, checksum)
+        return super(_ImageBaseHDU, self)._prewriteto(checksum)
 
     def _writedata_internal(self, fileobj):
         size = 0
@@ -480,14 +484,13 @@ class _ImageBaseHDU(_ValidHDU):
 
         return size
 
-    def _writeto(self, fileobj, checksum=False, inplace=False):
+    def _writeto(self, fileobj, inplace=False):
         if not inplace and not self._data_loaded:
             # Normally this is done when the data is loaded, but since the data
             # is not loaded yet we need to update the header appropriately
             # before writing it
             self._update_header_scale_info()
-        return super(_ImageBaseHDU, self)._writeto(fileobj, checksum=checksum,
-                                                   inplace=inplace)
+        return super(_ImageBaseHDU, self)._writeto(fileobj, inplace=inplace)
 
     def _dtype_for_bitpix(self):
         """
