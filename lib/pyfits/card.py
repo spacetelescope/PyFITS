@@ -642,7 +642,7 @@ class Card(_Verify):
     @classmethod
     def normalize_keyword(cls, keyword):
         """
-        `classmethod` to convert a keyword value that may contain a
+        ``classmethod`` to convert a keyword value that may contain a
         field-specifier to uppercase.  The effect is to raise the
         key to uppercase and leave the field specifier in its original
         case.

@@ -1225,10 +1225,13 @@ class Header(object):
 
         """
 
+        keyword = Card.normalize_keyword(keyword)
+
         # We have to look before we leap, since otherwise _keyword_indices,
         # being a defaultdict, will create an entry for the nonexistent keyword
         if keyword not in self._keyword_indices:
             raise KeyError("Keyword %r not found." % keyword)
+
         return len(self._keyword_indices[keyword])
 
     def index(self, keyword, start=None, stop=None):
@@ -1260,6 +1263,8 @@ class Header(object):
             step = -1
         else:
             step = 1
+
+        keyword = Card.normalize_keyword(keyword)
 
         for idx in xrange(start, stop, step):
             if self._cards[idx].keyword == keyword:

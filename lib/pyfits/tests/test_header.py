@@ -1222,6 +1222,61 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(str(h.cards['FOO']), fooimg)
         assert_equal(str(h.cards['BAR']), barimg)
 
+    def test_header_method_keyword_normalization(self):
+        """
+        Regression test for #149.  Basically ensures that all public Header
+        methods are case-insensitive w.r.t. keywords.
+
+        Provides a reasonably comprehensive test of several methods at once.
+        """
+
+        h = pyfits.Header([('abC', 1), ('Def', 2), ('GeH', 3)])
+        assert_equal(h.keys(), ['ABC', 'DEF', 'GEH'])
+        assert_true('abc' in h)
+        assert_true('dEf' in h)
+
+        assert_equal(h['geh'], 3)
+
+        # Case insensitivity of wildcards
+        assert_equal(len(h['g*']), 1)
+
+        h['aBc'] = 2
+        assert_equal(h['abc'], 2)
+        # ABC already existed so assigning to aBc should not have added any new
+        # cards
+        assert_equal(len(h), 3)
+
+        del h['gEh']
+        assert_equal(h.keys(), ['ABC', 'DEF'])
+        assert_equal(len(h), 2)
+        assert_equal(h.get('def'), 2)
+
+        h.set('Abc', 3)
+        assert_equal(h['ABC'], 3)
+        h.set('gEh', 3, before='Abc')
+        assert_equal(h.keys(), ['GEH', 'ABC', 'DEF'])
+
+        assert_equal(h.pop('abC'), 3)
+        assert_equal(len(h), 2)
+
+        assert_equal(h.setdefault('def', 3), 2)
+        assert_equal(len(h), 2)
+        assert_equal(h.setdefault('aBc', 1), 1)
+        assert_equal(len(h), 3)
+        assert_equal(h.keys(), ['GEH', 'DEF', 'ABC'])
+
+        h.update({'GeH': 1, 'iJk': 4})
+        assert_equal(len(h), 4)
+        assert_equal(h.keys(), ['GEH', 'DEF', 'ABC', 'IJK'])
+        assert_equal(h['GEH'], 1)
+
+        assert_equal(h.count('ijk'), 1)
+        assert_equal(h.index('ijk'), 3)
+
+        h.remove('Def')
+        assert_equal(len(h), 3)
+        assert_equal(h.keys(), ['GEH', 'ABC', 'IJK'])
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """
