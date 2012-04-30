@@ -251,7 +251,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         return new_table(self.columns, header=self._header,
                          tbtype=self.columns._tbtype)
 
-    def _writeto(self, fileobj, checksum=False, inplace=False):
+    def _prewriteto(self, checksum=False, inplace=False):
         if self._data_loaded and self.data is not None:
             self.data._scale_back()
             # check TFIELDS and NAXIS2
@@ -274,7 +274,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                     val = val[:val.find('(') + 1] + \
                           repr(self.data.field(idx)._max) + ')'
                     self._header[key] = val
-        return super(_TableBaseHDU, self)._writeto(fileobj, checksum, inplace)
+        return super(_TableBaseHDU, self)._prewriteto(checksum, inplace)
 
     def _verify(self, option='warn'):
         """

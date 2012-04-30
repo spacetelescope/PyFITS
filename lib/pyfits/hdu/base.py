@@ -106,6 +106,7 @@ class _BaseHDU(object):
         self._hdrLoc = None
         self._datLoc = None
         self._datSpan = None
+        self._new = True
         self.name = ''
 
     def _getheader(self):
@@ -309,8 +310,9 @@ class _BaseHDU(object):
         fileobj.seek(hdu._datLoc + hdu._datSpan, os.SEEK_SET)
         return hdu
 
-    def _writeheader(self, fileobj, checksum=False):
-        # NOTE: Right now this assumes fileobj is a _File object
+    # TODO: Rework checksum handling so that it's not necessary to add a
+    # checksum argument here
+    def _prewriteto(self, checksum=False, inplace=False):
         # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
         # cards to header
         # I'm thinking maybe this code belongs in the ImageBaseHDU and/or
@@ -325,24 +327,43 @@ class _BaseHDU(object):
                                 after='BSCALE')
 
         # Handle checksum
-        if 'CHECKSUM' in self._header:
-            del self._header['CHECKSUM']
 
-        if 'DATASUM' in self._header:
-            del self._header['DATASUM']
+        # If the data is loaded it isn't necessarily 'modified', but we have no
+        # way of knowing for sure
+        modified = self._header._mod or self._data_loaded
 
-        if checksum == 'datasum':
-            self.add_datasum()
-        elif checksum == 'nonstandard_datasum':
-            self.add_datasum(blocking='nonstandard')
-        elif checksum == 'test':
-            self.add_datasum(self._datasum_comment)
-            self.add_checksum(self._checksum_comment, True)
-        elif checksum == 'nonstandard':
-            self.add_checksum(blocking='nonstandard')
-        elif checksum:
-            self.add_checksum(blocking='standard')
+        if modified or (not checksum and not inplace):
+            if 'CHECKSUM' in self._header:
+                del self._header['CHECKSUM']
 
+            if 'DATASUM' in self._header:
+                del self._header['DATASUM']
+
+        if checksum and (modified or self._new):
+            if checksum == 'datasum':
+                self.add_datasum()
+            elif checksum == 'nonstandard_datasum':
+                self.add_datasum(blocking='nonstandard')
+            elif checksum == 'test':
+                self.add_datasum(self._datasum_comment)
+                self.add_checksum(self._checksum_comment, True)
+            elif checksum == 'nonstandard':
+                self.add_checksum(blocking='nonstandard')
+            elif checksum:
+                self.add_checksum(blocking='standard')
+
+    def _postwriteto(self):
+        # If data is unsigned integer 16, 32 or 64, remove the
+        # BSCALE/BZERO cards
+        if (self._data_loaded and self.data is not None and
+            self._standard and _is_pseudo_unsigned(self.data.dtype)):
+            for keyword in ('BSCALE', 'BZERO'):
+                try:
+                    del self._header[keyword]
+                except KeyError:
+                    pass
+
+    def _writeheader(self, fileobj):
         blocks = repr(self._header.ascard) + _pad('END')
         blocks = blocks + _pad_length(len(blocks)) * ' '
 
@@ -361,13 +382,6 @@ class _BaseHDU(object):
                 offset = 0
             fileobj.write(blocks.encode('ascii'))
             fileobj.flush()
-
-        # If data is unsigned integer 16, 32 or 64, remove the
-        # BSCALE/BZERO cards
-        if (self._data_loaded and self.data is not None and
-            self._standard and _is_pseudo_unsigned(self.data.dtype)):
-            del self._header['BSCALE']
-            del self._header['BZERO']
 
         return offset, size
 
@@ -419,15 +433,18 @@ class _BaseHDU(object):
     # Though right now this is an internal private method (though still used by
     # HDUList, eventually the plan is to have this be moved into writeto()
     # somehow...
-    def _writeto(self, fileobj, checksum=False, inplace=False):
+    def _writeto(self, fileobj, inplace=False, copy=False):
         # For now fileobj is assumed to be a _File object
-        if not inplace:
-            return ((self._writeheader(fileobj, checksum)[0],) +
+        if not inplace or self._new:
+            return ((self._writeheader(fileobj)[0],) +
                     self._writedata(fileobj))
 
         if self.header._mod:
             self._file.seek(self._hdrLoc)
-            self._writeheader(fileobj, checksum=checksum)
+            self._writeheader(fileobj)
+        elif copy:
+            self._file.seek(self._hdrLoc)
+            fileobj.write(self._file.read(self._datLoc - self._hdrLoc))
         if self._data_loaded:
             if self.data is not None:
                 # Seek through the array's bases for an memmap'd array; we
@@ -440,6 +457,9 @@ class _BaseHDU(object):
                 else:
                     self._file.seek(self._datLoc)
                     self._writedata(fileobj)
+        elif copy:
+            self._file.seek(self._datLoc)
+            fileobj.write(self._file.read(self._datSpan))
         return (self._hdrLoc, self._datLoc,
                 self._datSpan + _pad_length(self._datSpan))
 

@@ -215,8 +215,10 @@ class TestChecksumFunctions(PyfitsTestCase):
 
         shutil.copy(self.data('checksum.fits'), self.temp('tmp.fits'))
 
+        with pyfits.open(self.temp('tmp.fits')) as hdul:
+            data = hdul[1].data.copy()
+
         hdul = pyfits.open(self.temp('tmp.fits'), mode='update')
-        data = hdul[1].data.copy()
         hdul.close()
 
         with pyfits.open(self.temp('tmp.fits')) as hdul:

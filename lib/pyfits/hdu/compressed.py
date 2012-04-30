@@ -1743,14 +1743,23 @@ class CompImageHDU(BinTableHDU):
         else:
             del self.header['BSCALE']
 
-    def _writeheader(self, fileobj, checksum=False):
+    # TODO: Fix this class so that it doesn't actually inherit from
+    # BinTableHDU, but instead has an internal BinTableHDU reference
+    def _prewriteto(self, checksum=False, inplace=False):
+        self.updateCompressedData()
+        # Doesn't call the super's _prewriteto, since it calls
+        # self.data._scale_back(), which is meaningless here.
+        return ExtensionHDU._prewriteto(self, checksum=checksum,
+                                        inplace=inplace)
+
+    def _writeheader(self, fileobj):
         """
         Bypasses `BinTableHDU._writeheader()` which updates the header with
         metadata about the data that is meaningless here; another reason
         why this class maybe shouldn't inherit directly from BinTableHDU...
         """
 
-        return ExtensionHDU._writeheader(self, fileobj, checksum)
+        return ExtensionHDU._writeheader(self, fileobj)
 
     def _writedata_internal(self, fileobj):
         """
@@ -1774,13 +1783,6 @@ class CompImageHDU(BinTableHDU):
             size += self.compData.size * self.compData.itemsize
 
         return size
-
-    def _writeto(self, fileobj, checksum=False, inplace=False):
-        self.updateCompressedData()
-        # Doesn't call the super's writeto, since it calls
-        # self.data._scale_back(), which is meaningless here.
-        return ExtensionHDU._writeto(self, fileobj, checksum=checksum,
-                                     inplace=inplace)
 
     def _calculate_datasum(self, blocking):
         """

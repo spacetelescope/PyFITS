@@ -317,8 +317,15 @@ class _ImageBaseHDU(_ValidHDU):
     def _update_header_scale_info(self, dtype=None):
         if (not self._do_not_scale_image_data and
             not (self._orig_bzero == 0 and self._orig_bscale == 1)):
-            del self._header['BSCALE']
-            del self._header['BZERO']
+            for keyword in ['BSCALE', 'BZERO']:
+                try:
+                    del self._header[keyword]
+                    # Since _update_header_scale_info can, currently, be called
+                    # *after* _prewriteto(), replace these with blank cards so
+                    # the header size doesn't change
+                    self._header.add_blank()
+                except KeyError:
+                    pass
 
             if dtype is None:
                 dtype = self._dtype_for_bitpix()
@@ -428,9 +435,11 @@ class _ImageBaseHDU(_ValidHDU):
 
         return super(_ImageBaseHDU, self)._verify(option)
 
-    def _writeheader(self, fileobj, checksum=False):
+    def _prewriteto(self, checksum=False, inplace=False):
         self.update_header()
-        return super(_ImageBaseHDU, self)._writeheader(fileobj, checksum)
+        if not inplace and not self._data_loaded:
+            self._update_header_scale_info()
+        return super(_ImageBaseHDU, self)._prewriteto(checksum, inplace)
 
     def _writedata_internal(self, fileobj):
         size = 0
@@ -467,15 +476,6 @@ class _ImageBaseHDU(_ValidHDU):
             size += output.size * output.itemsize
 
         return size
-
-    def _writeto(self, fileobj, checksum=False, inplace=False):
-        if not inplace and not self._data_loaded:
-            # Normally this is done when the data is loaded, but since the data
-            # is not loaded yet we need to update the header appropriately
-            # before writing it
-            self._update_header_scale_info()
-        return super(_ImageBaseHDU, self)._writeto(fileobj, checksum=checksum,
-                                                   inplace=inplace)
 
     def _dtype_for_bitpix(self):
         """
