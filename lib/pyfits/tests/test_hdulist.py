@@ -502,3 +502,25 @@ class TestHDUListFunctions(PyfitsTestCase):
                 assert_equal(len(hdul), 1)
                 assert_equal(str(hdul[0].header), str(hdu.header))
                 assert_true((hdul[0].data == a).all())
+
+    def test_update_with_truncated_header(self):
+        """
+        Regression test for #148.  Test that saving an update where the header
+        is shorter than the original header doesn't leave a stump from the old
+        header in the file.
+        """
+
+        data = np.arange(100)
+        hdu = pyfits.PrimaryHDU(data=data)
+        idx = 1
+        while len(hdu.header) < 34:
+            hdu.header['TEST%d' % idx] = idx
+            idx += 1
+        hdu.writeto(self.temp('temp.fits'), checksum=True)
+
+        with pyfits.open(self.temp('temp.fits'), mode='update') as hdul:
+            # Modify the header, forcing it to be rewritten
+            hdul[0].header['TEST1'] = 2
+
+        with pyfits.open(self.temp('temp.fits')) as hdul:
+            assert_true((hdul[0].data == data).all())

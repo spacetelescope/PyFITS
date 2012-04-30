@@ -482,7 +482,7 @@ class Header(object):
             If True (default) adds the END card to the end of the header
             string
 
-        padding : bool (optiona)
+        padding : bool (optional)
             If True (default) pads the string with spaces out to the next
             multiple of 2880 characters
 
