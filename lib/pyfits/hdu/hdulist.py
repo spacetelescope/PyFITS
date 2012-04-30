@@ -544,7 +544,7 @@ class HDUList(list, _Verify):
                         extver = ''
 
                 # only append HDU's which are "new"
-                if not hasattr(hdu, '_new') or hdu._new:
+                if hdu._new:
                     # only output the checksum if flagged to do so
                     if hasattr(hdu, '_output_checksum'):
                         checksum = hdu._output_checksum
@@ -807,7 +807,7 @@ class HDUList(list, _Verify):
                 checksum = hdu._output_checksum
             else:
                 checksum = False
-            hdu._prewriteto(checksum=checksum)
+            hdu._prewriteto(checksum=checksum, inplace=True)
 
         try:
             self._wasresized()
@@ -851,7 +851,7 @@ class HDUList(list, _Verify):
             hdulist = self.fromfile(new_file, mode='append')
 
             for hdu in self:
-                offsets = hdu._writeto(hdulist.__file)
+                offsets = hdu._writeto(hdulist.__file, inplace=True, copy=True)
                 hdu._hdrLoc, hdu._datLoc, hdu._datSpan = offsets
 
             if sys.platform.startswith('win'):
@@ -924,7 +924,7 @@ class HDUList(list, _Verify):
             ffo.seek(0)
 
             for hdu in hdulist:
-                offsets = hdu._writeto(ffo)
+                offsets = hdu._writeto(ffo, inplace=True, copy=True)
                 hdu._hdrLoc, hdu._datLoc, hdu._datSpan = offsets
 
             # Close the temporary file and delete it.

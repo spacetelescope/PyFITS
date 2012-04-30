@@ -524,3 +524,37 @@ class TestHDUListFunctions(PyfitsTestCase):
 
         with pyfits.open(self.temp('temp.fits')) as hdul:
             assert_true((hdul[0].data == data).all())
+
+    def test_update_resized_header(self):
+        """
+        Test saving updates to a file where the header is one block smaller
+        than before, and in the case where the heade ris one block larger than
+        before.
+        """
+
+        data = np.arange(100)
+        hdu = pyfits.PrimaryHDU(data=data)
+        idx = 1
+        while len(str(hdu.header)) <= 2880:
+            hdu.header['TEST%d' % idx] = idx
+            idx += 1
+        orig_header = hdu.header.copy()
+        hdu.writeto(self.temp('temp.fits'))
+
+        with pyfits.open(self.temp('temp.fits'), mode='update') as hdul:
+            while len(str(hdul[0].header)) > 2880:
+                del hdul[0].header[-1]
+
+        with pyfits.open(self.temp('temp.fits')) as hdul:
+            assert_equal(hdul[0].header, orig_header[:-1])
+            assert_true((hdul[0].data == data).all())
+
+        with pyfits.open(self.temp('temp.fits'), mode='update') as hdul:
+            idx = 101
+            while len(str(hdul[0].header)) <= 2880 * 2:
+                hdul[0].header['TEST%d' % idx] = idx
+                idx += 1
+
+        with pyfits.open(self.temp('temp.fits')) as hdul:
+            assert_equal(hdul[0].header[:-37], orig_header[:-1])
+            assert_true((hdul[0].data == data).all())

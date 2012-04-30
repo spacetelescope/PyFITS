@@ -444,9 +444,11 @@ class _ImageBaseHDU(_ValidHDU):
 
         return super(_ImageBaseHDU, self)._verify(option)
 
-    def _prewriteto(self, checksum=False):
+    def _prewriteto(self, checksum=False, inplace=False):
         self.update_header()
-        return super(_ImageBaseHDU, self)._prewriteto(checksum)
+        if not inplace and not self._data_loaded:
+            self._update_header_scale_info()
+        return super(_ImageBaseHDU, self)._prewriteto(checksum, inplace)
 
     def _writedata_internal(self, fileobj):
         size = 0
@@ -483,14 +485,6 @@ class _ImageBaseHDU(_ValidHDU):
             size += output.size * output.itemsize
 
         return size
-
-    def _writeto(self, fileobj, inplace=False):
-        if not inplace and not self._data_loaded:
-            # Normally this is done when the data is loaded, but since the data
-            # is not loaded yet we need to update the header appropriately
-            # before writing it
-            self._update_header_scale_info()
-        return super(_ImageBaseHDU, self)._writeto(fileobj, inplace=inplace)
 
     def _dtype_for_bitpix(self):
         """
