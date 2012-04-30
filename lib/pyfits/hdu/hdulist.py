@@ -65,7 +65,10 @@ def fitsopen(name, mode='readonly', memmap=None, **kwargs):
 
             If `True`, verifies that both ``DATASUM`` and
             ``CHECKSUM`` card values (when present in the HDU header)
-            match the header and data of all HDU's in the file.
+            match the header and data of all HDU's in the file.  Updates to a
+            file that already has a checksum will NOT be preserved unless the
+            file was opened with ``checksum=True``.  This behavior may change
+            in a future PyFITS version.
 
         - **disable_image_compression** : bool
 
