@@ -1772,3 +1772,19 @@ class TestTableFunctions(PyfitsTestCase):
         data = pyfits.getdata(self.temp('table.fits'), ext=1)
         assert_equal(thdu.columns.formats, ['L', 'L'])
         assert_true(comparerecords(data, array))
+
+    def test_bool_column_update(self):
+        """Regression test for #139."""
+
+        c1 = pyfits.Column('F1', 'L', array=[True, False])
+        c2 = pyfits.Column('F2', 'L', array=[False, True])
+        thdu = pyfits.new_table(pyfits.ColDefs([c1, c2]))
+        thdu.writeto(self.temp('table.fits'))
+
+        with pyfits.open(self.temp('table.fits'), mode='update') as hdul:
+            hdul[1].data['F1'][1] = True
+            hdul[1].data['F2'][0] = True
+
+        with pyfits.open(self.temp('table.fits')) as hdul:
+            assert_true((hdul[1].data['F1'] == [True, True]).all())
+            assert_true((hdul[1].data['F2'] == [True, True]).all())

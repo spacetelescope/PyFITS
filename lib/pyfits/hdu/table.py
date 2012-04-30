@@ -225,15 +225,17 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
         return self.columns
 
+    # TODO: Need to either rename this to update_header, for symmetry with the
+    # Image HDUs, or just at some point deprecate it and remove it altogether,
+    # since header updates should occur automatically when necessary...
     def update(self):
         """
         Update header keywords to reflect recent changes of columns.
         """
 
-        update = self._header.update
-        update('naxis1', self.data.itemsize, after='naxis')
-        update('naxis2', self.data.shape[0], after='naxis1')
-        update('tfields', len(self.columns), after='gcount')
+        self._header.update('NAXIS1', self.data.itemsize, after='NAXIS')
+        self._header.update('NAXIS2', self.data.shape[0], after='NAXIS1')
+        self._header.update('TFIELDS', len(self.columns), after='GCOUNT')
 
         self._clear_table_keywords()
         self._populate_table_keywords()
@@ -249,7 +251,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         return new_table(self.columns, header=self._header,
                          tbtype=self.columns._tbtype)
 
-    def _writeheader(self, fileobj, checksum=False):
+    def _writeto(self, fileobj, checksum=False, inplace=False):
         if self._data_loaded and self.data is not None:
             self.data._scale_back()
             # check TFIELDS and NAXIS2
@@ -272,10 +274,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                     val = val[:val.find('(') + 1] + \
                           repr(self.data.field(idx)._max) + ')'
                     self._header[key] = val
-        return super(_TableBaseHDU, self)._writeheader(fileobj, checksum)
-
-    def _writeto(self, fileobj, checksum=False):
-        return super(_TableBaseHDU, self)._writeto(fileobj, checksum)
+        return super(_TableBaseHDU, self)._writeto(fileobj, checksum, inplace)
 
     def _verify(self, option='warn'):
         """

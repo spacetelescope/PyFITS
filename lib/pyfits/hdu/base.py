@@ -13,9 +13,10 @@ import pyfits.core
 from pyfits.card import Card, _pad
 from pyfits.file import _File
 from pyfits.header import Header
-from pyfits.util import Extendable, _with_extensions, lazyproperty, _is_int, \
-                        _is_pseudo_unsigned, _unsigned_zero, _pad_length, \
-                        itersubclasses, decode_ascii, BLOCK_SIZE, deprecated
+from pyfits.util import (Extendable, _with_extensions, lazyproperty, _is_int,
+                         _is_pseudo_unsigned, _unsigned_zero, _pad_length,
+                         itersubclasses, decode_ascii, BLOCK_SIZE, deprecated,
+                         _get_array_memmap)
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -418,10 +419,29 @@ class _BaseHDU(object):
     # Though right now this is an internal private method (though still used by
     # HDUList, eventually the plan is to have this be moved into writeto()
     # somehow...
-    def _writeto(self, fileobj, checksum=False):
+    def _writeto(self, fileobj, checksum=False, inplace=False):
         # For now fileobj is assumed to be a _File object
-        return (self._writeheader(fileobj, checksum)[0],) + \
-               self._writedata(fileobj)
+        if not inplace:
+            return ((self._writeheader(fileobj, checksum)[0],) +
+                    self._writedata(fileobj))
+
+        if self.header._mod:
+            self._file.seek(self._hdrLoc)
+            self._writeheader(fileobj, checksum=checksum)
+        if self._data_loaded:
+            if self.data is not None:
+                # Seek through the array's bases for an memmap'd array; we
+                # can't rely on the _File object to give us this info since the
+                # user may have replaced the previous mmap'd array
+                memmap_array = _get_array_memmap(self.data)
+
+                if memmap_array is not None:
+                    memmap_array.flush()
+                else:
+                    self._file.seek(self._datLoc)
+                    self._writedata(fileobj)
+        return (self._hdrLoc, self._datLoc,
+                self._datSpan + _pad_length(self._datSpan))
 
     @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,
