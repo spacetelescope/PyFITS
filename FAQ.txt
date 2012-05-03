@@ -706,6 +706,20 @@ this FAQ might provide an example of how to do this.
 How do I create a multi-extension FITS file from scratch?
 ---------------------------------------------------------
 
+When you open a FITS file with ``pyfits.open()``, a ``pyfits.HDUList`` object
+is returned, which holds all the HDUs in the file.  This ``HDUList`` class is
+a subclass of Python's builtin ``list``, and can be created from scratch and
+used as such::
+
+    >>> new_hdul = pyfits.HDUList()
+    >>> new_hdul.append(pyfits.ImageHDU())
+    >>> new_hdul.append(pyfits.ImageHDU())
+    >>> new_hdul.writeto('test.fits')
+
+That will create a new multi-extension FITS file with two empty IMAGE
+extensions (a default PRIMARY HDU is prepended automatically if one was not
+provided manually).
+
 Why is an image containing integer data being converted unexpectedly to floats?
 -------------------------------------------------------------------------------
 
