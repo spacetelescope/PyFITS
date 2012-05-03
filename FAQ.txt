@@ -72,6 +72,7 @@ widely-adopted.
 .. _GitHub site: https://github.com/iguananaut/PyFITS
 .. _Astropy: http://www.astropy.org/
 
+
 Build and Installation Questions
 ================================
 
@@ -105,6 +106,7 @@ some automation.
 
 Why is the PyFITS installation failing on Windows?
 --------------------------------------------------
+
 The most likely cause of installation failure on Windows is if building/
 installing from source fails due to the lack of a compiler for the optional C
 extension module.  Such a failure would produce an error that looks something
@@ -215,17 +217,158 @@ overview of how to set this up: http://seewhatever.de/blog/?p=217
 Is PyFITS available for Mac OSX?
 --------------------------------
 
+Yes, but there is no binary package specifically for OSX (such as a .dmg, for
+example).  For OSX just download, build, and install the source package.  This
+is generally easier on OSX than it is on Windows, thanks to the more
+developer-friendly environment.
+
+The only major problem with building on OSX seems to occur for some users of
+10.7 Lion, with misconfigured systems.  See the next question for details on
+that.
+
+To build PyFITS without the optional compression module, follow the
+instructions in `How do I install PyFITS from source on Windows?`_.
+
 Why is the PyFITS installation failing on OSX Lion (10.7)?
 ----------------------------------------------------------
+
+There is a common problem that affects all Python packages with C extension
+modules (not just PyFITS) for some users of OSX 10.7.  What usually occurs is
+that when building the package several errors will be output, ending with
+something like::
+
+    unable to execute gcc-4.2: No such file or directory
+    error: command 'gcc-4.2' failed with exit status 1
+
+There are a few other errors like it that can occur.  The problem is that when
+you build a C extension, by default it will try to use the same compiler that
+your Python was built with. In this case, since you're using the 32-bit
+universal build of Python it's trying to use the older gcc-4.2 and is trying
+to build with PPC support, which is no longer supported in Xcode.
+
+In this case the best solution is to install the x86-64 build of Python for
+OSX (http://www.python.org/ftp/python/2.7.2/python-2.7.2-macosx10.6.dmg for
+2.7.2).  In fact, this is the build version officially supported for use on
+Lion.  Other, unofficial Python buils such as from `MacPorts`_ may also work.
+
+.. _MacPorts: http://astrofrog.github.com/macports-python/
 
 How do I find out what version of PyFITS I have installed?
 ----------------------------------------------------------
 
+To output the PyFITS version from the command line, run::
+
+    $ python -c 'import pyfits; print(pyfits.__version__)'
+
+When PyFITS is installed with stsci_python, it is also possible to check the
+installed SVN revision by importing ``pyfits.svn_version``.  Then use
+``dir(pyfits.svn_version)`` to view a list of available attributes.  A
+feature like this will be available soon in standalone versions of PyFITS as
+well.
+
 How do I run the tests for PyFITS?
 ----------------------------------
 
+Currently the best way to run the PyFITS tests is to download the source code,
+either from a source release or from version control, and to run the tests out
+of the source.  It is not necessary to install PyFITS to run the tests out of
+the source code.
+
+The PyFITS tests require `nose`_ to run.  nose can be installed on any Python
+version using pip or easy_install.  See the nose documentation for more
+details.
+
+With nose installed, it is simple to run the tests on Python 2.x::
+
+    $ python setup.py nosetests
+
+If PyFITS has not already been built, this will build it automatically, then
+run the tests.  This does not cause PyFITS to be installed.
+
+On Python 3.x the situation is a little more complicated.  This is due to the
+fact that PyFITS' source code is not Python 3-compatible out of the box, but
+has to be run through the 2to3 converter.  Normally when you build/install
+PyFITS on Python 3.x, the 2to3 conversion is performed automatically.
+Unfortunately, nose does not know to use the 2to3'd source code, and will
+instead try to import and test the unconverted source code.
+
+To work around this, it is necessary to first build PyFITS (which will run the
+source through 2to3)::
+
+    $ python setup.py build
+
+Then run the ``nosetests`` command, but pointing it to the ``build`` tree
+where the 2to3'd source code and tests reside, using the ``-w`` switch::
+
+    $ python setup.py nosetests -w build/lib.linux-x86_64-3.2
+
+where the exact path of the ``build/lib.*`` directory will vary depending on
+your platform and Python version.
+
+.. _nose: http://readthedocs.org/docs/nose/en/latest/
+
 How can I build a copy of the PyFITS documentation for my own use?
 ------------------------------------------------------------------
+
+First of all, it's worth pointing out that the documentation for the latest
+version of PyFITS can always be downloaded in `PDF form
+<http://stsdas.stsci.edu/download/docs/The_PyFITS_Handbook.pdf>`_ or browsed
+online in `HTML <http://packages.python.org/pyfits>`_.  There are also plans
+to make the docs for older versions of PyFITS, as well as up-to-date
+development docs available online.
+
+Otherwise, to build your own version of the docs either for offline use, or to
+build the development version of the docs there are a few reqirements.  The
+most import requirement is `Sphinx`_, which is the toolkit used to generate
+the documentation.  Use ``pip install sphinx`` or ``easy_install sphinx`` to
+install Sphinx.  Using pip or easy_install will install the correct versions
+of Sphinx's basic dependencies, which include docutils, Jinja2, and Pygments.
+
+Next, the docs require STScI's custom Sphinx theme, `stsci.sphinxext`_.  It's
+a simple pure-Python pacakge and can be installed with pip or easy_install.
+
+The next requirement is `numpydoc`_, which is not normally installed with
+Numpy itself.  Install it with pip or easy_install.  Numpy is also required,
+though it is of course a requirement of PyFITS itself.
+
+Finally, it is necessary to have `matplotlib`_, specifically for
+matplotlib.sphinxext.  This is perhaps the most onerous requirement if you do
+not already have it instaled. Please refer to the matplotlib documentation for
+details on downloading and installing matplotlib.
+
+It is also necessary to install PyFITS itself in order to generate the API
+documentation.  For this reason, it is a good idea to install Sphinx and
+PyFITS into a `virtualenv`_ in order to build the development version of the
+docs (see below).
+
+With all the requirements installed, change directories into the `docs/`
+directory in the PyFITS source code, and run::
+
+    $ make html
+
+to build the HTML docs, which will be output to `build/html`.  To build the
+docs in other formats, please refer to the Sphinx documentation.
+
+To summarize, assuming that you already have Numpy and Matplotlib on your
+Python installation, perform the following steps from within the PyFITS source
+code::
+
+    $ virtualenv --system-site-packages pyfits-docs
+    $ source pyfits-docs/bin/activate
+    $ pip install sphinx
+    $ pip install numpydoc
+    $ pip install stsci.sphinxext
+    $ python setup.py install pyfits
+    $ cd docs/
+    $ make html
+
+
+.. _Sphinx: http://sphinx.pocoo.org/
+.. _stsci.sphinxext: http://pypi.python.org/pypi/stsci.sphinxext
+.. _numpydoc: http://pypi.python.org/pypi/numpydoc
+.. _matplotlib: http://matplotlib.sourceforge.net/
+.. _virtualenv: http://pypi.python.org/pypi/virtualenv
+
 
 Usage Questions
 ===============
@@ -233,8 +376,58 @@ Usage Questions
 Something didn't work as I expected.  Did I do something wrong?
 ---------------------------------------------------------------
 
+Possibly.  But if you followed the documentation and things still did not work
+as expected, it is entirely possible that there is a mistake in the
+documentation, a bug in the code, or both.  So feel free to report it as a
+bug.  There are also many, many corner cases in FITS files, with new ones
+discovered almost every week.  PyFITS is always improving, but does not
+support all cases perfectly.  There are some features of the FITS format
+(scaled data, for example) that are difficult to support correctly and can
+sometimes cause unexpected behavior.
+
+For the most common cases, however, such as reading and updating FITS headers,
+images, and tables, PyFITS should be very stable and well-tested.  Before
+every PyFITS release it is ensured that all its tests pass on a variety of
+platforms, and those tests cover the majority of use-cases (until new
+corner cases are discovered).
+
 PyFITS crashed and output a long string of code.  What do I do?
 ---------------------------------------------------------------
+
+This listing of code is what is knows as a `stack trace`_ (or in Python
+parlance a "traceback").  When an unhandled exception occurs in the code,
+causing the program to end, this is a way of displaying where the exception
+occurred and the path through the code that led to it.
+
+As PyFITS is meant to be used as a piece in other software projects, some
+exceptions raised by PyFITS are by design.  For example, one of the most
+common exceptions is a `KeyError` when an attempt is made to read the value of
+a non-existent keyword in a header::
+
+    >>> import pyfits
+    >>> h = pyfits.Header()
+    >>> h['NAXIS']
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "/path/to/pyfits/header.py", line 125, in __getitem__
+        return self._cards[self._cardindex(key)].value
+      File "/path/to/pyfits/header.py", line 1535, in _cardindex
+        raise KeyError("Keyword %r not found." % keyword)
+    KeyError: "Keyword 'NAXIS' not found."
+
+This indicates that something was looking for a keyword called "NAXIS" that
+does not exist.  If an error like this occurs in some other software that uses
+PyFITS, it may indicate a bug in that software, in that it expected to find a
+keyword that didn't exist in a file.
+
+Most "expected" exceptions will output a message at the end of the traceback
+giving some idea of why the exception occurred and what to do about it.  The
+more vague and mysterious the error message in an exception appears, the more
+likely that it was caused by a bug in PyFITS.  So if you're getting an
+exception and you really don't know why or what to do about it, feel free to
+report it as a bug.
+
+.. _stack trace: http://en.wikipedia.org/wiki/Stack_trace
 
 Why does opening a file work in CFITSIO, ds9, etc. but not in PyFITS?
 ---------------------------------------------------------------------
