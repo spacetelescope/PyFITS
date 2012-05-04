@@ -138,6 +138,10 @@ Bug Fixes
   never updated to reflect this, and misinformed users that only contiguous
   slices were supported, leading to some confusion. (#144)
 
+- Fixed a bug where creating an ``HDUList`` object containing multiple PRIMARY
+  HDUs caused an infinite recursion when validating the object prior to
+  writing to a file. (#145)
+
 - Fixed a rare but serious case where saving an update to a file that
   previously had a CHECKSUM and/or DATASUM keyword, but removed the checksum
   in saving, could cause the file to be slightly corrupted and unreadable.

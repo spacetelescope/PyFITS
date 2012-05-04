@@ -789,10 +789,10 @@ class HDUList(list, _Verify):
         # each element calls their own verify
         for idx, hdu in enumerate(self):
             if idx > 0 and (not isinstance(hdu, ExtensionHDU)):
-                err_text = "HDUList's element %s is not an extension HDU." \
-                           % str(idx)
-                err = self.run_option(option, err_text=err_text, fixable=True)
-                errs.append(errs)
+                err_text = ("HDUList's element %s is not an extension HDU." %
+                            str(idx))
+                err = self.run_option(option, err_text=err_text, fixable=False)
+                errs.append(err)
 
             else:
                 result = hdu._verify(option)
