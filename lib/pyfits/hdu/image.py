@@ -173,56 +173,7 @@ class _ImageBaseHDU(_ValidHDU):
         if len(self._axes) < 1:
             return
 
-        # Numpy array dimensions are in row/column order
-        code = _ImageBaseHDU.NumCode[self._orig_bitpix]
-
-        raw_data = self._file.readarray(offset=self._datLoc, dtype=code,
-                                        shape=self.shape)
-        raw_data.dtype = raw_data.dtype.newbyteorder('>')
-
-        if (self._orig_bzero == 0 and self._orig_bscale == 1 and
-            self._blank is None):
-            # No further conversion of the data is necessary
-            return raw_data
-
-        data = None
-        if not (self._orig_bzero == 0 and self._orig_bscale == 1):
-            data = self._convert_pseudo_unsigned(raw_data)
-
-        if data is None:
-            # In these cases, we end up with floating-point arrays and have to
-            # apply bscale and bzero. We may have to handle BLANK and convert
-            # to NaN in the resulting floating-point arrays.
-            if self._blank is not None:
-                blanks = raw_data.flat == self._blank
-                # The size of blanks in bytes is the number of elements in
-                # raw_data.flat.  However, if we use np.where instead we will
-                # only use 8 bytes for each index where the condition is true.
-                # So if the number of blank items is fewer than
-                # len(raw_data.flat) / 8, using np.where will use less memory
-                if blanks.sum() < len(blanks) / 8:
-                    blanks = np.where(blanks)
-
-            new_dtype = self._dtype_for_bitpix()
-            if new_dtype is not None:
-                data = np.array(raw_data, dtype=new_dtype)
-            else:  # floating point cases
-                if self._file.memmap:
-                    data = raw_data.copy()
-                # if not memmap, use the space already in memory
-                else:
-                    data = raw_data
-
-            del raw_data
-
-            if self._orig_bscale != 1:
-                np.multiply(data, self._orig_bscale, data)
-            if self._orig_bzero != 0:
-                data += self._orig_bzero
-
-            if self._blank is not None:
-                data.flat[blanks] = np.nan
-
+        data = self._get_scaled_image_data(self._datLoc, self.shape)
         self._update_header_scale_info(data.dtype)
 
         return data
@@ -530,6 +481,63 @@ class _ImageBaseHDU(_ValidHDU):
             data -= np.uint64(1 << (bits - 1))
             return data
 
+    def _get_scaled_image_data(self, offset, shape):
+        """
+        Internal function for reading image data from a file and apply scale
+        factors to it.  Normally this is used for the entire image, but it
+        supports alternate offset/shape for Section support.
+        """
+
+        code = _ImageBaseHDU.NumCode[self._orig_bitpix]
+
+        raw_data = self._file.readarray(offset=offset, dtype=code, shape=shape)
+        raw_data.dtype = raw_data.dtype.newbyteorder('>')
+
+        if (self._orig_bzero == 0 and self._orig_bscale == 1 and
+            self._blank is None):
+            # No further conversion of the data is necessary
+            return raw_data
+
+        data = None
+        if not (self._orig_bzero == 0 and self._orig_bscale == 1):
+            data = self._convert_pseudo_unsigned(raw_data)
+
+        if data is None:
+            # In these cases, we end up with floating-point arrays and have to
+            # apply bscale and bzero. We may have to handle BLANK and convert
+            # to NaN in the resulting floating-point arrays.
+            if self._blank is not None:
+                blanks = raw_data.flat == self._blank
+                # The size of blanks in bytes is the number of elements in
+                # raw_data.flat.  However, if we use np.where instead we will
+                # only use 8 bytes for each index where the condition is true.
+                # So if the number of blank items is fewer than
+                # len(raw_data.flat) / 8, using np.where will use less memory
+                if blanks.sum() < len(blanks) / 8:
+                    blanks = np.where(blanks)
+
+            new_dtype = self._dtype_for_bitpix()
+            if new_dtype is not None:
+                data = np.array(raw_data, dtype=new_dtype)
+            else:  # floating point cases
+                if self._file.memmap:
+                    data = raw_data.copy()
+                # if not memmap, use the space already in memory
+                else:
+                    data = raw_data
+
+            del raw_data
+
+            if self._orig_bscale != 1:
+                np.multiply(data, self._orig_bscale, data)
+            if self._orig_bzero != 0:
+                data += self._orig_bzero
+
+            if self._blank is not None:
+                data.flat[blanks] = np.nan
+
+        return data
+
     # TODO: Move the GroupsHDU-specific summary code to GroupsHDU itself
     def _summary(self):
         """
@@ -653,26 +661,11 @@ class Section(object):
                 dims = [1]
 
             dims = tuple(dims)
-
-            bitpix = self.hdu._bitpix
+            bitpix = self.hdu._orig_bitpix
             offset = self.hdu._datLoc + (offset * abs(bitpix) // 8)
-            # If the data is already loaded use whatever dtype it was scaled
-            # to, else figure it out from the bitpix...
-            if self.hdu._data_loaded:
-                code = self.hdu.data.dtype.name
-            else:
-                code = _ImageBaseHDU.NumCode[bitpix]
-            raw_data = self.hdu._file.readarray(offset=offset, dtype=code,
-                                                shape=dims)
-            raw_data.dtype = raw_data.dtype.newbyteorder('>')
-            data = raw_data
+            data = self.hdu._get_scaled_image_data(offset, dims)
         else:
             data = self._getdata(key)
-
-        if not (self.hdu._bzero == 0 and self.hdu._bscale == 1):
-            converted_data = self.hdu._convert_pseudo_unsigned(data)
-            if converted_data is not None:
-                data = converted_data
 
         return data
 
