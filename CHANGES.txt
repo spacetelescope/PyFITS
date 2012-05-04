@@ -104,6 +104,46 @@ Bug Fixes
   if no changes were otherwise made to the file). (#137)
 
 
+3.0.8 (unreleased)
+---------------------
+
+Changes in Behavior
++++++++++++++++++++
+
+- Prior to this release, image data sections did not work with scaled
+  data--that is, images with non-trivial BSCALE and/or BZERO values.
+  Previously, in order to read such images in sections, it was necessary to
+  manually apply the BSCALE+BZERO to each section.  It's worth noting that
+  sections *did* support pseudo-unsigned ints (flakily).  This change just
+  extends that support for general BSCALE+BZERO values.
+
+Bug Fixes
++++++++++
+
+- Fixed a bug that prevented updates to values in boolean table columns from
+  being saved.  This turned out to be a symptom of a deeper problem that could
+  prevent other table updates from being saved as well. (#139)
+
+- Fixed a corner case in which a keyword comment ending with the string "END"
+  could, in some circumstances, cause headers (and the rest of the file after
+  that point) to be misread. (#142)
+
+- Fixed support for scaled image data and psuedo-unsigned ints in image data
+  sections (``hdu.section``).  Previously this was not supported at all.  At
+  some point support was supposedly added, but it was buggy and incomplete.
+  Now the feature seems to work much better. (#143)
+
+- Fixed the documentation to point out that image data sections *do* support
+  non-contiguous slices (and have for a long time).  The documentation was
+  never updated to reflect this, and misinformed users that only contiguous
+  slices were supported, leading to some confusion. (#144)
+
+- Fixed a rare but serious case where saving an update to a file that
+  previously had a CHECKSUM and/or DATASUM keyword, but removed the checksum
+  in saving, could cause the file to be slightly corrupted and unreadable.
+  (#147)
+
+
 3.0.7 (2012-04-10)
 ----------------------
 
@@ -128,7 +168,7 @@ Changes in Behavior
 
 Bug Fixes
 +++++++++
-  
+
 - Fixed GroupData objects to return new GroupData objects when sliced instead
   of _Group record objects.  See "Changes in behavior" above for more details.
 

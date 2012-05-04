@@ -146,6 +146,19 @@ class _ImageBaseHDU(_ValidHDU):
 
     @property
     def section(self):
+        """
+        Access a section of the image array without loading the entire array
+        into memory.  The :class:`Section` object returned by this attribute is
+        not meant to be used directly by itself.  Rather, slices of the section
+        return the appropriate slice of the data, and loads *only* that section
+        into memory.
+
+        Sections are mostly obsoleted by memmap support, but should still be
+        used to deal with very large scaled images.  See the
+        :ref:`data-sections` section of the PyFITS documentation for more
+        details.
+        """
+
         return Section(self)
 
 
@@ -609,7 +622,14 @@ class Section(object):
     """
     Image section.
 
-    TODO: elaborate
+    Slices of this object load the corresponding section of an image array from
+    the underlying FITS file on disk, and applies any BSCALE/BZERO factors.
+
+    Section slices cannot be assigned to, and modifications to a section are
+    not saved back to the underlying file.
+
+    See the :ref:`data-sections` section of the PyFITS documentation for more
+    details.
     """
 
     def __init__(self, hdu):
