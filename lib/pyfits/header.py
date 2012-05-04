@@ -403,6 +403,7 @@ class Header(object):
             close_file = True
 
         actual_block_size = _block_size(sep)
+        clen = Card.length + len(sep)
 
         try:
             # Read the first header block.
@@ -418,7 +419,9 @@ class Header(object):
             while True:
                 # find the END card
                 mo = HEADER_END_RE.search(block)
-                if mo is None:
+                # Ensure the END card was found, and it started on the boundary
+                # of a new card
+                if mo is None or mo.start() % clen != 0:
                     blocks.append(block)
                     block = decode_ascii(fileobj.read(actual_block_size))
                     if block == '':
@@ -590,7 +593,7 @@ class Header(object):
 
         return cls.fromfile(fileobj, sep='\n', endcard=False, padding=False)
 
-    def totextfile(cls, fileobj, clobber=False):
+    def totextfile(self, fileobj, clobber=False):
         """
         Equivalent to ``Header.tofile(fileobj, sep='\\n', endcard=False,
         padding=False, clobber=clobber)``.

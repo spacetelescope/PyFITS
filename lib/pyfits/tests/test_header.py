@@ -1277,6 +1277,31 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(len(h), 3)
         assert_equal(h.keys(), ['GEH', 'ABC', 'IJK'])
 
+    def test_end_in_comment(self):
+        """
+        Regression test for #142.  Tests a case where the comment of a card
+        ends with END, and is followed by several blank cards.
+        """
+
+        data = np.arange(100).reshape((10, 10))
+        hdu = pyfits.PrimaryHDU(data=data)
+        hdu.header['TESTKW'] = ('Test val', 'This is the END')
+        # Add blanks until the header is extended to two block sizes
+        while len(hdu.header) < 36:
+            hdu.header.append()
+        hdu.writeto(self.temp('test.fits'))
+
+        with pyfits.open(self.temp('test.fits')) as hdul:
+            assert_true('TESTKW' in hdul[0].header)
+            assert_equal(hdul[0].header['TESTKW'], 'Test val')
+            assert_equal(hdul[0].header.comments['TESTKW'], 'This is the END')
+            assert_true((hdul[0].data == data).all())
+
+        # Test parsing the same header when it's written to a text file
+        hdu.header.totextfile(self.temp('test.hdr'))
+        header2 = pyfits.Header.fromtextfile(self.temp('test.hdr'))
+        assert_equal(hdu.header, header2)
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """
