@@ -346,8 +346,9 @@ class _ZopeProxy(object):
             # TODO: Catch bad authentication and let the user enter a new
             # username/password
             if log:
+                message = str(e).replace(self.url, self.masked_url)
                 log.error('Failed to connect to %s: %s' %
-                          (self.masked_url, str(e)))
+                          (self.masked_url, message))
             raise
 
     def retrieve(self):
@@ -360,22 +361,26 @@ class _ZopeProxy(object):
             return self.proxy.document_src()
         except Exception, e:
             if log:
+                message = str(e).replace(self.url, self.masked_url)
                 log.error('Failed to download content at %s: %s' %
-                          (self.masked_url, str(e)))
+                          (self.masked_url, message))
             raise
 
-    def update(self, content):
+    def update(self, content, title=None):
         """Updates the static page content at the proxy's URL."""
 
         self.connect()
         if log:
              log.info('Updating %s...' % self.masked_url)
         try:
-            self.proxy.manage_upload(content)
+            if title is None:
+                title = self.proxy.title_or_id()
+            self.proxy.manage_edit(content, title)
         except Exception, e:
             if log:
+                message = str(e).replace(self.url, self.masked_url)
                 log.error('Failed to update content at %s: %s' %
-                          (self.masked_url, str(e)))
+                          (self.masked_url, message))
             raise
 
 

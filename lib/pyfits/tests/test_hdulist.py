@@ -6,6 +6,7 @@ import os
 import numpy as np
 
 import pyfits
+from pyfits.verify import VerifyError
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings, BytesIO, ignore_warnings
 
@@ -52,6 +53,16 @@ class TestHDUListFunctions(PyfitsTestCase):
 
         res = hdul.fileinfo(2)
         test_fileinfo(resized=1, datLoc=17280, hdrLoc=11520)
+
+    def test_create_from_multiple_primary(self):
+        """
+        Regression test for #145.  Ensure that a validation error occurs when
+        saving an HDUList containing multiple PrimaryHDUs.
+        """
+
+        hdul = pyfits.HDUList([pyfits.PrimaryHDU(), pyfits.PrimaryHDU()])
+        assert_raises(VerifyError, hdul.writeto, self.temp('temp.fits'),
+                      output_verify='exception')
 
     def test_append_primary_to_empty_list(self):
         # Tests appending a Simple PrimaryHDU to an empty HDUList.

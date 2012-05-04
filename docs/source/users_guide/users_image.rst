@@ -1,4 +1,4 @@
-.. currentmodule:: pyfits.core
+.. currentmodule:: pyfits
 
 **********
 Image Data
@@ -139,8 +139,10 @@ of what happens to the ``.data`` attribute after the ``scale()`` call:
     >>> hdu.writeto('new.fits')
 
 
-Data Section
-============
+.. _data-sections:
+
+Data Sections
+=============
 
 When a FITS image HDU's .data is accessed, either the whole data is copied into
 memory (in cases of NOT using memory mapping or if the data is scaled) or a
@@ -149,8 +151,15 @@ memory mapping of non-scaled data). If there are several very large image HDU's
 being accessed at the same time, the system may run out of memory.
 
 If a user does not need the entire image(s) at the same time, e.g. processing
-images(s) ten rows at a time, the ``.section`` attribute of an HDU can be used
-to alleviate such memory problems.
+images(s) ten rows at a time, the :attr:`~ImageHDU.section` attribute of an
+HDU can be used to alleviate such memory problems.
+
+With PyFITS' improved support for memory-mapping, the sections feature is not
+as necessary as it used to be for handling very large images.  However, if the
+image's data is scaled with non-trivial BSCALE/BZERO values, accessing the data
+in sections may still be necessary under the current implementation.  Memmap is
+also insufficient for loading images large than ~4 GB on a 32-bit system--in
+such cases it may be necessary to use sections.
 
 Here is an example of getting the median image from 3 input images of the size
 5000x5000:
@@ -168,16 +177,9 @@ Here is an example of getting the median image from 3 input images of the size
     ... # use scipy.stsci.image's median function
     ... output[j:k] = image.median([x1, x2, x3])
 
-Data in each ``.section`` must be contiguous. Therefore, if ``f1[1].data`` is a
-400x400 image, the first part of the following specifications will not work,
-while the second part will:
+Data in each ``.section`` does not need to be contiguous for memory savings to
+be possible.  PyFITS will do its best to join together discontiguous sections
+of the array while reading as little as possible into memory.
 
-    >>> # These will NOT work, since the data are not contiguous!
-    >>> f1[1].section[:5,:5]
-    >>> f1[1].section[:,:3]
-    >>> f1[1].section[:,2]
-
-    >>> # but these will work:
-    >>> f1[1].section[5,:]
-    >>> f1[1].section[5,:10]
-    >>> f1[1].section[6,7]
+Sections cannot be assigned to.  Any modifications made to a data section are
+not saved back to the original file.
