@@ -418,10 +418,17 @@ class Header(object):
             # continue reading header blocks until END card is reached
             while True:
                 # find the END card
-                mo = HEADER_END_RE.search(block)
-                # Ensure the END card was found, and it started on the boundary
-                # of a new card
-                if mo is None or mo.start() % clen != 0:
+                is_end = False
+                for mo in HEADER_END_RE.finditer(block):
+                    # Ensure the END card was found, and it started on the
+                    # boundary of a new card (see ticket #142)
+                    if mo.start() % clen == 0:
+                        # This must be the last header block, otherwise the
+                        # file is malformatted
+                        is_end = True
+                        break
+
+                if not is_end:
                     blocks.append(block)
                     block = decode_ascii(fileobj.read(actual_block_size))
                     if block == '':

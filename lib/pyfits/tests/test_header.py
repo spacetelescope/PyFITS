@@ -1286,15 +1286,25 @@ class TestHeaderFunctions(PyfitsTestCase):
         data = np.arange(100).reshape((10, 10))
         hdu = pyfits.PrimaryHDU(data=data)
         hdu.header['TESTKW'] = ('Test val', 'This is the END')
-        # Add blanks until the header is extended to two block sizes
-        while len(hdu.header) < 36:
-            hdu.header.append()
+        # Add a couple blanks after the END string
+        hdu.header.append()
+        hdu.header.append()
         hdu.writeto(self.temp('test.fits'))
 
         with pyfits.open(self.temp('test.fits')) as hdul:
             assert_true('TESTKW' in hdul[0].header)
-            assert_equal(hdul[0].header['TESTKW'], 'Test val')
-            assert_equal(hdul[0].header.comments['TESTKW'], 'This is the END')
+            assert_equal(hdul[0].header, hdu.header)
+            assert_true((hdul[0].data == data).all())
+
+        # Add blanks until the header is extended to two block sizes
+        while len(hdu.header) < 36:
+            hdu.header.append()
+        with ignore_warnings():
+            hdu.writeto(self.temp('test.fits'), clobber=True)
+
+        with pyfits.open(self.temp('test.fits')) as hdul:
+            assert_true('TESTKW' in hdul[0].header)
+            assert_equal(hdul[0].header, hdu.header)
             assert_true((hdul[0].data == data).all())
 
         # Test parsing the same header when it's written to a text file
