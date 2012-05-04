@@ -700,6 +700,48 @@ class TestImageFunctions(PyfitsTestCase):
         assert_true((d.section[:,1,0,:] == dat[:,1,0,:]).all())
         assert_true((d.section[:,:,:,1] == dat[:,:,:,1]).all())
 
+    def test_section_data_scaled(self):
+        """
+        Regression test for #143.  This is like test_section_data_square but
+        uses a file containing scaled image data, to test that sections can
+        work correctly with scaled data.
+        """
+
+        hdul = pyfits.open(self.data('scale.fits'))
+        d = hdul[0]
+        dat = hdul[0].data
+        assert_true((d.section[:,:] == dat[:,:]).all())
+        assert_true((d.section[0,:] == dat[0,:]).all())
+        assert_true((d.section[1,:] == dat[1,:]).all())
+        assert_true((d.section[:,0] == dat[:,0]).all())
+        assert_true((d.section[:,1] == dat[:,1]).all())
+        assert_true((d.section[0,0] == dat[0,0]).all())
+        assert_true((d.section[0,1] == dat[0,1]).all())
+        assert_true((d.section[1,0] == dat[1,0]).all())
+        assert_true((d.section[1,1] == dat[1,1]).all())
+        assert_true((d.section[0:1,0:1] == dat[0:1,0:1]).all())
+        assert_true((d.section[0:2,0:1] == dat[0:2,0:1]).all())
+        assert_true((d.section[0:1,0:2] == dat[0:1,0:2]).all())
+        assert_true((d.section[0:2,0:2] == dat[0:2,0:2]).all())
+
+        # Test without having accessed the full data first
+        hdul = pyfits.open(self.data('scale.fits'))
+        d = hdul[0]
+        assert_true((d.section[:,:] == dat[:,:]).all())
+        assert_true((d.section[0,:] == dat[0,:]).all())
+        assert_true((d.section[1,:] == dat[1,:]).all())
+        assert_true((d.section[:,0] == dat[:,0]).all())
+        assert_true((d.section[:,1] == dat[:,1]).all())
+        assert_true((d.section[0,0] == dat[0,0]).all())
+        assert_true((d.section[0,1] == dat[0,1]).all())
+        assert_true((d.section[1,0] == dat[1,0]).all())
+        assert_true((d.section[1,1] == dat[1,1]).all())
+        assert_true((d.section[0:1,0:1] == dat[0:1,0:1]).all())
+        assert_true((d.section[0:2,0:1] == dat[0:2,0:1]).all())
+        assert_true((d.section[0:1,0:2] == dat[0:1,0:2]).all())
+        assert_true((d.section[0:2,0:2] == dat[0:2,0:2]).all())
+        assert_false(d._data_loaded)
+
     def test_comp_image(self):
         argslist = [
             (np.zeros((2, 10, 10), dtype=np.float32), 'RICE_1', 16),
