@@ -4,6 +4,7 @@ import pyfits
 
 from pyfits.card import _pad
 from pyfits.tests import PyfitsTestCase
+from pyfits.tests.util import ignore_warnings
 
 from nose.tools import assert_equal, assert_false, assert_raises, assert_true
 
@@ -86,6 +87,36 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(h.ascard['FOO'].cardimage, fooimg)
         assert_equal(h.ascard['BAR'].cardimage, barimg)
 
+    def test_end_in_comment(self):
+        """
+        Regression test for #142.  Tests a case where the comment of a card
+        ends with END, and is followed by several blank cards.
+        """
+
+        data = np.arange(100).reshape((10, 10))
+        hdu = pyfits.PrimaryHDU(data=data)
+        hdu.header.update('TESTKW', 'Test val', 'This is the END')
+        # Add a couple blanks after the END string
+        hdu.header.add_blank()
+        hdu.header.add_blank()
+        hdu.writeto(self.temp('test.fits'))
+
+        with pyfits.open(self.temp('test.fits')) as hdul:
+            assert_true('TESTKW' in hdul[0].header)
+            assert_equal(hdul[0].header, hdu.header)
+            assert_true((hdul[0].data == data).all())
+
+        # Add blanks until the header is extended to two block sizes
+        while len(hdu.header.ascard) < 36:
+            hdu.header.add_blank()
+
+        with ignore_warnings():
+            hdu.writeto(self.temp('test.fits'), clobber=True)
+
+        with pyfits.open(self.temp('test.fits')) as hdul:
+            assert_true('TESTKW' in hdul[0].header)
+            assert_equal(hdul[0].header, hdu.header)
+            assert_true((hdul[0].data == data).all())
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
