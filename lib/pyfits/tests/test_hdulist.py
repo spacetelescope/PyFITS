@@ -565,7 +565,10 @@ class TestHDUListFunctions(PyfitsTestCase):
             while len(str(hdul[0].header)) <= 2880 * 2:
                 hdul[0].header['TEST%d' % idx] = idx
                 idx += 1
+            # Touch something in the data too so that it has to be rewritten
+            hdul[0].data[0] = 27
 
         with pyfits.open(self.temp('temp.fits')) as hdul:
             assert_equal(hdul[0].header[:-37], orig_header[:-1])
-            assert_true((hdul[0].data == data).all())
+            assert_equal(hdul[0].data[0], 27)
+            assert_true((hdul[0].data[1:] == data[1:]).all())
