@@ -1533,6 +1533,8 @@ class Header(object):
                 # Great--now we have to check if there's a RVKC that starts
                 # with the given keyword, making failed lookups fairly
                 # expensive
+                # TODO: Find a way to make this more efficient; perhaps a set
+                # of RVKCs in the header or somesuch.
                 keyword = keyword + '.'
                 found = 0
                 for idx, card in enumerate(self._cards):
@@ -1542,7 +1544,7 @@ class Header(object):
                             return idx
                         found += 1
                 else:
-                    raise KeyError("Keyword %r not found." % keyword)
+                    raise KeyError("Keyword %r not found." % keyword[:-1])
             try:
                 return self._keyword_indices[keyword][n]
             except IndexError:

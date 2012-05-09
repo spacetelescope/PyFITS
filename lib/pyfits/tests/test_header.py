@@ -483,6 +483,17 @@ class TestHeaderFunctions(PyfitsTestCase):
                      "HIERARCH ESO INS SLIT2 Y1FRML= "
                      "'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)'")
 
+    def test_missing_keyword(self):
+        """Test that accessing a non-existent keyword raises a KeyError."""
+
+        header = pyfits.Header()
+        assert_raises(KeyError, lambda k: header[k], 'NAXIS')
+        # Test the exception message
+        try:
+            header['NAXIS']
+        except KeyError, e:
+            assert_equal(e.message, "Keyword 'NAXIS' not found.")
+
     def test_hierarch_card_lookup(self):
         header = pyfits.Header()
         header['hierarch abcdefghi'] = 10
@@ -1467,6 +1478,11 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
 
         assert_raises(IndexError, lambda x: self._test_header[x], 8)
         assert_raises(KeyError, lambda k: self._test_header[k], 'DP1.AXIS.3')
+        # Test the exception message
+        try:
+            self._test_header['DP1.AXIS.3']
+        except KeyError, e:
+            assert_equal(e.message, "Keyword 'DP1.AXIS.3' not found.")
 
     def test_update_rvkc(self):
         """A RVKC can be updated either via index or keyword access."""
