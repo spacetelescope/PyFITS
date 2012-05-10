@@ -93,11 +93,11 @@ before and after the data is touched
     >>> hdu = f[1]
     >>> print hdu.header['bitpix'], hdu.header['bzero']
     16 32768
-    >>> print hdu.data # once data is touched, it is scaled
+    >>> print hdu.data  # once data is touched, it is scaled
     [ 11. 12. 13. 14. 15.]
     >>> hdu.data.dtype.name
     'float32'
-    >>> print hdu.header['bitpix'] # BITPIX is also updated
+    >>> print hdu.header['bitpix']  # BITPIX is also updated
     -32
     # BZERO and BSCALE are removed after the scaling
     >>> print hdu.header['bzero']

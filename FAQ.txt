@@ -723,5 +723,86 @@ provided manually).
 Why is an image containing integer data being converted unexpectedly to floats?
 -------------------------------------------------------------------------------
 
+If the header for your image contains non-trivial values for the optional
+BSCALE and/or BZERO keywords (that is, BSCALE != 1 and/or BZERO != 0), then
+the raw data in the file must be rescaled to its physical values according to
+the formula::
+
+    physical_value = BZERO + BSCALE * array_value
+
+As BZERO and BSCALE are floating point values, the resulting value must be a
+float as well.  If the original values were 16-bit integers, the resulting
+values are single-precision (32-bit) floats.  If the original values were
+32-bit integers the resulting values are double-precision (64-bit floats).
+
+This automatic scaling can easily catch you of guard if you're not expecting
+it, because it doesn't happen until the data portion of the HDU is accessed
+(to allow things like updating the header without rescaling the data).  For
+example::
+
+    >>> hdul = pyfits.open('scaled.fits')
+    >>> image = hdul['SCI', 1]
+    >>> image.header['BITPIX']
+    32
+    >>> image.header['BSCALE']
+    2.0
+    >>> data = image.data  # Read the data into memory
+    >>> data.dtype
+    dtype('float64')  # Got float64 despite BITPIX = 32 (32-bit int)
+    >>> image.header['BITPIX']  # The BITPIX will automatically update too
+    -64
+    >>> 'BSCALE' in image.header  # And the BSCALE keyword removed
+    False
+
+The reason for this is that once a user accesses the data they may also
+manipulate it and perform calculations on it.  If the data were forced to
+remain as integers, a great deal of precision is lost.  So it is best to err
+on the side of not losing data, at the cost of causing some confusion at
+first.
+
+If the data must be returned to integers before saving, use the ``scale()``
+method::
+
+    >>> image.scale('int32')
+    >>> image.header['BITPIX']
+    32
+
+To prevent rescaling from occurring at all (good for updating headers--even if
+you don't intend for the code to access the data, it's good to err on the side
+of caution here), use the ``do_not_scale_image_data`` argument when opening
+the file::
+
+    >>> hdul = pyfits.open('scaled.fits', do_not_scale_image_data=True)
+    >>> image = hdul['SCI', 1]
+    >>> image.data.dtype
+    dtype('int32')
+
 Why am I losing precision when I assign floating point values in the header?
 ----------------------------------------------------------------------------
+
+The FITS standard allows two formats for storing floating-point numbers in a
+header value.  The "fixed" format requires the ASCII representation of the
+number to be in bytes 11 through 30 of the header card, and to be
+right-justified.  This leaves a standard number of characters for any comment
+string.
+
+The fixed format is not wide enough to represent the full range of values that
+can be stored in a 64-bit float with full precision.  So FITS also supports a
+"free" format in which the ASCII representation can be stored anywhere, using
+the full 70 bytes of the card (after the keyword).
+
+Currently PyFITS only supports writing fixed format (it can read both
+formats), so all floating point values assigned to a header are stored in the
+fixed format.  There are plans to add support for more flexible formatting.
+
+In the meantime it is possible to add or update cards by manually formatting
+the card image::
+
+    >>> c = pyfits.Card.fromstring('FOO     = 1234567890.123456789')
+    >>> h = pyfits.Header()
+    >>> h.append(c)
+    >>> h
+    FOO     = 1234567890.123456789
+
+As long as you don't assign new values to 'FOO' via ``h['FOO'] = 123``, PyFITS
+will maintain the header value exactly as you formatted it.
