@@ -485,7 +485,6 @@ class RawDataDiff(ImageDataDiff):
 
         super(RawDataDiff, self).__init__(a, b, numdiffs=numdiffs)
 
-
     def _diff(self):
         super(RawDataDiff, self)._diff()
         if self.diff_dimensions:
@@ -495,6 +494,27 @@ class RawDataDiff(ImageDataDiff):
         self.diff_bytes = [(x[0], y) for x, y in self.diff_pixels]
         del self.diff_pixels
 
+    def _report(self, fileobj):
+        if self.diff_dimensions:
+            fileobj.write('  Data sizes differ:\n')
+            fileobj.write('   a: %s bytes\n' % self.diff_dimensions[0])
+            fileobj.write('   b: %s bytes\n' % self.diff_dimensions[1])
+            # For now we don't do any further comparison if the dimensions
+            # differ; though in the future it might be nice to be able to
+            # compare at least where the images intersect
+            fileobj.write('  No further data comparison performed.\n')
+            return
+
+        if not self.diff_bytes:
+            return
+
+        for index, values in self.diff_bytes:
+            fileobj.write('  Data differs at byte %s:\n' % index)
+            report_diff_values(fileobj, values[0], values[1])
+
+        fileobj.write('  ...\n')
+        fileobj.write('  %d different bytes found (%.2f%% different).\n' %
+                      (self.total_diffs, self.diff_ratio * 100))
 
 class TableDataDiff(_GenericDiff):
     def __init__(self, a, b, ignore_fields=[], numdiffs=10, tolerance=0.0):
