@@ -434,8 +434,16 @@ class ImageDataDiff(_GenericDiff):
             return
 
         # Find the indices where the values are not equal
-        diffs = where_not_allclose(self.a, self.b, atol=0.0,
-                                   rtol=self.tolerance)
+        # If neither a nor b are floating point, ignore self.tolerance
+        if not ((np.issubdtype(self.a.dtype, float) or
+                 np.issubdtype(self.a.dtype, complex)) or
+                (np.issubdtype(self.b.dtype, float) or
+                 np.issubdtype(self.b.dtype, complex))):
+            tolerance = 0
+        else:
+            tolerance = self.tolerance
+
+        diffs = where_not_allclose(self.a, self.b, atol=0.0, rtol=tolerance)
 
         self.total_diffs = len(diffs[0])
 
@@ -523,8 +531,14 @@ class TableDataDiff(_GenericDiff):
         self.tolerance = tolerance
 
         self.common_columns = []
+        self.common_column_names = set()
+
         self.diff_column_count = ()
         self.diff_columns = ()
+
+        # Like self.diff_columns, but just contains a list of the column names
+        # unique to each table, and in the order they appear in the tables
+        self.diff_column_names = ()
         self.diff_values = []
 
         self.diff_ratio = 0
@@ -546,17 +560,18 @@ class TableDataDiff(_GenericDiff):
         colsa = set(colsa)
         colsb = set(colsb)
 
-        self.common_columns = sorted(colsa.intersection(colsb))
-
         if '*' in self.ignore_fields:
             # If all columns are to be ignored, ignore any further differences
             # between the columns
             return
 
+        # Keep the user's original ignore_fields list for reporting purposes,
+        # but internally use a case-insensitive version
+        ignore_fields = set([f.lower() for f in self.ignore_fields])
+
         # It might be nice if there were a cleaner way to do this, but for now
         # it'll do
-        for fieldname in self.ignore_fields:
-            fieldname = fieldname.lower()
+        for fieldname in ignore_fields:
             for col in list(colsa):
                 if col.name.lower() == fieldname:
                     colsa.remove(col)
@@ -564,11 +579,29 @@ class TableDataDiff(_GenericDiff):
                 if col.name.lower() == fieldname:
                     colsb.remove(col)
 
-        left_only_columns = sorted(colsa.difference(colsb))
-        right_only_columns = sorted(colsb.difference(colsa))
+        self.common_columns = sorted(colsa.intersection(colsb))
+
+        self.common_column_names = set([col.name.lower()
+                                        for col in self.common_columns])
+
+        left_only_columns = dict((col.name.lower(), col)
+                                 for col in colsa.difference(colsb))
+        right_only_columns = dict((col.name.lower(), col)
+                                  for col in colsb.difference(colsa))
 
         if left_only_columns or right_only_columns:
             self.diff_columns = (left_only_columns, right_only_columns)
+            self.diff_column_names = ([], [])
+
+        if left_only_columns:
+            for col in self.a.columns:
+                if col.name.lower() in left_only_columns:
+                    self.diff_column_names[0].append(col.name)
+
+        if right_only_columns:
+            for col in self.b.columns:
+                if col.name.lower() in right_only_columns:
+                    self.diff_column_names[1].append(col.name)
 
         # Like in the old fitsdiff, compare tables on a column by column basis
         # The difficulty here is that, while FITS column names are meant to be
@@ -582,17 +615,23 @@ class TableDataDiff(_GenericDiff):
         # just assumes that there are no duplicated column names in either
         # table, and that the column names can be treated case-insensitively.
         for col in self.common_columns:
+            if col.name.lower() in ignore_fields:
+                continue
             cola = self.a[col.name]
             colb = self.b[col.name]
-            if np.issubdtype(cola, float) and np.issubdtype(colb, float):
+            if (np.issubdtype(cola.dtype, float) and
+                np.issubdtype(colb.dtype, float)):
                 diffs = where_not_allclose(cola, colb, atol=0.0,
                                            rtol=self.tolerance)
+            elif 'P' in col.format:
+                diffs = ([idx for idx in xrange(len(cola))
+                          if not (cola[idx] == colb[idx]).all()],)
             else:
                 diffs = np.where(cola != colb)
 
             self.total_diffs += len(diffs[0])
 
-            if len(self.diff_values) < self.numdiffs:
+            if len(self.diff_values) >= self.numdiffs:
                 # Don't save any more diff values
                 continue
 
@@ -600,15 +639,53 @@ class TableDataDiff(_GenericDiff):
             max_diffs = self.numdiffs - len(self.diff_values)
 
             self.diff_values += [
-                (idx, (self.a[idx], self.b[idx]))
-                for idx in islice(izip(*diffs), 0, max_diffs)
+                ((col.name.lower(), idx), (cola[idx], colb[idx]))
+                for idx in islice(diffs[0], 0, max_diffs)
             ]
 
         total_values = len(self.a) * len(self.a.dtype.fields)
         self.diff_ratio = float(self.total_diffs) / float(total_values)
 
     def _report(self, fileobj):
-        pass
+        if self.diff_column_count:
+            fileobj.write('  Tables have different number of columns:\n')
+            fileobj.write('   a: %d\n' % self.diff_column_count[0])
+            fileobj.write('   b: %d\n' % self.diff_column_count[1])
+
+        if self.diff_column_names:
+            # Show columns with names unique to either table
+            for name in self.diff_column_names[0]:
+                format = self.diff_columns[0][name.lower()].format
+                fileobj.write('  Extra column %s of format %s in a\n' %
+                              (name, format))
+            for name in self.diff_column_names[1]:
+                format = self.diff_columns[1][name.lower()].format
+                fileobj.write('  Extra column %s of format %s in b\n' %
+                              (name, format))
+
+            # Now go through each table again and show columns with common
+            # names but other property differences...
+            # Column attributes of interest for comparison
+            colattrs = [('format', 'formats'), ('unit', 'units'),
+                        ('null', 'null values'), ('bscale', 'bscales'),
+                        ('bzero', 'bzeros'), ('disp', 'display formats'),
+                        ('dim', 'dimensions')]
+            for name in self.diff_column_names[0]:
+                name = name.lower()
+                if name not in self.common_column_names:
+                    # A column with this name appears in both tables, but is
+                    # otherwise somehow different...
+                    continue
+                cola = self.diff_column_names[0][name]
+                colb = self.diff_column_names[1][name]
+                for attr, descr in colattrs:
+                    vala = getattr(cola, attr)
+                    valb = getattr(colb, attr)
+                    if vala == valb:
+                        continue
+                    fileobj.write('  Column %s has different %s:\n' %
+                                  (cola.name, descr))
+                    report_diff_values(fileobj, vala, valb)
 
 
 def diff_values(a, b, tolerance=0.0):
@@ -665,43 +742,6 @@ def where_not_allclose(a, b, rtol=1e-5, atol=1e-8):
         return np.where(a != b)
     return np.where(np.abs(a - b) > (atol + rtol * np.abs(b)))
 
-
-def compare_dim (im1, im2):
-
-    """Compare the dimensions of two images
-
-    If the two images (extensions) have the same dimensions and are
-    not zero, return the dimension as a list, i.e.
-    [NAXIS, NAXIS1, NAXIS2,...].  Otherwise, return None.
-
-    """
-
-    global nodiff
-
-    dim1 = []
-    dim2 = []
-
-    # compare the values of NAXIS first
-    dim1.append(im1.header['NAXIS'])
-    dim2.append(im2.header['NAXIS'])
-    if dim1[0] != dim2[0]:
-        nodiff = 0
-        print "Input files have different dimensions"
-        return None
-    if dim1[0] == 0:
-        print "Input files have naught dimensions"
-        return None
-
-    # compare the values of NAXISi
-    for k in range(dim1[0]):
-        dim1.append(im1.header['NAXIS'+`k+1`])
-        dim2.append(im2.header['NAXIS'+`k+1`])
-    if dim1 != dim2:
-        nodiff = 0
-        print "Input files have different dimensions"
-        return None
-
-    return dim1
 
 #-------------------------------------------------------------------------------
 def compare_table (img1, img2, delta, maxdiff, dim, xtension, field_excl_list):
@@ -769,45 +809,6 @@ def compare_table (img1, img2, delta, maxdiff, dim, xtension, field_excl_list):
                     str = ' at %s,' % loc[:-1]
                 print "      Row %3d, %s file 1: %16s    file 2: %16s" % (loc[-1], str, img1.data.field(col)[index_], img2.data.field(col)[index_])
 
-
-    print '    There are %d different data points.' % ndiff
-    if ndiff > 0:
-        nodiff = 0
-
-#-------------------------------------------------------------------------------
-def compare_img (img1, img2, delta, maxdiff, dim):
-
-    """Compare the image data"""
-
-    global nodiff
-
-    ndiff = 0
-
-    thresh = delta
-    bitpix = img1.header['BITPIX']
-    if (bitpix > 0): thresh = 0     # for integers, exact comparison is made
-
-    # compare the two images
-    found = diff_num (img1.data, img2.data, thresh)
-
-    ndiff = found[0].shape[0]
-    nprint = min(maxdiff, ndiff)
-    dim = len(found)
-    base1 = np.ones(dim, dtype=np.int16)
-    if nprint > 0:
-        index = np.zeros(dim, dtype=np.int16)
-
-        for p in range(nprint):
-
-            # start from the fastest axis
-            for i in range(dim):
-                index[i] = int(found[i][p])
-            # translate the 0-based 1-D locations to 1-based
-            # naxis-D locations.  Also the "fast axes" order is
-            # properly treated here.
-            loc = index[-1::-1] + base1
-            index_ = tuple(index)
-            print "    Data differ at %16s, file 1: %11.5G file 2: %11.5G" % (list(loc), img1.data[index_], img2.data[index_])
 
     print '    There are %d different data points.' % ndiff
     if ndiff > 0:

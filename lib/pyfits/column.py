@@ -255,13 +255,24 @@ class Column(object):
             # According to the FITS standard column names must be
             # case-insensitive
             if attr == 'name':
-                if (getattr(self, name, '').lower() !=
-                    getattr(other, name, '').lower()):
+                name1 = getattr(self, 'name', '').lower()
+                name2 = getattr(other, 'name', '').lower()
+                if name1 != name2:
                     return False
             else:
                 if getattr(self, attr) != getattr(other, attr):
                     return False
         return True
+
+    def __hash__(self):
+        """
+        Like __eq__, the hash of a column should be based on the unique column
+        attributes, and be case-insensitive with respect to the column name.
+        """
+
+        return id(tuple([self.name.lower()] +
+                        [getattr(self, attr)
+                         for attr in KEYWORD_ATTRIBUTES[1:]]))
 
     def copy(self):
         """

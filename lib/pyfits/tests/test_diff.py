@@ -1,5 +1,7 @@
+from pyfits.column import Column
 from pyfits.diff import *
 from pyfits.hdu import HDUList, PrimaryHDU, ImageHDU
+from pyfits.hdu.table import new_table
 from pyfits.header import Header
 from pyfits.tests import PyfitsTestCase
 
@@ -163,6 +165,87 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.total_diffs, 2)
         assert_equal(diff.diff_ratio, 0.02)
         assert_equal(diff.diff_pixels, [((0, 0), (0, 10)), ((5, 5), (55, 20))])
+
+    def test_identical_tables(self):
+        c1 = Column('A', format='L', array=[True, False])
+        c2 = Column('B', format='X', array=[[0], [1]])
+        c3 = Column('C', format='4I', dim='(2, 2)',
+                    array=[[0, 1, 2, 3], [4, 5, 6, 7]])
+        c4 = Column('D', format='J', bscale=2.0, array=[0, 1])
+        c5 = Column('E', format='A3', array=['abc', 'def'])
+        c6 = Column('F', format='E', unit='m', array=[0.0, 1.0])
+        c7 = Column('G', format='D', bzero=-0.1, array=[0.0, 1.0])
+        c8 = Column('H', format='C', array=[0.0+1.0j, 2.0+3.0j])
+        c9 = Column('I', format='M', array=[4.0+5.0j, 6.0+7.0j])
+        c10 = Column('J', format='PI(2)', array=[[0, 1], [2, 3]])
+
+        ta = new_table([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
+        tb = new_table([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
+
+        diff = TableDataDiff(ta.data, tb.data)
+        assert_true(diff.identical)
+        assert_equal(len(diff.common_columns), 10)
+        assert_equal(diff.common_column_names,
+                     set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']))
+        assert_equal(diff.diff_ratio, 0)
+        assert_equal(diff.total_diffs, 0)
+
+    def test_ignore_table_fields(self):
+        c1 = Column('A', format='L', array=[True, False])
+        c2 = Column('B', format='X', array=[[0], [1]])
+        c3 = Column('C', format='4I', dim='(2, 2)',
+                    array=[[0, 1, 2, 3], [4, 5, 6, 7]])
+
+        c4 = Column('B', format='X', array=[[1], [0]])
+        c5 = Column('C', format='4I', dim='(2, 2)',
+                    array=[[1, 2, 3, 4], [5, 6, 7, 8]])
+
+        ta = new_table([c1, c2, c3])
+        tb = new_table([c1, c4, c5])
+
+        diff = TableDataDiff(ta.data, tb.data, ignore_fields=['B', 'C'])
+        assert_true(diff.identical)
+
+        # The only common column should be c1
+        assert_equal(len(diff.common_columns), 1)
+        assert_equal(diff.common_column_names, set(['a']))
+        assert_equal(diff.diff_ratio, 0)
+        assert_equal(diff.total_diffs, 0)
+
+    def test_different_table_field_names(self):
+        ca = Column('A', format='L', array=[True, False])
+        cb = Column('B', format='L', array=[True, False])
+        cc = Column('C', format='L', array=[True, False])
+
+        ta = new_table([ca, cb])
+        tb = new_table([ca, cc])
+
+        diff = TableDataDiff(ta.data, tb.data)
+
+        assert_false(diff.identical)
+        assert_equal(len(diff.common_columns), 1)
+        assert_equal(diff.common_column_names, set(['a']))
+        assert_equal(diff.diff_column_names, (['B'], ['C']))
+        assert_equal(diff.diff_ratio, 0)
+        assert_equal(diff.total_diffs, 0)
+
+    def test_different_table_field_counts(self):
+        ca = Column('A', format='L', array=[True, False])
+        cb = Column('B', format='L', array=[True, False])
+        cc = Column('C', format='L', array=[True, False])
+
+        ta = new_table([cb])
+        tb = new_table([ca, cb, cc])
+
+        diff = TableDataDiff(ta.data, tb.data)
+
+        assert_false(diff.identical)
+        assert_equal(diff.diff_column_count, (1, 3))
+        assert_equal(len(diff.common_columns), 1)
+        assert_equal(diff.common_column_names, set(['b']))
+        assert_equal(diff.diff_column_names, ([], ['A', 'C']))
+        assert_equal(diff.diff_ratio, 0)
+        assert_equal(diff.total_diffs, 0)
 
     def test_identical_files_basic(self):
         """Test identicality of two simple, extensionless files."""
