@@ -1,4 +1,4 @@
-from pyfits.diff import FitsDiff, HeaderDiff
+from pyfits.diff import *
 from pyfits.hdu import HDUList, PrimaryHDU
 from pyfits.header import Header
 from pyfits.tests import PyfitsTestCase
@@ -126,3 +126,40 @@ class TestDiff(PyfitsTestCase):
         diff = HeaderDiff(ha, hb, ignore_keywords=['B'])
         assert_false(diff.identical)
         assert_equal(diff.diff_keyword_values, {'C': [(3, 5)]})
+
+    def test_trivial_identical_images(self):
+        ia = np.arange(100).reshape((10, 10))
+        ib = np.arange(100).reshape((10, 10))
+        diff = ImageDataDiff(ia, ib)
+        assert_true(diff.identical)
+        assert_equal(diff.total_diffs, 0)
+
+    def test_identical_within_tolerance(self):
+        ia = np.ones((10, 10)) - 0.00001
+        ib = np.ones((10, 10)) - 0.00002
+        diff = ImageDataDiff(ia, ib, tolerance=1.0e-4)
+        assert_true(diff.identical)
+        assert_equal(diff.total_diffs, 0)
+
+    def test_different_dimensions(self):
+        ia = np.arange(100).reshape((10, 10))
+        ib = np.arange(100) - 1
+
+        # Although ib could be reshaped into the same dimensions, for now the
+        # data is not compared anyways
+        diff = ImageDataDiff(ia, ib)
+        assert_false(diff.identical)
+        assert_equal(diff.diff_dimensions, ((10, 10), (100,)))
+        assert_equal(diff.total_diffs, 0)
+
+    def test_different_pixels(self):
+        ia = np.arange(100).reshape((10, 10))
+        ib = np.arange(100).reshape((10, 10))
+        ib[0,0] = 10
+        ib[5,5] = 20
+        diff = ImageDataDiff(ia, ib)
+        assert_false(diff.identical)
+        assert_equal(diff.diff_dimensions, ())
+        assert_equal(diff.total_diffs, 2)
+        assert_equal(diff.diff_ratio, 0.02)
+        assert_equal(diff.diff_pixels, [((0, 0), (0, 10)), ((5, 5), (55, 20))])

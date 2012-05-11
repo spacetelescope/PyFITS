@@ -2,6 +2,7 @@ import os
 import textwrap
 
 from collections import defaultdict
+from itertools import islice, izip
 
 import numpy as np
 from numpy import char
@@ -393,16 +394,10 @@ class HeaderDiff(_GenericDiff):
                 del self.diff_keyword_comments[keyword]
 
 
-class RawDataDiff(_GenericDiff):
-    def __init__(self, a, b, numdiffs=10, tolerance=0.0):
-        self.numdiffs = numdiffs
-
-        self.diff_len = ()
-        self.diff_bytes = []
-
-        super(RawDataDiff, self).__init__(a, b)
-
-
+# TODO: It might be good if there was also a threshold option for percentage of
+# different pixels: For example ignore if only 1% of the pixels are different
+# within some threshold.  There are lots of possibilities here, but hold off
+# for now until specific cases come up.
 class ImageDataDiff(_GenericDiff):
     def __init__(self, a, b, numdiffs=10, tolerance=0.0):
         self.numdiffs = numdiffs
@@ -410,6 +405,12 @@ class ImageDataDiff(_GenericDiff):
 
         self.diff_dimensions = ()
         self.diff_pixels = []
+        self.diff_ratio = 0
+
+        # self.diff_pixels only holds up to numdiffs differing pixels, but this
+        # self.total_diffs stores the total count of differences between
+        # the images, but not the different values
+        self.total_diffs = 0
 
         super(ImageDataDiff, self).__init__(a, b)
 
@@ -420,6 +421,43 @@ class ImageDataDiff(_GenericDiff):
             # TODO: Perhaps we could, however, diff just the intersection
             # between the two images
             return
+
+        # Find the indices where the values are not equal
+        diffs = where_not_allclose(self.a, self.b, atol=0.0,
+                                   rtol=self.tolerance)
+
+        self.total_diffs = len(diffs[0])
+
+        if self.total_diffs == 0:
+            # Then we're done
+            return
+
+        self.diff_pixels = [(idx, (self.a[idx], self.b[idx]))
+                            for idx in islice(izip(*diffs), 0, self.numdiffs)]
+        self.diff_ratio = float(self.total_diffs) / float(len(self.a.flat))
+
+
+class RawDataDiff(ImageDataDiff):
+    """
+    RawDataDiff is just a special case of ImageDataDiff where the images are
+    one-dimensional, and the data is treated as bytes instead of pixel values.
+    """
+
+    def __init__(self, a, b, numdiffs=10):
+        self.diff_dimensions = ()
+        self.diff_bytes = []
+
+        super(RawDataDiff, self).__init__(a, b, numdiffs=numdiffs)
+
+
+    def _diff(self):
+        super(RawDataDiff, self)._diff()
+        if self.diff_dimensions:
+            self.diff_dimensions = (self.diff_dimensions[0][0],
+                                    self.diff_dimensions[1][0])
+
+        self.diff_bytes = [(x[0], y) for x, y in self.diff_pixels]
+        del self.diff_pixels
 
 
 class TableDataDiff(_GenericDiff):
@@ -439,12 +477,21 @@ def diff_values(a, b, tolerance=0.0):
     within the given relative tolerance.
     """
 
-
+    # TODO: Handle ifs and nans
     if isinstance(a, float) and isinstance(b, float):
         return not np.allclose(a, b, tolerance, 0.0)
     else:
         return a != b
 
+
+def where_not_allclose(a, b, rtol=1e-5, atol=1e-8):
+    """
+    A version of numpy.allclose that returns the indices where the two arrays
+    differ, instead of just a boolean value.
+    """
+
+    # TODO: Handle ifs and nans
+    return np.where(np.abs(a - b) > (atol + rtol * np.abs(b)))
 
     # if there is no difference
     #if nodiff:
