@@ -497,8 +497,8 @@ class RawDataDiff(ImageDataDiff):
     def _report(self, fileobj):
         if self.diff_dimensions:
             fileobj.write('  Data sizes differ:\n')
-            fileobj.write('   a: %s bytes\n' % self.diff_dimensions[0])
-            fileobj.write('   b: %s bytes\n' % self.diff_dimensions[1])
+            fileobj.write('   a: %d bytes\n' % self.diff_dimensions[0])
+            fileobj.write('   b: %d bytes\n' % self.diff_dimensions[1])
             # For now we don't do any further comparison if the dimensions
             # differ; though in the future it might be nice to be able to
             # compare at least where the images intersect
@@ -509,7 +509,7 @@ class RawDataDiff(ImageDataDiff):
             return
 
         for index, values in self.diff_bytes:
-            fileobj.write('  Data differs at byte %s:\n' % index)
+            fileobj.write('  Data differs at byte %d:\n' % index)
             report_diff_values(fileobj, values[0], values[1])
 
         fileobj.write('  ...\n')
@@ -660,6 +660,9 @@ def where_not_allclose(a, b, rtol=1e-5, atol=1e-8):
     """
 
     # TODO: Handle ifs and nans
+    if atol == 0.0 and rtol == 0.0:
+        # Use a faster comparison for the most simple (and common) case
+        return np.where(a != b)
     return np.where(np.abs(a - b) > (atol + rtol * np.abs(b)))
 
 
