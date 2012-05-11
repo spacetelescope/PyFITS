@@ -191,7 +191,9 @@ class HDUDiff(_GenericDiff):
             # TODO: Perhaps have some means of marking this case
             pass
         elif self.a.is_image and self.b.is_image:
-            self.diff_data = ImageDataDiff(self.a.data, self.b.data)
+            self.diff_data = ImageDataDiff(self.a.data, self.b.data,
+                                           numdiffs=self.numdiffs,
+                                           tolerance=self.tolerance)
         elif (isinstance(self.a, _TableLikeHDU) and
               isinstance(self.b, _TableLikeHDU)):
             # TODO: Replace this if/when _BaseHDU grows a .is_table property
@@ -379,6 +381,10 @@ class HeaderDiff(_GenericDiff):
                 del self.diff_keyword_comments[keyword]
 
     def _report(self, fileobj):
+        if self.diff_keyword_count:
+            fileobj.write('  Headers have different number of cards:\n')
+            fileobj.write('   a: %d\n' % self.diff_keyword_count[0])
+            fileobj.write('   b: %d\n' % self.diff_keyword_count[1])
         if self.diff_keywords:
             for keyword in self.diff_keywords[0]:
                 fileobj.write('  Extra keyword %-8s in a\n' % keyword)
@@ -440,6 +446,31 @@ class ImageDataDiff(_GenericDiff):
         self.diff_pixels = [(idx, (self.a[idx], self.b[idx]))
                             for idx in islice(izip(*diffs), 0, self.numdiffs)]
         self.diff_ratio = float(self.total_diffs) / float(len(self.a.flat))
+
+    def _report(self, fileobj):
+        if self.diff_dimensions:
+            fileobj.write('  Data dimensions differ:\n')
+            fileobj.write('   a: %s\n' %
+                          ' x '.join(reversed(self.diff_dimensions[0])))
+            fileobj.write('   b: %s\n' %
+                          ' x '.join(reversed(self.diff_dimensions[1])))
+            # For now we don't do any further comparison if the dimensions
+            # differ; though in the future it might be nice to be able to
+            # compare at least where the images intersect
+            fileobj.write('  No further data comparison performed.\n')
+            return
+
+        if not self.diff_pixels:
+            return
+
+        for index, values in self.diff_pixels:
+            index = [x + 1 for x in reversed(index)]
+            fileobj.write('  Data differs at %s:\n' % index)
+            report_diff_values(fileobj, values[0], values[1])
+
+        fileobj.write('  ...\n')
+        fileobj.write('  %d different pixels found (%.2f%% different).\n' %
+                      (self.total_diffs, self.diff_ratio * 100))
 
 
 class RawDataDiff(ImageDataDiff):
