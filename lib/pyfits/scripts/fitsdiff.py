@@ -86,6 +86,10 @@ def handle_options(argv=None):
                                    formatter=HelpFormatter())
 
     parser.add_option(
+        '-q', '--quiet', action='store_true',
+        help='Produce no output and just return a status code.')
+
+    parser.add_option(
         '-n', '--num-diffs', type='int', default=10, dest='numdiffs',
         metavar='INTEGER',
         help='Max number of data differences (image pixel or table element) '
@@ -225,20 +229,35 @@ def main():
         argv = sys.argv[1:]
 
     opts, args = handle_options(argv)
-    setup_logging(opts.output_file)
+
+    if not opts.quiet:
+        setup_logging(opts.output_file)
     files = match_files(args)
 
-    identical = []
-    for a, b in files:
-        # TODO: pass in any additonal arguments here too
-        diff = pyfits.diff.FITSDiff(a, b,
-                                    ignore_keywords=opts.ignore_keywords,
-                                    ignore_comments=opts.ignore_comments,
-                                    ignore_fields=opts.ignore_fields,
-                                    numdiffs=opts.numdiffs,
-                                    tolerance=opts.tolerance,
-                                    ignore_blanks=opts.ignore_blanks)
-        diff.report(fileobj=sys.stderr)
-        identical.append(diff.identical)
+    close_file = False
+    if opts.quiet:
+        out_file = None
+    elif opts.output_file:
+        out_file = open(opts.output_file, 'wb')
+        close_file = True
+    else:
+        out_file = sys.stdout
 
-    return int(not all(identical))
+    identical = []
+    try:
+        for a, b in files:
+            # TODO: pass in any additonal arguments here too
+            diff = pyfits.diff.FITSDiff(a, b,
+                                        ignore_keywords=opts.ignore_keywords,
+                                        ignore_comments=opts.ignore_comments,
+                                        ignore_fields=opts.ignore_fields,
+                                        numdiffs=opts.numdiffs,
+                                        tolerance=opts.tolerance,
+                                        ignore_blanks=opts.ignore_blanks)
+            diff.report(fileobj=out_file)
+            identical.append(diff.identical)
+
+        return int(not all(identical))
+    finally:
+        if close_file:
+            out_file.close()
