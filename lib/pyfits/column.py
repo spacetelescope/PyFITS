@@ -251,8 +251,17 @@ class Column(object):
         comparing column definitions.
         """
 
-        return all(getattr(self, attr) == getattr(other, attr)
-                   for attr in KEYWORD_ATTRIBUTES)
+        for attr in KEYWORD_ATTRIBUTES:
+            # According to the FITS standard column names must be
+            # case-insensitive
+            if attr == 'name':
+                if (getattr(self, name, '').lower() !=
+                    getattr(other, name, '').lower()):
+                    return False
+            else:
+                if getattr(self, attr) != getattr(other, attr):
+                    return False
+        return True
 
     def copy(self):
         """
