@@ -223,4 +223,11 @@ def main():
     setup_logging(options.output_file)
     files = match_files(args)
 
-    return int(not all(pyfits.diff.fitsdiff(a, b) for a, b in files))
+    identical = []
+    for a, b in files:
+        # TODO: pass in any additonal arguments here too
+        diff = pyfits.diff.FITSDiff(a, b)
+        diff.report()
+        identical.append(diff.identical)
+
+    return int(not all(identical))

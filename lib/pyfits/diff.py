@@ -7,29 +7,46 @@ from itertools import islice, izip
 import numpy as np
 from numpy import char
 
+import pyfits
 from pyfits.header import Header
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.util import StringIO
 
 
-class FitsDiff(object):
-    def __init__(self, input1, input2, ignore_keywords=[], ignore_comments=[],
+class _GenericDiff(object):
+    def __init__(self, a, b):
+        self.a = a
+        self.b = b
+        self._diff()
+
+    def __nonzero__(self):
+        return not self.identical
+
+    @property
+    def identical(self):
+        return not any(getattr(self, attr) for attr in self.__dict__
+                       if attr.startswith('diff_'))
+
+    def _diff(self):
+        raise NotImplementedError
+
+
+class FITSDiff(_GenericDiff):
+    def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
                  ignore_fields=[], numdiffs=10, tolerance=0.0,
                  ignore_blanks=True):
 
-        if isinstance(input1, basestring):
-            self.a = fitsopen(input1)
-            close_input1 = True
+        if isinstance(a, basestring):
+            a = fitsopen(a)
+            close_a = True
         else:
-            self.a = input1
-            close_input1 = False
+            close_a = False
 
-        if isinstance(input2, basestring):
-            self.b = fitsopen(input2)
-            close_input2 = True
+        if isinstance(b, basestring):
+            b = fitsopen(b)
+            close_b = True
         else:
-            self.b = input2
-            close_input2 = False
+            close_b = False
 
         self.ignore_keywords = set(ignore_keywords)
         self.ignore_comments = set(ignore_comments)
@@ -38,32 +55,16 @@ class FitsDiff(object):
         self.tolerance = tolerance
         self.ignore_blanks = ignore_blanks
 
-        # General comparison attributes
-        self.num_extensions = (1, 1)
-
-        self.data_dimensions = []
-
+        self.diff_extension_count = ()
+        self.diff_extensions = []
 
         try:
-            self._diff()
+            super(FITSDiff, self).__init__(a, b)
         finally:
-            if close_input1:
-                self.a.close()
-            if close_input2:
-                self.b.close()
-
-    def __nonzero__(self):
-        return self.identical
-
-    @property
-    def identical(self):
-        return (self.num_extensions[0] == self.num_extensions[1] and
-                not any(self.left_only_keywords) and
-                not any(self.right_only_keywords) and
-                not any(self.left_only_duplicate_keywords) and
-                not any(self.right_only_duplicate_keywords) and
-                not any(self.different_keyword_values) and
-                not any(self.different_keyword_comments))
+            if close_a:
+                a.close()
+            if close_b:
+                b.close()
 
     def report(self, fileobj=None):
         if fileobj is None:
@@ -91,129 +92,27 @@ class FitsDiff(object):
                       "%s\n" % self.numdiffs)
         fileobj.write(" Data comparison level: %s\n" % self.threshold)
 
-        for idx in min(self.num_extensions):
-            self.report_hdu(idx, fileobj)
-
-        if isinstance(fileobj, StringIO):
-            return fileobj.getvalue()
-
-    def report_hdu(self, idx, fileobj=None):
-        if fileobj is None:
-            fileobj = StringIO()
-
-        # print out the extension heading
-        if idx == 0:
-            fileobj.write("\nPrimary HDU:\n")
-        else:
-            xtensiona = self.a[idx].header['XTENSION']
-            xtensionb = self.b[idx].header['XTENSION']
-            if xtensiona.lower() != xtensionb.lower():
-                fileobj.write("\nExtension %d HDU:\n a: %s\n b: %s\n" %
-                              (idx, xtensiona, xtensionb))
-                fileobj.write(" Extension types differ.\n")
-            fileobj.write("\n%s Extension %d\n" % (xtensiona, idx))
-
-        if isinstance(fileobj, StringIO):
-            return fileobj.getvalue()
-
-    def _diff(self):
-        # TODO: Currently having a different number of HDUs is automatic
-        # grounds for failure; instead consider an option to compare just the
-        # first n HDUs (until one file or the other runs out of HDUs), or
-        # possibly also provide the ability to select specific HDUs to compare,
-        # rather than the whole file!
-
-        # compare numbers of extensions
-        self.num_extensions = (len(self.a), len(self.b))
-
-        # compare extension header and data
-        for hdua, hdub in zip(self.a, self.b):
-            self._diff_headers(hdua, hdub)
-            self._diff_data(hdua, hdub)
-
-    def _diff_data(self, hdua, hdub):
-        # Compare the data
-        # First, get the dimensions of the data
-        shapea = hdua.data.shape if hdua.data is not None else ()
-        shapeb = hdub.data.shape if hdub.data is not None else ()
-        self.data_dimensions.append((shapea, shapeb))
-        if self.data_dimensions[-1][0] != self.data_dimensions[-1][1]:
-            # No sense in comparing data with different dimensions
-            # TODO: We could, however, try comparing the intersection between
-            # the two arrays so long as they have the same number of dimensions
-            return
-
-            # if the extension is tables
-            if (hdua.data.dtype.fields is not None and
-                hdub.data.dtype.fields is not None):
-                self._diff_table(hdua.data, hdub.data)
-            elif (hdu.data.dtype.fields is None and
-                  hdub.data.dtype.fields is None):
-                self._diff_image(hdua.data, hdub.data)
+        for idx, hdu_diff in self.diff_extensions:
+            # print out the extension heading
+            if idx == 0:
+                fileobj.write("\nPrimary HDU:\n")
             else:
-                # TODO: Figure out what to do here....
-                # Perhaps we could coerce a table into a normal array or
-                # vice-versa; though it might be safer to just register that
-                # the data are fundamentally different and no further
-                # comparison is possible
-                pass
+                fileobj.write("\nExtension HDU %d:\n" % idx)
+            hdu_diff.report(fileobj)
 
-    def _diff_table(self, tablea, tableb):
-        # Diff the column definitions
-        colsa = tablea.columns
-        colsb = tableb.columns
-
-        self.num_columns.append((len(colsa), len(colsb)))
-
-        namesa = set(colsa)
-        namesb = set(colsb)
-        common = []
-        left_only = []
-        right_only = []
-        different_indexes = {}
-        different_formats = {}
-        for idx, cola, colb in zip(xrange(min(len(colsa), len(colsb))),
-                                   colsa, colsb):
-            if cola.name != colb.name:
-                if cola.name not in namesb:
-                    # The tables do not share these columns at all
-                    left_only.append(cola.name)
-                    right_only.append(colb.name)
-                    continue
-                # The tables do share these columns but they're in a different
-                # order
-                idxb = namesb.index(cola.name)
-                if cola.name not in different_indexes:
-                    different_indexes[cola.name] = (idx, idxb)
-
-            common.append(cola.name)
-            if cola.format != colb.format:
-                different_formats[cola.name] = (cola.format, colb.format)
-
-        if self.ignore_fields == ['*']:
-            return
-
-
-    def _diff_image(self, hdua, hdub):
-        pass
-
-
-class _GenericDiff(object):
-    def __init__(self, a, b):
-        self.a = a
-        self.b = b
-        self._diff()
-
-    def __nonzero__(self):
-        return not self.identical
-
-    @property
-    def identical(self):
-        return not any(getattr(self, attr) for attr in self.__dict__
-                       if attr.startswith('diff_'))
+        if isinstance(fileobj, StringIO):
+            return fileobj.getvalue()
 
     def _diff(self):
-        raise NotImplementedError
+        if len(self.a) != len(self.b):
+            self.diff_extension_count = (len(self.a), len(self.b))
+
+        # For now, just compare the extensions one by one in order...might
+        # allow some more sophisticated types of diffing later...
+        for idx in range(min(len(self.a), len(self.b))):
+            hdu_diff = HDUDiff(self.a[idx], self.b[idx])
+            if not hdu_diff.identical:
+                self.diff_extensions.append((idx, hdu_diff))
 
 
 class HDUDiff(_GenericDiff):
@@ -235,6 +134,17 @@ class HDUDiff(_GenericDiff):
 
         super(HDUDiff, self).__init__(a, b)
 
+    def report(self, fileobj=None):
+        if fileobj is None:
+            fileobj = StringIO()
+
+        if self.diff_extension_types:
+            fileobj.write("Extension types differ:\n a: %s\n b: %s\n" %
+                          self.diff_extension_types)
+
+        if isinstance(fileobj, StringIO):
+            return fileobj.getvalue()
+
     def _diff(self):
         if self.a.name != self.b.name:
             self.diff_extnames = (self.a.name, self.b.name)
@@ -250,9 +160,12 @@ class HDUDiff(_GenericDiff):
             self.diff_extension_types = (self.a.header.get('XTENSION'),
                                          self.b.header.get('XTENSION'))
 
-        self.diff_headers = HeaderDiff(self.a.header, self.b.names)
+        self.diff_headers = HeaderDiff(self.a.header, self.b.header)
 
-        if self.a.is_image and self.b.is_image:
+        if self.a.data is None or self.b.data is None:
+            # TODO: Perhaps have some means of marking this case
+            pass
+        elif self.a.is_image and self.b.is_image:
             self.diff_data = ImageDataDiff(self.a.data, self.b.data)
         elif (isinstance(self.a, _TableLikeHDU) and
               isinstance(self.b, _TableLikeHDU)):
@@ -564,17 +477,6 @@ def where_not_allclose(a, b, rtol=1e-5, atol=1e-8):
     # TODO: Handle ifs and nans
     return np.where(np.abs(a - b) > (atol + rtol * np.abs(b)))
 
-    # if there is no difference
-    #if nodiff:
-    #    print "\nNo difference is found."
-
-    # close files
-    #im1.close()
-    #im2.close()
-
-    # reset sys.stdout back to default
-    #sys.stdout = sys.__stdout__
-    #return nodiff
 
 #-------------------------------------------------------------------------------
 def compare_keyword_value (dict1, dict2, keywords_to_skip, name, delta):
@@ -647,59 +549,6 @@ def compare_keyword_comment (dict1, dict2, keywords_to_skip, name):
                     print '    %s: %s' % (name[1], comments2[i])
                     nodiff = 0
 
-#-------------------------------------------------------------------------------
-def diff_num(num1, num2, delta=0):
-    """Compare two num/char-arrays
-
-    If their relative difference is larger than delta,
-    returns a tuple of index arrays where there is difference.
-    The number of elements in the tuple is the dimension of the images
-    been compared.  Each index array in the tuple is 1-D and its length is
-    the number of differences found.
-
-    """
-    # if arrays are chararrays
-    if isinstance (num1, char.chararray):
-        delta = 0
-
-    # if delta is zero, it is a simple case.  Use the more general __ne__()
-    if delta == 0:
-        diff = num1.__ne__(num2)        # diff is a boolean array
-    else:
-        diff = np.absolute(num2-num1)/delta # diff is a float array
-
-    diff_indices = np.nonzero(diff)        # a tuple of (shorter) arrays
-
-    # how many occurrences of difference
-    n_nonzero = diff_indices[0].size
-
-    # if there is no difference, or delta is zero, stop here
-    if n_nonzero == 0 or delta == 0:
-        return diff_indices
-
-    # if the difference occurrence is rare enough (less than one-third
-    # of all elements), use an algorithm which saves space.
-    # Note: "compressed" arrays are 1-D only.
-    elif n_nonzero < (diff.size)/3:
-        cram1 = np.compress(diff.__ne__(0.0).ravel(), num1)
-        cram2 = np.compress(diff.__ne__(0.0).ravel(), num2)
-        cram_diff = np.compress(diff.__ne__(0.0).ravel(), diff)
-        a = np.greater(cram_diff, np.absolute(cram1))
-        b = np.greater(cram_diff, np.absolute(cram2))
-        r = np.logical_or(a, b)
-        list = []
-        for i in range(len(diff_indices)):
-            list.append(np.compress(r, diff_indices[i]))
-        return tuple(list)
-
-    # regular and more expensive way
-    else:
-        a = np.greater(diff, np.absolute(num1))
-        b = np.greater(diff, np.absolute(num2))
-        r = np.logical_or(a, b)
-        return np.nonzero(r)
-
-#-------------------------------------------------------------------------------
 def compare_dim (im1, im2):
 
     """Compare the dimensions of two images

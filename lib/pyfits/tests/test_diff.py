@@ -1,5 +1,5 @@
 from pyfits.diff import *
-from pyfits.hdu import HDUList, PrimaryHDU
+from pyfits.hdu import HDUList, PrimaryHDU, ImageHDU
 from pyfits.header import Header
 from pyfits.tests import PyfitsTestCase
 
@@ -163,3 +163,67 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.total_diffs, 2)
         assert_equal(diff.diff_ratio, 0.02)
         assert_equal(diff.diff_pixels, [((0, 0), (0, 10)), ((5, 5), (55, 20))])
+
+    def test_identical_files_basic(self):
+        """Test identicality of two simple, extensionless files."""
+
+        a = np.arange(100).reshape((10, 10))
+        hdu = PrimaryHDU(data=a)
+        hdu.writeto(self.temp('testa.fits'))
+        hdu.writeto(self.temp('testb.fits'))
+        diff = FITSDiff(self.temp('testa.fits'), self.temp('testb.fits'))
+        assert_true(diff.identical)
+
+    def test_partially_identical_files1(self):
+        """
+        Test files that have some identical HDUs but a different extension
+        count.
+        """
+
+        a = np.arange(100).reshape((10, 10))
+        phdu = PrimaryHDU(data=a)
+        ehdu = ImageHDU(data=a)
+        hdula = HDUList([phdu, ehdu])
+        hdulb = HDUList([phdu, ehdu, ehdu])
+        diff = FITSDiff(hdula, hdulb)
+        assert_false(diff.identical)
+        assert_equal(diff.diff_extension_count, (2, 3))
+
+        # diff_extensions should be empty, since the third extension in hdulb
+        # has nothing to compare against
+        assert_equal(diff.diff_extensions, [])
+
+    def test_partially_identical_files2(self):
+        """
+        Test files that have some identical HDUs but one different HDU.
+        """
+
+        a = np.arange(100).reshape((10, 10))
+        phdu = PrimaryHDU(data=a)
+        ehdu = ImageHDU(data=a)
+        ehdu2 = ImageHDU(data=(a + 1))
+        hdula = HDUList([phdu, ehdu, ehdu])
+        hdulb = HDUList([phdu, ehdu2, ehdu])
+        diff = FITSDiff(hdula, hdulb)
+
+        assert_false(diff.identical)
+        assert_equal(diff.diff_extension_count, ())
+        assert_equal(len(diff.diff_extensions), 1)
+        assert_equal(diff.diff_extensions[0][0], 1)
+
+        hdudiff = diff.diff_extensions[0][1]
+        assert_false(hdudiff.identical)
+        assert_equal(hdudiff.diff_extnames, ())
+        assert_equal(hdudiff.diff_extvers, ())
+        assert_equal(hdudiff.diff_extension_types, ())
+        assert_true(hdudiff.diff_headers.identical)
+        assert_false(hdudiff.diff_data is None)
+
+        datadiff = hdudiff.diff_data
+        assert_true(isinstance(datadiff, ImageDataDiff))
+        assert_false(datadiff.identical)
+        assert_equal(datadiff.diff_dimensions, ())
+        assert_equal(datadiff.diff_pixels,
+                     [((0, y), (y, y + 1)) for y in range(10)])
+        assert_equal(datadiff.diff_ratio, 1.0)
+        assert_equal(datadiff.total_diffs, 100)
