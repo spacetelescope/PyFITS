@@ -66,6 +66,12 @@ API Changes and Additions
   modifies the default behavior of the warnings module with respect to which
   stream it outputs to. (r1319)
 
+- A new global configuration variable ``pyfits.STRIP_HEADER_WHITESPACE`` was
+  added.  By default, if a string value in a header contains trailing
+  whitespace, that whitespace is automatically removed when the value is read.
+  Now if you set ``pyfits.STRIP_HEADER_WHITESPACE = False`` all whitespace is
+  preserved. (#146)
+
 New Features
 ++++++++++++
 

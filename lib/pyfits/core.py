@@ -67,9 +67,10 @@ from pyfits.verify import VerifyError
 # values from environment variables
 GLOBALS = [
      # Variable name                       # Default
+    ('ENABLE_RECORD_VALUED_KEYWORD_CARDS', True),
     ('EXTENSION_NAME_CASE_SENSITIVE',      False),
-    ('USE_MEMMAP',                         True),
-    ('ENABLE_RECORD_VALUED_KEYWORD_CARDS', True)
+    ('STRIP_HEADER_WHITESPACE',            True),
+    ('USE_MEMMAP',                         True)
 ]
 
 for varname, default in GLOBALS:

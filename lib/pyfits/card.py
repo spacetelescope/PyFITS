@@ -362,7 +362,7 @@ class Card(_Verify):
     _value_NFSC_RE = re.compile(
         r'(?P<valu_field> *'
             r'(?P<valu>'
-                r'\'(?P<strg>([ -~]+?|\'\'|)) *?\'(?=$|/| )|'
+                r'\'(?P<strg>([ -~]+?|\'\'|) *?)\'(?=$|/| )|'
                 r'(?P<bool>[FT])|'
                 r'(?P<numr>' + _numr_NFSC + r')|'
                 r'(?P<cplx>\( *'
@@ -503,14 +503,19 @@ class Card(_Verify):
     def value(self):
         if self.field_specifier:
             return float(self._value)
+
         if self._value is not None:
-            return self._value
+            value = self._value
         elif self._valuestring is not None or self._image:
             self._value = self._parse_value()
-            return self._value
+            value = self._value
         else:
-            self.value = ''
-            return ''
+            self._value = value = ''
+
+        if pyfits.STRIP_HEADER_WHITESPACE and isinstance(value, basestring):
+            value = value.rstrip()
+
+        return value
 
     @value.setter
     def value(self, value):
@@ -535,7 +540,15 @@ class Card(_Verify):
                     'characters; %r contains characters not representable in '
                     'ASCII.' % value)
 
-        if value != oldvalue:
+        if (pyfits.STRIP_HEADER_WHITESPACE and
+            (isinstance(oldvalue, basestring) and
+             isinstance(value, basestring))):
+            # Ignore extra whitespace when comparing the new value to the old
+            different = oldvalue.rstrip() != value.rstrip()
+        else:
+            different = oldvalue != value
+
+        if different:
             self._value = value
             self._modified = True
             self._valuestring = None
@@ -800,7 +813,8 @@ class Card(_Verify):
                     value = value[:-1]
                 values.append(value)
 
-            value = ''.join(values).rstrip()
+            value = ''.join(values)
+
             self._valuestring = value
             return value
 
@@ -967,7 +981,13 @@ class Card(_Verify):
     def _format_value(self):
         # value string
         float_types = (float, np.floating, complex, np.complexfloating)
-        value = self.value  # Force the value to be parsed out first
+
+        # Force the value to be parsed out first
+        value = self.value
+        # But work with the underlying raw value instead (to preserve
+        # whitespace, for now...)
+        value = self._value
+
         if self.keyword in self._commentary_keywords:
             # The value of a commentary card must be just a raw unprocessed
             # string
@@ -1058,7 +1078,7 @@ class Card(_Verify):
 
         # do the value string
         value_format = "'%-s&'"
-        value = self.value.replace("'", "''")
+        value = self._value.replace("'", "''")
         words = _words_group(value, value_length)
         for idx, word in enumerate(words):
             if idx == 0:

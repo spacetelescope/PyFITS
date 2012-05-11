@@ -1371,6 +1371,44 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_raises(ValueError, assign, 'FOO', (erikku, 'BAZ'))
         assert_raises(ValueError, assign, 'FOO', (erikku, erikku))
 
+    def test_header_strip_whitespace(self):
+        """
+        Regression test for #146, and for the solution that is optional
+        stripping of whitespace from the end of a header value.
+
+        By default extra whitespace is stripped off, but if
+        pyfits.STRIP_HEADER_WHITESPACE = False it should not be stripped.
+        """
+
+        h = pyfits.Header()
+        h['FOO'] = 'Bar      '
+        assert_equal(h['FOO'], 'Bar')
+        c = pyfits.Card.fromstring("QUX     = 'Bar        '")
+        h.append(c)
+        assert_equal(h['QUX'], 'Bar')
+        assert_equal(h.cards['FOO'].image.rstrip(),
+                     "FOO     = 'Bar      '")
+        assert_equal(h.cards['QUX'].image.rstrip(),
+                     "QUX     = 'Bar        '")
+
+        pyfits.STRIP_HEADER_WHITESPACE = False
+        try:
+            assert_equal(h['FOO'], 'Bar      ')
+            assert_equal(h['QUX'], 'Bar        ')
+            assert_equal(h.cards['FOO'].image.rstrip(),
+                         "FOO     = 'Bar      '")
+            assert_equal(h.cards['QUX'].image.rstrip(),
+                         "QUX     = 'Bar        '")
+        finally:
+            pyfits.STRIP_HEADER_WHITESPACE = True
+
+        assert_equal(h['FOO'], 'Bar')
+        assert_equal(h['QUX'], 'Bar')
+        assert_equal(h.cards['FOO'].image.rstrip(),
+                     "FOO     = 'Bar      '")
+        assert_equal(h.cards['QUX'].image.rstrip(),
+                     "QUX     = 'Bar        '")
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """

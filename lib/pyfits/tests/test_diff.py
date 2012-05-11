@@ -2,6 +2,7 @@ import textwrap
 
 import numpy as np
 
+import pyfits
 from pyfits.column import Column
 from pyfits.diff import *
 from pyfits.hdu import HDUList, PrimaryHDU, ImageHDU
@@ -107,20 +108,24 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.diff_keyword_values, {'B': [(2.00001, 2.00002)]})
 
     def test_ignore_blanks(self):
-        ha = Header([('A', 1), ('B', 2), ('C', 'A       ')])
-        hb = ha.copy()
-        hb['C'] = 'A'
-        assert_not_equal(ha['C'], hb['C'])
+        pyfits.STRIP_HEADER_WHITESPACE = False
+        try:
+            ha = Header([('A', 1), ('B', 2), ('C', 'A       ')])
+            hb = ha.copy()
+            hb['C'] = 'A'
+            assert_not_equal(ha['C'], hb['C'])
 
-        diff = HeaderDiff(ha, hb)
-        # Trailing blanks are ignored by default
-        assert_true(diff.identical)
-        assert_equal(diff.diff_keyword_values, {})
+            diff = HeaderDiff(ha, hb)
+            # Trailing blanks are ignored by default
+            assert_true(diff.identical)
+            assert_equal(diff.diff_keyword_values, {})
 
-        # Don't ignore blanks
-        diff = HeaderDiff(ha, hb, ignore_blanks=False)
-        assert_false(diff.identical)
-        assert_equal(diff.diff_keyword_values, {'C': [('A       ', 'A')]})
+            # Don't ignore blanks
+            diff = HeaderDiff(ha, hb, ignore_blanks=False)
+            assert_false(diff.identical)
+            assert_equal(diff.diff_keyword_values, {'C': [('A       ', 'A')]})
+        finally:
+            pyfits.STRIP_HEADER_WHITESPACE = True
 
     def test_ignore_keyword_values(self):
         ha = Header([('A', 1), ('B', 2), ('C', 3)])
