@@ -1,3 +1,4 @@
+import difflib
 import fnmatch
 import glob
 import os
@@ -231,13 +232,13 @@ class HeaderDiff(_GenericDiff):
         self.ignore_blanks = ignore_blanks
 
         self.ignore_keyword_patterns = set()
-        self.ignore_comments_patterns = set()
+        self.ignore_comment_patterns = set()
         for keyword in list(self.ignore_keywords):
-            if glob.has_magic(keyword):
+            if keyword != '*' and glob.has_magic(keyword):
                 self.ignore_keywords.remove(keyword)
                 self.ignore_keyword_patterns.add(keyword)
         for keyword in list(self.ignore_comments):
-            if glob.has_magic(keyword):
+            if keyword != '*' and glob.has_magic(keyword):
                 self.ignore_comments.remove(keyword)
                 self.ignore_comment_patterns.add(keyword)
 
@@ -359,6 +360,14 @@ class HeaderDiff(_GenericDiff):
 
             if '*' in self.ignore_comments or keyword in self.ignore_comments:
                 continue
+            if self.ignore_comment_patterns:
+                skip = False
+                for pattern in self.ignore_comment_patterns:
+                    if fnmatch.fnmatch(keyword, pattern):
+                        skip = True
+                        break
+                if skip:
+                    continue
 
             for a, b in zip(commentsa[keyword], commentsb[keyword]):
                 if diff_values(a, b):
@@ -375,6 +384,20 @@ class HeaderDiff(_GenericDiff):
                 fileobj.write('  Extra keyword %-8s in a\n' % keyword)
             for keyword in self.diff_keywords[1]:
                 fileobj.write('  Extra keyword %-8s in b\n' % keyword)
+
+        if self.diff_duplicate_keywords:
+            for keyword, count in sorted(self.diff_duplicate_keywords.items()):
+                fileobj.write('  Inconsistent duplicates of keyword %-8s:\n' %
+                              keyword)
+                fileobj.write('   Occurs %d times in a, %d times in b\n' %
+                              count)
+
+        if self.diff_keyword_values or self.diff_keyword_comments:
+            for keyword in self.common_keywords:
+                report_diff_keyword_attr(fileobj, 'values',
+                                         self.diff_keyword_values, keyword)
+                report_diff_keyword_attr(fileobj, 'comments',
+                                         self.diff_keyword_comments, keyword)
 
 # TODO: It might be good if there was also a threshold option for percentage of
 # different pixels: For example ignore if only 1% of the pixels are different
@@ -550,6 +573,35 @@ def diff_values(a, b, tolerance=0.0):
         return a != b
 
 
+def report_diff_values(fileobj, a, b):
+    """Write a diff between two values to the specified file object."""
+
+    #import pdb; pdb.set_trace()
+    for line in difflib.ndiff(str(a).splitlines(), str(b).splitlines()):
+        if line[0] == '-':
+            line = 'a>' + line[1:]
+        elif line[0] == '+':
+            line = 'b>' + line[1:]
+        else:
+            line = ' ' + line
+        fileobj.write('   %s\n' % line.rstrip('\n'))
+
+
+def report_diff_keyword_attr(fileobj, attr, diffs, keyword):
+    if keyword in diffs:
+        vals = diffs[keyword]
+        for idx, val in enumerate(vals):
+            if val is None:
+                continue
+            if idx == 0:
+                ind = ''
+            else:
+                ind = '[%d]' % (idx + 1)
+            fileobj.write('  Keyword %-8s%s has different %s:\n' %
+                          (keyword, ind, attr))
+            report_diff_values(fileobj, val[0], val[1])
+
+
 def where_not_allclose(a, b, rtol=1e-5, atol=1e-8):
     """
     A version of numpy.allclose that returns the indices where the two arrays
@@ -559,77 +611,6 @@ def where_not_allclose(a, b, rtol=1e-5, atol=1e-8):
     # TODO: Handle ifs and nans
     return np.where(np.abs(a - b) > (atol + rtol * np.abs(b)))
 
-
-#-------------------------------------------------------------------------------
-def compare_keyword_value (dict1, dict2, keywords_to_skip, name, delta):
-
-    """ Compare header keyword values
-
-    compare header keywords' values by using the value dictionary,
-    the value(s) for each keyword is in the form of a list.  Don't do
-    the comparison if the keyword is in the keywords_to_skip list.
-
-    """
-
-    global nodiff                   # no difference flag
-
-    keys = dict1.keys()
-    keys.sort()
-
-    for kw in keys:
-        if kw in dict2.keys() and kw not in keywords_to_skip:
-            values1 = dict1[kw]
-            values2 = dict2[kw]
-
-            # if the same keyword has different number of entries
-            # in different files, it is regarded as extra and will
-            # be dealt with in a separate routine.
-            nvalues = min(len(values1), len(values2))
-            for i in range(nvalues):
-
-                if diff_obj(values1[i], values2[i], delta):
-                    indx = ''
-                    if i > 0: indx = `[i+1]`
-
-                    print "  Keyword %-8s%s has different values: " % (kw, indx)
-                    print '    %s: %s' % (name[0], values1[i])
-                    print '    %s: %s' % (name[1], values2[i])
-                    nodiff = 0
-
-#-------------------------------------------------------------------------------
-def compare_keyword_comment (dict1, dict2, keywords_to_skip, name):
-
-    """Compare header keywords' comments
-
-    compare header keywords' comments by using the comment dictionary, the
-    comment(s) for each keyword is in the form of a list.  Don't do the
-    comparison if the keyword is in the keywords_to_skip list.
-
-    """
-
-    global nodiff                   # no difference flag
-
-    keys = dict1.keys()
-    keys.sort()
-
-    for kw in keys:
-        if kw in dict2.keys() and kw not in keywords_to_skip:
-            comments1 = dict1[kw]
-            comments2 = dict2[kw]
-
-            # if the same keyword has different number of entries
-            # in different files, it is regarded as extra and it
-            # taken care of in a separate routine.
-            ncomments = min(len(comments1), len(comments2))
-            for i in range(ncomments):
-                if comments1[i] != comments2[i]:
-                    indx = ''
-                    if i > 0: indx = `[i+1]`
-
-                    print '  Keyword %-8s%s has different comments: ' % (kw, indx)
-                    print '    %s: %s' % (name[0], comments1[i])
-                    print '    %s: %s' % (name[1], comments2[i])
-                    nodiff = 0
 
 def compare_dim (im1, im2):
 
