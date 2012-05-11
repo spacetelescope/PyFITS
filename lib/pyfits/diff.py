@@ -39,17 +39,6 @@ class FitsDiff(object):
         # General comparison attributes
         self.num_extensions = (1, 1)
 
-        # Per-hdu comparison attributes
-        self.common_keywords = []
-        self.left_only_keywords = []
-        self.right_only_keywords = []
-
-        self.left_only_duplicate_keywords = []
-        self.right_only_duplicate_keywords = []
-
-        self.different_keyword_values = []
-        self.different_keyword_comments = []
-
         self.data_dimensions = []
 
         # Table comparison attributes
@@ -148,91 +137,6 @@ class FitsDiff(object):
             self._diff_headers(hdua, hdub)
             self._diff_data(hdua, hdub)
 
-    # TODO: This doesn't pay much attention to the *order* of the keywords,
-    # except in the case of duplicate keywords.  The order should be checked
-    # too, or at least it should be an option.
-    def _diff_headers(self, hdua, hdub):
-        # build dictionaries of keyword values and comments
-        def get_header_values_comments(header):
-            values = {}
-            comments = {}
-            for card in header.cards:
-                value = card.value
-                if self.ignore_blanks and isinstance(value, basestring):
-                    value = value.rstrip()
-                values.setdefault(card.keyword, []).append(value)
-                comments.setdefault(card.keyword, []).append(card.comment)
-            return values, comments
-
-        valuesa, commentsa = get_header_values_comments(hdua.header)
-        valuesb, commentsb = get_header_values_comments(hdub.header)
-
-        keywordsa = set(valuesa)
-        keywordsb = set(valuesb)
-
-        common_keywords = sorted(keywordsa.intersection(keywordsb))
-        left_only_keywords = sorted(keywordsa.difference(keywordsb))
-        right_only_keywords = sorted(keywordsb.difference(keywordsa))
-
-        left_only_duplicate_keywords = {}
-        right_only_duplicate_keywords = {}
-        different_keyword_values = defaultdict(lambda: [])
-        different_keyword_comments = defaultdict(lambda: [])
-
-        # Compare count of each common keyword
-        for keyword in common_keywords:
-            counta = len(valuesa[keyword])
-            countb = len(valuesb[keyword])
-            if counta != countb:
-                if counta < countb:
-                    extra_values = valuesb[keyword]
-                    extra_comments = commentsb[keyword]
-                    target = right_only_duplicate_keywords
-                else:
-                    extra_values = valuesa[keyword]
-                    extra_comments = commentsa[keyword]
-                    target = left_only_duplicate_keywords
-                _min = min(counta, countb)
-                target[keyword] = zip(extra_values[_min:],
-                                      extra_comments[_min:])
-
-            # Compare keywords' values and comments
-            if ('*' not in self.ignore_keywords and
-                keyword not in self.ignore_keywords):
-                for a, b in zip(valuesa[keyword], valuesb[keyword]):
-                    if isinstance(a, float) and isinstance(b, float):
-                        if not np.allclose(a, b, self.tolerance, 0.0):
-                            different_keyword_values[keyword].append((a, b))
-                    elif a != b:
-                        different_keyword_values[keyword].append((a, b))
-                    else:
-                        # If there are duplicate keywords we need to be able to
-                        # index each duplicate; if the values of a duplicate
-                        # are identical use None here
-                        different_keyword_values[keyword].append(None)
-                if not any(different_keyword_values[keyword]):
-                    # No differences found; delete the array of Nones
-                    del different_keyword_values[keyword]
-
-            if ('*' not in self.ignore_comments and
-                keyword not in self.ignore_comments):
-                for a, b in zip(commentsa[keyword], commentsb[keyword]):
-                    if a != b:
-                        different_keyword_comments[keyword].append((a, b))
-                    else:
-                        different_keyword_comments[keyword].append(None)
-                if not any(different_keyword_comments[keyword]):
-                    del different_keyword_comments[keyword]
-
-        self.common_keywords.append(common_keywords)
-        self.left_only_keywords.append(left_only_keywords)
-        self.right_only_keywords.append(right_only_keywords)
-        self.left_only_duplicate_keywords.append(left_only_duplicate_keywords)
-        self.right_only_duplicate_keywords.append(
-            right_only_duplicate_keywords)
-        self.different_keyword_values.append(different_keyword_values)
-        self.different_keyword_comments.append(different_keyword_comments)
-
     def _diff_data(self, hdua, hdub):
         # Compare the data
         # First, get the dimensions of the data
@@ -299,6 +203,145 @@ class FitsDiff(object):
     def _diff_image(self, hdua, hdub):
         pass
 
+
+class _GenericDiff(object):
+    def __init__(self, a, b):
+        self.a = a
+        self.b = b
+        self._diff()
+
+    @property
+    def identical(self):
+        return not any(getattr(self, attr) for attr in self.__dict__
+                       if attr.startswith('diff_'))
+
+    def _diff(self):
+        raise NotImplementedError
+
+
+class HDUDiff(_GenericDiff):
+    pass
+
+
+class HeaderDiff(_GenericDiff):
+    def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
+                 tolerance=0.0, ignore_blanks=True):
+        self.ignore_keywords = set(ignore_keywords)
+        self.ignore_comments = set(ignore_comments)
+        self.tolerance = tolerance
+        self.ignore_blanks = ignore_blanks
+
+        # Keywords appearing in each header
+        self.common_keywords = []
+
+        # Set to the number of keywords in each header if the counts differ
+        self.diff_keyword_count = ()
+
+        # Set if the keywords common to each header (excluding ignore_keywords)
+        # appear in different positions within the header
+        self.diff_keyword_positions = ()
+
+        # Keywords unique to each header (excluding keywords in
+        # ignore_keywords)
+        self.diff_keywords = ()
+
+        # Keywords that have different numbers of duplicates in each header
+        # (excluding keywords in ignore_keywords)
+        self.diff_duplicate_keywords = {}
+
+        # Keywords common to each header but having different values (excluding
+        # keywords in ignore_keywords)
+        self.diff_keyword_values = defaultdict(lambda: [])
+
+        # Keywords common to each header but having different comments
+        # (excluding keywords in ignore_keywords or in ignore_comments)
+        self.diff_keyword_comments = defaultdict(lambda: [])
+
+
+        super(HeaderDiff, self).__init__(a, b)
+
+    # TODO: This doesn't pay much attention to the *order* of the keywords,
+    # except in the case of duplicate keywords.  The order should be checked
+    # too, or at least it should be an option.
+    def _diff(self):
+        # build dictionaries of keyword values and comments
+        def get_header_values_comments(header):
+            values = {}
+            comments = {}
+            for card in header.cards:
+                value = card.value
+                if self.ignore_blanks and isinstance(value, basestring):
+                    value = value.rstrip()
+                values.setdefault(card.keyword, []).append(value)
+                comments.setdefault(card.keyword, []).append(card.comment)
+            return values, comments
+
+        valuesa, commentsa = get_header_values_comments(self.a)
+        valuesb, commentsb = get_header_values_comments(self.b)
+
+        keywordsa = set(valuesa)
+        keywordsb = set(valuesb)
+
+        self.common_keywords = sorted(keywordsa.intersection(keywordsb))
+        if len(self.a) != len(self.b):
+            self.diff_keyword_count = (len(self.a), len(self.b))
+
+        # Any other diff attributes should exclude ignored keywords
+        keywordsa = keywordsa.difference(self.ignore_keywords)
+        keywordsb = keywordsb.difference(self.ignore_keywords)
+
+        if '*' in self.ignore_keywords:
+            # Any other differences between keywords are to be ignored
+            return
+
+        left_only_keywords = sorted(keywordsa.difference(keywordsb))
+        right_only_keywords = sorted(keywordsb.difference(keywordsa))
+
+        if left_only_keywords or right_only_keywords:
+            self.diff_keywords = (left_only_keywords, right_only_keywords)
+
+        # Compare count of each common keyword
+        for keyword in self.common_keywords:
+            if keyword in self.ignore_keywords:
+                continue
+
+            counta = len(valuesa[keyword])
+            countb = len(valuesb[keyword])
+            if counta != countb:
+                self.diff_duplicate_keywords[keyword] = (counta, countb)
+
+            # Compare keywords' values and comments
+            for a, b in zip(valuesa[keyword], valuesb[keyword]):
+                if isinstance(a, float) and isinstance(b, float):
+                    if not np.allclose(a, b, self.tolerance, 0.0):
+                        self.diff_keyword_values[keyword].append((a, b))
+                elif a != b:
+                    self.diff_keyword_values[keyword].append((a, b))
+                else:
+                    # If there are duplicate keywords we need to be able to
+                    # index each duplicate; if the values of a duplicate
+                    # are identical use None here
+                    self.diff_keyword_values[keyword].append(None)
+
+            if not any(self.diff_keyword_values[keyword]):
+                # No differences found; delete the array of Nones
+                del self.diff_keyword_values[keyword]
+
+            if '*' in self.ignore_comments or keyword in self.ignore_comments:
+                continue
+
+            for a, b in zip(commentsa[keyword], commentsb[keyword]):
+                if a != b:
+                    self.diff_keyword_comments[keyword].append((a, b))
+                else:
+                    self.diff_keyword_comments[keyword].append(None)
+
+            if not any(self.diff_keyword_comments[keyword]):
+                del self.diff_keyword_comments[keyword]
+
+
+class DataDiff(_GenericDiff):
+    pass
     # if there is no difference
     #if nodiff:
     #    print "\nNo difference is found."
