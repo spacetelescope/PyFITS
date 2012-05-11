@@ -6,7 +6,8 @@ from collections import defaultdict
 import numpy as np
 from numpy import char
 
-import pyfits
+from pyfits.header import Header
+from pyfits.hdu.hdulist import fitsopen
 from pyfits.util import StringIO
 
 
@@ -16,14 +17,14 @@ class FitsDiff(object):
                  ignore_blanks=True):
 
         if isinstance(input1, basestring):
-            self.a = pyfits.open(input1)
+            self.a = fitsopen(input1)
             close_input1 = True
         else:
             self.a = input1
             close_input1 = False
 
         if isinstance(input2, basestring):
-            self.b = pyfits.open(input2)
+            self.b = fitsopen(input2)
             close_input2 = True
         else:
             self.b = input2
@@ -210,6 +211,9 @@ class _GenericDiff(object):
         self.b = b
         self._diff()
 
+    def __nonzero__(self):
+        return not self.identical
+
     @property
     def identical(self):
         return not any(getattr(self, attr) for attr in self.__dict__
@@ -220,7 +224,40 @@ class _GenericDiff(object):
 
 
 class HDUDiff(_GenericDiff):
-    pass
+    def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
+                 ignore_fields=[], numdiffs=10, tolerance=0.0,
+                 ignore_blanks=True):
+        self.ignore_keywords = set(ignore_keywords)
+        self.ignore_comments = set(ignore_comments)
+        self.ignore_fields = set(ignore_fields)
+        self.tolerance = tolerance
+        self.numdiffs = numdiffs
+        self.ignore_blanks = ignore_blanks
+
+        self.diff_extnames = ()
+        self.diff_extvers = ()
+        self.diff_extension_types = ()
+        self.diff_headers = None
+        self.diff_data = None
+
+        super(HDUDiff, self).__init__(a, b)
+
+    def _diff(self):
+        if self.a.name != self.b.name:
+            self.diff_extnames = (self.a.name, self.b.name)
+
+        # TODO: All extension headers should have a .extver attribute;
+        # currently they have a hidden ._extver attribute, but there's no
+        # reason it should be hidden
+        if self.a.header.get('EXTVER') != self.b.header.get('EXTVER'):
+            self.diff_extvers = (self.a.header.get('EXTVER'),
+                                 self.b.header.get('EXTVER'))
+
+        if self.a.header.get('XTENSION') != self.b.header.get('XTENSION'):
+            self.diff_extension_types = (self.a.header.get('XTENSION'),
+                                         self.b.header.get('XTENSION'))
+
+        self.diff_headers = HeaderDiff(self.a.header, self.b.names)
 
 
 class HeaderDiff(_GenericDiff):
@@ -257,6 +294,14 @@ class HeaderDiff(_GenericDiff):
         # (excluding keywords in ignore_keywords or in ignore_comments)
         self.diff_keyword_comments = defaultdict(lambda: [])
 
+        if isinstance(a, basestring):
+            a = Header.fromstring(a)
+        if isinstance(b, basestring):
+            b = Header.fromstring(b)
+
+        if not (isinstance(a, Header) and isinstance(b, Header)):
+            raise TypeError('HeaderDiff can only diff pyfits.Header objects '
+                            'or strings containing FITS headers.')
 
         super(HeaderDiff, self).__init__(a, b)
 
@@ -338,7 +383,14 @@ class HeaderDiff(_GenericDiff):
 
 
 class DataDiff(_GenericDiff):
-    pass
+    def __init__(self, a, b, ignore_fields=[], numdiffs=10, tolerance=0.0,
+                 ignore_blanks=True):
+        self.ignore_fields = set(ignore_fields)
+        self.numdiffs = numdiffs
+        self.tolerance = tolerance
+        self.ignore_blanks = ignore_blanks
+
+        super(DataDiff, self).__init__(a, b)
 
 
 def diff_values(a, b, tolerance=0.0):
@@ -365,30 +417,6 @@ def diff_values(a, b, tolerance=0.0):
     # reset sys.stdout back to default
     #sys.stdout = sys.__stdout__
     #return nodiff
-
-#-------------------------------------------------------------------------------
-def row_parse (row, img):
-
-    """Parse a row in a text table into a list of values
-
-    These value correspond to the fields (columns).
-
-    """
-
-    result = []
-
-    for col in range(len(row)):
-
-        # get the format (e.g. I8, A10, or G25.16) of the field (column)
-        tform = img.header['TFORM'+str(col+1)]
-
-        item = row[col].strip()
-
-        # evaluate the substring
-        if (tform[0] != 'A'):
-            item = eval(item)
-        result.append(item)
-    return result
 
 #-------------------------------------------------------------------------------
 def compare_keyword_value (dict1, dict2, keywords_to_skip, name, delta):
@@ -460,24 +488,6 @@ def compare_keyword_comment (dict1, dict2, keywords_to_skip, name):
                     print '    %s: %s' % (name[0], comments1[i])
                     print '    %s: %s' % (name[1], comments2[i])
                     nodiff = 0
-
-#-------------------------------------------------------------------------------
-def diff_obj (obj1, obj2, delta = 0):
-
-    """Compare two objects
-
-    return 1 if they are different, for two floating numbers, if their
-    relative difference is within delta, they are treated as same numbers.
-
-    """
-
-    if isinstance(obj1, float) and isinstance(obj2, float):
-        diff = abs(obj2-obj1)
-        a = diff > abs(obj1*delta)
-        b = diff > abs(obj2*delta)
-        return a or b
-    else:
-        return (obj1 != obj2)
 
 #-------------------------------------------------------------------------------
 def diff_num(num1, num2, delta=0):
