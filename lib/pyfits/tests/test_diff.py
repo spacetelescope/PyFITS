@@ -1,5 +1,7 @@
 import textwrap
 
+import numpy as np
+
 from pyfits.column import Column
 from pyfits.diff import *
 from pyfits.hdu import HDUList, PrimaryHDU, ImageHDU

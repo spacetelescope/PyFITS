@@ -892,7 +892,8 @@ class TableDataDiff(_BaseDiff):
                 if col.name.lower() == fieldname:
                     colsb.remove(col)
 
-        self.common_columns = sorted(colsa.intersection(colsb))
+        self.common_columns = sorted(colsa.intersection(colsb),
+                                     key=lambda c: c.name)
 
         self.common_column_names = set([col.name.lower()
                                         for col in self.common_columns])
@@ -1044,7 +1045,12 @@ def diff_values(a, b, tolerance=0.0):
 def report_diff_values(fileobj, a, b):
     """Write a diff between two values to the specified file-like object."""
 
-    #import pdb; pdb.set_trace()
+    if isinstance(a, float):
+        a = repr(a)
+
+    if isinstance(b, float):
+        b = repr(b)
+
     for line in difflib.ndiff(str(a).splitlines(), str(b).splitlines()):
         if line[0] == '-':
             line = 'a>' + line[1:]
