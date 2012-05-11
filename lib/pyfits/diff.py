@@ -1,6 +1,8 @@
 import os
 import textwrap
 
+from collections import defaultdict
+
 import numpy as np
 from numpy import char
 
@@ -31,7 +33,7 @@ class FitsDiff(object):
         self.ignore_comments = set(ignore_comments)
         self.ignore_fields = set(ignore_fields)
         self.numdiffs = numdiffs
-        self.threshold = difference_threshold
+        self.threshold = threshold
         self.ignore_blanks = ignore_blanks
 
         # General comparison attributes
@@ -42,11 +44,11 @@ class FitsDiff(object):
         self.left_only_keywords = []
         self.right_only_keywords = []
 
-        self.left_only_duplicate_keywords = {}
-        self.right_only_duplicate_keywords = {}
+        self.left_only_duplicate_keywords = []
+        self.right_only_duplicate_keywords = []
 
-        self.different_keyword_values = {}
-        self.different_keyword_comments = {}
+        self.different_keyword_values = []
+        self.different_keyword_comments = []
 
         self.data_dimensions = []
 
@@ -64,15 +66,15 @@ class FitsDiff(object):
     def __nonzero__(self):
         return self.identical
 
-    @properties
+    @property
     def identical(self):
         return (self.num_extensions[0] == self.num_extensions[1] and
-                not self.left_only_keywords and
-                not self.right_only_keywords and
-                not self.left_only_duplicate_keywords and
-                not self.right_only_duplicate_keywords and
-                not self.different_keyword_values and
-                not self.different_keyword_comments)
+                not any(self.left_only_keywords) and
+                not any(self.right_only_keywords) and
+                not any(self.left_only_duplicate_keywords) and
+                not any(self.right_only_duplicate_keywords) and
+                not any(self.different_keyword_values) and
+                not any(self.different_keyword_comments))
 
     def report(self, fileobj=None):
         if fileobj is None:
@@ -138,7 +140,7 @@ class FitsDiff(object):
         # compare extension header and data
         for hdua, hdub in zip(self.a, self.b):
             self._diff_headers(hdua, hdub)
-            self._diff_data(hdua, hdub)
+            #self._diff_data(hdua, hdub)
 
     def _diff_headers(self, hdua, hdub):
         # build dictionaries of keyword values and comments
@@ -151,6 +153,7 @@ class FitsDiff(object):
                     value = value.rstrip()
                 values.setdefault(card.keyword, []).append(value)
                 comments.setdefault(card.keyword, []).append(card.comment)
+            return values, comments
 
         valuesa, commentsa = get_header_values_comments(hdua.header)
         valuesb, commentsb = get_header_values_comments(hdub.header)
@@ -158,23 +161,28 @@ class FitsDiff(object):
         keywordsa = set(valuesa)
         keywordsb = set(valuesb)
 
-        self.common_keywords = sorted(keywordsa.intersect(keywordsb))
-        self.left_only_keywords = sorted(keywordsa.difference(keywordsb))
-        self.right_only_keywords = sorted(keywordsb.difference(keywordsa))
+        common_keywords = sorted(keywordsa.intersection(keywordsb))
+        left_only_keywords = sorted(keywordsa.difference(keywordsb))
+        right_only_keywords = sorted(keywordsb.difference(keywordsa))
+
+        left_only_duplicate_keywords = {}
+        right_only_duplicate_keywords = {}
+        different_keyword_values = defaultdict(lambda: [])
+        different_keyword_comments = defaultdict(lambda: [])
 
         # Compare count of each common keyword
-        for keyword in self.common_keywords:
+        for keyword in common_keywords:
             counta = len(valuesa[keyword])
             countb = len(valuesb[keyword])
             if counta != countb:
                 if counta < countb:
-                    extra_values = valuesb
-                    extra_comments = commentsb
-                    target = self.right_only_duplicate_keywords
+                    extra_values = valuesb[keyword]
+                    extra_comments = commentsb[keyword]
+                    target = right_only_duplicate_keywords
                 else:
-                    extra_values = valuesa
-                    extra_comments = commentsb
-                    target = self.left_only_duplicate_keywords
+                    extra_values = valuesa[keyword]
+                    extra_comments = commentsa[keyword]
+                    target = left_only_duplicate_keywords
                 _min = min(counta, countb)
                 target[keyword] = zip(extra_values[_min:],
                                       extra_comments[_min:])
@@ -182,20 +190,40 @@ class FitsDiff(object):
             # Compare keywords' values and comments
             if ('*' not in self.ignore_keywords and
                 keyword not in self.ignore_keywords):
-                dkv = self.different_keyword_values.setdefault(keyword, [])
                 for a, b in zip(valuesa[keyword], valuesb[keyword]):
-                if isinstance(a, float) and isinstance(b, float):
-                    delta = abs(a - b)
-                    if delta > self.threshold:
-                        dkv.append((a, b))
-                elif a != b:
-                    dkv.append((a, b))
+                    if isinstance(a, float) and isinstance(b, float):
+                        delta = abs(a - b)
+                        if delta > self.threshold:
+                            different_keyword_values[keyword].append((a, b))
+                    elif a != b:
+                        different_keyword_values[keyword].append((a, b))
+                    else:
+                        # If there are duplicate keywords we need to be able to
+                        # index each duplicate; if the values of a duplicate
+                        # are identical use None here
+                        different_keyword_values[keyword].append(None)
+                if not any(different_keyword_values[keyword]):
+                    # No differences found; delete the array of Nones
+                    del different_keyword_values[keyword]
 
             if ('*' not in self.ignore_comments and
                 keyword not in self.ignore_comments):
-                dkc = self.different_keyword_comments.setdefault(keyword, [])
                 for a, b in zip(commentsa[keyword], commentsb[keyword]):
-                    dkc.append((a, b))
+                    if a != b:
+                        different_keyword_comments[keyword].append((a, b))
+                    else:
+                        different_keyword_comments[keyword].append(None)
+                if not any(different_keyword_comments[keyword]):
+                    del different_keyword_comments[keyword]
+
+        self.common_keywords.append(common_keywords)
+        self.left_only_keywords.append(left_only_keywords)
+        self.right_only_keywords.append(right_only_keywords)
+        self.left_only_duplicate_keywords.append(left_only_duplicate_keywords)
+        self.right_only_duplicate_keywords.append(
+            right_only_duplicate_keywords)
+        self.different_keyword_values.append(different_keyword_values)
+        self.different_keyword_comments.append(different_keyword_comments)
 
     def _diff_data(self, hdua, hdub):
         # Compare the data
@@ -216,23 +244,23 @@ class FitsDiff(object):
     def _diff_table(self, tablea, tableb):
         if self.ignore_fields == ['*']:
             return
-        fieldsa = len(hdua.data.dtype.descr
+        fieldsa = len(hdua.data.dtype.descr)
 
 
     def _diff_image(self, hdua, hdub):
         pass
 
     # if there is no difference
-    if nodiff:
-        print "\nNo difference is found."
+    #if nodiff:
+    #    print "\nNo difference is found."
 
     # close files
-    im1.close()
-    im2.close()
+    #im1.close()
+    #im2.close()
 
     # reset sys.stdout back to default
-    sys.stdout = sys.__stdout__
-    return nodiff
+    #sys.stdout = sys.__stdout__
+    #return nodiff
 
 #-------------------------------------------------------------------------------
 def row_parse (row, img):
@@ -546,57 +574,3 @@ def compare_img (img1, img2, delta, maxdiff, dim):
     print '    There are %d different data points.' % ndiff
     if ndiff > 0:
         nodiff = 0
-
-#-------------------------------------------------------------------------------
-def attach_dir (dirname, list):
-
-    """Attach a directory name to a list of file names"""
-
-    import os
-
-    new_list = list[:]
-    for i in range(len(new_list)):
-        basename = os.path.basename(new_list[i])
-        new_list[i] = os.path.join(dirname, basename)
-    return new_list
-
-#-------------------------------------------------------------------------------
-def parse_path(f1, f2):
-
-    """Parse two input arguments and return two lists of file names"""
-
-    import glob, os
-
-    if os.path.isdir(f1):
-
-        # if both arguments are directory, use all files
-        if os.path.isdir(f2):
-            f1 = os.path.join(f1, '*')
-            f2 = os.path.join(f2, '*')
-
-        # if one is directory, one is not, recreate the first by
-        # attaching the directory name to the other.
-        # use glob to parse the wild card, if any
-        else:
-            list2 = glob.glob(f2)
-            list1 = attach_dir (f1, list2)
-            return list1, list2
-    else:
-        if os.path.isdir(f2):
-            list1 = glob.glob(f1)
-            list2 = attach_dir (f2, list1)
-            return list1, list2
-
-    list1 = glob.glob(f1)
-    list2 = glob.glob(f2)
-
-    if (list1 == [] or list2 == []):
-        str = ""
-        if (list1 == []): str += "File `%s` does not exist.  " % f1
-        if (list2 == []): str += "File `%s` does not exist.  " % f2
-        raise IOError, str
-    else:
-        return list1, list2
-
-
-
