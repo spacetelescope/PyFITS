@@ -312,10 +312,7 @@ class HeaderDiff(_GenericDiff):
 
             # Compare keywords' values and comments
             for a, b in zip(valuesa[keyword], valuesb[keyword]):
-                if isinstance(a, float) and isinstance(b, float):
-                    if not np.allclose(a, b, self.tolerance, 0.0):
-                        self.diff_keyword_values[keyword].append((a, b))
-                elif a != b:
+                if diff_values(a, b, tolerance=self.tolerance):
                     self.diff_keyword_values[keyword].append((a, b))
                 else:
                     # If there are duplicate keywords we need to be able to
@@ -331,7 +328,7 @@ class HeaderDiff(_GenericDiff):
                 continue
 
             for a, b in zip(commentsa[keyword], commentsb[keyword]):
-                if a != b:
+                if diff_values(a, b):
                     self.diff_keyword_comments[keyword].append((a, b))
                 else:
                     self.diff_keyword_comments[keyword].append(None)
@@ -342,6 +339,21 @@ class HeaderDiff(_GenericDiff):
 
 class DataDiff(_GenericDiff):
     pass
+
+
+def diff_values(a, b, tolerance=0.0):
+    """
+    Diff two scalar values.  If both values are floats they are compared to
+    within the given relative tolerance.
+    """
+
+
+    if isinstance(a, float) and isinstance(b, float):
+        return not np.allclose(a, b, tolerance, 0.0)
+    else:
+        return a != b
+
+
     # if there is no difference
     #if nodiff:
     #    print "\nNo difference is found."
