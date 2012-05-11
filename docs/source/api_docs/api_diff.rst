@@ -1,8 +1,8 @@
 .. currentmodule:: pyfits.core
 
-*****
-Diffs
-*****
+******************************
+:mod:`pyfits.diff` --- Differs
+******************************
 
 `FITSDiff`
 ==========

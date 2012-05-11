@@ -14,34 +14,34 @@ comment.
 
 Example uses of fitscheck:
 
-1. Verify and update checksums, tolerating non-standard checksums,
-updating to standard checksum:
+1. Verify and update checksums, tolerating non-standard checksums, updating to
+   standard checksum::
 
-% fitscheck --checksum either --write *.fits
+    $ fitscheck --checksum either --write *.fits
 
-2. Write new checksums,  even if existing checksums are bad or missing:
+2. Write new checksums,  even if existing checksums are bad or missing::
 
-% fitscheck --write --force *.fits
+    $ fitscheck --write --force *.fits
 
-3. Verify standard checksums and FITS compliance without changing the files:
+3. Verify standard checksums and FITS compliance without changing the files::
 
-% fitscheck --compliance *.fits
+    $ fitscheck --compliance *.fits
 
-4. Verify original nonstandard checksums only:
+4. Verify original nonstandard checksums only::
 
-% fitscheck --checksum nonstandard *.fits
+    $ fitscheck --checksum nonstandard *.fits
 
-5. Only check and fix compliance problems,  ignoring checksums:
+5. Only check and fix compliance problems,  ignoring checksums::
 
-% fitscheck --checksum none --compliance --write *.fits
+    $ fitscheck --checksum none --compliance --write *.fits
 
-6. Verify standard interoperable checksums
+6. Verify standard interoperable checksums::
 
-% fitscheck *.fits
+    $ fitscheck *.fits
 
-7. Delete checksum keywords
+7. Delete checksum keywords::
 
-% fitscheck --checksum none --write *.fits
+    $ fitscheck --checksum none --write *.fits
 """
 
 
@@ -94,7 +94,7 @@ def handle_options(args):
 
     parser.add_option(
         '-c', '--compliance', dest='compliance',
-        help='Do FITS compliance checking, fix if possible.',
+        help='Do FITS compliance checking; fix if possible.',
         default=False, action='store_true')
 
     parser.add_option(

@@ -1,3 +1,5 @@
+.. currentmodule:: pyfits.core
+
 **********************
 Miscellaneous Features
 **********************
@@ -52,3 +54,24 @@ you can start Python with ``-Wi::Deprecation``.  This sets all deprecation
 warnings to ignored.  See
 http://docs.python.org/using/cmdline.html#cmdoption-unittest-discover-W
 for more information on the -W argument.
+
+Differs
+=======
+
+The `pyfits.diff` module contains several facilities for generating and
+reporting the differences between two FITS files, or two components of a FITS
+file.
+
+The `FITSDiff` class can be used to generate and represent the differences
+between either two FITS files on disk, or two existing `HDUList` objects (or
+some combination thereof).
+
+Likewise, the `HeaderDiff` class can be used to find the differences just
+between two `Header` objects.  Other available differs include `HDUDiff`,
+`ImageDataDiff`, `TableDataDiff`, and `RawDataDiff`.
+
+Each of these classes are instantiated with two instances of the objects that
+they diff.  The returned diff instance has a number of attributes starting with
+`.diff_` that describe differences between the two objects.  See the :mod:`API
+documentation <diff>` for details on the different differ
+classes.
