@@ -1,3 +1,5 @@
+import textwrap
+
 from pyfits.column import Column
 from pyfits.diff import *
 from pyfits.hdu import HDUList, PrimaryHDU, ImageHDU
@@ -322,6 +324,12 @@ class TestDiff(PyfitsTestCase):
         diff = FITSDiff(self.temp('testa.fits'), self.temp('testb.fits'))
         assert_true(diff.identical)
 
+        report = diff.report()
+        # Primary HDUs should contain no differences
+        assert_true('Primary HDU' not in report)
+        assert_true('Extension HDU' not in report)
+        assert_true('No differences found.' in report)
+
     def test_partially_identical_files1(self):
         """
         Test files that have some identical HDUs but a different extension
@@ -335,11 +343,16 @@ class TestDiff(PyfitsTestCase):
         hdulb = HDUList([phdu, ehdu, ehdu])
         diff = FITSDiff(hdula, hdulb)
         assert_false(diff.identical)
-        assert_equal(diff.diff_extension_count, (2, 3))
+        assert_equal(diff.diff_hdu_count, (2, 3))
 
-        # diff_extensions should be empty, since the third extension in hdulb
+        # diff_hdus should be empty, since the third extension in hdulb
         # has nothing to compare against
-        assert_equal(diff.diff_extensions, [])
+        assert_equal(diff.diff_hdus, [])
+
+        report = diff.report()
+        assert_true('Files contain different numbers of HDUs' in report)
+        assert_true('a: 2\n b: 3' in report)
+        assert_true('No differences found between common HDUs' in report)
 
     def test_partially_identical_files2(self):
         """
@@ -355,11 +368,11 @@ class TestDiff(PyfitsTestCase):
         diff = FITSDiff(hdula, hdulb)
 
         assert_false(diff.identical)
-        assert_equal(diff.diff_extension_count, ())
-        assert_equal(len(diff.diff_extensions), 1)
-        assert_equal(diff.diff_extensions[0][0], 1)
+        assert_equal(diff.diff_hdu_count, ())
+        assert_equal(len(diff.diff_hdus), 1)
+        assert_equal(diff.diff_hdus[0][0], 1)
 
-        hdudiff = diff.diff_extensions[0][1]
+        hdudiff = diff.diff_hdus[0][1]
         assert_false(hdudiff.identical)
         assert_equal(hdudiff.diff_extnames, ())
         assert_equal(hdudiff.diff_extvers, ())
@@ -375,3 +388,16 @@ class TestDiff(PyfitsTestCase):
                      [((0, y), (y, y + 1)) for y in range(10)])
         assert_equal(datadiff.diff_ratio, 1.0)
         assert_equal(datadiff.total_diffs, 100)
+
+        report = diff.report()
+        # Primary HDU and 2nd extension HDU should have no differences
+        assert_true('Primary HDU' not in report)
+        assert_true('Extension HDU 2' not in report)
+        assert_true('Extension HDU 1' in report)
+
+        assert_true('Headers contain differences' not in report)
+        assert_true('Data contains differences' in report)
+        for y in range(10):
+            assert_true('Data differs at [%d, 1]' % (y + 1) in report)
+        assert_true('100 different pixels found (100.00% different).' in
+                    report)

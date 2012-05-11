@@ -73,8 +73,8 @@ class FITSDiff(_GenericDiff):
         self.tolerance = tolerance
         self.ignore_blanks = ignore_blanks
 
-        self.diff_extension_count = ()
-        self.diff_extensions = []
+        self.diff_hdu_count = ()
+        self.diff_hdus = []
 
         try:
             super(FITSDiff, self).__init__(a, b)
@@ -86,7 +86,7 @@ class FITSDiff(_GenericDiff):
 
     def _diff(self):
         if len(self.a) != len(self.b):
-            self.diff_extension_count = (len(self.a), len(self.b))
+            self.diff_hdu_count = (len(self.a), len(self.b))
 
         # For now, just compare the extensions one by one in order...might
         # allow some more sophisticated types of diffing later...
@@ -102,7 +102,7 @@ class FITSDiff(_GenericDiff):
                                ignore_blanks=self.ignore_blanks)
 
             if not hdu_diff.identical:
-                self.diff_extensions.append((idx, hdu_diff))
+                self.diff_hdus.append((idx, hdu_diff))
 
     def _report(self, fileobj):
         wrapper = textwrap.TextWrapper(initial_indent='  ',
@@ -119,31 +119,43 @@ class FITSDiff(_GenericDiff):
             filenameb = '<%s object at 0x%x>' % (self.b.__class__.__name__,
                                                  id(self.b))
 
-        fileobj.write("\n fitsdiff: %s\n" % pyfits.__version__)
-        fileobj.write(" a: %s\n b: %s\n" % (filenamea, filenameb))
+        fileobj.write('\n fitsdiff: %s\n' % pyfits.__version__)
+        fileobj.write(' a: %s\n b: %s\n' % (filenamea, filenameb))
         if self.ignore_keywords:
             ignore_keywords = ' '.join(sorted(self.ignore_keywords))
-            fileobj.write(" Keyword(s) not to be compared:\n%s\n" %
+            fileobj.write(' Keyword(s) not to be compared:\n%s\n' %
                           wrapper.fill(ignore_keywords))
 
         if self.ignore_comments:
             ignore_comments = ' '.join(sorted(self.ignore_comments))
-            fileobj.write(" Keyword(s) whose comments are not to be compared:"
-                          "\n%s\n" % wrapper.fill(ignore_keywords))
+            fileobj.write(' Keyword(s) whose comments are not to be compared:'
+                          '\n%s\n' % wrapper.fill(ignore_keywords))
         if self.ignore_fields:
             ignore_fields = ' '.join(sorted(self.ignore_fields))
-            fileobj.write(" Table column(s) not to be compared:\n%s\n" %
+            fileobj.write(' Table column(s) not to be compared:\n%s\n' %
                           wrapper.fill(ignore_fields))
-        fileobj.write(" Maximum number of different data values to be "
-                      "reported: %s\n" % self.numdiffs)
-        fileobj.write(" Data comparison level: %s\n" % self.tolerance)
+        fileobj.write(' Maximum number of different data values to be '
+                      'reported: %s\n' % self.numdiffs)
+        fileobj.write(' Data comparison level: %s\n' % self.tolerance)
 
-        for idx, hdu_diff in self.diff_extensions:
+        if self.diff_hdu_count:
+            fileobj.write('\nFiles contain different numbers of HDUs:\n')
+            fileobj.write(' a: %d\n' % self.diff_hdu_count[0])
+            fileobj.write(' b: %d\n' % self.diff_hdu_count[1])
+
+            if not self.diff_hdus:
+                fileobj.write('No differences found between common HDUs.\n')
+                return
+        elif not self.diff_hdus:
+            fileobj.write('\nNo differences found.\n')
+            return
+
+        for idx, hdu_diff in self.diff_hdus:
             # print out the extension heading
             if idx == 0:
-                fileobj.write("\nPrimary HDU:\n")
+                fileobj.write('\nPrimary HDU:\n')
             else:
-                fileobj.write("\nExtension HDU %d:\n" % idx)
+                fileobj.write('\nExtension HDU %d:\n' % idx)
             hdu_diff._report(fileobj)
 
 
@@ -693,6 +705,23 @@ class TableDataDiff(_GenericDiff):
                                   (cola.name, descr))
                     report_diff_values(fileobj, vala, valb)
 
+        if not self.diff_values:
+            return
+
+        # Finally, let's go through and report column data differences:
+        for indx, values in self.diff_values:
+            fileobj.write('  Column %s data differs in row %d:\n' % indx)
+            report_diff_values(fileobj, values[0], values[1])
+
+        if self.diff_values and self.numdiffs < self.total_diffs:
+            fileobj.write('  ...%d additional difference(s) found.\n' %
+                          (self.total_diffs - self.numdiffs))
+
+        fileobj.write('  ...\n')
+        fileobj.write('  %d different table data values found '
+                      '(%.2f%% different).\n' %
+                      (self.total_diffs, self.diff_ratio * 100))
+
 
 def diff_values(a, b, tolerance=0.0):
     """
@@ -747,75 +776,3 @@ def where_not_allclose(a, b, rtol=1e-5, atol=1e-8):
         # Use a faster comparison for the most simple (and common) case
         return np.where(a != b)
     return np.where(np.abs(a - b) > (atol + rtol * np.abs(b)))
-
-
-#-------------------------------------------------------------------------------
-def compare_table (img1, img2, delta, maxdiff, dim, xtension, field_excl_list):
-
-    """Compare data in FITS tables"""
-
-    global nodiff
-
-    ndiff = 0
-
-    ncol1 = img1.header['TFIELDS']
-    ncol2 = img2.header['TFIELDS']
-    if ncol1 != ncol2:
-        print "Different no. of columns: file1 has %d, file2 has %d" % (ncol1, ncol2)
-        nodiff = 0
-    ncol = min(ncol1, ncol2)
-
-    # check for None data
-    if img1.data is None or img2.data is None:
-        if img1.data is None and img2.data is None:
-            return
-        else:
-            print "One file has no data and the other does."
-            nodiff = 0
-
-    # compare the tables column by column
-    for col in range(ncol):
-        field1 = img1.header['TFORM'+`col+1`]
-        field2 = img2.header['TFORM'+`col+1`]
-        if field1 != field2:
-            print "Different data type at column %d: file1 is %s, file2 is %s" % (col, field1, field2)
-            continue
-
-        name1 = img1.data.names[col].upper()
-        name2 = img2.data.names[col].upper()
-        if name1 in field_excl_list or name2 in field_excl_list:
-            continue
-
-        found = diff_num (img1.data.field(col), img2.data.field(col), delta)
-
-        _ndiff = found[0].shape[0]
-        ndiff += _ndiff
-        nprint = min(maxdiff, _ndiff)
-        maxdiff -= _ndiff
-        dim = len(found)
-        base1 = np.ones(dim)
-        if nprint > 0:
-            print "    Data differ at column %d: " % (col+1)
-            index = np.zeros(dim)
-
-            for p in range(nprint):
-
-                # start from the fastest axis
-                for i in range(dim):
-                    index[i] = found[i][p]
-
-                # translate the 0-based 1-D locations to 1-based
-                # naxis-D locations.  Also the "fast axes"
-                # order is properly treated here.
-                loc = index[-1::-1] + base1
-                index_ = tuple(index)
-                if (dim) == 1:
-                    str = ''
-                else:
-                    str = ' at %s,' % loc[:-1]
-                print "      Row %3d, %s file 1: %16s    file 2: %16s" % (loc[-1], str, img1.data.field(col)[index_], img2.data.field(col)[index_])
-
-
-    print '    There are %d different data points.' % ndiff
-    if ndiff > 0:
-        nodiff = 0
