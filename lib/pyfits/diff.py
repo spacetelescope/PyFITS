@@ -1,90 +1,226 @@
 import os
-import sys
+import textwrap
 
 import numpy as np
 from numpy import char
 
 import pyfits
+from pyfits.util import StringIO
 
-def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', field_excl_list='', maxdiff=10, delta=0., neglect_blanks=1, output=None):
 
-    global nodiff
+class FitsDiff(object):
+    def __init__(self, input1, input2, ignore_keywords=[], ignore_comments=[],
+                 ignore_fields=[], numdiffs=10, threshold=0.,
+                 ignore_blanks=True):
 
-    # if sending output somewhere?
-    if output:
-        if type(output) == types.StringType:
-            outfd = open(output, 'w')
+        if isinstance(input1, basestring):
+            self.a = pyfits.open(input1)
+            close_input1 = True
         else:
-            outfd = output
-        sys.stdout = outfd
+            self.a = input1
+            close_input1 = False
 
-    fname = (input1, input2)
+        if isinstance(input2, basestring):
+            self.b = pyfits.open(input2)
+            close_input2 = True
+        else:
+            self.b = input2
+            close_input2 = False
 
-    # Parse lists of excluded keyword values and/or keyword comments.
-    value_excl_list = list_parse(value_excl_list)
-    comment_excl_list = list_parse(comment_excl_list)
-    field_excl_list = list_parse(field_excl_list)
+        self.ignore_keywords = set(ignore_keywords)
+        self.ignore_comments = set(ignore_comments)
+        self.ignore_fields = set(ignore_fields)
+        self.numdiffs = numdiffs
+        self.threshold = difference_threshold
+        self.ignore_blanks = ignore_blanks
 
-    # print out heading and parameter values
-    print "\n fitsdiff: ", __version__
-    print " file1 = %s\n file2 = %s" % fname
-    print " Keyword(s) not to be compared: ", value_excl_list
-    print " Keyword(s) whose comments not to be compared: ", \
-            comment_excl_list
-    print " Column(s) not to be compared: ", field_excl_list
-    print " Maximum number of different pixels to be reported: ", maxdiff
-    print " Data comparison level: ", delta
+        # General comparison attributes
+        self.num_extensions = (1, 1)
 
-    nodiff = 1                              # difference-free flag
+        # Per-hdu comparison attributes
+        self.common_keywords = []
+        self.left_only_keywords = []
+        self.right_only_keywords = []
 
-    # open input files
-    im1 = open_and_read(input1)
-    im2 = open_and_read(input2)
+        self.left_only_duplicate_keywords = {}
+        self.right_only_duplicate_keywords = {}
 
-    # compare numbers of extensions
-    nexten1, nexten2 = len(im1), len(im2)
-    if nexten1 != nexten2:
-        raise RuntimeError("Different no. of HDU's: file1 has %d, file2 has %d" % (nexten1, nexten2))
+        self.different_keyword_values = {}
+        self.different_keyword_comments = {}
 
-    # compare extension header and data
-    for i in range(nexten1):
+        self.data_dimensions = []
+
+        # Table comparison attributes
+        self.num_columns = []
+
+        try:
+            self._diff()
+        finally:
+            if close_input1:
+                self.a.close()
+            if close_input2:
+                self.b.close()
+
+    def __nonzero__(self):
+        return self.identical
+
+    @properties
+    def identical(self):
+        return (self.num_extensions[0] == self.num_extensions[1] and
+                not self.left_only_keywords and
+                not self.right_only_keywords and
+                not self.left_only_duplicate_keywords and
+                not self.right_only_duplicate_keywords and
+                not self.different_keyword_values and
+                not self.different_keyword_comments)
+
+    def report(self, fileobj=None):
+        if fileobj is None:
+            fileobj = StringIO()
+
+        wrapper = textwrap.TextWrapper(initial_indent='  ',
+                                       subsequent_indent='  ')
+        # print out heading and parameter values
+        fileobj.write("\n fitsdiff: %s\n" % pyfits.__version__)
+        fileobj.write(" a: %s\n b: %s\n" % (self.a, self.b))
+        if self.ignore_keywords:
+            ignore_keywords = ' '.join(sorted(self.ignore_keywords))
+            fileobj.write(" Keyword(s) not to be compared:\n%s\n" %
+                          wrapper.fill(ignore_keywords))
+
+        if self.ignore_comments:
+            ignore_comments = ' '.join(sorted(self.ignore_comments))
+            fileobj.write(" Keyword(s) whose comments are not to be compared:"
+                          "\n%s\n" % wrapper.fill(ignore_keywords))
+        if self.ignore_fields:
+            ignore_fields = ' '.join(sorted(self.ignore_fields))
+            fileobj.write(" Table column(s) not to be compared:\n%s\n" %
+                          wrapper.fill(ignore_fields))
+        fileobj.write(" Maximum number of different pixels to be reported:\n"
+                      "%s\n" % self.numdiffs)
+        fileobj.write(" Data comparison level: %s\n" % self.threshold)
+
+        for idx in min(self.num_extensions):
+            self.report_hdu(idx, fileobj)
+
+        if isinstance(fileobj, StringIO):
+            return fileobj.getvalue()
+
+    def report_hdu(self, idx, fileobj=None):
+        if fileobj is None:
+            fileobj = StringIO()
 
         # print out the extension heading
-        if i == 0:
-            xtension = ''
-            print "\nPrimary HDU:"
+        if idx == 0:
+            fileobj.write("\nPrimary HDU:\n")
         else:
-            xtension = im1[i].header['XTENSION'].strip()
-            print "\n%s Extension %d HDU:" % (xtension, i)
+            xtensiona = self.a[idx].header['XTENSION']
+            xtensionb = self.b[idx].header['XTENSION']
+            if xtensiona.lower() != xtensionb.lower():
+                fileobj.write("\nExtension %d HDU:\n a: %s\n b: %s\n" %
+                              (idx, xtensiona, xtensionb))
+                fileobj.write(" Extension types differ.\n")
+            fileobj.write("\n%s Extension %d\n" % (xtensiona, idx))
 
+        if isinstance(fileobj, StringIO):
+            return fileobj.getvalue()
+
+    def _diff(self):
+        # TODO: Currently having a different number of HDUs is automatic
+        # grounds for failure; instead consider an option to compare just the
+        # first n HDUs (until one file or the other runs out of HDUs), or
+        # possibly also provide the ability to select specific HDUs to compare,
+        # rather than the whole file!
+
+        # compare numbers of extensions
+        self.num_extensions = (len(self.a), len(self.b))
+
+        # compare extension header and data
+        for hdua, hdub in zip(self.a, self.b):
+            self._diff_headers(hdua, hdub)
+            self._diff_data(hdua, hdub)
+
+    def _diff_headers(self, hdua, hdub):
         # build dictionaries of keyword values and comments
-        (dict_value1, dict_comment1) = keyword_dict(im1[i].header.ascard, neglect_blanks)
-        (dict_value2, dict_comment2) = keyword_dict(im2[i].header.ascard, neglect_blanks)
+        def get_header_values_comments(header):
+            values = {}
+            comments = {}
+            for card in header.cards:
+                value = card.value
+                if self.ignore_blanks and isinstance(value, basestring):
+                    value = value.rstrip()
+                values.setdefault(card.keyword, []).append(value)
+                comments.setdefault(card.keyword, []).append(card.comment)
 
-        # pick out the "extra" keywords
-        extra_keywords(dict_value1, dict_value2, fname)
+        valuesa, commentsa = get_header_values_comments(hdua.header)
+        valuesb, commentsb = get_header_values_comments(hdub.header)
 
-        # compare keywords' values and comments
-        if value_excl_list != ['*']:
-            compare_keyword_value(dict_value1, dict_value2, \
-                                    value_excl_list, fname, delta)
-        if comment_excl_list != ['*']:
-            compare_keyword_comment(dict_comment1, dict_comment2, \
-                                    comment_excl_list, fname)
+        keywordsa = set(valuesa)
+        keywordsb = set(valuesb)
 
-        # compare the data
+        self.common_keywords = sorted(keywordsa.intersect(keywordsb))
+        self.left_only_keywords = sorted(keywordsa.difference(keywordsb))
+        self.right_only_keywords = sorted(keywordsb.difference(keywordsa))
+
+        # Compare count of each common keyword
+        for keyword in self.common_keywords:
+            counta = len(valuesa[keyword])
+            countb = len(valuesb[keyword])
+            if counta != countb:
+                if counta < countb:
+                    extra_values = valuesb
+                    extra_comments = commentsb
+                    target = self.right_only_duplicate_keywords
+                else:
+                    extra_values = valuesa
+                    extra_comments = commentsb
+                    target = self.left_only_duplicate_keywords
+                _min = min(counta, countb)
+                target[keyword] = zip(extra_values[_min:],
+                                      extra_comments[_min:])
+
+            # Compare keywords' values and comments
+            if ('*' not in self.ignore_keywords and
+                keyword not in self.ignore_keywords):
+                dkv = self.different_keyword_values.setdefault(keyword, [])
+                for a, b in zip(valuesa[keyword], valuesb[keyword]):
+                if isinstance(a, float) and isinstance(b, float):
+                    delta = abs(a - b)
+                    if delta > self.threshold:
+                        dkv.append((a, b))
+                elif a != b:
+                    dkv.append((a, b))
+
+            if ('*' not in self.ignore_comments and
+                keyword not in self.ignore_comments):
+                dkc = self.different_keyword_comments.setdefault(keyword, [])
+                for a, b in zip(commentsa[keyword], commentsb[keyword]):
+                    dkc.append((a, b))
+
+    def _diff_data(self, hdua, hdub):
+        # Compare the data
         # First, get the dimensions of the data
-        dim = compare_dim(im1[i], im2[i])
-
-        _maxdiff = max(0, maxdiff)
-        if dim != None:
+        shapea = hdua.data.shape if hdua.data is not None else ()
+        shapeb = hdub.data.shape if hdub.data is not None else ()
+        self.data_dimensions.append((shapea, shapeb))
+        if self.data_dimensions[-1][0] != self.data_dimensions[-1][1]:
+            # No sense in comparing data with different dimensions
+            return
 
             # if the extension is tables
             if xtension in ('BINTABLE', 'TABLE'):
-                if field_excl_list != ['*']:
-                    compare_table(im1[i], im2[i], delta, _maxdiff, dim, xtension, field_excl_list)
+                self._diff_table()
             else:
                 compare_img(im1[i], im2[i], delta, _maxdiff, dim)
+
+    def _diff_table(self, tablea, tableb):
+        if self.ignore_fields == ['*']:
+            return
+        fieldsa = len(hdua.data.dtype.descr
+
+
+    def _diff_image(self, hdua, hdub):
+        pass
 
     # if there is no difference
     if nodiff:
@@ -97,121 +233,6 @@ def fitsdiff (input1, input2, comment_excl_list='', value_excl_list='', field_ex
     # reset sys.stdout back to default
     sys.stdout = sys.__stdout__
     return nodiff
-
-#-------------------------------------------------------------------------------
-def list_parse (name_list):
-
-    """ Parse a name list (a string list, not a Python list)
-
-    including the case when the list is in a text file, each string
-    value is in a different line
-
-    """
-
-    # list in a text file
-    if (len(name_list) > 0 and name_list[0] == '@'):
-        try:
-            fd = open(name_list[1:])
-            text = fd.read()
-            fd.close()
-            kw_list = (text.upper()).split()
-
-            # if the file only have blanks
-            if kw_list == []: kw_list = ['']
-            return kw_list
-        except IOError:
-            print "CAUTION: File %s does not exist, assume null list" % name_list[1:]
-            return([''])
-
-    else:
-        return (name_list.upper()).split(',')
-
-#-------------------------------------------------------------------------------
-def open_and_read (filename):
-    """Open and read in the whole FITS file"""
-    try:
-        im = pyfits.open(filename)
-    except IOError:
-        raise IOError, "\nCan't open or read file %s" % filename
-
-    return im
-
-#-------------------------------------------------------------------------------
-def keyword_dict(header, neglect_blanks=1):
-
-    """Build dictionaries of header keyword values and comments.
-    Each dictionary item's value list, so we can pick out keywords with
-    duplicate entries, including COMMENT and HISTORY, and if they are
-    out of order.
-
-    Input parameter, header, is a FITS HDU header.
-
-    Output is a 2-element tuple of dictionaries of keyword values and
-    keyword comments respectively.
-
-    """
-
-    dict_value = {}
-    dict_comment = {}
-
-    for key in header.keys():
-        keyword = key
-        value = header[key].value
-        try:
-            comment = header[key].comment
-        except:
-            comment = ''
-        # keep trailing blanks for a string value?
-        if type(value) == types.StringType and neglect_blanks:
-            value = value.rstrip()
-
-        # existing keyword
-        if dict_value.has_key(keyword):
-            dict_value[keyword].append(value)
-            dict_comment[keyword].append(comment)
-
-        # new keyword
-        else:
-            dict_value[keyword] = [value]
-            dict_comment[keyword] = [comment]
-
-    return (dict_value, dict_comment)
-
-#-------------------------------------------------------------------------------
-def extra_keywords (dict1, dict2, name):
-
-    """Pick out extra keywords between the two input dictionaries
-
-    each dictionary's value is a list, this routine also works if the same
-    keyword has different number of values in diffferent dictionary.
-
-    name is a 2-element tuple of files names corresponding to
-    dictionaries dict1 and dict2.
-
-    """
-
-    global nodiff
-
-    keys = dict1.keys()
-    keys.sort()
-
-    for kw in keys:
-        if kw not in dict2.keys():
-            nodiff = 0
-            print "  Extra keyword %-8s in %s" % (kw, name[0])
-        else:
-
-            # compare the number of occurrence
-            nval1 = len(dict1[kw])
-            nval2 = len(dict2[kw])
-            if nval1 != nval2:
-                nodiff = 0
-                print "  Inconsistent occurrence of keyword %-8s %s has %d, %s has %d" % (kw, name[0], nval1, name[1], nval2)
-
-    for kw in dict2.keys():
-        if kw not in dict1.keys():
-            nodiff = 0
-            print "  Extra keyword %-8s in %s" % (kw, name[1])
 
 #-------------------------------------------------------------------------------
 def row_parse (row, img):
@@ -318,7 +339,7 @@ def diff_obj (obj1, obj2, delta = 0):
 
     """
 
-    if type(obj1) == types.FloatType and type(obj2) == types.FloatType:
+    if isinstance(obj1, float) and isinstance(obj2, float):
         diff = abs(obj2-obj1)
         a = diff > abs(obj1*delta)
         b = diff > abs(obj2*delta)
@@ -337,8 +358,6 @@ def diff_num(num1, num2, delta=0):
     the number of differences found.
 
     """
-#    num1 = num.asarray(num1)
-#    num2 = num.asarray(num2)
     # if arrays are chararrays
     if isinstance (num1, char.chararray):
         delta = 0
@@ -347,9 +366,9 @@ def diff_num(num1, num2, delta=0):
     if delta == 0:
         diff = num1.__ne__(num2)        # diff is a boolean array
     else:
-        diff = num.absolute(num2-num1)/delta # diff is a float array
+        diff = np.absolute(num2-num1)/delta # diff is a float array
 
-    diff_indices = num.nonzero(diff)        # a tuple of (shorter) arrays
+    diff_indices = np.nonzero(diff)        # a tuple of (shorter) arrays
 
     # how many occurrences of difference
     n_nonzero = diff_indices[0].size
@@ -362,23 +381,23 @@ def diff_num(num1, num2, delta=0):
     # of all elements), use an algorithm which saves space.
     # Note: "compressed" arrays are 1-D only.
     elif n_nonzero < (diff.size)/3:
-        cram1 = num.compress(diff.__ne__(0.0).ravel(), num1)
-        cram2 = num.compress(diff.__ne__(0.0).ravel(), num2)
-        cram_diff = num.compress(diff.__ne__(0.0).ravel(), diff)
-        a = num.greater(cram_diff, num.absolute(cram1))
-        b = num.greater(cram_diff, num.absolute(cram2))
-        r = num.logical_or(a, b)
+        cram1 = np.compress(diff.__ne__(0.0).ravel(), num1)
+        cram2 = np.compress(diff.__ne__(0.0).ravel(), num2)
+        cram_diff = np.compress(diff.__ne__(0.0).ravel(), diff)
+        a = np.greater(cram_diff, np.absolute(cram1))
+        b = np.greater(cram_diff, np.absolute(cram2))
+        r = np.logical_or(a, b)
         list = []
         for i in range(len(diff_indices)):
-            list.append(num.compress(r, diff_indices[i]))
+            list.append(np.compress(r, diff_indices[i]))
         return tuple(list)
 
     # regular and more expensive way
     else:
-        a = num.greater(diff, num.absolute(num1))
-        b = num.greater(diff, num.absolute(num2))
-        r = num.logical_or(a, b)
-        return num.nonzero(r)
+        a = np.greater(diff, np.absolute(num1))
+        b = np.greater(diff, np.absolute(num2))
+        r = np.logical_or(a, b)
+        return np.nonzero(r)
 
 #-------------------------------------------------------------------------------
 def compare_dim (im1, im2):
@@ -462,10 +481,10 @@ def compare_table (img1, img2, delta, maxdiff, dim, xtension, field_excl_list):
         nprint = min(maxdiff, _ndiff)
         maxdiff -= _ndiff
         dim = len(found)
-        base1 = num.ones(dim)
+        base1 = np.ones(dim)
         if nprint > 0:
             print "    Data differ at column %d: " % (col+1)
-            index = num.zeros(dim)
+            index = np.zeros(dim)
 
             for p in range(nprint):
 
@@ -508,9 +527,9 @@ def compare_img (img1, img2, delta, maxdiff, dim):
     ndiff = found[0].shape[0]
     nprint = min(maxdiff, ndiff)
     dim = len(found)
-    base1 = num.ones(dim, dtype=num.int16)
+    base1 = np.ones(dim, dtype=np.int16)
     if nprint > 0:
-        index = num.zeros(dim, dtype=num.int16)
+        index = np.zeros(dim, dtype=np.int16)
 
         for p in range(nprint):
 

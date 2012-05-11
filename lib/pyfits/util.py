@@ -11,7 +11,7 @@ import warnings
 
 try:
     from io import StringIO
-except:
+except ImportError:
     try:
         from cStringIO import StringIO
     except ImportError:
