@@ -28,6 +28,11 @@ from pyfits.util import StringIO
 __all__ = ['FITSDiff', 'HDUDiff', 'HeaderDiff', 'ImageDataDiff', 'RawDataDiff',
            'TableDataDiff']
 
+# Column attributes of interest for comparison
+_COL_ATTRS = [('unit', 'units'), ('null', 'null values'), ('bscale', 'bscales'),
+              ('bzero', 'bzeros'), ('disp', 'display formats'),
+              ('dim', 'dimensions')]
+
 
 class _BaseDiff(object):
     """
@@ -590,9 +595,11 @@ class HeaderDiff(_BaseDiff):
             fileobj.write('   b: %d\n' % self.diff_keyword_count[1])
         if self.diff_keywords:
             for keyword in self.diff_keywords[0]:
-                fileobj.write('  Extra keyword %-8s in a\n' % keyword)
+                fileobj.write('  Extra keyword %-8s in a: %r\n' %
+                              (keyword, self.a[keyword]))
             for keyword in self.diff_keywords[1]:
-                fileobj.write('  Extra keyword %-8s in b\n' % keyword)
+                fileobj.write('  Extra keyword %-8s in b: %r\n' %
+                              (keyword, self.b[keyword]))
 
         if self.diff_duplicate_keywords:
             for keyword, count in sorted(self.diff_duplicate_keywords.items()):
@@ -849,6 +856,10 @@ class TableDataDiff(_BaseDiff):
         self.diff_column_count = ()
         self.diff_columns = ()
 
+        # If two columns have the same name+format, but other attributes are
+        # different (such as TUNIT or such) they are listed here
+        self.diff_column_attributes = []
+
         # Like self.diff_columns, but just contains a list of the column names
         # unique to each table, and in the order they appear in the tables
         self.diff_column_names = ()
@@ -870,8 +881,8 @@ class TableDataDiff(_BaseDiff):
 
         # Even if the number of columns are unequal, we still do comparison of
         # any common columns
-        colsa = set(colsa)
-        colsb = set(colsb)
+        colsa = dict((c.name.lower(), c) for c in colsa)
+        colsb = dict((c.name.lower(), c) for c in colsb)
 
         if '*' in self.ignore_fields:
             # If all columns are to be ignored, ignore any further differences
@@ -885,23 +896,24 @@ class TableDataDiff(_BaseDiff):
         # It might be nice if there were a cleaner way to do this, but for now
         # it'll do
         for fieldname in ignore_fields:
-            for col in list(colsa):
-                if col.name.lower() == fieldname:
-                    colsa.remove(col)
-            for col in list(colsb):
-                if col.name.lower() == fieldname:
-                    colsb.remove(col)
+            fieldname = fieldname.lower()
+            if fieldname in colsa:
+                del colsa[fieldname]
+            if fieldname in colsb:
+                del colsb[fieldname]
 
-        self.common_columns = sorted(colsa.intersection(colsb),
+        colsa_set = set(colsa.values())
+        colsb_set = set(colsb.values())
+        self.common_columns = sorted(colsa_set.intersection(colsb_set),
                                      key=lambda c: c.name)
 
         self.common_column_names = set([col.name.lower()
                                         for col in self.common_columns])
 
         left_only_columns = dict((col.name.lower(), col)
-                                 for col in colsa.difference(colsb))
+                                 for col in colsa_set.difference(colsb_set))
         right_only_columns = dict((col.name.lower(), col)
-                                  for col in colsb.difference(colsa))
+                                  for col in colsb_set.difference(colsa_set))
 
         if left_only_columns or right_only_columns:
             self.diff_columns = (left_only_columns, right_only_columns)
@@ -929,20 +941,33 @@ class TableDataDiff(_BaseDiff):
         # just assumes that there are no duplicated column names in either
         # table, and that the column names can be treated case-insensitively.
         for col in self.common_columns:
-            if col.name.lower() in ignore_fields:
+            name_lower = col.name.lower()
+            if name_lower in ignore_fields:
                 continue
-            cola = self.a[col.name]
-            colb = self.b[col.name]
-            if (np.issubdtype(cola.dtype, float) and
-                np.issubdtype(colb.dtype, float)):
-                diffs = where_not_allclose(cola, colb, atol=0.0,
+
+            cola = colsa[name_lower]
+            colb = colsb[name_lower]
+
+            for attr, _ in _COL_ATTRS:
+                vala = getattr(cola, attr, None)
+                valb = getattr(colb, attr, None)
+                if diff_values(vala, valb):
+                    self.diff_column_attributes.append(
+                        ((col.name.upper(), attr), (vala, valb)))
+
+            arra = self.a[col.name]
+            arrb = self.b[col.name]
+
+            if (np.issubdtype(arra.dtype, float) and
+                np.issubdtype(arrb.dtype, float)):
+                diffs = where_not_allclose(arra, arrb, atol=0.0,
                                            rtol=self.tolerance)
             elif 'P' in col.format:
-                diffs = ([idx for idx in xrange(len(cola))
-                          if not np.allclose(cola[idx], colb[idx], atol=0.0,
+                diffs = ([idx for idx in xrange(len(arra))
+                          if not np.allclose(arra[idx], arrb[idx], atol=0.0,
                                              rtol=self.tolerance)],)
             else:
-                diffs = np.where(cola != colb)
+                diffs = np.where(arra != arrb)
 
             self.diff_total += len(set(diffs[0]))
 
@@ -965,7 +990,7 @@ class TableDataDiff(_BaseDiff):
                     continue
                 last_seen_idx = idx
                 self.diff_values.append(((col.name, idx),
-                                         (cola[idx], colb[idx])))
+                                         (arra[idx], arrb[idx])))
 
         total_values = len(self.a) * len(self.a.dtype.fields)
         self.diff_ratio = float(self.diff_total) / float(total_values)
@@ -987,29 +1012,14 @@ class TableDataDiff(_BaseDiff):
                 fileobj.write('  Extra column %s of format %s in b\n' %
                               (name, format))
 
-            # Now go through each table again and show columns with common
-            # names but other property differences...
-            # Column attributes of interest for comparison
-            colattrs = [('format', 'formats'), ('unit', 'units'),
-                        ('null', 'null values'), ('bscale', 'bscales'),
-                        ('bzero', 'bzeros'), ('disp', 'display formats'),
-                        ('dim', 'dimensions')]
-            for name in self.diff_column_names[0]:
-                name = name.lower()
-                if name not in self.common_column_names:
-                    # A column with this name appears in both tables, but is
-                    # otherwise somehow different...
-                    continue
-                cola = self.diff_column_names[0][name]
-                colb = self.diff_column_names[1][name]
-                for attr, descr in colattrs:
-                    vala = getattr(cola, attr)
-                    valb = getattr(colb, attr)
-                    if vala == valb:
-                        continue
-                    fileobj.write('  Column %s has different %s:\n' %
-                                  (cola.name, descr))
-                    report_diff_values(fileobj, vala, valb)
+        col_attrs = dict(_COL_ATTRS)
+        # Now go through each table again and show columns with common
+        # names but other property differences...
+        for col_attr, vals in self.diff_column_attributes:
+            name, attr = col_attr
+            fileobj.write('  Column %s has different %s:\n' %
+                          (name, col_attrs[attr]))
+            report_diff_values(fileobj, *vals)
 
         if not self.diff_values:
             return
@@ -1050,6 +1060,11 @@ def report_diff_values(fileobj, a, b):
 
     if isinstance(b, float):
         b = repr(b)
+
+    if isinstance(a, np.ndarray) and isinstance(b, np.ndarray):
+        diff_indices = np.where(a != b)
+        a = a[diff_indices[0][0]:]
+        b = b[diff_indices[0][0]:]
 
     for line in difflib.ndiff(str(a).splitlines(), str(b).splitlines()):
         if line[0] == '-':
