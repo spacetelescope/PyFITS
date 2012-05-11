@@ -54,6 +54,9 @@ class FitsDiff(object):
 
         # Table comparison attributes
         self.num_columns = []
+        self.different_column_indexes = []
+        self.different_column_types = []
+        self.different_cell_values = []
 
         try:
             self._diff()
@@ -140,8 +143,11 @@ class FitsDiff(object):
         # compare extension header and data
         for hdua, hdub in zip(self.a, self.b):
             self._diff_headers(hdua, hdub)
-            #self._diff_data(hdua, hdub)
+            self._diff_data(hdua, hdub)
 
+    # TODO: This doesn't pay much attention to the *order* of the keywords,
+    # except in the case of duplicate keywords.  The order should be checked
+    # too, or at least it should be an option.
     def _diff_headers(self, hdua, hdub):
         # build dictionaries of keyword values and comments
         def get_header_values_comments(header):
@@ -232,18 +238,30 @@ class FitsDiff(object):
         self.data_dimensions.append((shapea, shapeb))
         if self.data_dimensions[-1][0] != self.data_dimensions[-1][1]:
             # No sense in comparing data with different dimensions
+            # TODO: We could, however, try comparing the intersection between
+            # the two arrays so long as they have the same number of dimensions
             return
 
             # if the extension is tables
-            if xtension in ('BINTABLE', 'TABLE'):
-                self._diff_table()
+            if (hdua.data.dtype.fields is not None and
+                hdub.data.dtype.fields is not None):
+                self._diff_table(hdua.data, hdub.data)
+            elif (hdu.data.dtype.fields is None and
+                  hdub.data.dtype.fields is None):
+                self._diff_image(hdua.data, hdub.data)
             else:
-                compare_img(im1[i], im2[i], delta, _maxdiff, dim)
+                # TODO: Figure out what to do here....
+                # Perhaps we could coerce a table into a normal array or
+                # vice-versa; though it might be safer to just register that
+                # the data are fundamentally different and no further
+                # comparison is possible
+                pass
 
     def _diff_table(self, tablea, tableb):
+        self.num_columns.append((len(tablea.dtype.fields),
+                                 len(tableb.dtype.fields)))
         if self.ignore_fields == ['*']:
             return
-        fieldsa = len(hdua.data.dtype.descr)
 
 
     def _diff_image(self, hdua, hdub):
