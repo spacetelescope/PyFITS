@@ -78,12 +78,15 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.right_only_duplicate_keywords,
                      [{'B': [(4, 'comment 3')], 'C': [(5, 'comment 4')]}])
 
-    def test_floating_point_threshold(self):
+    def test_floating_point_tolerance(self):
         ha = Header([('A', 1), ('B', 2.00001), ('C', 3.000001)])
         hb = ha.copy()
         hb['B'] = 2.00002
         hb['C'] = 3.000002
-        diff = self._diff_from_headers(ha, hb, threshold=1e-5)
+        diff = self._diff_from_headers(ha, hb)
+        assert_equal(diff.different_keyword_values,
+                [{'B': [(2.00001, 2.00002)], 'C': [(3.000001, 3.000002)]}])
+        diff = self._diff_from_headers(ha, hb, tolerance=1e-6)
         assert_equal(diff.different_keyword_values,
                      [{'B': [(2.00001, 2.00002)]}])
 

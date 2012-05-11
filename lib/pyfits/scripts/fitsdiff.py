@@ -91,12 +91,12 @@ def handle_options(argv=None):
              'to report per extension (default %default).')
 
     parser.add_option(
-        '-d', '--difference-threshold', type='float', default=0.,
+        '-d', '--difference-tolerance', type='float', default=0.,
         metavar='NUMBER',
-        help='The threshold for comparison of two numbers, specifically two '
-             'floating point numbers.  This applies to data in both images '
-             'and tables, and to floating point keyword values in headers '
-             '(default %default).')
+        help='The relative tolerance for comparison of two numbers, '
+             'specifically two floating point numbers.  This applies to data '
+             'in both images and tables, and to floating point keyword values '
+             'in headers (default %default).')
 
     parser.add_option(
         '-b', '--no-ignore-blanks', action='store_false', dest='ignore_blanks',

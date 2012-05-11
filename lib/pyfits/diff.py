@@ -12,7 +12,7 @@ from pyfits.util import StringIO
 
 class FitsDiff(object):
     def __init__(self, input1, input2, ignore_keywords=[], ignore_comments=[],
-                 ignore_fields=[], numdiffs=10, threshold=0.,
+                 ignore_fields=[], numdiffs=10, tolerance=0.0,
                  ignore_blanks=True):
 
         if isinstance(input1, basestring):
@@ -33,7 +33,7 @@ class FitsDiff(object):
         self.ignore_comments = set(ignore_comments)
         self.ignore_fields = set(ignore_fields)
         self.numdiffs = numdiffs
-        self.threshold = threshold
+        self.tolerance = tolerance
         self.ignore_blanks = ignore_blanks
 
         # General comparison attributes
@@ -192,8 +192,7 @@ class FitsDiff(object):
                 keyword not in self.ignore_keywords):
                 for a, b in zip(valuesa[keyword], valuesb[keyword]):
                     if isinstance(a, float) and isinstance(b, float):
-                        delta = abs(a - b)
-                        if delta > self.threshold:
+                        if not np.allclose(a, b, self.tolerance, 0.0):
                             different_keyword_values[keyword].append((a, b))
                     elif a != b:
                         different_keyword_values[keyword].append((a, b))
