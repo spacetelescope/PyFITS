@@ -1,46 +1,47 @@
-.. currentmodule:: pyfits.core
+*******
+Differs
+*******
 
-******************************
-:mod:`pyfits.diff` --- Differs
-******************************
+.. automodule:: pyfits.diff
+.. currentmodule:: pyfits
 
-`FITSDiff`
-==========
+:class:`FITSDiff`
+=================
 .. autoclass:: FITSDiff
    :members:
    :inherited-members:
    :show-inheritance:
 
-`HDUDiff`
-=========
+:class:`HDUDiff`
+================
 .. autoclass:: HDUDiff
    :members:
    :inherited-members:
    :show-inheritance:
 
-`HeaderDiff`
-============
+:class:`HeaderDiff`
+===================
 .. autoclass:: HeaderDiff
    :members:
    :inherited-members:
    :show-inheritance:
 
-`ImageDataDiff`
-===============
+:class:`ImageDataDiff`
+======================
 .. autoclass:: ImageDataDiff
    :members:
    :inherited-members:
    :show-inheritance:
 
-`RawDataDiff`
-=============
+:class:`RawDataDiff`
+====================
 .. autoclass:: RawDataDiff
    :members:
    :inherited-members:
    :show-inheritance:
 
-`TableDataDiff`
-===============
+:class:`TableDataDiff`
+======================
 .. autoclass:: TableDataDiff
    :members:
    :inherited-members:

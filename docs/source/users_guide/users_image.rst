@@ -123,12 +123,14 @@ examples:
 
 The first example above shows how to store an unsigned short integer array.
 
-Great caution must be exercised when using the ``scale()`` method. The
-``.data`` attribute of an image HDU, after the ``scale()`` call, will become
-the storage values, not the physical values. So, only call ``scale()`` just
-before writing out to FITS files, i.e. calls of ``writeto()``, ``flush()``, or
-``close()``. No further use of the data should be exercised. Here is an example
-of what happens to the ``.data`` attribute after the ``scale()`` call:
+Great caution must be exercised when using the :meth:`~ImageHDU.scale` method.
+The :attr:`~ImageHDU.data` attribute of an image HDU, after the
+:meth:`~ImageHDU.scale` call, will become the storage values, not the physical
+values. So, only call :meth:`~ImageHDU.scale` just before writing out to FITS
+files, i.e. calls of :meth:`~HDUList.writeto`, :meth:`~HDUList.flush`, or
+:meth:`~HDUList.close`. No further use of the data should be exercised. Here is
+an example of what happens to the :attr:`~ImageHDU.data` attribute after the
+:meth:`~ImageHDU.scale` call:
 
     >>> hdu = pyfits.PrimaryHDU(numpy.array([0., 1, 2, 3]))
     >>> print hdu.data
@@ -177,9 +179,10 @@ Here is an example of getting the median image from 3 input images of the size
     ... # use scipy.stsci.image's median function
     ... output[j:k] = image.median([x1, x2, x3])
 
-Data in each ``.section`` does not need to be contiguous for memory savings to
-be possible.  PyFITS will do its best to join together discontiguous sections
-of the array while reading as little as possible into memory.
+Data in each :attr:`~ImageHDU.section` does not need to be contiguous for
+memory savings to be possible.  PyFITS will do its best to join together
+discontiguous sections of the array while reading as little as possible into
+memory.
 
 Sections cannot be assigned to.  Any modifications made to a data section are
 not saved back to the original file.

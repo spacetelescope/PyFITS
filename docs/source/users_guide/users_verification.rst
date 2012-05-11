@@ -1,4 +1,4 @@
-.. currentmodule:: pyfits.core
+.. currentmodule:: pyfits
 
 ************
 Verification
@@ -41,9 +41,9 @@ levels. Here are the 3 PyFITS verification levels:
 3. Each Card in the HDU Header
 
 These three levels correspond to the three categories of PyFITS objects:
-`HDUList`, any HDU (e.g. `PrimaryHDU`, `ImageHDU`, etc.), and `Card`. They are
-the only objects having the ``verify()`` method. Most other classes in PyFITS
-do not have a ``verify()`` method.
+:class:`HDUList`, any HDU (e.g. :class:`PrimaryHDU`, :class:`ImageHDU`, etc.),
+and :class:`Card`. They are the only objects having the ``verify()`` method.
+Most other classes in PyFITS do not have a ``verify()`` method.
 
 If ``verify()`` is called at the HDU List level, it verifies standard
 compliance at all three levels, but a call of ``verify()`` at the Card level
