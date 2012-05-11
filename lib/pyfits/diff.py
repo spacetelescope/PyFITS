@@ -10,6 +10,7 @@ from numpy import char
 import pyfits
 from pyfits.header import Header
 from pyfits.hdu.hdulist import fitsopen
+from pyfits.hdu.table import _TableLikeHDU
 from pyfits.util import StringIO
 
 
@@ -27,7 +28,21 @@ class _GenericDiff(object):
         return not any(getattr(self, attr) for attr in self.__dict__
                        if attr.startswith('diff_'))
 
+    def report(self, fileobj=None):
+        return_string = False
+        if fileobj is None:
+            fileobj = StringIO()
+            return_string = True
+
+        self._report(fileobj)
+
+        if return_string:
+            return fileobj.getvalue()
+
     def _diff(self):
+        raise NotImplementedError
+
+    def _report(self, fileobj):
         raise NotImplementedError
 
 
@@ -66,15 +81,34 @@ class FITSDiff(_GenericDiff):
             if close_b:
                 b.close()
 
-    def report(self, fileobj=None):
-        if fileobj is None:
-            fileobj = StringIO()
+    def _diff(self):
+        if len(self.a) != len(self.b):
+            self.diff_extension_count = (len(self.a), len(self.b))
 
+        # For now, just compare the extensions one by one in order...might
+        # allow some more sophisticated types of diffing later...
+        for idx in range(min(len(self.a), len(self.b))):
+            hdu_diff = HDUDiff(self.a[idx], self.b[idx])
+            if not hdu_diff.identical:
+                self.diff_extensions.append((idx, hdu_diff))
+
+    def _report(self, fileobj):
         wrapper = textwrap.TextWrapper(initial_indent='  ',
                                        subsequent_indent='  ')
+
         # print out heading and parameter values
+        filenamea = self.a.filename()
+        if not filenamea:
+            filenamea = '<%s object at 0x%x>' % (self.a.__class__.__name__,
+                                                 id(self.a))
+
+        filenameb = self.b.filename()
+        if not filenameb:
+            filenameb = '<%s object at 0x%x>' % (self.b.__class__.__name__,
+                                                 id(self.b))
+
         fileobj.write("\n fitsdiff: %s\n" % pyfits.__version__)
-        fileobj.write(" a: %s\n b: %s\n" % (self.a, self.b))
+        fileobj.write(" a: %s\n b: %s\n" % (filenamea, filenameb))
         if self.ignore_keywords:
             ignore_keywords = ' '.join(sorted(self.ignore_keywords))
             fileobj.write(" Keyword(s) not to be compared:\n%s\n" %
@@ -88,9 +122,9 @@ class FITSDiff(_GenericDiff):
             ignore_fields = ' '.join(sorted(self.ignore_fields))
             fileobj.write(" Table column(s) not to be compared:\n%s\n" %
                           wrapper.fill(ignore_fields))
-        fileobj.write(" Maximum number of different pixels to be reported:\n"
-                      "%s\n" % self.numdiffs)
-        fileobj.write(" Data comparison level: %s\n" % self.threshold)
+        fileobj.write(" Maximum number of different data values to be "
+                      "reported: %s\n" % self.numdiffs)
+        fileobj.write(" Data comparison level: %s\n" % self.tolerance)
 
         for idx, hdu_diff in self.diff_extensions:
             # print out the extension heading
@@ -98,21 +132,7 @@ class FITSDiff(_GenericDiff):
                 fileobj.write("\nPrimary HDU:\n")
             else:
                 fileobj.write("\nExtension HDU %d:\n" % idx)
-            hdu_diff.report(fileobj)
-
-        if isinstance(fileobj, StringIO):
-            return fileobj.getvalue()
-
-    def _diff(self):
-        if len(self.a) != len(self.b):
-            self.diff_extension_count = (len(self.a), len(self.b))
-
-        # For now, just compare the extensions one by one in order...might
-        # allow some more sophisticated types of diffing later...
-        for idx in range(min(len(self.a), len(self.b))):
-            hdu_diff = HDUDiff(self.a[idx], self.b[idx])
-            if not hdu_diff.identical:
-                self.diff_extensions.append((idx, hdu_diff))
+            hdu_diff._report(fileobj)
 
 
 class HDUDiff(_GenericDiff):
@@ -133,17 +153,6 @@ class HDUDiff(_GenericDiff):
         self.diff_data = None
 
         super(HDUDiff, self).__init__(a, b)
-
-    def report(self, fileobj=None):
-        if fileobj is None:
-            fileobj = StringIO()
-
-        if self.diff_extension_types:
-            fileobj.write("Extension types differ:\n a: %s\n b: %s\n" %
-                          self.diff_extension_types)
-
-        if isinstance(fileobj, StringIO):
-            return fileobj.getvalue()
 
     def _diff(self):
         if self.a.name != self.b.name:
@@ -175,6 +184,27 @@ class HDUDiff(_GenericDiff):
             # Don't diff the data for unequal extension types that are not
             # recognized image or table types
             self.diff_data = RawDataDiff(self.a.data, self.b.data)
+
+    def _report(self, fileobj):
+        if self.identical:
+            fileobj.write(" No differences found.\n")
+        if self.diff_extension_types:
+            fileobj.write(" Extension types differ:\n  a: %s\n  b: %s\n" %
+                          self.diff_extension_types)
+        if self.diff_extnames:
+            fileobj.write(" Extension names differ:\n  a: %s\n  b: %s\n" %
+                          self.diff_extnames)
+        if self.diff_extvers:
+            fileobj.write(" Extension versions differ:\n  a: %s\n  b: %s\n" %
+                          self.diff_extvers)
+
+        if not self.diff_headers.identical:
+            fileobj.write("\n Headers contain differences:\n")
+            self.diff_headers._report(fileobj)
+
+        if self.diff_data is not None and not self.diff_data.identical:
+            fileobj.write("\n Data contains differences:\n")
+            self.diff_data._report(fileobj)
 
 
 class HeaderDiff(_GenericDiff):
@@ -299,6 +329,12 @@ class HeaderDiff(_GenericDiff):
             if not any(self.diff_keyword_comments[keyword]):
                 del self.diff_keyword_comments[keyword]
 
+    def _report(self, fileobj):
+        if self.diff_keywords:
+            for keyword in self.diff_keywords[0]:
+                fileobj.write('  Extra keyword %-8s in a\n' % keyword)
+            for keyword in self.diff_keywords[1]:
+                fileobj.write('  Extra keyword %-8s in b\n' % keyword)
 
 # TODO: It might be good if there was also a threshold option for percentage of
 # different pixels: For example ignore if only 1% of the pixels are different
@@ -377,6 +413,9 @@ class TableDataDiff(_GenericDiff):
         self.diff_columns = ()
         self.diff_values = []
 
+        self.diff_ratio = 0
+        self.total_diffs = 0
+
         super(TableDataDiff, self).__init__(a, b)
 
     def _diff(self):
@@ -453,6 +492,9 @@ class TableDataDiff(_GenericDiff):
 
         total_values = len(self.a) * len(self.a.dtype.fields)
         self.diff_ratio = float(self.total_diffs) / float(total_values)
+
+    def _report(self, fileobj):
+        pass
 
 
 def diff_values(a, b, tolerance=0.0):

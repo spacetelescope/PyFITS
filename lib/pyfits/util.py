@@ -10,12 +10,12 @@ import threading
 import warnings
 
 try:
-    from io import StringIO
-except ImportError:
     try:
         from cStringIO import StringIO
     except ImportError:
         from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 try:
     from io import BytesIO

@@ -227,7 +227,7 @@ def main():
     for a, b in files:
         # TODO: pass in any additonal arguments here too
         diff = pyfits.diff.FITSDiff(a, b)
-        diff.report()
+        diff.report(fileobj=sys.stderr)
         identical.append(diff.identical)
 
     return int(not all(identical))
