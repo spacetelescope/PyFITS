@@ -25,6 +25,10 @@ from pyfits.hdu.table import _TableLikeHDU
 from pyfits.util import StringIO
 
 
+__all__ = ['FITSDiff', 'HDUDiff', 'HeaderDiff', 'ImageDataDiff', 'RawDataDiff',
+           'TableDataDiff']
+
+
 class _BaseDiff(object):
     """
     Base class for all FITS diff objects.
@@ -301,9 +305,7 @@ class HDUDiff(_BaseDiff):
                  ignore_fields=[], numdiffs=10, tolerance=0.0,
                  ignore_blanks=True):
         """
-        Parameters
-        ----------
-        See `FITSDiff` for explanations of these parameters.
+        See `FITSDiff` for explanations of the initialization parameters.
         """
 
         self.ignore_keywords = set(ignore_keywords)
@@ -426,9 +428,7 @@ class HeaderDiff(_BaseDiff):
     def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
                  tolerance=0.0, ignore_blanks=True):
         """
-        Parameters
-        ----------
-        See `FITSDiff` for explanations of these parameters.
+        See `FITSDiff` for explanations of the initialization parameters.
         """
 
         self.ignore_keywords = set(ignore_keywords)
@@ -646,9 +646,7 @@ class ImageDataDiff(_BaseDiff):
 
     def __init__(self, a, b, numdiffs=10, tolerance=0.0):
         """
-        Parameters
-        ----------
-        See `FITSDiff` for explanations of these parameters.
+        See `FITSDiff` for explanations of the initialization parameters.
         """
 
         self.numdiffs = numdiffs
@@ -728,11 +726,31 @@ class ImageDataDiff(_BaseDiff):
 
 class RawDataDiff(ImageDataDiff):
     """
-    RawDataDiff is just a special case of ImageDataDiff where the images are
-    one-dimensional, and the data is treated as bytes instead of pixel values.
+    `RawDataDiff` is just a special case of `ImageDataDiff` where the images
+    are one-dimensional, and the data is treated as a 1-dimensional array of
+    bytes instead of pixel values.  This is used to compare the data of two
+    non-standard extension HDUs that were not recognized as containing image or
+    table data.
+
+    `ImageDataDiff` objects have the following diff attributes:
+
+    - `diff_dimensions`: Same as the `diff_dimensions` attribute of
+      `ImageDataDiff` objects. Though the "dimension" of each array is just an
+      integer representing the number of bytes in the data.
+
+    - `diff_bytes`: Like the `diff_pixels` attribute of `ImageDataDiff`
+      objects, but renamed to reflect the minor semantic difference that these
+      are raw bytes and not pixel values.  Also the indices are integers
+      instead of tuples.
+
+    - `diff_total` and `diff_ratio`: Same as `ImageDataDiff`.
     """
 
     def __init__(self, a, b, numdiffs=10):
+        """
+        See `FITSDiff` for explanations of the initialization parameters.
+        """
+
         self.diff_dimensions = ()
         self.diff_bytes = []
 
@@ -770,7 +788,54 @@ class RawDataDiff(ImageDataDiff):
                       (self.diff_total, self.diff_ratio * 100))
 
 class TableDataDiff(_BaseDiff):
+    """
+    Diff two table data arrays. It doesn't matter whether the data originally
+    came from a binary or ASCII table--the data should be passed in as a
+    recarray.
+
+    `TableDataDiff` objects have the following diff attributes:
+
+    - `diff_column_count`: If the tables being compared have different numbers
+      of columns, this contains a 2-tuple of the column count in each table.
+      Even if the tables have different column counts, an attempt is still made
+      to compare any columns they have in common.
+
+    - `diff_columns`: If either table contains columns unique to that table,
+      either in name or any other attributes (such as data format), this
+      contains a 2-tuple of lists. The first element is a list of columns
+      (these are full `Column` objects) that appear only in table a.  The
+      second element is a list of tables that appear only in table b.  This
+      only lists columns with different column definitions, and has nothing to
+      do with the data in those columns.
+
+    - `diff_column_names`: This is like `diff_columns`, but lists only the
+      names of columns unique to either table, rather than the full `Column`
+      objects.
+
+    - `diff_values`: `TableDataDiff` compares the data in each table on a
+      column-by-column basis.  If any different data is found, it is added to
+      this list.  The format of this list is similar to the `diff_pixels`
+      attribute on `ImageDataDiff` objects, though the "index" consists of a
+      (column_name, row) tuple.  For example::
+
+          [('TARGET', 0), ('NGC1001', 'NGC1002')]
+
+      shows that the tables contain different values in the 0-th row of the
+      'TARGET' column.
+
+    - `diff_total` and `diff_ratio`: Same as `ImageDataDiff`.
+
+    `TableDataDiff` objects also have a `common_columns` attribute that lists
+    the `Column` objects for columns that are identical in both tables, and a
+    `common_column_names` attribute which contains a set of the names of those
+    columns.
+    """
+
     def __init__(self, a, b, ignore_fields=[], numdiffs=10, tolerance=0.0):
+        """
+        See `FITSDiff` for explanations of the initialization parameters.
+        """
+
         self.ignore_fields = set(ignore_fields)
         self.numdiffs = numdiffs
         self.tolerance = tolerance
