@@ -5,7 +5,7 @@ import os
 import textwrap
 
 from collections import defaultdict
-from itertools import islice, izip
+from itertools import islice, izip, ifilter
 
 import numpy as np
 from numpy import char
@@ -533,6 +533,9 @@ class TableDataDiff(_GenericDiff):
         self.common_columns = []
         self.common_column_names = set()
 
+        # self.diff_columns contains columns with different column definitions,
+        # but not different column data. Column data is only compared in
+        # columns that have the same definitions
         self.diff_column_count = ()
         self.diff_columns = ()
 
@@ -625,11 +628,12 @@ class TableDataDiff(_GenericDiff):
                                            rtol=self.tolerance)
             elif 'P' in col.format:
                 diffs = ([idx for idx in xrange(len(cola))
-                          if not (cola[idx] == colb[idx]).all()],)
+                          if not np.allclose(cola[idx], colb[idx], atol=0.0,
+                                             rtol=self.tolerance)],)
             else:
                 diffs = np.where(cola != colb)
 
-            self.total_diffs += len(diffs[0])
+            self.total_diffs += len(set(diffs[0]))
 
             if len(self.diff_values) >= self.numdiffs:
                 # Don't save any more diff values
@@ -638,10 +642,12 @@ class TableDataDiff(_GenericDiff):
             # Add no more diff'd values than this
             max_diffs = self.numdiffs - len(self.diff_values)
 
-            self.diff_values += [
-                ((col.name.lower(), idx), (cola[idx], colb[idx]))
-                for idx in islice(diffs[0], 0, max_diffs)
-            ]
+            seen_idx = set()
+            for idx in islice(ifilter(lambda x: x not in seen_idx, diffs[0]),
+                              0, max_diffs):
+                seen_idx.add(idx)
+                self.diff_values.append(((col.name, idx),
+                                         (cola[idx], colb[idx])))
 
         total_values = len(self.a) * len(self.a.dtype.fields)
         self.diff_ratio = float(self.total_diffs) / float(total_values)

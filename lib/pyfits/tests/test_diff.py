@@ -230,6 +230,11 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.total_diffs, 0)
 
     def test_different_table_field_counts(self):
+        """
+        Test tables with some common columns, but different number of columns
+        overall.
+        """
+
         ca = Column('A', format='L', array=[True, False])
         cb = Column('B', format='L', array=[True, False])
         cc = Column('C', format='L', array=[True, False])
@@ -246,6 +251,66 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.diff_column_names, ([], ['A', 'C']))
         assert_equal(diff.diff_ratio, 0)
         assert_equal(diff.total_diffs, 0)
+
+    def test_different_table_data(self):
+        """
+        Test diffing table data on columns of several different data formats
+        and dimensions.
+        """
+
+        ca1 = Column('A', format='L', array=[True, False])
+        ca2 = Column('B', format='X', array=[[0], [1]])
+        ca3 = Column('C', format='4I', dim='(2, 2)',
+                     array=[[0, 1, 2, 3], [4, 5, 6, 7]])
+        ca4 = Column('D', format='J', bscale=2.0, array=[0.0, 2.0])
+        ca5 = Column('E', format='A3', array=['abc', 'def'])
+        ca6 = Column('F', format='E', unit='m', array=[0.0, 1.0])
+        ca7 = Column('G', format='D', bzero=-0.1, array=[0.0, 1.0])
+        ca8 = Column('H', format='C', array=[0.0+1.0j, 2.0+3.0j])
+        ca9 = Column('I', format='M', array=[4.0+5.0j, 6.0+7.0j])
+        ca10 = Column('J', format='PI(2)', array=[[0, 1], [2, 3]])
+
+        cb1 = Column('A', format='L', array=[False, False])
+        cb2 = Column('B', format='X', array=[[0], [0]])
+        cb3 = Column('C', format='4I', dim='(2, 2)',
+                     array=[[0, 1, 2, 3], [5, 6, 7, 8]])
+        cb4 = Column('D', format='J', bscale=2.0, array=[2.0, 2.0])
+        cb5 = Column('E', format='A3', array=['abc', 'ghi'])
+        cb6 = Column('F', format='E', unit='m', array=[1.0, 2.0])
+        cb7 = Column('G', format='D', bzero=-0.1, array=[2.0, 3.0])
+        cb8 = Column('H', format='C', array=[1.0+1.0j, 2.0+3.0j])
+        cb9 = Column('I', format='M', array=[5.0+5.0j, 6.0+7.0j])
+        cb10 = Column('J', format='PI(2)', array=[[1, 2], [3, 4]])
+
+        ta = new_table([ca1, ca2, ca3, ca4, ca5, ca6, ca7, ca8, ca9, ca10])
+        tb = new_table([cb1, cb2, cb3, cb4, cb5, cb6, cb7, cb8, cb9, cb10])
+
+        diff = TableDataDiff(ta.data, tb.data, numdiffs=20)
+        assert_false(diff.identical)
+        # The column definitions are the same, but not the column values
+        assert_equal(diff.diff_columns, ())
+        assert_equal(diff.diff_values[0], (('A', 0), (True, False)))
+        assert_equal(diff.diff_values[1], (('B', 1), ([1], [0])))
+        assert_equal(diff.diff_values[2][0], ('C', 1))
+        assert_true((diff.diff_values[2][1][0] == [[4, 5], [6, 7]]).all())
+        assert_true((diff.diff_values[2][1][1] == [[5, 6], [7, 8]]).all())
+        assert_equal(diff.diff_values[3], (('D', 0), (0, 2.0)))
+        assert_equal(diff.diff_values[4], (('E', 1), ('def', 'ghi')))
+        assert_equal(diff.diff_values[5], (('F', 0), (0.0, 1.0)))
+        assert_equal(diff.diff_values[6], (('F', 1), (1.0, 2.0)))
+        assert_equal(diff.diff_values[7], (('G', 0), (0.0, 2.0)))
+        assert_equal(diff.diff_values[8], (('G', 1), (1.0, 3.0)))
+        assert_equal(diff.diff_values[9], (('H', 0), (0.0+1.0j, 1.0+1.0j)))
+        assert_equal(diff.diff_values[10], (('I', 0), (4.0+5.0j, 5.0+5.0j)))
+        assert_equal(diff.diff_values[11][0], ('J', 0))
+        assert_true((diff.diff_values[11][1][0] == [0, 1]).all())
+        assert_true((diff.diff_values[11][1][1] == [1, 2]).all())
+        assert_equal(diff.diff_values[12][0], ('J', 1))
+        assert_true((diff.diff_values[12][1][0] == [2, 3]).all())
+        assert_true((diff.diff_values[12][1][1] == [3, 4]).all())
+
+        assert_equal(diff.total_diffs, 13)
+        assert_equal(diff.diff_ratio, 0.65)
 
     def test_identical_files_basic(self):
         """Test identicality of two simple, extensionless files."""
