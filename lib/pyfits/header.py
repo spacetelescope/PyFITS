@@ -69,7 +69,7 @@ class Header(object):
 
         Parameters
         ----------
-        cards : A list of `Card` objects, (optional)
+        cards : A list of `Card` objects (optional)
             The cards to initialize the header with.
 
         txtfile : file path, file object or file-like object (optional)

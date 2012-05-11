@@ -348,7 +348,7 @@ class ColDefs(object):
         input :
             An existing table HDU, an existing ColDefs, or recarray
 
-        **(Deprecated)** tbtype : str, optional
+        **(Deprecated)** tbtype : str (optional)
             which table HDU, ``"BinTableHDU"`` (default) or
             ``"TableHDU"`` (text table).
             Now ColDefs for a normal (binary) table by default, but converted

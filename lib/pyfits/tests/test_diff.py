@@ -136,14 +136,14 @@ class TestDiff(PyfitsTestCase):
         ib = np.arange(100).reshape((10, 10))
         diff = ImageDataDiff(ia, ib)
         assert_true(diff.identical)
-        assert_equal(diff.total_diffs, 0)
+        assert_equal(diff.diff_total, 0)
 
     def test_identical_within_tolerance(self):
         ia = np.ones((10, 10)) - 0.00001
         ib = np.ones((10, 10)) - 0.00002
         diff = ImageDataDiff(ia, ib, tolerance=1.0e-4)
         assert_true(diff.identical)
-        assert_equal(diff.total_diffs, 0)
+        assert_equal(diff.diff_total, 0)
 
     def test_different_dimensions(self):
         ia = np.arange(100).reshape((10, 10))
@@ -154,7 +154,7 @@ class TestDiff(PyfitsTestCase):
         diff = ImageDataDiff(ia, ib)
         assert_false(diff.identical)
         assert_equal(diff.diff_dimensions, ((10, 10), (100,)))
-        assert_equal(diff.total_diffs, 0)
+        assert_equal(diff.diff_total, 0)
 
     def test_different_pixels(self):
         ia = np.arange(100).reshape((10, 10))
@@ -164,7 +164,7 @@ class TestDiff(PyfitsTestCase):
         diff = ImageDataDiff(ia, ib)
         assert_false(diff.identical)
         assert_equal(diff.diff_dimensions, ())
-        assert_equal(diff.total_diffs, 2)
+        assert_equal(diff.diff_total, 2)
         assert_equal(diff.diff_ratio, 0.02)
         assert_equal(diff.diff_pixels, [((0, 0), (0, 10)), ((5, 5), (55, 20))])
 
@@ -190,7 +190,7 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.common_column_names,
                      set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']))
         assert_equal(diff.diff_ratio, 0)
-        assert_equal(diff.total_diffs, 0)
+        assert_equal(diff.diff_total, 0)
 
     def test_ignore_table_fields(self):
         c1 = Column('A', format='L', array=[True, False])
@@ -212,7 +212,7 @@ class TestDiff(PyfitsTestCase):
         assert_equal(len(diff.common_columns), 1)
         assert_equal(diff.common_column_names, set(['a']))
         assert_equal(diff.diff_ratio, 0)
-        assert_equal(diff.total_diffs, 0)
+        assert_equal(diff.diff_total, 0)
 
     def test_different_table_field_names(self):
         ca = Column('A', format='L', array=[True, False])
@@ -229,7 +229,7 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.common_column_names, set(['a']))
         assert_equal(diff.diff_column_names, (['B'], ['C']))
         assert_equal(diff.diff_ratio, 0)
-        assert_equal(diff.total_diffs, 0)
+        assert_equal(diff.diff_total, 0)
 
     def test_different_table_field_counts(self):
         """
@@ -252,7 +252,7 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.common_column_names, set(['b']))
         assert_equal(diff.diff_column_names, ([], ['A', 'C']))
         assert_equal(diff.diff_ratio, 0)
-        assert_equal(diff.total_diffs, 0)
+        assert_equal(diff.diff_total, 0)
 
     def test_different_table_data(self):
         """
@@ -311,7 +311,7 @@ class TestDiff(PyfitsTestCase):
         assert_true((diff.diff_values[12][1][0] == [2, 3]).all())
         assert_true((diff.diff_values[12][1][1] == [3, 4]).all())
 
-        assert_equal(diff.total_diffs, 13)
+        assert_equal(diff.diff_total, 13)
         assert_equal(diff.diff_ratio, 0.65)
 
     def test_identical_files_basic(self):
@@ -387,7 +387,7 @@ class TestDiff(PyfitsTestCase):
         assert_equal(datadiff.diff_pixels,
                      [((0, y), (y, y + 1)) for y in range(10)])
         assert_equal(datadiff.diff_ratio, 1.0)
-        assert_equal(datadiff.total_diffs, 100)
+        assert_equal(datadiff.diff_total, 100)
 
         report = diff.report()
         # Primary HDU and 2nd extension HDU should have no differences

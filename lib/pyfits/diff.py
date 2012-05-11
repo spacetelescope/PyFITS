@@ -1,3 +1,11 @@
+"""
+Facilities for diffing two FITS files.  Includes objects for diffing entire
+FITS files, individual HDUs, FITS headers, or just FITS data.
+
+Used to implement the fitsdiff program.
+"""
+
+
 import difflib
 import fnmatch
 import glob
@@ -5,7 +13,7 @@ import os
 import textwrap
 
 from collections import defaultdict
-from itertools import islice, izip, ifilter
+from itertools import islice, izip
 
 import numpy as np
 from numpy import char
@@ -17,21 +25,73 @@ from pyfits.hdu.table import _TableLikeHDU
 from pyfits.util import StringIO
 
 
-class _GenericDiff(object):
+class _BaseDiff(object):
+    """
+    Base class for all FITS diff objects.
+
+    When instantiating a FITS diff object, the first two arguments are always
+    the two objects to diff (two FITS files, two FITS headers, etc.).
+    Instantiating a `_BaseDiff` also causes the diff itself to be executed.
+    The returned `_BaseDiff` instance has a number of attribute that describe
+    the results of the diff operation.
+
+    The most basic attribute, present on all `_BaseDiff` instances, is
+    `.identical` which is `True` if the two objects being compared are
+    identical according to the diff method for objects of that type.
+    """
+
     def __init__(self, a, b):
+        """
+        The `_BaseDiff` class does not implement a `_diff` method and should
+        not be instantiated directly. Instead instantiate the appropriate
+        subclass of `_BaseDiff` for the objects being compared (for example,
+        use `HeaderDiff` to compare two `Header` objects.
+        """
+
         self.a = a
         self.b = b
         self._diff()
 
     def __nonzero__(self):
+        """
+        A `_BaseDiff` object acts as `True` in a boolean context if the two
+        objects compared are identical.  Otherwise it acts as `False`.
+        """
+
         return not self.identical
 
     @property
     def identical(self):
+        """
+        `True` if all the `.diff_*` attributes on this diff instance are empty,
+        implying that no differences were found.
+
+        Any subclass of `_BaseDiff` must have at least one `.diff_*` attribute,
+        which contains a non-empty value if and only if some difference was
+        found between the two objects being compared.
+        """
+
         return not any(getattr(self, attr) for attr in self.__dict__
                        if attr.startswith('diff_'))
 
     def report(self, fileobj=None):
+        """
+        Generates a text report on the differences (if any) between two
+        objects, and either returns it as a string or writes it to a file-like
+        object.
+
+        Parameters
+        ----------
+        fileobj : file-like object or None (optional)
+            If `None`, this method returns the report as a string. Otherwise it
+            returns `None` and writes the report to the given file-like object
+            (which must have a `.write()` method at a minimum).
+
+        Returns
+        -------
+        report : str or None
+        """
+
         return_string = False
         if fileobj is None:
             fileobj = StringIO()
@@ -49,10 +109,62 @@ class _GenericDiff(object):
         raise NotImplementedError
 
 
-class FITSDiff(_GenericDiff):
+class FITSDiff(_BaseDiff):
+    """Diff two FITS files by filename, or two `HDUList` objects.
+
+    `FITSDiff` objects have the following diff attributes:
+
+    - `diff_hdu_count`: If the FITS files being compared have different numbers
+      of HDUs, this contains a 2-tuple of the number of HDUs in each file.
+
+    - `diff_hdus`: If any HDUs with the same index are different, this contains
+      a list of 2-tuples of the HDU index and the `HDUDiff` object representing
+      the differences between the two HDUs.
+    """
+
     def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
                  ignore_fields=[], numdiffs=10, tolerance=0.0,
                  ignore_blanks=True):
+        """
+        Parameters
+        ----------
+        a : str or `HDUList`
+            The filename of a FITS file on disk, or an `HDUList` object.
+
+        b : str or `HDUList`
+            The filename of a FITS file on disk, or an `HDUList` object to
+            compare to the first file.
+
+        ignore_keywords : sequence (optional)
+            Header keywords to ignore when comparing two headers; the presence
+            of these keywords and their values are ignored.  Wildcard strings
+            may also be included in the list.
+
+        ignore_comments : sequence (optional)
+            A list of header keywords whose comments should be ignored in the
+            comparison.  May contain wildcard strings as with ignore_keywords.
+
+        ignore_fields : sequence (optional)
+            The (case-insensitive) names of any table columns to ignore if any
+            table data is to be compared.
+
+        numdiffs : int (optional)
+            The number of pixel/table values to output when reporting HDU data
+            differences.  Though the count of differences is the same either
+            way, this allows controlling the number of different values that
+            are kept in memory or output.  If a negative value is given, then
+            numdifs is treated as unlimited (default: 10).
+
+        tolerance : float (optional)
+            The relative difference to allow when comparing two float values
+            either in header values, image arrays, or table columns
+            (default: 0.0).
+
+        ignore_blanks : bool (optional)
+            Ignore extra whitespace at the end of string values either in
+            headers or data. Extra leading whitespace is not ignored
+            (default: True).
+        """
 
         if isinstance(a, basestring):
             a = fitsopen(a)
@@ -159,10 +271,41 @@ class FITSDiff(_GenericDiff):
             hdu_diff._report(fileobj)
 
 
-class HDUDiff(_GenericDiff):
+class HDUDiff(_BaseDiff):
+    """
+    Diff two HDU objects, including their headers and their data (but only if
+    both HDUs contain the same type of data (image, table, or unknown).
+
+    `HDUDiff` objects have the following diff attributes:
+
+    - `diff_extnames`: If the two HDUs have different EXTNAME values, this
+      contains a 2-tuple of the different extension names.
+
+    - `diff_extvers`: If the two HDUS have different EXTVER values, this
+      contains a 2-tuple of the different extension versions.
+
+    - `diff_extension_types`: If the two HDUs have different XTENSION values,
+      this contains a 2-tuple of the different extension types.
+
+    - `diff_headers`: Contains a `HeaderDiff` object for the headers of the two
+      HDUs. This will always contain an object--it may be determined whether
+      the headers are different through `diff_headers.identical`.
+
+    - `diff_data`: Contains either a `ImageDataDiff`, `TableDataDiff`, or
+      `RawDataDiff` as appropriate for the data in the HDUs, and only if the
+      two HDUs have non-empty data of the same type (`RawDataDiff` is used for
+      HDUs containing non-empty data of an indeterminate type).
+    """
+
     def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
                  ignore_fields=[], numdiffs=10, tolerance=0.0,
                  ignore_blanks=True):
+        """
+        Parameters
+        ----------
+        See `FITSDiff` for explanations of these parameters.
+        """
+
         self.ignore_keywords = set(ignore_keywords)
         self.ignore_comments = set(ignore_comments)
         self.ignore_fields = set(ignore_fields)
@@ -237,9 +380,57 @@ class HDUDiff(_GenericDiff):
             self.diff_data._report(fileobj)
 
 
-class HeaderDiff(_GenericDiff):
+class HeaderDiff(_BaseDiff):
+    """
+    Diff two `Header` objects.
+
+    `HeaderDiff` objects have the following diff attributes:
+
+    - `diff_keyword_count`: If the two headers contain a different number of
+      keywords, this contains a 2-tuple of the keyword count for each header.
+
+    - `diff_keywords`: If either header contains one or more keywords that
+      don't appear at all in the other header, this contains a 2-tuple
+      consisting of a list of the keywords only appearing in header a, and a
+      list of the keywords only appearing in header b.
+
+    - `diff_duplicate_keywords`: If a keyword appears in both headers at least
+      once, but contains a different number of duplicates (for example, a
+      different number of HISTORY cards in each header), an item is added to
+      this dict with the keyword as the key, and a 2-tuple of the different
+      counts of that keyword as the value.  For example::
+
+          {'HISTORY': (20, 19)}
+
+      means that header a contains 20 HISTORY cards, while header b contains
+      only 19 HISTORY cards.
+
+    - `diff_keyword_values`: If any of the common keyword between the two
+      headers have different values, they appear in this dict.  It has a
+      structure similar to `diff_duplicate_keywords`, with the keyword as the
+      key, and a 2-tuple of the different values as the value.  For example::
+
+          {'NAXIS': (2, 3)}
+
+      means that the NAXIS keyword has a value of 2 in header a, and a value of
+      3 in header b.  This excludes any keywords matched by the
+      `ignore_keywords` list.
+
+    - `diff_keyword_comments`: Like `diff_keyword_values`, but contains
+      differences between keyword comments.
+
+    `HeaderDiff` objects also have a `common_keywords` attribute that lists all
+    keywords that appear in both headers.
+    """
+
     def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
                  tolerance=0.0, ignore_blanks=True):
+        """
+        Parameters
+        ----------
+        See `FITSDiff` for explanations of these parameters.
+        """
+
         self.ignore_keywords = set(ignore_keywords)
         self.ignore_comments = set(ignore_comments)
         self.tolerance = tolerance
@@ -421,8 +612,45 @@ class HeaderDiff(_GenericDiff):
 # different pixels: For example ignore if only 1% of the pixels are different
 # within some threshold.  There are lots of possibilities here, but hold off
 # for now until specific cases come up.
-class ImageDataDiff(_GenericDiff):
+class ImageDataDiff(_BaseDiff):
+    """
+    Diff two image data arrays (really any array from a PRIMARY HDU or an IMAGE
+    extension HDU, though the data unit is assumed to be "pixels").
+
+    `ImageDataDiff` objects have the following diff attributes:
+
+    - `diff_dimensions`: If the two arrays contain either a different number of
+      dimensions or different sizes in any dimension, this contains a 2-tuple
+      of the shapes of each array.  Currently no further comparison is
+      performed on images that don't have the exact same dimensions.
+
+    - `diff_pixels`: If the two images contain any different pixels, this
+      contains a list of 2-tuples of the array index where the difference was
+      found, and another 2-tuple containing the different values.  For example,
+      if the pixel at (0, 0) contains different values this would look like::
+
+          [(0, 0), (1.1, 2.2)]
+
+      where 1.1 and 2.2 are the values of that pixel in each array.  This
+      array only contains up to `self.numdiffs` differences, for storage
+      efficiency.
+
+    - `diff_total`: The total number of different pixels found between the
+      arrays.  Although `diff_pixels` does not necessarily contain all the
+      different pixel values, this can be used to get a count of the total
+      number of differences found.
+
+    - `diff_ratio`: Contains the ratio of `diff_total` to the total number of
+      pixels in the arrays.
+    """
+
     def __init__(self, a, b, numdiffs=10, tolerance=0.0):
+        """
+        Parameters
+        ----------
+        See `FITSDiff` for explanations of these parameters.
+        """
+
         self.numdiffs = numdiffs
         self.tolerance = tolerance
 
@@ -431,9 +659,9 @@ class ImageDataDiff(_GenericDiff):
         self.diff_ratio = 0
 
         # self.diff_pixels only holds up to numdiffs differing pixels, but this
-        # self.total_diffs stores the total count of differences between
+        # self.diff_total stores the total count of differences between
         # the images, but not the different values
-        self.total_diffs = 0
+        self.diff_total = 0
 
         super(ImageDataDiff, self).__init__(a, b)
 
@@ -457,15 +685,20 @@ class ImageDataDiff(_GenericDiff):
 
         diffs = where_not_allclose(self.a, self.b, atol=0.0, rtol=tolerance)
 
-        self.total_diffs = len(diffs[0])
+        self.diff_total = len(diffs[0])
 
-        if self.total_diffs == 0:
+        if self.diff_total == 0:
             # Then we're done
             return
 
+        if self.numdiffs < 0:
+            numdiffs = self.diff_total
+        else:
+            numdiffs = self.numdiffs
+
         self.diff_pixels = [(idx, (self.a[idx], self.b[idx]))
-                            for idx in islice(izip(*diffs), 0, self.numdiffs)]
-        self.diff_ratio = float(self.total_diffs) / float(len(self.a.flat))
+                            for idx in islice(izip(*diffs), 0, numdiffs)]
+        self.diff_ratio = float(self.diff_total) / float(len(self.a.flat))
 
     def _report(self, fileobj):
         if self.diff_dimensions:
@@ -490,7 +723,7 @@ class ImageDataDiff(_GenericDiff):
 
         fileobj.write('  ...\n')
         fileobj.write('  %d different pixels found (%.2f%% different).\n' %
-                      (self.total_diffs, self.diff_ratio * 100))
+                      (self.diff_total, self.diff_ratio * 100))
 
 
 class RawDataDiff(ImageDataDiff):
@@ -534,9 +767,9 @@ class RawDataDiff(ImageDataDiff):
 
         fileobj.write('  ...\n')
         fileobj.write('  %d different bytes found (%.2f%% different).\n' %
-                      (self.total_diffs, self.diff_ratio * 100))
+                      (self.diff_total, self.diff_ratio * 100))
 
-class TableDataDiff(_GenericDiff):
+class TableDataDiff(_BaseDiff):
     def __init__(self, a, b, ignore_fields=[], numdiffs=10, tolerance=0.0):
         self.ignore_fields = set(ignore_fields)
         self.numdiffs = numdiffs
@@ -557,7 +790,7 @@ class TableDataDiff(_GenericDiff):
         self.diff_values = []
 
         self.diff_ratio = 0
-        self.total_diffs = 0
+        self.diff_total = 0
 
         super(TableDataDiff, self).__init__(a, b)
 
@@ -645,24 +878,31 @@ class TableDataDiff(_GenericDiff):
             else:
                 diffs = np.where(cola != colb)
 
-            self.total_diffs += len(set(diffs[0]))
+            self.diff_total += len(set(diffs[0]))
 
-            if len(self.diff_values) >= self.numdiffs:
-                # Don't save any more diff values
-                continue
+            if self.numdiffs >= 0:
+                if len(self.diff_values) >= self.numdiffs:
+                    # Don't save any more diff values
+                    continue
 
-            # Add no more diff'd values than this
-            max_diffs = self.numdiffs - len(self.diff_values)
+                # Add no more diff'd values than this
+                max_diffs = self.numdiffs - len(self.diff_values)
+            else:
+                max_diffs = len(diffs[0])
 
-            seen_idx = set()
-            for idx in islice(ifilter(lambda x: x not in seen_idx, diffs[0]),
-                              0, max_diffs):
-                seen_idx.add(idx)
+            last_seen_idx = None
+            for idx in islice(diffs[0], 0, max_diffs):
+                if idx == last_seen_idx:
+                    # Skip duplicate indices, which my occur when the column
+                    # data contains multi-dimensional values; we're only
+                    # interested in storing row-by-row differences
+                    continue
+                last_seen_idx = idx
                 self.diff_values.append(((col.name, idx),
                                          (cola[idx], colb[idx])))
 
         total_values = len(self.a) * len(self.a.dtype.fields)
-        self.diff_ratio = float(self.total_diffs) / float(total_values)
+        self.diff_ratio = float(self.diff_total) / float(total_values)
 
     def _report(self, fileobj):
         if self.diff_column_count:
@@ -713,14 +953,14 @@ class TableDataDiff(_GenericDiff):
             fileobj.write('  Column %s data differs in row %d:\n' % indx)
             report_diff_values(fileobj, values[0], values[1])
 
-        if self.diff_values and self.numdiffs < self.total_diffs:
+        if self.diff_values and self.numdiffs < self.diff_total:
             fileobj.write('  ...%d additional difference(s) found.\n' %
-                          (self.total_diffs - self.numdiffs))
+                          (self.diff_total - self.numdiffs))
 
         fileobj.write('  ...\n')
         fileobj.write('  %d different table data values found '
                       '(%.2f%% different).\n' %
-                      (self.total_diffs, self.diff_ratio * 100))
+                      (self.diff_total, self.diff_ratio * 100))
 
 
 def diff_values(a, b, tolerance=0.0):
@@ -737,7 +977,7 @@ def diff_values(a, b, tolerance=0.0):
 
 
 def report_diff_values(fileobj, a, b):
-    """Write a diff between two values to the specified file object."""
+    """Write a diff between two values to the specified file-like object."""
 
     #import pdb; pdb.set_trace()
     for line in difflib.ndiff(str(a).splitlines(), str(b).splitlines()):
@@ -751,6 +991,11 @@ def report_diff_values(fileobj, a, b):
 
 
 def report_diff_keyword_attr(fileobj, attr, diffs, keyword):
+    """
+    Write a diff between two header keyword values or comments to the specified
+    file-like object.
+    """
+
     if keyword in diffs:
         vals = diffs[keyword]
         for idx, val in enumerate(vals):
