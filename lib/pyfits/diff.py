@@ -43,14 +43,6 @@ class FitsDiff(object):
 
         self.data_dimensions = []
 
-        # Table comparison attributes
-        self.num_columns = []
-        self.common_columns = []
-        self.left_only_columns = []
-        self.right_only_columns = []
-        self.different_column_indexes = []
-        self.different_column_formats = []
-        self.different_cell_values = []
 
         try:
             self._diff()
@@ -288,6 +280,7 @@ class HeaderDiff(_GenericDiff):
 
         # Set if the keywords common to each header (excluding ignore_keywords)
         # appear in different positions within the header
+        # TODO: Implement this
         self.diff_keyword_positions = ()
 
         # Keywords unique to each header (excluding keywords in
@@ -461,14 +454,92 @@ class RawDataDiff(ImageDataDiff):
 
 
 class TableDataDiff(_GenericDiff):
-    def __init__(self, a, b, ignore_fields=[], numdiffs=10, tolerance=0.0,
-                 ignore_blanks=True):
+    def __init__(self, a, b, ignore_fields=[], numdiffs=10, tolerance=0.0):
         self.ignore_fields = set(ignore_fields)
         self.numdiffs = numdiffs
         self.tolerance = tolerance
-        self.ignore_blanks = ignore_blanks
+
+        self.common_columns = []
+        self.diff_column_count = ()
+        self.diff_columns = ()
+        self.diff_values = []
 
         super(TableDataDiff, self).__init__(a, b)
+
+    def _diff(self):
+        # Much of the code for comparing columns is similar to the code for
+        # comparing headers--consider refactoring
+        colsa = self.a.columns
+        colsb = self.b.columns
+
+        if len(colsa) != len(colsb):
+            self.diff_column_count = (len(colsa), len(colsb))
+
+        # Even if the number of columns are unequal, we still do comparison of
+        # any common columns
+        colsa = set(colsa)
+        colsb = set(colsb)
+
+        self.common_columns = sorted(colsa.intersection(colsb))
+
+        if '*' in self.ignore_fields:
+            # If all columns are to be ignored, ignore any further differences
+            # between the columns
+            return
+
+        # It might be nice if there were a cleaner way to do this, but for now
+        # it'll do
+        for fieldname in self.ignore_fields:
+            fieldname = fieldname.lower()
+            for col in list(colsa):
+                if col.name.lower() == fieldname:
+                    colsa.remove(col)
+            for col in list(colsb):
+                if col.name.lower() == fieldname:
+                    colsb.remove(col)
+
+        left_only_columns = sorted(colsa.difference(colsb))
+        right_only_columns = sorted(colsb.difference(colsa))
+
+        if left_only_columns or right_only_columns:
+            self.diff_columns = (left_only_columns, right_only_columns)
+
+        # Like in the old fitsdiff, compare tables on a column by column basis
+        # The difficulty here is that, while FITS column names are meant to be
+        # case-insensitive, PyFITS still allows, for the sake of flexibility,
+        # two columns with the same name but different case.  When columns are
+        # accessed in FITS tables, a case-sensitive is tried first, and failing
+        # that a case-insensitive match is made.
+        # It's conceivable that the same column could appear in both tables
+        # being compared, but with different case.
+        # Though it *may* lead to inconsistencies in these rare cases, this
+        # just assumes that there are no duplicated column names in either
+        # table, and that the column names can be treated case-insensitively.
+        for col in self.common_columns:
+            cola = self.a[col.name]
+            colb = self.b[col.name]
+            if np.issubdtype(cola, float) and np.issubdtype(colb, float):
+                diffs = where_not_allclose(cola, colb, atol=0.0,
+                                           rtol=self.tolerance)
+            else:
+                diffs = np.where(cola != colb)
+
+            self.total_diffs += len(diffs[0])
+
+            if len(self.diff_values) < self.numdiffs:
+                # Don't save any more diff values
+                continue
+
+            # Add no more diff'd values than this
+            max_diffs = self.numdiffs - len(self.diff_values)
+
+            self.diff_values += [
+                (idx, (self.a[idx], self.b[idx]))
+                for idx in islice(izip(*diffs), 0, max_diffs)
+            ]
+
+        total_values = len(self.a) * len(self.a.dtype.fields)
+        self.diff_ratio = float(self.total_diffs) / float(total_values)
 
 
 def diff_values(a, b, tolerance=0.0):
