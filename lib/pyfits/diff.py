@@ -808,16 +808,20 @@ class TableDataDiff(_BaseDiff):
       to compare any columns they have in common.
 
     - `diff_columns`: If either table contains columns unique to that table,
-      either in name or any other attributes (such as data format), this
-      contains a 2-tuple of lists. The first element is a list of columns
-      (these are full `Column` objects) that appear only in table a.  The
-      second element is a list of tables that appear only in table b.  This
-      only lists columns with different column definitions, and has nothing to
-      do with the data in those columns.
+      either in name or format, this contains a 2-tuple of lists. The first
+      element is a list of columns (these are full `Column` objects) that
+      appear only in table a.  The second element is a list of tables that
+      appear only in table b.  This only lists columns with different column
+      definitions, and has nothing to do with the data in those columns.
 
     - `diff_column_names`: This is like `diff_columns`, but lists only the
       names of columns unique to either table, rather than the full `Column`
       objects.
+
+    - `diff_column_attributes`: Lists columns that are in both tables but have
+      different secondard attributes, such as TUNIT or TDISP.  The format is a
+      list of 2-tuples: The first a tuple of the column name and the attribute,
+      the second a tuple of the different values.
 
     - `diff_values`: `TableDataDiff` compares the data in each table on a
       column-by-column basis.  If any different data is found, it is added to
