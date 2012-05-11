@@ -259,6 +259,17 @@ class HDUDiff(_GenericDiff):
 
         self.diff_headers = HeaderDiff(self.a.header, self.b.names)
 
+        if self.a.is_image and self.b.is_image:
+            self.diff_data = ImageDataDiff(self.a.data, self.b.data)
+        elif (isinstance(self.a, _TableLikeHDU) and
+              isinstance(self.b, _TableLikeHDU)):
+            # TODO: Replace this if/when _BaseHDU grows a .is_table property
+            self.diff_data = TableDataDiff(self.a.data, self.b.data)
+        elif not self.diff_extension_types:
+            # Don't diff the data for unequal extension types that are not
+            # recognized image or table types
+            self.diff_data = RawDataDiff(self.a.data, self.b.data)
+
 
 class HeaderDiff(_GenericDiff):
     def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
@@ -382,7 +393,36 @@ class HeaderDiff(_GenericDiff):
                 del self.diff_keyword_comments[keyword]
 
 
-class DataDiff(_GenericDiff):
+class RawDataDiff(_GenericDiff):
+    def __init__(self, a, b, numdiffs=10, tolerance=0.0):
+        self.numdiffs = numdiffs
+
+        self.diff_len = ()
+        self.diff_bytes = []
+
+        super(RawDataDiff, self).__init__(a, b)
+
+
+class ImageDataDiff(_GenericDiff):
+    def __init__(self, a, b, numdiffs=10, tolerance=0.0):
+        self.numdiffs = numdiffs
+        self.tolerance = tolerance
+
+        self.diff_dimensions = ()
+        self.diff_pixels = []
+
+        super(ImageDataDiff, self).__init__(a, b)
+
+    def _diff(self):
+        if self.a.shape != self.b.shape:
+            self.diff_dimensions = (self.a.shape, self.b.shape)
+            # Don't do any further comparison if the dimensions differ
+            # TODO: Perhaps we could, however, diff just the intersection
+            # between the two images
+            return
+
+
+class TableDataDiff(_GenericDiff):
     def __init__(self, a, b, ignore_fields=[], numdiffs=10, tolerance=0.0,
                  ignore_blanks=True):
         self.ignore_fields = set(ignore_fields)
@@ -390,7 +430,7 @@ class DataDiff(_GenericDiff):
         self.tolerance = tolerance
         self.ignore_blanks = ignore_blanks
 
-        super(DataDiff, self).__init__(a, b)
+        super(TableDataDiff, self).__init__(a, b)
 
 
 def diff_values(a, b, tolerance=0.0):
