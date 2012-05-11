@@ -77,6 +77,51 @@ class Delayed(object):
         return self.hdu.data[key][self.field]
 
 
+class _ColumnFormat(str):
+    """
+    Represents a FITS column format.
+
+    This is an enhancement over using a normal string for the format, since the
+    repeat count, format code, and option are available as separate attributes,
+    and smart comparison is used.  For example 1J == J.
+    """
+
+    def __new__(cls, format):
+        self = super(_ColumnFormat, cls).__new__(cls, format)
+        self.repeat, self.format, self.option = _parse_tformat(format)
+        self.format = self.format.upper()
+        return self
+
+    def __eq__(self, other):
+        if not other:
+            return False
+
+        if isinstance(other, str):
+            if not isinstance(other, _ColumnFormat):
+                try:
+                    other = _ColumnFormat(other)
+                except ValueError:
+                    return False
+        else:
+            return False
+
+        a = (self.repeat, self.format, self.option)
+        b = (other.repeat, other.format, other.option)
+        return a == b
+
+    @classmethod
+    def from_recformat(cls, recformat):
+        """Creates a column format from a Numpy record dtype format."""
+
+        return cls(_convert_format(recformat, reverse=True))
+
+    @lazyproperty
+    def recformat(self):
+        """Returns the equivalent Numpy record format string."""
+
+        return _convert_format(self)
+
+
 class _FormatX(str):
     """For X format in binary tables."""
 
@@ -177,17 +222,19 @@ class Column(object):
         # input arrays can be just list or tuple, not required to be ndarray
         if format is not None:
             # check format
-            try:
-
-                # legit FITS format? convert to record format (e.g. 3J->3i4)
-                recfmt = _convert_format(format)
-            except ValueError:
+            if not isinstance(format, _ColumnFormat):
                 try:
-                    # legit recarray format?
-                    recfmt = format
-                    format = _convert_format(recfmt, reverse=True)
+
+                    # legit FITS format?
+                    format = _ColumnFormat(format)
+                    recformat = format.recformat
                 except ValueError:
-                    raise ValueError('Illegal format `%s`.' % format)
+                    try:
+                        # legit recarray format?
+                        recformat = format
+                        format = _ColumnFormat.from_recformat(format)
+                    except ValueError:
+                        raise ValueError('Illegal format `%s`.' % format)
 
             self.format = format
             # Zero-length formats are legal in the FITS format, but since they
@@ -209,13 +256,12 @@ class Column(object):
                         array = np.array(array)
                 except:
                     try:  # then try to conver it to a strings array
-                        array = chararray.array(array,
-                                                itemsize=eval(recfmt[1:]))
-
-                    # then try variable length array
-                    except:
-                        if isinstance(recfmt, _FormatP):
-                            array = _VLF(array, dtype=recfmt.dtype)
+                        itemsize = int(recformat[1:])
+                        array = chararray.array(array, itemsize=itemsize)
+                    except ValueError:
+                        # then try variable length array
+                        if isinstance(recformat, _FormatP):
+                            array = _VLF(array, dtype=recformat.dtype)
                         else:
                             raise ValueError('Data is inconsistent with the '
                                              'format `%s`.' % format)
@@ -246,33 +292,22 @@ class Column(object):
 
     def __eq__(self, other):
         """
-        Two columns are equal if their column attributes are equal.  This does
-        not compare any data arrays attached to the columns, and is only for
-        comparing column definitions.
+        Two columns are equal if their name and format are the same.  Other
+        attributes aren't taken into account at this time.
         """
 
-        for attr in KEYWORD_ATTRIBUTES:
-            # According to the FITS standard column names must be
-            # case-insensitive
-            if attr == 'name':
-                name1 = getattr(self, 'name', '').lower()
-                name2 = getattr(other, 'name', '').lower()
-                if name1 != name2:
-                    return False
-            else:
-                if getattr(self, attr) != getattr(other, attr):
-                    return False
-        return True
+        # According to the FITS standard column names must be case-insensitive
+        a = (self.name.lower(), self.format)
+        b = (other.name.lower(), other.format)
+        return a == b
 
     def __hash__(self):
         """
         Like __eq__, the hash of a column should be based on the unique column
-        attributes, and be case-insensitive with respect to the column name.
+        name and format, and be case-insensitive with respect to the column name.
         """
 
-        return id(tuple([self.name.lower()] +
-                        [getattr(self, attr)
-                         for attr in KEYWORD_ATTRIBUTES[1:]]))
+        return id((self.name.lower(), self.format))
 
     def copy(self):
         """
