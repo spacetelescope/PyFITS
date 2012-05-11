@@ -508,6 +508,23 @@ def indent(s, shift=1, width=4):
                      for l in s.splitlines())
 
 
+def fill(text, width, *args, **kwargs):
+    """
+    Like :func:`textwrap.wrap` but preserves existing paragraphs which
+    :func:`textwrap.wrap` does not otherwise handle well.  Also handles section
+    headers.
+    """
+
+    paragraphs = text.split('\n\n')
+    def maybe_fill(t):
+        if all(len(l) < width for l in t.splitlines()):
+            return t
+        else:
+            return textwrap.fill(t, width, *args, **kwargs)
+
+    return '\n\n'.join(maybe_fill(p) for p in paragraphs)
+
+
 def _array_from_file(infile, dtype, count, sep):
     """Create a numpy array from a file or a file-like object."""
 
