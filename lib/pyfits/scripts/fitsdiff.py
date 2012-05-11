@@ -86,13 +86,14 @@ def handle_options(argv=None):
                                    formatter=HelpFormatter())
 
     parser.add_option(
-        '-n', '--num-diffs', type='int', default=10, metavar='INTEGER',
+        '-n', '--num-diffs', type='int', default=10, dest='numdiffs',
+        metavar='INTEGER',
         help='Max number of data differences (image pixel or table element) '
              'to report per extension (default %default).')
 
     parser.add_option(
         '-d', '--difference-tolerance', type='float', default=0.,
-        metavar='NUMBER',
+        dest='tolerance', metavar='NUMBER',
         help='The relative tolerance for comparison of two numbers, '
              'specifically two floating point numbers.  This applies to data '
              'in both images and tables, and to floating point keyword values '
@@ -116,22 +117,26 @@ def handle_options(argv=None):
 
     group.add_option(
         '-k', '--ignore-keywords', action='callback', callback=store_list,
+        nargs=1, type='str', default=[], dest='ignore_keywords',
         metavar='KEYWORDS',
-        help='Comma-separated list of keywords not to be compared.  To '
-             'exclude all keywords, use "*"; make sure to have double or '
-             'single quotes around the asterisk.')
+        help='Comma-separated list of keywords not to be compared.  Keywords '
+             'may contain wildcard patterns.  To exclude all keywords, use '
+             '"*"; make sure to have double or single quotes around the '
+             'asterisk.')
 
     group.add_option(
         '-c', '--ignore-comments', action='callback', callback=store_list,
+        nargs=1, type='str', default=[], dest='ignore_comments',
         metavar='KEYWORDS',
         help='Comma-separated list of keywords whose comments will not be '
-             'compared.  "*" may be used as with --ignore-keywords.')
+             'compared.  Wildcards may be used as with --ignore-keywords.')
 
     parser.add_option_group(group)
     group = optparse.OptionGroup(parser, 'Table Comparison Options')
 
     group.add_option(
         '-f', '--ignore-fields', action='callback', callback=store_list,
+        nargs=1, type='str', default=[], dest='ignore_fields',
         metavar='COLUMNS',
         help='Comma-separated list of fields (i.e. columns) not to be '
              'compared.  All columns may be excluded using "*" as with '
@@ -219,14 +224,20 @@ def main():
     else:
         argv = sys.argv[1:]
 
-    options, args = handle_options(argv)
-    setup_logging(options.output_file)
+    opts, args = handle_options(argv)
+    setup_logging(opts.output_file)
     files = match_files(args)
 
     identical = []
     for a, b in files:
         # TODO: pass in any additonal arguments here too
-        diff = pyfits.diff.FITSDiff(a, b)
+        diff = pyfits.diff.FITSDiff(a, b,
+                                    ignore_keywords=opts.ignore_keywords,
+                                    ignore_comments=opts.ignore_comments,
+                                    ignore_fields=opts.ignore_fields,
+                                    numdiffs=opts.numdiffs,
+                                    tolerance=opts.tolerance,
+                                    ignore_blanks=opts.ignore_blanks)
         diff.report(fileobj=sys.stderr)
         identical.append(diff.identical)
 

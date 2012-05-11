@@ -1,3 +1,5 @@
+import fnmatch
+import glob
 import os
 import textwrap
 
@@ -87,8 +89,17 @@ class FITSDiff(_GenericDiff):
 
         # For now, just compare the extensions one by one in order...might
         # allow some more sophisticated types of diffing later...
+        # TODO: Somehow or another simplify the passing around of diff
+        # options--this will become important as the number of options grows
         for idx in range(min(len(self.a), len(self.b))):
-            hdu_diff = HDUDiff(self.a[idx], self.b[idx])
+            hdu_diff = HDUDiff(self.a[idx], self.b[idx],
+                               ignore_keywords=self.ignore_keywords,
+                               ignore_comments=self.ignore_comments,
+                               ignore_fields=self.ignore_fields,
+                               numdiffs=self.numdiffs,
+                               tolerance=self.tolerance,
+                               ignore_blanks=self.ignore_blanks)
+
             if not hdu_diff.identical:
                 self.diff_extensions.append((idx, hdu_diff))
 
@@ -169,7 +180,11 @@ class HDUDiff(_GenericDiff):
             self.diff_extension_types = (self.a.header.get('XTENSION'),
                                          self.b.header.get('XTENSION'))
 
-        self.diff_headers = HeaderDiff(self.a.header, self.b.header)
+        self.diff_headers = HeaderDiff(self.a.header, self.b.header,
+                                       ignore_keywords=self.ignore_keywords,
+                                       ignore_comments=self.ignore_comments,
+                                       tolerance=self.tolerance,
+                                       ignore_blanks=self.ignore_blanks)
 
         if self.a.data is None or self.b.data is None:
             # TODO: Perhaps have some means of marking this case
@@ -214,6 +229,17 @@ class HeaderDiff(_GenericDiff):
         self.ignore_comments = set(ignore_comments)
         self.tolerance = tolerance
         self.ignore_blanks = ignore_blanks
+
+        self.ignore_keyword_patterns = set()
+        self.ignore_comments_patterns = set()
+        for keyword in list(self.ignore_keywords):
+            if glob.has_magic(keyword):
+                self.ignore_keywords.remove(keyword)
+                self.ignore_keyword_patterns.add(keyword)
+        for keyword in list(self.ignore_comments):
+            if glob.has_magic(keyword):
+                self.ignore_comments.remove(keyword)
+                self.ignore_comment_patterns.add(keyword)
 
         # Keywords appearing in each header
         self.common_keywords = []
@@ -282,6 +308,12 @@ class HeaderDiff(_GenericDiff):
         # Any other diff attributes should exclude ignored keywords
         keywordsa = keywordsa.difference(self.ignore_keywords)
         keywordsb = keywordsb.difference(self.ignore_keywords)
+        if self.ignore_keyword_patterns:
+            for pattern in self.ignore_keyword_patterns:
+                keywordsa = keywordsa.difference(fnmatch.filter(keywordsa,
+                                                                pattern))
+                keywordsb = keywordsb.difference(fnmatch.filter(keywordsb,
+                                                                pattern))
 
         if '*' in self.ignore_keywords:
             # Any other differences between keywords are to be ignored
@@ -297,6 +329,14 @@ class HeaderDiff(_GenericDiff):
         for keyword in self.common_keywords:
             if keyword in self.ignore_keywords:
                 continue
+            if self.ignore_keyword_patterns:
+                skip = False
+                for pattern in self.ignore_keyword_patterns:
+                    if fnmatch.fnmatch(keyword, pattern):
+                        skip = True
+                        break
+                if skip:
+                    continue
 
             counta = len(valuesa[keyword])
             countb = len(valuesb[keyword])
