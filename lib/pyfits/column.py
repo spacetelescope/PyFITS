@@ -244,6 +244,16 @@ class Column(object):
                 text += attr + ' = ' + repr(value) + '; '
         return text[:-2]
 
+    def __eq__(self, other):
+        """
+        Two columns are equal if their column attributes are equal.  This does
+        not compare any data arrays attached to the columns, and is only for
+        comparing column definitions.
+        """
+
+        return all(getattr(self, attr) == getattr(other, attr)
+                   for attr in KEYWORD_ATTRIBUTES)
+
     def copy(self):
         """
         Return a copy of this `Column`.
