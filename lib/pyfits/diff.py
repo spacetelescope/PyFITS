@@ -54,8 +54,11 @@ class FitsDiff(object):
 
         # Table comparison attributes
         self.num_columns = []
+        self.common_columns = []
+        self.left_only_columns = []
+        self.right_only_columns = []
         self.different_column_indexes = []
-        self.different_column_types = []
+        self.different_column_formats = []
         self.different_cell_values = []
 
         try:
@@ -258,8 +261,37 @@ class FitsDiff(object):
                 pass
 
     def _diff_table(self, tablea, tableb):
-        self.num_columns.append((len(tablea.dtype.fields),
-                                 len(tableb.dtype.fields)))
+        # Diff the column definitions
+        colsa = tablea.columns
+        colsb = tableb.columns
+
+        self.num_columns.append((len(colsa), len(colsb)))
+
+        namesa = set(colsa)
+        namesb = set(colsb)
+        common = []
+        left_only = []
+        right_only = []
+        different_indexes = {}
+        different_formats = {}
+        for idx, cola, colb in zip(xrange(min(len(colsa), len(colsb))),
+                                   colsa, colsb):
+            if cola.name != colb.name:
+                if cola.name not in namesb:
+                    # The tables do not share these columns at all
+                    left_only.append(cola.name)
+                    right_only.append(colb.name)
+                    continue
+                # The tables do share these columns but they're in a different
+                # order
+                idxb = namesb.index(cola.name)
+                if cola.name not in different_indexes:
+                    different_indexes[cola.name] = (idx, idxb)
+
+            common.append(cola.name)
+            if cola.format != colb.format:
+                different_formats[cola.name] = (cola.format, colb.format)
+
         if self.ignore_fields == ['*']:
             return
 
