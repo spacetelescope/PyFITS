@@ -1,4 +1,4 @@
-from __future__ import division # confidence high
+from __future__ import division  # confidence high
 from __future__ import with_statement
 
 import itertools
@@ -1322,6 +1322,54 @@ class TestHeaderFunctions(PyfitsTestCase):
         hdu.header.totextfile(self.temp('test.hdr'))
         header2 = pyfits.Header.fromtextfile(self.temp('test.hdr'))
         assert_equal(hdu.header, header2)
+
+    def test_assign_unicode(self):
+        """
+        Regression test for #134.  Assigning a unicode literal as a header
+        value should not fail silently.  If the value can be converted to ASCII
+        then it should just work.  Otherwise it should fail with an appropriate
+        value error.
+
+        Also tests unicode for keywords and comments.
+        """
+
+        erikku = u'\u30a8\u30ea\u30c3\u30af'
+
+        def assign(keyword, val):
+            h[keyword] = val
+
+        h = pyfits.Header()
+        h[u'FOO'] = 'BAR'
+        assert_true('FOO' in h)
+        assert_equal(h['FOO'], 'BAR')
+        assert_equal(h[u'FOO'], 'BAR')
+        assert_equal(repr(h), _pad("FOO     = 'BAR     '"))
+        assert_raises(ValueError, assign, erikku, 'BAR')
+
+
+        h['FOO'] = u'BAZ'
+        assert_equal(h[u'FOO'], 'BAZ')
+        assert_equal(h[u'FOO'], u'BAZ')
+        assert_equal(repr(h), _pad("FOO     = 'BAZ     '"))
+        assert_raises(ValueError, assign, 'FOO', erikku)
+
+        h['FOO'] = ('BAR', u'BAZ')
+        assert_equal(h['FOO'], 'BAR')
+        assert_equal(h['FOO'], u'BAR')
+        assert_equal(h.comments['FOO'], 'BAZ')
+        assert_equal(h.comments['FOO'], u'BAZ')
+        assert_equal(repr(h), _pad("FOO     = 'BAR     '           / BAZ"))
+
+        h['FOO'] = (u'BAR', u'BAZ')
+        assert_equal(h['FOO'], 'BAR')
+        assert_equal(h['FOO'], u'BAR')
+        assert_equal(h.comments['FOO'], 'BAZ')
+        assert_equal(h.comments['FOO'], u'BAZ')
+        assert_equal(repr(h), _pad("FOO     = 'BAR     '           / BAZ"))
+
+        assert_raises(ValueError, assign, 'FOO', ('BAR', erikku))
+        assert_raises(ValueError, assign, 'FOO', (erikku, 'BAZ'))
+        assert_raises(ValueError, assign, 'FOO', (erikku, erikku))
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):

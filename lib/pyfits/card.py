@@ -519,22 +519,33 @@ class Card(_Verify):
         oldvalue = self._value
         if oldvalue is None:
             oldvalue = ''
-        if isinstance(value, (basestring, int, long, float, complex, bool,
-                              Undefined, np.floating, np.integer,
-                              np.complexfloating, np.bool_)):
-            if value != oldvalue:
-                self._value = value
-                self._modified = True
-                self._valuestring = None
-                self._valuemodified = True
-                if self.field_specifier:
-                    try:
-                        self._value = _int_or_float(self._value)
-                    except ValueError:
-                        raise ValueError('value %s is not a float' %
-                                         self._value)
-        else:
+
+        if not isinstance(value, (basestring, int, long, float, complex, bool,
+                                  Undefined, np.floating, np.integer,
+                                  np.complexfloating, np.bool_)):
             raise ValueError('Illegal value: %r.' % value)
+
+        if isinstance(value, unicode):
+            try:
+                # Any string value must be encodable as ASCII
+                value.encode('ascii')
+            except UnicodeEncodeError:
+                raise ValueError(
+                    'FITS header values must contain standard ASCII '
+                    'characters; %r contains characters not representable in '
+                    'ASCII.' % value)
+
+        if value != oldvalue:
+            self._value = value
+            self._modified = True
+            self._valuestring = None
+            self._valuemodified = True
+            if self.field_specifier:
+                try:
+                    self._value = _int_or_float(self._value)
+                except ValueError:
+                    raise ValueError('value %s is not a float' %
+                                     self._value)
 
     @value.deleter
     def value(self):
@@ -560,6 +571,17 @@ class Card(_Verify):
     def comment(self, comment):
         if comment is None:
             comment = ''
+
+        if isinstance(comment, unicode):
+            try:
+                # Any string value must be encodable as ASCII
+                comment.encode('ascii')
+            except UnicodeEncodeError:
+                raise ValueError(
+                    'FITS header comments must contain standard ASCII '
+                    'characters; %r contains characters not representable in '
+                    'ASCII.' % comment)
+
         oldcomment = self._comment
         if oldcomment is None:
             oldcomment = ''
@@ -1217,7 +1239,7 @@ def _format_value(value):
 
     # string value should occupies at least 8 columns, unless it is
     # a null string
-    if isinstance(value, str):
+    if isinstance(value, basestring):
         if value == '':
             return "''"
         else:
