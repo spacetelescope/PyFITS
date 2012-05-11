@@ -109,6 +109,9 @@ class _ColumnFormat(str):
         b = (other.repeat, other.format, other.option)
         return a == b
 
+    def __hash__(self):
+        return hash(self.canonical)
+
     @classmethod
     def from_recformat(cls, recformat):
         """Creates a column format from a Numpy record dtype format."""
@@ -120,6 +123,23 @@ class _ColumnFormat(str):
         """Returns the equivalent Numpy record format string."""
 
         return _convert_format(self)
+
+    @lazyproperty
+    def canonical(self):
+        """
+        Returns a 'canonical' string representation of this format.
+
+        This is in the proper form of rTa where T is the single character data
+        type code, a is the optional part, and r is the repeat.  If repeat == 1
+        (the default) it is left out of this representation.
+        """
+
+        if self.repeat == 1:
+            repeat = ''
+        else:
+            repeat = str(self.repeat)
+
+        return '%s%s%s' % (repeat, self.format, self.option)
 
 
 class _FormatX(str):

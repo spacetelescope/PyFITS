@@ -492,7 +492,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         try:
             header['NAXIS']
         except KeyError, e:
-            assert_equal(e.message, "Keyword 'NAXIS' not found.")
+            assert_equal(e.args[0], "Keyword 'NAXIS' not found.")
 
     def test_hierarch_card_lookup(self):
         header = pyfits.Header()
@@ -1530,7 +1530,7 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         try:
             self._test_header['DP1.AXIS.3']
         except KeyError, e:
-            assert_equal(e.message, "Keyword 'DP1.AXIS.3' not found.")
+            assert_equal(e.args[0], "Keyword 'DP1.AXIS.3' not found.")
 
     def test_update_rvkc(self):
         """A RVKC can be updated either via index or keyword access."""
