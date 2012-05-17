@@ -413,12 +413,22 @@ class _BaseHDU(object):
             return ((self._writeheader(fileobj)[0],) +
                     self._writedata(fileobj))
 
+        hdrloc = self._hdrLoc
+        hdrsize = self._datLoc - self._hdrLoc
+        datloc = self._datLoc
+        datsize = self._datSpan
+
         if self.header._modified:
             self._file.seek(self._hdrLoc)
-            self._writeheader(fileobj)
+            hdrloc, hdrsize = self._writeheader(fileobj)
+
+            # If the data is to be written below with self._writedata, that
+            # will also properly update the data location; but it should be
+            # updated here too
+            datloc = hdrloc + hdrsize
         elif copy:
             self._file.seek(self._hdrLoc)
-            fileobj.write(self._file.read(self._datLoc - self._hdrLoc))
+            fileobj.write(self._file.read(hdrsize))
         if self._data_loaded:
             if self.data is not None:
                 # Seek through the array's bases for an memmap'd array; we
@@ -436,12 +446,11 @@ class _BaseHDU(object):
                     memmap_array.flush()
                 else:
                     self._file.seek(self._datLoc)
-                    self._writedata(fileobj)
+                    datloc, datsize = self._writedata(fileobj)
         elif copy:
             self._file.seek(self._datLoc)
             fileobj.write(self._file.read(self._datSpan))
-        return (self._hdrLoc, self._datLoc,
-                self._datSpan + _pad_length(self._datSpan))
+        return (hdrloc, datloc, datsize + _pad_length(datsize))
 
     def writeto(self, name, output_verify='exception', clobber=False,
                 checksum=False):
