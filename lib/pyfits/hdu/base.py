@@ -419,7 +419,9 @@ class _BaseHDU(object):
         datsize = self._datSpan
 
         if self.header._modified:
-            self._file.seek(self._hdrLoc)
+            # Seek to the original header location in the file
+            self._file.seek(hdrloc)
+            # This should update hdrloc with he header location in the new file
             hdrloc, hdrsize = self._writeheader(fileobj)
 
             # If the data is to be written below with self._writedata, that
@@ -427,8 +429,15 @@ class _BaseHDU(object):
             # updated here too
             datloc = hdrloc + hdrsize
         elif copy:
-            self._file.seek(self._hdrLoc)
+            # Seek to the original header location in the file
+            self._file.seek(hdrloc)
+            # Before writing, update the hdrloc with the current file position,
+            # which is the hdrloc for the new file
+            hdrloc = fileobj.tell()
             fileobj.write(self._file.read(hdrsize))
+            # The header size is unchanged, but the data location may be
+            # different from before depending on if previous HDUs were resized
+            datloc = fileobj.tell()
         if self._data_loaded:
             if self.data is not None:
                 # Seek through the array's bases for an memmap'd array; we
@@ -448,8 +457,9 @@ class _BaseHDU(object):
                     self._file.seek(self._datLoc)
                     datloc, datsize = self._writedata(fileobj)
         elif copy:
+            # Seek to the data location in the original file
             self._file.seek(self._datLoc)
-            fileobj.write(self._file.read(self._datSpan))
+            fileobj.write(self._file.read(datsize))
         return (hdrloc, datloc, datsize + _pad_length(datsize))
 
     def writeto(self, name, output_verify='exception', clobber=False,

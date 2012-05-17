@@ -588,6 +588,9 @@ class TestHDUListFunctions(PyfitsTestCase):
 
         phdu.writeto(self.temp('temp.fits'))
 
+        with pyfits.open(self.temp('temp.fits'), mode='append') as hdul:
+            hdul.append(hdu)
+
         with pyfits.open(self.temp('temp.fits'), mode='update') as hdul:
             idx = 1
             while len(str(hdul[0].header)) <= 2880 * 2:
@@ -600,3 +603,4 @@ class TestHDUListFunctions(PyfitsTestCase):
             assert_true((hdul[0].data == data1).all())
             assert_equal(hdul[1].header, hdu.header)
             assert_true((hdul[1].data == data2).all())
+            assert_true((hdul[2].data == data2).all())
