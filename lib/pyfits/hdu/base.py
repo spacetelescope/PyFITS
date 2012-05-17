@@ -386,9 +386,10 @@ class _BaseHDU(object):
 
         # Update datLoc with the new offset
         self._datLoc = offset
+        self._datSpan = size = size + _pad_length(size)
 
         # return both the location and the size of the data area
-        return offset, size + _pad_length(size)
+        return offset, size
 
     def _writedata_internal(self, fileobj):
         """
@@ -410,8 +411,9 @@ class _BaseHDU(object):
     def _writeto(self, fileobj, inplace=False, copy=False):
         # For now fileobj is assumed to be a _File object
         if not inplace or self._new:
-            return ((self._writeheader(fileobj)[0],) +
-                    self._writedata(fileobj))
+            self._writeheader(fileobj)
+            self._writedata(fileobj)
+            return
 
         hdrloc = self._hdrLoc
         hdrsize = self._datLoc - self._hdrLoc
@@ -460,7 +462,10 @@ class _BaseHDU(object):
             # Seek to the data location in the original file
             self._file.seek(self._datLoc)
             fileobj.write(self._file.read(datsize))
-        return (hdrloc, datloc, datsize + _pad_length(datsize))
+
+        self._hdrLoc = hdrloc
+        self._datLoc = datloc
+        self._datSpan = datsize + _pad_length(datsize)
 
     def writeto(self, name, output_verify='exception', clobber=False,
                 checksum=False):
