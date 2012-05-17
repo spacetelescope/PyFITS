@@ -392,6 +392,9 @@ class _BaseHDU(object):
             fileobj.write(blocks.encode('ascii'))
             fileobj.flush()
 
+        # Update hdrLoc with the new offset
+        self._hdrLoc = offset
+
         return offset, size
 
     def _writedata(self, fileobj):
@@ -422,8 +425,12 @@ class _BaseHDU(object):
         if not fileobj.simulateonly:
             fileobj.flush()
 
+        # Update datLoc with the new offset
+        self._datLoc = offset
+        self._datSpan = size = size + _pad_length(size)
+
         # return both the location and the size of the data area
-        return offset, size + _pad_length(size)
+        return offset, size
 
     def _writedata_internal(self, fileobj):
         """
@@ -445,32 +452,61 @@ class _BaseHDU(object):
     def _writeto(self, fileobj, inplace=False, copy=False):
         # For now fileobj is assumed to be a _File object
         if not inplace or self._new:
-            return ((self._writeheader(fileobj)[0],) +
-                    self._writedata(fileobj))
+            self._writeheader(fileobj)
+            self._writedata(fileobj)
+            return
+
+        hdrloc = self._hdrLoc
+        hdrsize = self._datLoc - self._hdrLoc
+        datloc = self._datLoc
+        datsize = self._datSpan
 
         if self.header._mod:
-            self._file.seek(self._hdrLoc)
-            self._writeheader(fileobj)
+            # Seek to the original header location in the file
+            self._file.seek(hdrloc)
+            # This should update hdrloc with he header location in the new file
+            hdrloc, hdrsize = self._writeheader(fileobj)
+
+            # If the data is to be written below with self._writedata, that
+            # will also properly update the data location; but it should be
+            # updated here too
+            datloc = hdrloc + hdrsize
         elif copy:
-            self._file.seek(self._hdrLoc)
-            fileobj.write(self._file.read(self._datLoc - self._hdrLoc))
+            # Seek to the original header location in the file
+            self._file.seek(hdrloc)
+            # Before writing, update the hdrloc with the current file position,
+            # which is the hdrloc for the new file
+            hdrloc = fileobj.tell()
+            fileobj.write(self._file.read(hdrsize))
+            # The header size is unchanged, but the data location may be
+            # different from before depending on if previous HDUs were resized
+            datloc = fileobj.tell()
         if self._data_loaded:
             if self.data is not None:
                 # Seek through the array's bases for an memmap'd array; we
                 # can't rely on the _File object to give us this info since the
                 # user may have replaced the previous mmap'd array
-                memmap_array = _get_array_memmap(self.data)
+                if copy:
+                    # Of course, if we're copying the data to a new file we
+                    # don't care about flushing the original mmap; instead just
+                    # read it into the new file
+                    memmap_array = None
+                else:
+                    memmap_array = _get_array_memmap(self.data)
 
                 if memmap_array is not None:
                     memmap_array.flush()
                 else:
                     self._file.seek(self._datLoc)
-                    self._writedata(fileobj)
+                    datloc, datsize = self._writedata(fileobj)
         elif copy:
+            # Seek to the data location in the original file
             self._file.seek(self._datLoc)
-            fileobj.write(self._file.read(self._datSpan))
-        return (self._hdrLoc, self._datLoc,
-                self._datSpan + _pad_length(self._datSpan))
+            fileobj.write(self._file.read(datsize))
+
+        self._hdrLoc = hdrloc
+        self._datLoc = datloc
+        self._datSpan = datsize + _pad_length(datsize)
 
     @_with_extensions
     def writeto(self, name, output_verify='exception', clobber=False,

@@ -883,8 +883,7 @@ class HDUList(list, _Verify):
             hdulist = self.fromfile(new_file, mode='append')
 
             for hdu in self:
-                offsets = hdu._writeto(hdulist.__file, inplace=True, copy=True)
-                hdu._hdrLoc, hdu._datLoc, hdu._datSpan = offsets
+                hdu._writeto(hdulist.__file, inplace=True, copy=True)
 
             if sys.platform.startswith('win'):
                 # Collect a list of open mmaps to the data; this well be used
@@ -956,8 +955,7 @@ class HDUList(list, _Verify):
             ffo.seek(0)
 
             for hdu in hdulist:
-                offsets = hdu._writeto(ffo, inplace=True, copy=True)
-                hdu._hdrLoc, hdu._datLoc, hdu._datSpan = offsets
+                hdu._writeto(ffo, inplace=True, copy=True)
 
             # Close the temporary file and delete it.
             hdulist.close()

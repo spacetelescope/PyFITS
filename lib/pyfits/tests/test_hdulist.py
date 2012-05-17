@@ -566,7 +566,42 @@ class TestHDUListFunctions(PyfitsTestCase):
             while len(str(hdul[0].header)) <= 2880 * 2:
                 hdul[0].header.update('TEST%d' % idx, idx)
                 idx += 1
+            # Touch something in the data too so that it has to be rewritten
+            hdul[0].data[0] = 27
 
         with pyfits.open(self.temp('temp.fits')) as hdul:
             assert_equal(str(hdul[0].header[:-37]), str(orig_header[:-1]))
-            assert_true((hdul[0].data == data).all())
+            assert_equal(hdul[0].data[0], 27)
+            assert_true((hdul[0].data[1:] == data[1:]).all())
+
+    def test_update_resized_header2(self):
+        """
+        Regression test for #150.  This is similar to
+        test_update_resized_header, but specifically tests a case of multiple
+        consecutive flush() calls on the same HDUList object, where each
+        flush() requires a resize.
+        """
+
+        data1 = np.arange(100)
+        data2 = np.arange(100) + 100
+        phdu = pyfits.PrimaryHDU(data=data1)
+        hdu = pyfits.ImageHDU(data=data2)
+
+        phdu.writeto(self.temp('temp.fits'))
+
+        with pyfits.open(self.temp('temp.fits'), mode='append') as hdul:
+            hdul.append(hdu)
+
+        with pyfits.open(self.temp('temp.fits'), mode='update') as hdul:
+            idx = 1
+            while len(str(hdul[0].header)) <= 2880 * 2:
+                hdul[0].header.update('TEST%d' % idx, idx)
+                idx += 1
+            hdul.flush()
+            hdul.append(hdu)
+
+        with pyfits.open(self.temp('temp.fits')) as hdul:
+            assert_true((hdul[0].data == data1).all())
+            assert_equal(hdul[1].header, hdu.header)
+            assert_true((hdul[1].data == data2).all())
+            assert_true((hdul[2].data == data2).all())
