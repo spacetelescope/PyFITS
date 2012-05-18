@@ -160,7 +160,7 @@ def handle_options(argv=None):
 
 def setup_logging(outfile=None):
     log.setLevel(logging.INFO)
-    error_handler = logging.StreamHandler(stream=sys.stderr)
+    error_handler = logging.StreamHandler(sys.stderr)
     error_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
     error_handler.setLevel(logging.WARNING)
     log.addHandler(error_handler)
