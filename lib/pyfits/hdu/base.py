@@ -10,11 +10,12 @@ import warnings
 import numpy as np
 
 import pyfits
+from pyfits.card import Card
 from pyfits.file import _File
 from pyfits.header import Header, HEADER_END_RE
 from pyfits.util import (lazyproperty, _is_int, _is_pseudo_unsigned,
                          _unsigned_zero, _pad_length, itersubclasses,
-                         decode_ascii, BLOCK_SIZE, deprecated,
+                         encode_ascii, decode_ascii, BLOCK_SIZE, deprecated,
                          _get_array_memmap)
 from pyfits.verify import _Verify, _ErrList
 
@@ -200,22 +201,25 @@ class _BaseHDU(object):
                     '(in Python 2.x but not in 3.x), buffer, memoryview, '
                     'ndarray, etc.' % data)
 
-            if data[:8] not in ['SIMPLE  ', 'XTENSION']:
+            if data[:8] not in [encode_ascii('SIMPLE  '),
+                                encode_ascii('XTENSION')]:
                 raise ValueError('Block does not begin with SIMPLE or '
                                  'XTENSION')
 
             # Make sure the end card is present
-            match = HEADER_END_RE.search(data)
-            if not match:
+            for match in HEADER_END_RE.finditer(data):
+                endpos = match.start()
+                if endpos % Card.length == 0:
+                    hdrlen = endpos + len(match.group())
+                    hdrlen += _pad_length(hdrlen)
+                    break
+            else:
                 if ignore_missing_end:
                     hdrlen = len(data)
                 else:
                     raise ValueError('Header missing END card.')
-            else:
-                hdrlen = match.start() + len(match.group())
-                hdrlen += _pad_length(hdrlen)
 
-            header = Header.fromstring(data[:hdrlen])
+            header = Header.fromstring(decode_ascii(data[:hdrlen]))
         # Determine the appropriate arguments to pass to the constructor from
         # self._kwargs.  self._kwargs contains any number of optional arguments
         # that may or may not be valid depending on the HDU type

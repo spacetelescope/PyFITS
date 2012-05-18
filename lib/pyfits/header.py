@@ -12,14 +12,14 @@ from collections import defaultdict
 
 from pyfits.card import Card, CardList, BLANK_CARD, _pad
 from pyfits.file import _File, PYTHON_MODES
-from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, decode_ascii,
-                         fileobj_mode, _pad_length)
+from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, encode_ascii,
+                         decode_ascii, fileobj_mode, _pad_length)
 
 
 PY3K = sys.version_info[:2] >= (3, 0)
 
 
-HEADER_END_RE = re.compile('END {77} *')
+HEADER_END_RE = re.compile(encode_ascii('END {77} *'))
 
 
 # According to the FITS standard the only characters that may appear in a
@@ -399,7 +399,7 @@ class Header(object):
 
         close_file = False
         if isinstance(fileobj, basestring):
-            fileobj = open(fileobj, 'r')
+            fileobj = open(fileobj, 'rb')
             close_file = True
 
         actual_block_size = _block_size(sep)
@@ -407,9 +407,9 @@ class Header(object):
 
         try:
             # Read the first header block.
-            block = decode_ascii(fileobj.read(actual_block_size))
+            block = fileobj.read(actual_block_size)
 
-            if block == '':
+            if not block:
                 raise EOFError()
 
             blocks = []
@@ -429,16 +429,16 @@ class Header(object):
                         break
 
                 if not is_end:
-                    blocks.append(block)
-                    block = decode_ascii(fileobj.read(actual_block_size))
-                    if block == '':
+                    blocks.append(decode_ascii(block))
+                    block = fileobj.read(actual_block_size)
+                    if not block:
                         is_eof = True
                         break
                 else:
                     break
 
             last_block = block
-            blocks.append(block)
+            blocks.append(decode_ascii(block))
 
             blocks = ''.join(blocks)
 

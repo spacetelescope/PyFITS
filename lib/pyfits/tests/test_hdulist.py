@@ -627,6 +627,13 @@ class TestHDUListFunctions(PyfitsTestCase):
                     assert_equal(hdul[idx].header, hdul2[idx].header)
                     if  hdul[idx].data is None or hdul2[idx].data is None:
                         assert_equal(hdul[idx].data, hdul2[idx].data)
+                    elif (hdul[idx].data.dtype.fields and
+                          hdul2[idx].data.dtype.fields):
+                        # Compare tables
+                        for n in hdul[idx].data.names:
+                            c1 = hdul[idx].data[n]
+                            c2 = hdul2[idx].data[n]
+                            assert_true((c1 == c2).all())
                     else:
                         assert_true((hdul[idx].data == hdul2[idx].data).all())
 
