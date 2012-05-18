@@ -20,10 +20,6 @@ class FitsHDU(NonstandardExtHDU):
     _extension = 'FITS'
 
     @lazyproperty
-    def data(self):
-        return self._file.readarray(self.size, offset=self._datLoc)
-
-    @lazyproperty
     def hdulist(self):
         self._file.seek(self._datLoc)
         fileobj = BytesIO()

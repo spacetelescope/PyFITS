@@ -90,9 +90,14 @@ class _ImageBaseHDU(_ValidHDU):
                 cards.append(('GCOUNT',    1,
                               self.standard_keyword_comments['GCOUNT']))
 
-            self._header = Header(cards)
             if header is not None:
-                self._header.extend(header, update=True, end=True)
+                orig = header
+                header = Header(cards)
+                header.extend(orig, strip=True, update=True, end=True)
+            else:
+                header = Header(cards)
+
+            self._header = header
 
         self._do_not_scale_image_data = do_not_scale_image_data
         self._uint = uint
@@ -501,7 +506,7 @@ class _ImageBaseHDU(_ValidHDU):
 
         code = _ImageBaseHDU.NumCode[self._orig_bitpix]
 
-        raw_data = self._file.readarray(offset=offset, dtype=code, shape=shape)
+        raw_data = self._get_raw_data(shape, code, offset)
         raw_data.dtype = raw_data.dtype.newbyteorder('>')
 
         if (self._orig_bzero == 0 and self._orig_bscale == 1 and

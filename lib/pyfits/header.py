@@ -752,7 +752,7 @@ class Header(object):
         new_card = Card(keyword, value, comment)
 
         if (new_card.keyword in self and
-                new_card.keyword not in Card._commentary_keywords):
+            new_card.keyword not in Card._commentary_keywords):
             if comment is None:
                 comment = self.comments[keyword]
             if value is None:

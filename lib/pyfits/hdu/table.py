@@ -74,8 +74,7 @@ class _TableLikeHDU(_ValidHDU):
         names = [n for idx, n in enumerate(columns.names)
                  if not columns[idx]._phantom]
         dtype = np.rec.format_parser(formats, names, None).dtype
-        raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
-                                        shape=columns._shape)
+        raw_data = self._get_raw_data(columns._shape, dtype, self._datLoc)
         data = raw_data.view(np.rec.recarray)
         self._init_tbdata(data)
         return data.view(self._data_type)
@@ -414,8 +413,7 @@ class TableHDU(_TableBaseHDU):
                                 self._header['NAXIS1'] - itemsize)
             dtype[columns.names[idx]] = (data_type, columns.starts[idx] - 1)
 
-        raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
-                                        shape=columns._shape)
+        raw_data = self._get_raw_data(columns._shape, dtype, self._datLoc)
         data = raw_data.view(np.rec.recarray)
         self._init_tbdata(data)
         return data.view(self._data_type)

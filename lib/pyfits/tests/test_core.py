@@ -283,23 +283,32 @@ class TestCore(PyfitsTestCase):
         bytes of the HDU.
         """
 
-        hdul = pyfits.open(self.data('test0.fits'))
         dat = open(self.data('test0.fits'), 'rb').read()
 
         offset = 0
-        hdulen = hdul[0]._datLoc + hdul[0]._datSpan
-        hdu = pyfits.PrimaryHDU.fromstring(dat[:hdulen])
-        assert_true(isinstance(hdu, pyfits.PrimaryHDU))
-        assert_equal(hdul[0].header, hdu.header)
-        assert_true(hdu.data is None)
+        with pyfits.open(self.data('test0.fits')) as hdul:
+            hdulen = hdul[0]._datLoc + hdul[0]._datSpan
+            hdu = pyfits.PrimaryHDU.fromstring(dat[:hdulen])
+            assert_true(isinstance(hdu, pyfits.PrimaryHDU))
+            assert_equal(hdul[0].header, hdu.header)
+            assert_true(hdu.data is None)
 
-        for ext_hdu in hdul[1:]:
-            offset += hdulen
-            hdulen = ext_hdu._datLoc + ext_hdu._datSpan
-            hdu = pyfits.ImageHDU.fromstring(dat[offset:hdulen])
-            assert_true(isinstance(hdu, pyfits.ImageHDU))
-            assert_equal(ext_hdu.header, hdu.header)
-            assert_true((ext_hdu.data == hdu.data).all())
+        hdu.header['TEST'] = 'TEST'
+        hdu.writeto(self.temp('test.fits'))
+        with pyfits.open(self.temp('test.fits')) as hdul:
+            assert_true(isinstance(hdu, pyfits.PrimaryHDU))
+            assert_equal(hdul[0].header[:-1], hdu.header[:-1])
+            assert_equal(hdul[0].header['TEST'], 'TEST')
+            assert_true(hdu.data is None)
+
+        with pyfits.open(self.data('test0.fits'))as hdul:
+            for ext_hdu in hdul[1:]:
+                offset += hdulen
+                hdulen = len(str(ext_hdu.header)) + ext_hdu._datSpan
+                hdu = pyfits.ImageHDU.fromstring(dat[offset:offset + hdulen])
+                assert_true(isinstance(hdu, pyfits.ImageHDU))
+                assert_equal(ext_hdu.header, hdu.header)
+                assert_true((ext_hdu.data == hdu.data).all())
 
 
 
