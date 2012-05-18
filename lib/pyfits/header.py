@@ -1212,7 +1212,12 @@ class Header(object):
                     self.append(card, useblanks=useblanks, bottom=bottom,
                                 end=end)
             else:
-                if unique or update:
+                if unique or update and keyword in self:
+                    if str(card) == BLANK_CARD:
+                        self.append(card, useblanks=useblanks, bottom=bottom,
+                                    end=end)
+                        continue
+
                     for value in self[keyword]:
                         if value == card.value:
                             break

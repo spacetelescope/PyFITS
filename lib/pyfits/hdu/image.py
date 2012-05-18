@@ -92,7 +92,7 @@ class _ImageBaseHDU(_ValidHDU):
 
             self._header = Header(cards)
             if header is not None:
-                self._header.update(header.cards)
+                self._header.extend(header, update=True, end=True)
 
         self._do_not_scale_image_data = do_not_scale_image_data
         self._uint = uint
