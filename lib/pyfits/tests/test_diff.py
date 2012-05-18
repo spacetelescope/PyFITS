@@ -138,6 +138,11 @@ class TestDiff(PyfitsTestCase):
         assert_false(diff.identical)
         assert_equal(diff.diff_keyword_values, {'C': [(3, 5)]})
 
+        # Test case-insensitivity
+        diff = HeaderDiff(ha, hb, ignore_keywords=['b'])
+        assert_false(diff.identical)
+        assert_equal(diff.diff_keyword_values, {'C': [(3, 5)]})
+
     def test_trivial_identical_images(self):
         ia = np.arange(100).reshape((10, 10))
         ib = np.arange(100).reshape((10, 10))

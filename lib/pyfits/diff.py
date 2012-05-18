@@ -187,9 +187,11 @@ class FITSDiff(_BaseDiff):
         else:
             close_b = False
 
-        self.ignore_keywords = set(ignore_keywords)
-        self.ignore_comments = set(ignore_comments)
-        self.ignore_fields = set(ignore_fields)
+        # Normalize keywords/fields to ignore to upper case
+        self.ignore_keywords = set(k.upper() for k in ignore_keywords)
+        self.ignore_comments = set(k.upper() for k in ignore_comments)
+        self.ignore_fields = set(k.upper() for k in ignore_fields)
+
         self.numdiffs = numdiffs
         self.tolerance = tolerance
         self.ignore_blanks = ignore_blanks
@@ -313,9 +315,10 @@ class HDUDiff(_BaseDiff):
         See `FITSDiff` for explanations of the initialization parameters.
         """
 
-        self.ignore_keywords = set(ignore_keywords)
-        self.ignore_comments = set(ignore_comments)
-        self.ignore_fields = set(ignore_fields)
+        self.ignore_keywords = set(k.upper() for k in ignore_keywords)
+        self.ignore_comments = set(k.upper() for k in ignore_comments)
+        self.ignore_fields = set(k.upper() for k in ignore_fields)
+
         self.tolerance = tolerance
         self.numdiffs = numdiffs
         self.ignore_blanks = ignore_blanks
@@ -436,18 +439,21 @@ class HeaderDiff(_BaseDiff):
         See `FITSDiff` for explanations of the initialization parameters.
         """
 
-        self.ignore_keywords = set(ignore_keywords)
-        self.ignore_comments = set(ignore_comments)
+        self.ignore_keywords = set(k.upper() for k in ignore_keywords)
+        self.ignore_comments = set(k.upper() for k in ignore_comments)
+
         self.tolerance = tolerance
         self.ignore_blanks = ignore_blanks
 
         self.ignore_keyword_patterns = set()
         self.ignore_comment_patterns = set()
         for keyword in list(self.ignore_keywords):
+            keyword = keyword.upper()
             if keyword != '*' and glob.has_magic(keyword):
                 self.ignore_keywords.remove(keyword)
                 self.ignore_keyword_patterns.add(keyword)
         for keyword in list(self.ignore_comments):
+            keyword = keyword.upper()
             if keyword != '*' and glob.has_magic(keyword):
                 self.ignore_comments.remove(keyword)
                 self.ignore_comment_patterns.add(keyword)
@@ -509,8 +515,10 @@ class HeaderDiff(_BaseDiff):
         valuesa, commentsa = get_header_values_comments(self.a)
         valuesb, commentsb = get_header_values_comments(self.b)
 
-        keywordsa = set(valuesa)
-        keywordsb = set(valuesb)
+        # Normalize all keyword to upper-case for comparison's sake;
+        # TODO: HIERARCH keywords should be handled case-sensitively I think
+        keywordsa = set(k.upper() for k in valuesa)
+        keywordsb = set(k.upper() for k in valuesb)
 
         self.common_keywords = sorted(keywordsa.intersection(keywordsb))
         if len(self.a) != len(self.b):
