@@ -1,5 +1,6 @@
 from __future__ import division, with_statement  # confidence high
 
+import glob
 import os
 
 import numpy as np
@@ -604,3 +605,33 @@ class TestHDUListFunctions(PyfitsTestCase):
             assert_equal(hdul[1].header, hdu.header)
             assert_true((hdul[1].data == data2).all())
             assert_true((hdul[2].data == data2).all())
+
+    def test_hdul_fromstring(self):
+        """
+        Test creating the HDUList structure in memory from a string containing
+        an entire FITS file.  This is similar to test_hdu_fromstring but for an
+        entire multi-extension FITS file at once.
+        """
+
+        # Tests HDUList.fromstring for all of PyFITS' built in test files
+        def test_fromstring(filename):
+            with pyfits.open(self.data(filename)) as hdul:
+                orig_info = hdul.info(output=False)
+                with open(self.data(filename), 'rb') as f:
+                    dat = f.read()
+
+                hdul2 = pyfits.HDUList.fromstring(dat)
+
+                assert_equal(orig_info, hdul2.info(output=False))
+                for idx in range(len(hdul)):
+                    assert_equal(hdul[idx].header, hdul2[idx].header)
+                    if  hdul[idx].data is None or hdul2[idx].data is None:
+                        assert_equal(hdul[idx].data, hdul2[idx].data)
+                    else:
+                        assert_true((hdul[idx].data == hdul2[idx].data).all())
+
+        for filename in glob.glob(os.path.join(self.data_dir, '*.fits')):
+            test_fromstring(os.path.join(self.data_dir, filename))
+
+        # Test that creating an HDUList from something silly raises a TypeError
+        assert_raises(TypeError, pyfits.HDUList.fromstring, ['a', 'b', 'c'])

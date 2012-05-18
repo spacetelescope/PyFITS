@@ -218,66 +218,47 @@ class HDUList(list, _Verify):
         self.close()
 
     @classmethod
-    def fromfile(cls, fileobj, mode="copyonwrite", memmap=False, **kwargs):
+    def fromfile(cls, fileobj, mode='readonly', memmap=False, **kwargs):
         """
         Creates an HDUList instance from a file-like object.
 
-        The actual implementation of `fitsopen()`.
+        The actual implementation of :func:`fitsopen`, and generally shouldn't
+        be used directly.  Use :func:`pyfits.open` instead (and see its
+        documentation for details of the parameters accepted by this method).
         """
 
-        # instantiate a FITS file object (ffo)
-        ffo = _File(fileobj, mode=mode, memmap=memmap)
-        hdulist = cls(file=ffo)
+        return cls._readfrom(fileobj=fileobj, mode=mode, memmap=memmap,
+                             **kwargs)
 
-        saved_compression_supported = compressed.COMPRESSION_SUPPORTED
+    @classmethod
+    def fromstring(cls, data, **kwargs):
+        """
+        Creates an HDUList instance from a string or other in-memory data
+        buffer containing an entire FITS file.  Similar to
+        :meth:`HDUList.fromfile`, but does not accept the mode or memmap
+        arguments, as they are only relevant to reading from a file on disk.
 
-        try:
-            if 'disable_image_compression' in kwargs and \
-               kwargs['disable_image_compression']:
-                compressed.COMPRESSION_ENABLED = False
+        This is useful for interfacing with other libraries such as CFITSIO,
+        and may also be useful for streaming applications.
 
-            if mode == 'ostream':
-                # Output stream--not interested in reading/parsing the
-                # HDUs--just writing to the output file
-                return hdulist
+        Parameters
+        ----------
+        data : str, buffer, memoryview, etc.
+            A string or other memory buffer containing an entire FITS file.  It
+            should be noted that if that memory is read-only (such as a Python
+            string) the returned :class:`HDUList`'s data portions will also be
+            read-only.
 
-            # read all HDUs
-            while True:
-                try:
-                    hdu = _BaseHDU.readfrom(ffo, **kwargs)
-                    hdulist.append(hdu)
-                    hdu._new = False
-                except EOFError:
-                    break
-                # check in the case there is extra space after the last HDU or
-                # corrupted HDU
-                except (VerifyError, ValueError), err:
-                    warnings.warn(
-                        'Error validating header for HDU #%d (note: PyFITS '
-                        'uses zero-based indexing).\n%s\n'
-                        'There may be extra bytes after the last HDU or the '
-                        'file is corrupted.' %
-                        (len(hdulist), indent(str(err))))
-                    break
-                except IOError, err:
-                    if ffo.writeonly:
-                        break
-                    else:
-                        raise
+        kwargs : dict
+            Optional keyword arguments.  See :func:`pyfits.open` for details.
 
-            # If we're trying to read only and no header units were found,
-            # raise and exception
-            if mode in ('readonly', 'denywrite') and len(hdulist) == 0:
-                raise IOError('Empty or corrupt FITS file')
+        Returns
+        -------
+        hdul : HDUList
+            An :class:`HDUList` object representing the in-memory FITS file.
+        """
 
-            # initialize/reset attributes to be used in "update/append" mode
-            hdulist._resize = False
-            hdulist._truncate = False
-
-        finally:
-            compressed.COMPRESSION_SUPPORTED = saved_compression_supported
-
-        return hdulist
+        return cls._readfrom(data=data, **kwargs)
 
     def fileinfo(self, index):
         """
@@ -293,7 +274,7 @@ class HDUList(list, _Verify):
 
         Returns
         -------
-        dictionary or None
+        fileinfo : dict or None
 
             The dictionary details information about the locations of
             the indexed HDU within an associated file.  Returns `None`
@@ -751,6 +732,83 @@ class HDUList(list, _Verify):
             if hasattr(self.__file, 'name'):
                 return self.__file.name
         return None
+
+    @classmethod
+    def _readfrom(cls, fileobj=None, data=None, mode='readonly',
+                  memmap=False, **kwargs):
+        """
+        Provides the implementations from HDUList.fromfile and
+        HDUList.fromstring, both of which wrap this method, as their
+        implementations are largely the same.
+        """
+
+        if fileobj is not None:
+            # instantiate a FITS file object (ffo)
+            ffo = _File(fileobj, mode=mode, memmap=memmap)
+            hdulist = cls(file=ffo)
+        else:
+            hdulist = cls()
+            # This method is currently only called from HDUList.fromstring and
+            # HDUList.fromfile.  If fileobj is None then this must be the
+            # fromstring case; the data type of `data` will be checked in the
+            # _BaseHDU.fromstring call.
+
+        saved_compression_supported = compressed.COMPRESSION_SUPPORTED
+
+        try:
+            if 'disable_image_compression' in kwargs and \
+               kwargs['disable_image_compression']:
+                compressed.COMPRESSION_ENABLED = False
+
+            if mode == 'ostream':
+                # Output stream--not interested in reading/parsing the
+                # HDUs--just writing to the output file
+                return hdulist
+
+            # read all HDUs
+            while True:
+                try:
+                    if fileobj is not None:
+                        try:
+                            hdu = _BaseHDU.readfrom(ffo, **kwargs)
+                        except EOFError:
+                            break
+                        except IOError, err:
+                            if ffo.writeonly:
+                                break
+                            else:
+                                raise
+                    else:
+                        if not data:
+                            break
+                        hdu = _BaseHDU.fromstring(data)
+                        data = data[hdu._datLoc + hdu._datSpan:]
+                    hdulist.append(hdu)
+                    hdu._new = False
+                # check in the case there is extra space after the last HDU or
+                # corrupted HDU
+                except (VerifyError, ValueError), err:
+                    warnings.warn(
+                        'Error validating header for HDU #%d (note: PyFITS '
+                        'uses zero-based indexing).\n%s\n'
+                        'There may be extra bytes after the last HDU or the '
+                        'file is corrupted.' %
+                        (len(hdulist), indent(str(err))))
+                    break
+
+            # If we're trying to read only and no header units were found,
+            # raise and exception
+            if mode in ('readonly', 'denywrite') and len(hdulist) == 0:
+                raise IOError('Empty or corrupt FITS file')
+
+            # initialize/reset attributes to be used in "update/append" mode
+            hdulist._resize = False
+            hdulist._truncate = False
+
+        finally:
+            compressed.COMPRESSION_SUPPORTED = saved_compression_supported
+
+        return hdulist
 
     def _verify(self, option='warn'):
         text = ''

@@ -155,7 +155,7 @@ class _BaseHDU(object):
 
         Parameters
         ----------
-        data : str, bytearray, memoryview
+        data : str, bytearray, memoryview, ndarray
            A byte string contining the HDU's header and, optionally, its data.
            If `fileobj` is not specified, and the length of `data` extends
            beyond the header, then the trailing data is taken to be the HDU's
@@ -181,7 +181,25 @@ class _BaseHDU(object):
            Any unrecognized kwargs are simply ignored.
         """
 
-        if isinstance(data, basestring):
+        if isinstance(data, Header):
+            header = data
+            if (not len(header) or
+                header.keys()[0] not in ('SIMPLE', 'XTENSION')):
+                raise ValueError('Block does not begin with SIMPLE or '
+                                 'XTENSION')
+        else:
+            try:
+                # Test that the given object supports the buffer interface by
+                # ensuring an ndarray can be created from it
+                np.ndarray((), dtype='ubyte', buffer=data)
+            except TypeError:
+                raise TypeError(
+                    'The provided object %r does not contain an underlying '
+                    'memory buffer.  fromstring() requires an object that '
+                    'supports the buffer interface such as bytes, str '
+                    '(in Python 2.x but not in 3.x), buffer, memoryview, '
+                    'ndarray, etc.' % data)
+
             if data[:8] not in ['SIMPLE  ', 'XTENSION']:
                 raise ValueError('Block does not begin with SIMPLE or '
                                  'XTENSION')
@@ -198,16 +216,6 @@ class _BaseHDU(object):
                 hdrlen += _pad_length(hdrlen)
 
             header = Header.fromstring(data[:hdrlen])
-        elif isinstance(data, Header):
-            header = data
-            if (not len(header) or
-                header.keys()[0] not in ('SIMPLE', 'XTENSION')):
-                raise ValueError('Block does not begin with SIMPLE or '
-                                 'XTENSION')
-        else:
-            raise TypeError('Invalid data argument to _BaseHDU.fromstring(): '
-                            'Must be either a string or a Header object.')
-
         # Determine the appropriate arguments to pass to the constructor from
         # self._kwargs.  self._kwargs contains any number of optional arguments
         # that may or may not be valid depending on the HDU type
@@ -227,7 +235,7 @@ class _BaseHDU(object):
         size = hdu.size
         hdu._file = fileobj
 
-        if not fileobj and isinstance(data, basestring) and len(data) > hdrlen:
+        if not fileobj and len(data) > hdrlen:
             # Provide an underlying buffer to read the data from
             hdu._buffer = data
 

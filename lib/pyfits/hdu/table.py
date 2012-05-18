@@ -87,6 +87,7 @@ class _TableLikeHDU(_ValidHDU):
         # pass datLoc, for P format
         data._heapoffset = self._theap + self._datLoc
         data._file = self._file
+        data._buffer = self._buffer
         tbsize = self._header['NAXIS1'] * self._header['NAXIS2']
         data._gap = self._theap - tbsize
 
