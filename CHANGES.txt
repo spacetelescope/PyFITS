@@ -57,6 +57,12 @@ API Changes and Additions
   set ``pyfits.EXTENSION_NAME_CASE_SENSITIVE = True``.  The default is
   ``False``. (r1139)
 
+- A new global configuration variable ``pyfits.STRIP_HEADER_WHITESPACE`` was
+  added.  By default, if a string value in a header contains trailing
+  whitespace, that whitespace is automatically removed when the value is read.
+  Now if you set ``pyfits.STRIP_HEADER_WHITESPACE = False`` all whitespace is
+  preserved. (#146)
+
 - The old ``classExtensions`` extension mechanism (which was deprecated in
   PyFITS 3.0) is removed outright.  To our knowledge it was no longer used
   anywhere. (r1309)
@@ -65,12 +71,6 @@ API Changes and Additions
   output to stderr instead of stdout, as is the default.  PyFITS no longer
   modifies the default behavior of the warnings module with respect to which
   stream it outputs to. (r1319)
-
-- A new global configuration variable ``pyfits.STRIP_HEADER_WHITESPACE`` was
-  added.  By default, if a string value in a header contains trailing
-  whitespace, that whitespace is automatically removed when the value is read.
-  Now if you set ``pyfits.STRIP_HEADER_WHITESPACE = False`` all whitespace is
-  preserved. (#146)
 
 New Features
 ++++++++++++
@@ -90,6 +90,14 @@ New Features
   meaning of 'image' is fairly loose, and mostly just means a Primary or Image
   extension HDU, or possibly a compressed image HDU (#71)
 
+- Added an ``HDUList.fromstring`` classmethod which can parse a FITS file
+  already in memory and instantiate and ``HDUList`` object from it.  This
+  could be useful for integrating PyFITS with other libraries that work on
+  FITS file, such as CFITSIO.  It may also be useful in streaming
+  applications.  The name is a slight misnomer, in that it actually accepts
+  any Python object that implements the buffer interface, which includes
+  ``bytes``, ``bytearray``, ``memoryview``, ``numpy.ndarray``, etc. (#90)
+
 Bug Fixes
 +++++++++
 
@@ -99,6 +107,11 @@ Bug Fixes
 - Fixed a fairly rare crash that could occur in the handling of CONTINUE cards
   when using Numpy 1.4 or lower (though 1.4 is the oldest version supported by
   PyFITS). (r1330)
+
+- Fixed ``_BaseHDU.fromstring`` to actually correctly instantiate an HDU
+  object from a string/buffer containing the header and data of that HDU.
+  This allowed for the implementation of ``HDUList.fromstring`` described
+  above. (#90)
 
 - Fixed a rare corner case where, in some use cases, (mildly, recoverably)
   malformatted float values in headers were not properly returned as floats.
