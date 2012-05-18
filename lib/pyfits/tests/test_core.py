@@ -291,12 +291,12 @@ class TestCore(PyfitsTestCase):
         hdu = pyfits.PrimaryHDU.fromstring(dat[:hdulen])
         assert_true(isinstance(hdu, pyfits.PrimaryHDU))
         assert_equal(hdul[0].header, hdu.header)
-        assert_true((hdul[0].data == hdu.data).all())
+        assert_true(hdu.data is None)
 
         for ext_hdu in hdul[1:]:
             offset += hdulen
             hdulen = ext_hdu._datLoc + ext_hdu._datSpan
-            hdu = pyfits.ExtensionHDU.fromstring(dat[offset:hdulen])
+            hdu = pyfits.ImageHDU.fromstring(dat[offset:hdulen])
             assert_true(isinstance(hdu, pyfits.ImageHDU))
             assert_equal(ext_hdu.header, hdu.header)
             assert_true((ext_hdu.data == hdu.data).all())
