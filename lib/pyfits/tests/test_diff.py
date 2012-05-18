@@ -163,6 +163,12 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.diff_dimensions, ((10, 10), (100,)))
         assert_equal(diff.diff_total, 0)
 
+        report = diff.report()
+        assert_true('Data dimensions differ' in report)
+        assert_true('a: 10 x 10' in report)
+        assert_true('b: 100' in report)
+        assert_true('No further data comparison performed.')
+
     def test_different_pixels(self):
         ia = np.arange(100).reshape((10, 10))
         ib = np.arange(100).reshape((10, 10))

@@ -707,11 +707,13 @@ class ImageDataDiff(_BaseDiff):
 
     def _report(self, fileobj):
         if self.diff_dimensions:
+            dimsa = ' x '.join(str(d) for d in
+                               reversed(self.diff_dimensions[0]))
+            dimsb = ' x '.join(str(d) for d in
+                               reversed(self.diff_dimensions[1]))
             fileobj.write('  Data dimensions differ:\n')
-            fileobj.write('   a: %s\n' %
-                          ' x '.join(reversed(self.diff_dimensions[0])))
-            fileobj.write('   b: %s\n' %
-                          ' x '.join(reversed(self.diff_dimensions[1])))
+            fileobj.write('   a: %s\n' % dimsa)
+            fileobj.write('   b: %s\n' % dimsb)
             # For now we don't do any further comparison if the dimensions
             # differ; though in the future it might be nice to be able to
             # compare at least where the images intersect
