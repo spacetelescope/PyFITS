@@ -277,6 +277,31 @@ class TestCore(PyfitsTestCase):
         assert_equal(hdu.name, 'SCI')
         assert_equal(hdu.header['EXTNAME'], 'SCI')
 
+    def test_hdu_fromstring(self):
+        """
+        Tests creating a fully-formed HDU object from a string containing the
+        bytes of the HDU.
+        """
+
+        hdul = pyfits.open(self.data('test0.fits'))
+        dat = open(self.data('test0.fits'), 'rb').read()
+
+        offset = 0
+        hdulen = hdul[0]._datLoc + hdul[0]._datSpan
+        hdu = pyfits.PrimaryHDU.fromstring(dat[:hdulen])
+        assert_true(isinstance(hdu, pyfits.PrimaryHDU))
+        assert_equal(hdul[0].header, hdu.header)
+        assert_true((hdul[0].data == hdu.data).all())
+
+        for ext_hdu in hdul[1:]:
+            offset += hdulen
+            hdulen = ext_hdu._datLoc + ext_hdu._datSpan
+            hdu = pyfits.ExtensionHDU.fromstring(dat[offset:hdulen])
+            assert_true(isinstance(hdu, pyfits.ImageHDU))
+            assert_equal(ext_hdu.header, hdu.header)
+            assert_true((ext_hdu.data == hdu.data).all())
+
+
 
 class TestConvenienceFunctions(PyfitsTestCase):
     def test_writeto(self):

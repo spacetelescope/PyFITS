@@ -90,11 +90,9 @@ class _ImageBaseHDU(_ValidHDU):
                 cards.append(('GCOUNT',    1,
                               self.standard_keyword_comments['GCOUNT']))
 
-            if header is not None:
-                hcopy = header.copy(strip=True)
-                cards.extend(hcopy.cards)
-
             self._header = Header(cards)
+            if header is not None:
+                self._header.update(header.cards)
 
         self._do_not_scale_image_data = do_not_scale_image_data
         self._uint = uint
