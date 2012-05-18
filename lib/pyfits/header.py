@@ -1761,7 +1761,7 @@ class Header(object):
 
     # Some fixes for compatibility with the Python 3 dict interface, where
     # iteritems -> items, etc.
-    if PY3K:
+    if PY3K:  # pragma: py3
         keys = iterkeys
         values = itervalues
         items = iteritems
