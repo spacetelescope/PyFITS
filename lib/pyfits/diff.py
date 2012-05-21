@@ -378,7 +378,8 @@ class HDUDiff(_BaseDiff):
             self.diff_extension_types = (self.a.header.get('XTENSION'),
                                          self.b.header.get('XTENSION'))
 
-        self.diff_headers = HeaderDiff(self.a.header, self.b.header,
+        self.diff_headers = HeaderDiff(self.a.header.copy(),
+                                       self.b.header.copy(),
                                        ignore_keywords=self.ignore_keywords,
                                        ignore_comments=self.ignore_comments,
                                        tolerance=self.tolerance,
@@ -1167,7 +1168,7 @@ def report_diff_keyword_attr(fileobj, attr, diffs, keyword, ind=0):
             else:
                 dup = '[%d]' % (idx + 1)
             fileobj.write(indent(' Keyword %-8s%s has different %s:\n' %
-                          (keyword, dup, attr)), ind)
+                          (keyword, dup, attr), ind))
             report_diff_values(fileobj, val[0], val[1], ind=ind + 1)
 
 
