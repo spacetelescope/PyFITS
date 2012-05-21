@@ -504,8 +504,12 @@ def translate(s, table, deletechars):
 
 
 def indent(s, shift=1, width=4):
-    return '\n'.join(' ' * (width * shift) + l if l else ''
-                     for l in s.splitlines())
+    indented = '\n'.join(' ' * (width * shift) + l if l else ''
+                         for l in s.splitlines())
+    if s[-1] == '\n':
+        indented += '\n'
+
+    return indented
 
 
 def fill(text, width, *args, **kwargs):
