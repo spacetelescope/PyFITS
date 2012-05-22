@@ -861,26 +861,6 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(len(hdu.header), 5)
         assert_equal(hdu.header[-1], 'some val')
 
-    def test_header_extend_unique(self):
-        """
-        Test extending the header with and without unique=True.
-        """
-        hdu = pyfits.PrimaryHDU()
-        hdu2 = pyfits.ImageHDU()
-        hdu.header['MYKEY'] = ('some val', 'some comment')
-        hdu2.header['MYKEY'] = ('some other val', 'some other comment')
-        hdu.header.extend(hdu2.header)
-        assert_equal(len(hdu.header), 6)
-        assert_equal(hdu.header[-2], 'some val')
-        assert_equal(hdu.header[-1], 'some other val')
-
-        hdu = pyfits.PrimaryHDU()
-        hdu2 = pyfits.ImageHDU()
-        hdu.header['MYKEY'] = ('some val', 'some comment')
-        hdu.header.extend(hdu2.header, unique=True)
-        assert_equal(len(hdu.header), 5)
-        assert_equal(hdu.header[-1], 'some val')
-
     def test_header_extend_update(self):
         """
         Test extending the header with and without update=True.
