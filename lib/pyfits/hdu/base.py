@@ -236,7 +236,7 @@ class _BaseHDU(object):
         new_kwargs = kwargs.copy()
         if not varkwargs:
             # If __init__ accepts arbitrary keyword arguments, then we can go
-            # ahead and pass all keyword argumnets; otherwise we need to delete
+            # ahead and pass all keyword arguments; otherwise we need to delete
             # any that are invalid
             for key in kwargs:
                 if key not in args:

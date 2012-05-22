@@ -10,6 +10,7 @@ import difflib
 import fnmatch
 import functools
 import glob
+import inspect
 import os
 import textwrap
 
@@ -27,7 +28,7 @@ import numpy as np
 from numpy import char
 
 import pyfits
-from pyfits.card import Card
+from pyfits.card import Card, BLANK_CARD
 from pyfits.header import Header
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.table import _TableLikeHDU
@@ -86,6 +87,30 @@ class _BaseDiff(object):
         """
 
         return not self.identical
+
+    @classmethod
+    def fromdiff(cls, other, a, b):
+        """
+        Returns a new Diff object of a specfic subclass from an existing diff
+        object, passing on the values for any arguments they share in common
+        (such as ignore_keywords).
+
+        For example::
+
+            >>> fd = FITSDiff('a.fits', 'b.fits', ignore_keywords=['*'])
+            >>> hd = HeaderDiff.fromdiff(fd, header_a, header_b)
+            >>> hd.ignore_keywords
+            ['*']
+        """
+
+        args, _, _, _ = inspect.getargspec(cls.__init__)
+        # The first 3 arguments of any Diff initializer are self, a, and b.
+        kwargs = {}
+        for arg in args[3:]:
+            if hasattr(other, arg):
+                kwargs[arg] = getattr(other, arg)
+
+        return cls(a, b, **kwargs)
 
     @property
     def identical(self):
@@ -160,7 +185,7 @@ class FITSDiff(_BaseDiff):
 
     def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
                  ignore_fields=[], numdiffs=10, tolerance=0.0,
-                 ignore_blanks=True):
+                 ignore_blanks=True, ignore_blank_cards=True):
         """
         Parameters
         ----------
@@ -222,6 +247,7 @@ class FITSDiff(_BaseDiff):
         self.numdiffs = numdiffs
         self.tolerance = tolerance
         self.ignore_blanks = ignore_blanks
+        self.ignore_blank_cards = ignore_blank_cards
 
         self.diff_hdu_count = ()
         self.diff_hdus = []
@@ -243,13 +269,7 @@ class FITSDiff(_BaseDiff):
         # TODO: Somehow or another simplify the passing around of diff
         # options--this will become important as the number of options grows
         for idx in range(min(len(self.a), len(self.b))):
-            hdu_diff = HDUDiff(self.a[idx], self.b[idx],
-                               ignore_keywords=self.ignore_keywords,
-                               ignore_comments=self.ignore_comments,
-                               ignore_fields=self.ignore_fields,
-                               numdiffs=self.numdiffs,
-                               tolerance=self.tolerance,
-                               ignore_blanks=self.ignore_blanks)
+            hdu_diff = HDUDiff.fromdiff(self, self.a[idx], self.b[idx])
 
             if not hdu_diff.identical:
                 self.diff_hdus.append((idx, hdu_diff))
@@ -342,7 +362,7 @@ class HDUDiff(_BaseDiff):
 
     def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
                  ignore_fields=[], numdiffs=10, tolerance=0.0,
-                 ignore_blanks=True):
+                 ignore_blanks=True, ignore_blank_cards=True):
         """
         See `FITSDiff` for explanations of the initialization parameters.
         """
@@ -378,32 +398,25 @@ class HDUDiff(_BaseDiff):
             self.diff_extension_types = (self.a.header.get('XTENSION'),
                                          self.b.header.get('XTENSION'))
 
-        self.diff_headers = HeaderDiff(self.a.header.copy(),
-                                       self.b.header.copy(),
-                                       ignore_keywords=self.ignore_keywords,
-                                       ignore_comments=self.ignore_comments,
-                                       tolerance=self.tolerance,
-                                       ignore_blanks=self.ignore_blanks)
+        self.diff_headers = HeaderDiff.fromdiff(self, self.a.header.copy(),
+                                                self.b.header.copy())
 
         if self.a.data is None or self.b.data is None:
             # TODO: Perhaps have some means of marking this case
             pass
         elif self.a.is_image and self.b.is_image:
-            self.diff_data = ImageDataDiff(self.a.data, self.b.data,
-                                           numdiffs=self.numdiffs,
-                                           tolerance=self.tolerance)
+            self.diff_data = ImageDataDiff.fromdiff(self, self.a.data,
+                                                    self.b.data)
         elif (isinstance(self.a, _TableLikeHDU) and
               isinstance(self.b, _TableLikeHDU)):
             # TODO: Replace this if/when _BaseHDU grows a .is_table property
-            self.diff_data = TableDataDiff(self.a.data, self.b.data,
-                                           ignore_fields=self.ignore_fields,
-                                           numdiffs=self.numdiffs,
-                                           tolerance=self.tolerance)
+            self.diff_data = TableDataDiff.fromdiff(self, self.a.data,
+                                                    self.b.data)
         elif not self.diff_extension_types:
             # Don't diff the data for unequal extension types that are not
             # recognized image or table types
-            self.diff_data = RawDataDiff(self.a.data, self.b.data,
-                                         numdiffs=self.numdiffs)
+            self.diff_data = RawDataDiff.fromdiff(self, self.a.data,
+                                                  self.b.data)
 
     def _report(self):
         if self.identical:
@@ -473,7 +486,7 @@ class HeaderDiff(_BaseDiff):
     """
 
     def __init__(self, a, b, ignore_keywords=[], ignore_comments=[],
-                 tolerance=0.0, ignore_blanks=True):
+                 tolerance=0.0, ignore_blanks=True, ignore_blank_cards=True):
         """
         See `FITSDiff` for explanations of the initialization parameters.
         """
@@ -483,6 +496,7 @@ class HeaderDiff(_BaseDiff):
 
         self.tolerance = tolerance
         self.ignore_blanks = ignore_blanks
+        self.ignore_blank_cards = ignore_blank_cards
 
         self.ignore_keyword_patterns = set()
         self.ignore_comment_patterns = set()
@@ -539,11 +553,18 @@ class HeaderDiff(_BaseDiff):
     # except in the case of duplicate keywords.  The order should be checked
     # too, or at least it should be an option.
     def _diff(self):
+        if self.ignore_blank_cards:
+            cardsa = [c for c in self.a.cards if str(c) != BLANK_CARD]
+            cardsb = [c for c in self.b.cards if str(c) != BLANK_CARD]
+        else:
+            cardsa = list(self.a.cards)
+            cardsb = list(self.b.cards)
+
         # build dictionaries of keyword values and comments
-        def get_header_values_comments(header):
+        def get_header_values_comments(cards):
             values = {}
             comments = {}
-            for card in header.cards:
+            for card in cards:
                 value = card.value
                 if self.ignore_blanks and isinstance(value, basestring):
                     value = value.rstrip()
@@ -551,8 +572,8 @@ class HeaderDiff(_BaseDiff):
                 comments.setdefault(card.keyword, []).append(card.comment)
             return values, comments
 
-        valuesa, commentsa = get_header_values_comments(self.a)
-        valuesb, commentsb = get_header_values_comments(self.b)
+        valuesa, commentsa = get_header_values_comments(cardsa)
+        valuesb, commentsb = get_header_values_comments(cardsb)
 
         # Normalize all keyword to upper-case for comparison's sake;
         # TODO: HIERARCH keywords should be handled case-sensitively I think
@@ -560,8 +581,8 @@ class HeaderDiff(_BaseDiff):
         keywordsb = set(k.upper() for k in valuesb)
 
         self.common_keywords = sorted(keywordsa.intersection(keywordsb))
-        if len(self.a) != len(self.b):
-            self.diff_keyword_count = (len(self.a), len(self.b))
+        if len(cardsa) != len(cardsb):
+            self.diff_keyword_count = (len(cardsa), len(cardsb))
 
         # Any other diff attributes should exclude ignored keywords
         keywordsa = keywordsa.difference(self.ignore_keywords)
@@ -656,9 +677,10 @@ class HeaderDiff(_BaseDiff):
 
         if self.diff_duplicate_keywords:
             for keyword, count in sorted(self.diff_duplicate_keywords.items()):
-                self._writeln(' Inconsistent duplicates of keyword %-8s:' %
+                self._writeln(' Inconsistent duplicates of keyword %-8r:' %
                               keyword)
-                self._writeln('  Occurs %d times in a, %d times in b' % count)
+                self._writeln('  Occurs %d time(s) in a, %d times in (b)' %
+                              count)
 
         if self.diff_keyword_values or self.diff_keyword_comments:
             for keyword in self.common_keywords:

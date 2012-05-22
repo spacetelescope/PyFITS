@@ -127,6 +127,34 @@ class TestDiff(PyfitsTestCase):
         finally:
             pyfits.STRIP_HEADER_WHITESPACE = True
 
+    def test_ignore_blank_cards(self):
+        """Test for #152--ignore blank cards."""
+
+        ha = Header([('A', 1), ('B', 2), ('C', 3)])
+        hb = Header([('A', 1), ('', ''), ('B', 2), ('', ''), ('C', 3)])
+        hc = ha.copy()
+        hc.append()
+        hc.append()
+
+        # We now have a header with interleaved blanks, and a header with end
+        # blanks, both of which should ignore the blanks
+        assert_true(HeaderDiff(ha, hb).identical)
+        assert_true(HeaderDiff(ha, hc).identical)
+        assert_true(HeaderDiff(hb, hc).identical)
+
+        assert_false(HeaderDiff(ha, hb, ignore_blank_cards=False).identical)
+        assert_false(HeaderDiff(ha, hc, ignore_blank_cards=False).identical)
+
+        # Both hb and hc have the same number of blank cards; since order is
+        # currently ignored, these should still be identical even if blank
+        # cards are not ignored
+        assert_true(HeaderDiff(hb, hc, ignore_blank_cards=False).identical)
+
+        hc.append()
+        # But now there are different numbers of blanks, so they should not be
+        # ignored:
+        assert_false(HeaderDiff(hb, hc, ignore_blank_cards=False).identical)
+
     def test_ignore_keyword_values(self):
         ha = Header([('A', 1), ('B', 2), ('C', 3)])
         hb = ha.copy()
