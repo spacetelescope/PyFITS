@@ -892,6 +892,18 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(len(hdu.header['HISTORY']), 2)
         assert_equal(hdu.header[-1], 'history 2')
 
+    def test_header_extend_exact(self):
+        """
+        Test that extending an empty header with the contents of an existing
+        header can exactly duplicate that header, given strip=False and
+        end=True.
+        """
+
+        header = pyfits.getheader(self.data('test0.fits'))
+        header2 = pyfits.Header()
+        header2.extend(header, strip=False, end=True)
+        assert_equal(header, header2)
+
     def test_header_count(self):
         header = pyfits.Header([('A', 'B'), ('C', 'D'), ('E', 'F')])
         assert_equal(header.count('A'), 1)
