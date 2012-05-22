@@ -113,6 +113,13 @@ def handle_options(argv=None):
              "equivalent.")
 
     parser.add_option(
+        '--no-ignore-blank-cards', action='store_false',
+        dest='ignore_blank_cards', default=True,
+        help="Don't ignore entirey blank cards in headers.  Normally fitsdiff "
+             "does not consider blank cards when comparing headers, but this "
+             "will ensure that even blank cards match up.")
+
+    parser.add_option(
         '-o', '--output-file', metavar='FILE',
         help='Output results to this file; otherwise results are printed to '
              'stdout.')
@@ -247,13 +254,12 @@ def main():
     try:
         for a, b in files:
             # TODO: pass in any additonal arguments here too
-            diff = pyfits.diff.FITSDiff(a, b,
-                                        ignore_keywords=opts.ignore_keywords,
-                                        ignore_comments=opts.ignore_comments,
-                                        ignore_fields=opts.ignore_fields,
-                                        numdiffs=opts.numdiffs,
-                                        tolerance=opts.tolerance,
-                                        ignore_blanks=opts.ignore_blanks)
+            diff = pyfits.diff.FITSDiff(
+                a, b, ignore_keywords=opts.ignore_keywords,
+                ignore_comments=opts.ignore_comments,
+                ignore_fields=opts.ignore_fields, numdiffs=opts.numdiffs,
+                tolerance=opts.tolerance, ignore_blanks=opts.ignore_blanks,
+                ignore_blank_cards=opts.ignore_blank_cards)
             diff.report(fileobj=out_file)
             identical.append(diff.identical)
 
