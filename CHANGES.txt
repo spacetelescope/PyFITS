@@ -14,8 +14,12 @@ Highlights
 - Memory maps are now used by default to access HDU data.  See API Changes
   below for more details.
 
-API Changes and Additions
-+++++++++++++++++++++++++
+- Now includes a new version of the ``fitsdiff`` program for comparing two
+  FITS files, and a new FITS comparison API used by ``fitsdiff``.  See New
+  Features below.
+
+API Changes
++++++++++++
 
 - Memory mapping is now used by default to access HDU data.  That is,
   ``pyfits.open()`` uses ``memmap=True`` as the default.  This provides better
@@ -101,6 +105,14 @@ New Features
   applications.  The name is a slight misnomer, in that it actually accepts
   any Python object that implements the buffer interface, which includes
   ``bytes``, ``bytearray``, ``memoryview``, ``numpy.ndarray``, etc. (#90)
+
+- Added a new ``pyfits.diff`` module which contains facilities for comparing
+  FITS files.  One can use the ``pyfits.diff.FITSDiff`` class to compare two
+  FITS files in their entirety.  There is also a ``pyfits.diff.HeaderDiff``
+  class for just comparing two FITS headers, and other similar interfaces.
+  See the PyFITS Documentation for more details on this interface.  The
+  ``pyfits.diff`` module powers the new ``fitsdiff`` program installed with
+  PyFITS.  After installing PyFITS, run ``fitsdiff --help`` for usage details.
 
 Bug Fixes
 +++++++++
