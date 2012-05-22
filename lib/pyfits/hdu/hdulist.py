@@ -61,14 +61,15 @@ def fitsopen(name, mode='readonly', memmap=None, **kwargs):
             Do not issue an exception when opening a file that is
             missing an ``END`` card in the last header.
 
-        - **checksum** : bool
+        - **checksum** : bool, str
 
             If `True`, verifies that both ``DATASUM`` and
             ``CHECKSUM`` card values (when present in the HDU header)
             match the header and data of all HDU's in the file.  Updates to a
-            file that already has a checksum will NOT be preserved unless the
-            file was opened with ``checksum=True``.  This behavior may change
-            in a future PyFITS version.
+            file that already has a checksum will preserve and update the
+            existing checksums unless this argument is given a value of
+            'remove', in which case the CHECKSUM and DATASUM values are not
+            checked, and are removed when saving changes to the file.
 
         - **disable_image_compression** : bool
 
@@ -529,14 +530,7 @@ class HDUList(list, _Verify):
 
                 # only append HDU's which are "new"
                 if hdu._new:
-                    # only output the checksum if flagged to do so
-                    if hasattr(hdu, '_output_checksum'):
-                        checksum = hdu._output_checksum
-                    else:
-                        checksum = False
-
-                    # TODO: Fix this once new HDU writing API is settled on
-                    hdu._prewriteto(checksum=checksum)
+                    hdu._prewriteto(checksum=hdu._output_checksum)
                     try:
                         hdu._writeto(self.__file)
                         if verbose:
@@ -785,6 +779,8 @@ class HDUList(list, _Verify):
                         data = data[hdu._datLoc + hdu._datSpan:]
                     hdulist.append(hdu)
                     hdu._new = False
+                    if 'checksum' in kwargs:
+                        hdu._output_checksum = kwargs['checksum']
                 # check in the case there is extra space after the last HDU or
                 # corrupted HDU
                 except (VerifyError, ValueError), err:
@@ -864,11 +860,7 @@ class HDUList(list, _Verify):
         for hdu in self:
             # Need to all _prewriteto() for each HDU first to determine if
             # resizing will be necessary
-            if hasattr(hdu, '_output_checksum'):
-                checksum = hdu._output_checksum
-            else:
-                checksum = False
-            hdu._prewriteto(checksum=checksum, inplace=True)
+            hdu._prewriteto(checksum=hdu._output_checksum, inplace=True)
 
         try:
             self._wasresized()

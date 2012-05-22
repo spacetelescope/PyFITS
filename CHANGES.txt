@@ -72,6 +72,10 @@ API Changes and Additions
   modifies the default behavior of the warnings module with respect to which
   stream it outputs to. (r1319)
 
+- The ``checksum`` argument to ``pyfits.open()`` now accepts a value of
+  'remove', which causes any existing CHECKSUM/DATASUM keywords to be ignored,
+  and removed when the file is saved.
+
 New Features
 ++++++++++++
 
@@ -121,6 +125,11 @@ Bug Fixes
   before the decimal point had the leading zero unnecessarily removed when
   saving changes to the file (eg. "0.001" would be written back as ".001" even
   if no changes were otherwise made to the file). (#137)
+
+- When opening a file containing CHECKSUM and/or DATASUM keywords in update
+  mode, the CHECKSUM/DATASUM are updated and preserved even if the file was
+  opened with checksum=False.  This change in behavior prevents checksums from
+  being unintentionally removed. (#148)
 
 
 3.0.8 (unreleased)

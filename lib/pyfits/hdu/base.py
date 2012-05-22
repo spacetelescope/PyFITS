@@ -102,6 +102,14 @@ class _BaseHDU(object):
         self._datLoc = None
         self._datSpan = None
         self._new = True
+        self._output_checksum = False
+
+        if self._header:
+            if 'DATASUM' in self._header and 'CHECKSUM' not in self._header:
+                self._output_checksum = 'datasum'
+            elif 'CHECKSUM' in self._header:
+                self._output_checksum = True
+
         self.name = ''
 
     @property
@@ -253,7 +261,7 @@ class _BaseHDU(object):
         hdu._datSpan = size + _pad_length(size)
 
         # Checksums are not checked on invalid HDU types
-        if checksum and isinstance(hdu, _ValidHDU):
+        if checksum and checksum != 'remove' and isinstance(hdu, _ValidHDU):
             hdu._verify_checksum_datasum(checksum)
 
         return hdu
@@ -366,14 +374,13 @@ class _BaseHDU(object):
         # way of knowing for sure
         modified = self._header._modified or self._data_loaded
 
-        if modified or (not checksum and not inplace):
+        if checksum == 'remove':
             if 'CHECKSUM' in self._header:
                 del self._header['CHECKSUM']
 
             if 'DATASUM' in self._header:
                 del self._header['DATASUM']
-
-        if checksum and (modified or self._new):
+        elif modified or self._new:
             if checksum == 'datasum':
                 self.add_datasum()
             elif checksum == 'nonstandard_datasum':

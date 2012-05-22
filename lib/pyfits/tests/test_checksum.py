@@ -8,7 +8,7 @@ import numpy as np
 import pyfits
 from pyfits.tests import PyfitsTestCase
 
-from nose.tools import assert_equal, assert_raises, assert_true
+from nose.tools import assert_equal, assert_raises, assert_true, assert_false
 
 
 class TestChecksumFunctions(PyfitsTestCase):
@@ -225,3 +225,46 @@ class TestChecksumFunctions(PyfitsTestCase):
             assert_true('CHECKSUM' in hdul[1].header)
             assert_true('DATASUM' in hdul[1].header)
             assert_true((data == hdul[1].data).all())
+
+    def test_open_update_mode_update_checksum(self):
+        """
+        Regression test for #148, part 2.  This ensures that if a file contains
+        a checksum, the checksum is updated when changes are saved to the file,
+        even if the file was opened with the default of checksum=False.
+
+        An existing checksum and/or datasum are only stripped if the file is
+        opened with checksum='remove'.
+        """
+
+        shutil.copy(self.data('checksum.fits'), self.temp('tmp.fits'))
+        with pyfits.open(self.temp('tmp.fits')) as hdul:
+            header = hdul[1].header.copy()
+            data = hdul[1].data.copy()
+
+        with pyfits.open(self.temp('tmp.fits'), mode='update') as hdul:
+            hdul[1].header['FOO'] = 'BAR'
+            hdul[1].data[0]['TIME'] = 42
+
+        with pyfits.open(self.temp('tmp.fits')) as hdul:
+            header2 = hdul[1].header
+            data2 = hdul[1].data
+            assert_equal(header2[:-3], header[:-2])
+            assert_true('CHECKSUM' in header2)
+            assert_true('DATASUM' in header2)
+            assert_equal(header2['FOO'], 'BAR')
+            assert_true((data2['TIME'][1:] == data['TIME'][1:]).all())
+            assert_equal(data2['TIME'][0], 42)
+
+        with pyfits.open(self.temp('tmp.fits'), mode='update',
+                         checksum='remove') as hdul:
+            pass
+
+        with pyfits.open(self.temp('tmp.fits')) as hdul:
+            header2 = hdul[1].header
+            data2 = hdul[1].data
+            assert_equal(header2[:-1], header[:-2])
+            assert_false('CHECKSUM' in header2)
+            assert_false('DATASUM' in header2)
+            assert_equal(header2['FOO'], 'BAR')
+            assert_true((data2['TIME'][1:] == data['TIME'][1:]).all())
+            assert_equal(data2['TIME'][0], 42)
