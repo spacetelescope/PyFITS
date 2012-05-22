@@ -1083,7 +1083,8 @@ class TableDataDiff(_BaseDiff):
             name, attr = col_attr
             self._writeln(' Column %s has different %s:' %
                           (name, col_attrs[attr]))
-            report_diff_values(self._fileobj, *vals, ind=self._indent + 1)
+            report_diff_values(self._fileobj, vals[0], vals[1],
+                               ind=self._indent + 1)
 
         if not self.diff_values:
             return
