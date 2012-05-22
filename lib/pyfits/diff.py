@@ -1178,7 +1178,13 @@ def where_not_allclose(a, b, rtol=1e-5, atol=1e-8):
     differ, instead of just a boolean value.
     """
 
-    # TODO: Handle ifs and nans
+    # Create fixed mask arrays to handle INF and NaN; currently INF and NaN
+    # are handled as equivalent
+    if not np.all(np.isfinite(a)):
+        a = np.ma.fix_invalid(a).data
+    if not np.all(np.isfinite(b)):
+        b = np.ma.fix_invalid(b).data
+
     if atol == 0.0 and rtol == 0.0:
         # Use a faster comparison for the most simple (and common) case
         return np.where(a != b)
