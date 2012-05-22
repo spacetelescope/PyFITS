@@ -1097,8 +1097,7 @@ class TableDataDiff(_BaseDiff):
 
         if self.diff_values and self.numdiffs < self.diff_total:
             self._writeln(' ...%d additional difference(s) found.' %
-                          (self.diff_total - self.numdiffs),
-                          ind=self._indent + 1)
+                          (self.diff_total - self.numdiffs))
 
         if self.diff_total > self.numdiffs:
             self._writeln(' ...')
