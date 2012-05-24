@@ -1027,6 +1027,24 @@ class TestHeaderFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('test.fits'))
         assert_equal(hdul[0].header.comments['FOO'], 'QUX')
 
+    def test_commentary_slicing(self):
+        header = pyfits.Header()
+
+        indices = range(5)
+
+        for idx in indices:
+            header['HISTORY'] = idx
+
+        # Just a few sample slice types; this won't get all corner cases but if
+        # these all work we should be in good shape
+        assert_equal(header['HISTORY'][1:], indices[1:])
+        assert_equal(header['HISTORY'][:3], indices[:3])
+        assert_equal(header['HISTORY'][:6], indices[:6])
+        assert_equal(header['HISTORY'][:-2], indices[:-2])
+        assert_equal(header['HISTORY'][::-1], indices[::-1])
+        assert_equal(header['HISTORY'][1::-1], indices[1::-1])
+        assert_equal(header['HISTORY'][1:5:2], indices[1:5:2])
+
     def test_update_commentary(self):
         header = pyfits.Header()
         header['FOO'] = 'BAR'

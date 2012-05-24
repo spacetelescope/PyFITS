@@ -2025,8 +2025,11 @@ class _HeaderCommentaryCards(_CardAccessor):
                          for idx, value in enumerate(self))
 
     def __getitem__(self, idx):
-        if not isinstance(idx, int):
+        if isinstance(idx, slice):
+            return super(_HeaderCommentaryCards, self).__getitem__(idx)
+        elif not isinstance(idx, int):
             raise ValueError('%s index must be an integer' % self._keyword)
+
         return self._header[(self._keyword, idx)]
 
     def __setitem__(self, item, value):
