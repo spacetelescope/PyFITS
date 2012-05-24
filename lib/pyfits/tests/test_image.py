@@ -39,6 +39,23 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(hdu.name, 'FOO')
         assert_equal(hdu.header['EXTNAME'], 'FOO')
 
+    def test_constructor_copies_header(self):
+       """
+       Regression test for #153.  Ensure that a header from one HDU is copied
+       when used to initialize new HDU.
+       """
+
+       ifd = pyfits.HDUList(pyfits.PrimaryHDU())
+       phdr = ifd[0].header
+       phdr['FILENAME'] = 'labq01i3q_rawtag.fits'
+
+       primary_hdu = pyfits.PrimaryHDU(header=phdr)
+       ofd = pyfits.HDUList(primary_hdu)
+       ofd[0].header['FILENAME'] = 'labq01i3q_flt.fits'
+
+       # Original header should be unchanged
+       assert_equal(phdr['FILENAME'], 'labq01i3q_rawtag.fits')
+
     def test_open(self):
         # The function "open" reads a FITS file into an HDUList object.  There
         # are three modes to open: "readonly" (the default), "append", and

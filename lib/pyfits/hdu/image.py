@@ -91,7 +91,7 @@ class _ImageBaseHDU(_ValidHDU):
                               self.standard_keyword_comments['GCOUNT']))
 
             if header is not None:
-                orig = header
+                orig = header.copy()
                 header = Header(cards)
                 header.extend(orig, strip=True, update=True, end=True)
             else:
