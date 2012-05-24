@@ -1045,6 +1045,19 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(header['HISTORY'][1::-1], indices[1::-1])
         assert_equal(header['HISTORY'][1:5:2], indices[1:5:2])
 
+        # Same tests, but copy the values first; as it turns out this is
+        # different from just directly doing an __eq__ as in the first set of
+        # assertions
+        header.insert(0, ('A', 'B', 'C'))
+        header.append(('D', 'E', 'F'), end=True)
+        assert_equal(list(header['HISTORY'][1:]), indices[1:])
+        assert_equal(list(header['HISTORY'][:3]), indices[:3])
+        assert_equal(list(header['HISTORY'][:6]), indices[:6])
+        assert_equal(list(header['HISTORY'][:-2]), indices[:-2])
+        assert_equal(list(header['HISTORY'][::-1]), indices[::-1])
+        assert_equal(list(header['HISTORY'][1::-1]), indices[1::-1])
+        assert_equal(list(header['HISTORY'][1:5:2]), indices[1:5:2])
+
     def test_update_commentary(self):
         header = pyfits.Header()
         header['FOO'] = 'BAR'

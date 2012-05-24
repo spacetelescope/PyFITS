@@ -2019,6 +2019,8 @@ class _HeaderCommentaryCards(_CardAccessor):
     def __init__(self, header, keyword=''):
         super(_HeaderCommentaryCards, self).__init__(header)
         self._keyword = keyword
+        self._count = self._header.count(self._keyword)
+        self._indices = slice(self._count).indices(self._count)
 
     def __repr__(self):
         return '\n'.join('%d: %s' % (idx, value)
@@ -2026,10 +2028,13 @@ class _HeaderCommentaryCards(_CardAccessor):
 
     def __getitem__(self, idx):
         if isinstance(idx, slice):
-            return super(_HeaderCommentaryCards, self).__getitem__(idx)
+            n = self.__class__(self._header, self._keyword)
+            n._indices = idx.indices(self._count)
+            return n
         elif not isinstance(idx, int):
             raise ValueError('%s index must be an integer' % self._keyword)
 
+        idx = range(*self._indices)[idx]
         return self._header[(self._keyword, idx)]
 
     def __setitem__(self, item, value):
