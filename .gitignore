@@ -5,7 +5,8 @@
 *.so
 
 # Other generated files
-astropy/version.py
+docs/source/appendix/changelog.rst
+docs/source/appendix/faq.rst
 
 # Sphinx
 _build

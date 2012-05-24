@@ -3,7 +3,6 @@ PyFITS FAQ
 ##########
 
 .. contents::
-.. sectnum::
 
 General Questions
 =================

@@ -8,6 +8,16 @@ In the next three chapters, more detailed information as well as examples will
 be explained for manipulating the header, the image data, and the table data
 respectively.
 
+.. note::
+
+    The Header interface was significantly reworked in PyFITS 3.1.  This
+    documentation addresses the interface as it works in PyFITS 3.1, though
+    should still be *mostly* the same for earlier PyFITS versions.  See the
+    :ref:`header-transition-guide` for a complete detailing on the difference
+    between PyFITS 3.1 and the earlier Header interface.  This guide may also
+    be useful to advanced users wishing to better understand how the Header
+    interface is implemented.
+
 
 Header of an HDU
 ================
@@ -154,7 +164,7 @@ to as commentary cards), which commonly appear in FITS headers more than once.
 They are (1) blank keyword, (2) HISTORY, and (3) COMMENT. Unlike other
 keywords, when accessing these keywords they are returned as a list:
 
-    >>> prihdr['history']
+    >>> prihdr['HISTORY']
     I updated this file on 02/03/2011
     I updated this file on 02/04/2011
     ....
@@ -169,12 +179,12 @@ unlike with other keywords, a new commentary card is always added and appended
 to the last commentary card with the same keyword, rather than to the end of
 the header. Here is an example:
 
-    >>> hdu.header['history'] = 'history 1'
+    >>> hdu.header['HISTORY'] = 'history 1'
     >>> hdu.header[''] = 'blank 1'
-    >>> hdu.header['comment'] = 'comment 1'
-    >>> hdu.header['history'] = 'history 2'
+    >>> hdu.header['COMMENT'] = 'comment 1'
+    >>> hdu.header['HISTORY'] = 'history 2'
     >>> hdu.header[''] = 'blank 2'
-    >>> hdu.header['comment'] = 'comment 2'
+    >>> hdu.header['COMMENT'] = 'comment 2'
 
 and the part in the modified header becomes:
 
@@ -222,11 +232,11 @@ to the header.
 A new Card object is created with the :class:`Card` constructor:
 ``Card(key, value, comment)``. For example:
 
-    >>> c1 = pyfits.Card('temp', 80.0, 'temperature, floating value')
-    >>> c2 = pyfits.Card('detector', 1) # comment is optional
-    >>> c3 = pyfits.Card('mir_revr', True, 'mirror reversed? Boolean value')
-    >>> c4 = pyfits.Card('abc', 2+3j, 'complex value')
-    >>> c5 = pyfits.Card('observer', 'Hubble', 'string value')
+    >>> c1 = pyfits.Card('TEMP', 80.0, 'temperature, floating value')
+    >>> c2 = pyfits.Card('DETECTOR', 1) # comment is optional
+    >>> c3 = pyfits.Card('MIR_REVR', True, 'mirror reversed? Boolean value')
+    >>> c4 = pyfits.Card('ABC', 2+3j, 'complex value')
+    >>> c5 = pyfits.Card('OBSERVER', 'Hubble', 'string value')
 
     >>> print c1; print c2; print c3; print c4; print c5 # show the card images
     TEMP = 80.0 / temperature, floating value
