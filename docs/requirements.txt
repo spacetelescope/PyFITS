@@ -1,2 +1,3 @@
+numpy
 stsci.sphinxext
 sphinxcontrib-programoutput
