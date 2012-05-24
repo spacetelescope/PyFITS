@@ -14,6 +14,37 @@ from __future__ import division # confidence high
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
+import os
+
+ON_RTD = os.environ.get('READTHEDOCS', None) == 'True'
+
+if ON_RTD:
+    # Mock the presence of matplotlib, which we don't have on RTD and don't
+    # actually need for these docs anyways (stsci.sphinxext requires it, but we
+    # don't actually use it for pyfits).
+    import sys
+
+    class Mock(object):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __call__(self, *args, **kwargs):
+            return Mock()
+
+        @classmethod
+        def __getattr__(self, name):
+            if name in ('__file__', '__path__'):
+                return '/dev/null'
+            elif name[0] == name[0].upper():
+                return type(name, (), {})
+            else:
+                return Mock()
+
+    MOCK_MODULES = ['matplotlib', 'matplotlib.sphinxext']
+    for mod_name in MOCK_MODULES:
+        sys.modules[mod_name] = Mock()
+
+
 from stsci.sphinxext.conf import *
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -27,6 +58,14 @@ from stsci.sphinxext.conf import *
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 
 extensions += ['sphinxcontrib.programoutput']
+
+if ON_RTD:
+    # Remove extensions not currently supported on RTD
+    try:
+        extensions.remove('matplotlib.sphinxext.plot_directive')
+        extensions.remove('matplotlib.sphinxext.only_directives')
+    except ValueError:
+        pass
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
