@@ -2023,8 +2023,7 @@ class _HeaderCommentaryCards(_CardAccessor):
         self._indices = slice(self._count).indices(self._count)
 
     def __repr__(self):
-        return '\n'.join('%d: %s' % (idx, value)
-                         for idx, value in enumerate(self))
+        return '\n'.join(self)
 
     def __getitem__(self, idx):
         if isinstance(idx, slice):
