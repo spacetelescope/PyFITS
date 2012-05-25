@@ -351,9 +351,14 @@ class Header(object):
                     continue
                 cards.append(Card.fromstring(''.join(image)))
 
-            if next_image == end:
-                image = []
-                break
+            if require_full_cardlength:
+                if next_image == end:
+                    image = []
+                    break
+            else:
+                if next_image.split(sep)[0].rstrip() == 'END':
+                    image = []
+                    break
 
             image = [next_image]
 

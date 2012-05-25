@@ -1117,8 +1117,50 @@ class TestHeaderFunctions(PyfitsTestCase):
         header2 = pyfits.Header.fromtextfile(self.temp('test.hdr'))
         assert_equal(header, header2)
 
+    def test_header_fromtextfile_with_end_card(self):
+        """Regression test for #154.
+
+        Make sure that when a Header is read from a text file that the END card
+        is ignored.
+        """
+
+        header = pyfits.Header([('A', 'B', 'C'), ('D', 'E', 'F')])
+
+        # We don't use header.totextfile here because it writes each card with
+        # trailing spaces to pad them out to 80 characters.  But this bug only
+        # presents itself when each card ends immediately with a newline, and
+        # no trailing spaces
+        with open(self.temp('test.hdr'), 'w') as f:
+            f.write('\n'.join(str(c).strip() for c in header.cards))
+            f.write('\nEND')
+
+        new_header = pyfits.Header.fromtextfile(self.temp('test.hdr'))
+
+        assert_false('END' in new_header)
+        assert_equal(header, new_header)
+
+    def test_append_end_card(self):
+        """
+        Regression test 2 for #154.
+
+        Manually adding an END card to a header should simply result in a
+        ValueError (as was the case in PyFITS 3.0 and earlier.
+        """
+
+        header = pyfits.Header([('A', 'B', 'C'), ('D', 'E', 'F')])
+
+        def setitem(k, v):
+            header[k] = v
+
+        assert_raises(ValueError, setitem, 'END', '')
+        assert_raises(ValueError, header.append, 'END')
+        assert_raises(ValueError, header.append, 'END', end=True)
+        assert_raises(ValueError, header.insert, len(header), 'END')
+        assert_raises(ValueError, header.set, 'END')
+
     def test_unnecessary_move(self):
-        """Regression test for #125.
+        """
+        Regression test for #125.
 
         Ensures that a header is not modified when setting the position of a
         keyword that's already in its correct position.

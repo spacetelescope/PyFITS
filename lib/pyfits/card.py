@@ -472,6 +472,8 @@ class Card(_Verify):
                 keyword = keyword.upper()
                 if not self._keywd_FSC_RE.match(keyword):
                     raise ValueError('Illegal keyword name: %r.' % keyword)
+                elif keyword == 'END':
+                    raise ValueError("Keyword 'END' not allowed.")
             else:
                 # In prior versions of PyFITS HIERARCH cards would only be
                 # created if the user-supplied keyword explicitly started with
