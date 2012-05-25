@@ -25,7 +25,7 @@ API Changes
   deprecated.  Most of the basic details of working with FITS headers are
   unchanged, and will not be noticed by most users.  But there are differences
   in some areas that will be of interest to advanced users, and to application
-  developers.  For full details of the changes, see the "New Header Interface
+  developers.  For full details of the changes, see the "Header Interface
   Transition Guide" section in the PyFITS documentation.  See ticket #64 on
   the PyFITS Trac for futher details and background. Some highlights are
   listed below:
