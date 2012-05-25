@@ -1244,6 +1244,30 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(str(h.cards['APERTURE']),
                      _pad("APERTURE= +0.000000000000E+000"))
 
+    def test_invalid_float_cards2(self):
+        """
+        Regression test for #140.
+        """
+
+        # The example for this test requires creating a FITS file containing a
+        # slightly misformatted float value.  I can't actually even find a way
+        # to do that directly through PyFITS--it won't let me.
+        hdu = pyfits.PrimaryHDU()
+        hdu.header['TEST'] = 5.0022221e-07
+        hdu.writeto(self.temp('test.fits'))
+
+        # Here we manually make the file invalid
+        with open(self.temp('test.fits'), 'rb+') as f:
+            f.seek(346)  # Location of the exponent 'E' symbol
+            f.write('e')
+
+        hdul = pyfits.open(self.temp('test.fits'))
+        with catch_warnings(record=True) as ws:
+            hdul.writeto(self.temp('temp.fits'), output_verify='warn')
+            assert_true(len(ws) > 0)
+            msgs = [str(w.message) for w in ws]
+            assert_true('(unparsable value string: 5.0022221e-07)' in msgs)
+
     def test_leading_zeros(self):
         """
         Regression test for #137, part 2.
