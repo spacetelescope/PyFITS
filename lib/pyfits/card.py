@@ -1159,7 +1159,7 @@ class Card(_Verify):
         if not (m or self.keyword in self._commentary_keywords):
             errs.append(self.run_option(
                 option,
-                err_text='Card image is not FITS standard (unparsable value '
+                err_text='Card image is not FITS standard (invalid value '
                          'string: %s).' % valuecomment,
                 fix_text=fix_text,
                 fix=self._fix_value))

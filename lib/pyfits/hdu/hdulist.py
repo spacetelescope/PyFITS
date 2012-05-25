@@ -595,8 +595,6 @@ class HDUList(list, _Verify):
             warnings.warn("There is nothing to write.")
             return
 
-        if output_verify == 'warn':
-            output_verify = 'exception'
         self.verify(option=output_verify)
 
         # check if the file object is closed

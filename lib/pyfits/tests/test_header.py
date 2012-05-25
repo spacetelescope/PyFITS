@@ -378,7 +378,7 @@ class TestHeaderFunctions(PyfitsTestCase):
                 c.verify()
             err_text1 = ('Card image is not FITS standard (equal sign not at '
                          'column 8)')
-            err_text2 = ('Card image is not FITS standard (unparsable value '
+            err_text2 = ('Card image is not FITS standard (invalid value '
                          'string: a6')
             assert_equal(len(w), 2)
             assert_true(err_text1 in str(w[0].message))
@@ -1262,11 +1262,16 @@ class TestHeaderFunctions(PyfitsTestCase):
             f.write('e')
 
         hdul = pyfits.open(self.temp('test.fits'))
-        with catch_warnings(record=True) as ws:
-            hdul.writeto(self.temp('temp.fits'), output_verify='warn')
-            assert_true(len(ws) > 0)
-            msgs = [str(w.message) for w in ws]
-            assert_true('(unparsable value string: 5.0022221e-07)' in msgs)
+        with catch_warnings(record=True) as w:
+            with CaptureStdio():
+                hdul.writeto(self.temp('temp.fits'), output_verify='warn')
+            assert_equal(len(w), 3)
+            # The first two warnings are just the headers to the actual warning
+            # message (HDU 0, Card 4).  I'm still not sure things like that
+            # should be output as separate warning messages, but that's
+            # something to think about...
+            msg = str(w[2].message)
+            assert_true('(invalid value string: 5.0022221e-07)' in msg)
 
     def test_leading_zeros(self):
         """
