@@ -1144,7 +1144,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         Regression test 2 for #154.
 
         Manually adding an END card to a header should simply result in a
-        ValueError (as was the case in PyFITS 3.0 and earlier.
+        ValueError (as was the case in PyFITS 3.0 and earlier).
         """
 
         header = pyfits.Header([('A', 'B', 'C'), ('D', 'E', 'F')])
