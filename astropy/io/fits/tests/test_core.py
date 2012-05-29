@@ -250,6 +250,67 @@ class TestCore(PyfitsTestCase):
         assert_raises(TypeError, _getext, self.data('test0.fits'), 'readonly',
                       extver=1)
 
+    def test_extension_name_case_sensitive(self):
+        """
+        Tests that setting pyfits.EXTENSION_NAME_CASE_SENSITIVE at runtime
+        works.
+        """
+
+        if 'PYFITS_EXTENSION_NAME_CASE_SENSITIVE' in os.environ:
+            del os.environ['PYFITS_EXTENSION_NAME_CASE_SENSITIVE']
+
+        hdu = pyfits.ImageHDU()
+        hdu.name = 'sCi'
+        assert_equal(hdu.name, 'SCI')
+        assert_equal(hdu.header['EXTNAME'], 'SCI')
+
+        try:
+            pyfits.EXTENSION_NAME_CASE_SENSITIVE = True
+            hdu = pyfits.ImageHDU()
+            hdu.name = 'sCi'
+            assert_equal(hdu.name, 'sCi')
+            assert_equal(hdu.header['EXTNAME'], 'sCi')
+        finally:
+            pyfits.EXTENSION_NAME_CASE_SENSITIVE = False
+
+        hdu.name = 'sCi'
+        assert_equal(hdu.name, 'SCI')
+        assert_equal(hdu.header['EXTNAME'], 'SCI')
+
+    def test_hdu_fromstring(self):
+        """
+        Tests creating a fully-formed HDU object from a string containing the
+        bytes of the HDU.
+        """
+
+        dat = open(self.data('test0.fits'), 'rb').read()
+
+        offset = 0
+        with pyfits.open(self.data('test0.fits')) as hdul:
+            hdulen = hdul[0]._datLoc + hdul[0]._datSpan
+            hdu = pyfits.PrimaryHDU.fromstring(dat[:hdulen])
+            assert_true(isinstance(hdu, pyfits.PrimaryHDU))
+            assert_equal(hdul[0].header, hdu.header)
+            assert_true(hdu.data is None)
+
+        hdu.header['TEST'] = 'TEST'
+        hdu.writeto(self.temp('test.fits'))
+        with pyfits.open(self.temp('test.fits')) as hdul:
+            assert_true(isinstance(hdu, pyfits.PrimaryHDU))
+            assert_equal(hdul[0].header[:-1], hdu.header[:-1])
+            assert_equal(hdul[0].header['TEST'], 'TEST')
+            assert_true(hdu.data is None)
+
+        with pyfits.open(self.data('test0.fits'))as hdul:
+            for ext_hdu in hdul[1:]:
+                offset += hdulen
+                hdulen = len(str(ext_hdu.header)) + ext_hdu._datSpan
+                hdu = pyfits.ImageHDU.fromstring(dat[offset:offset + hdulen])
+                assert_true(isinstance(hdu, pyfits.ImageHDU))
+                assert_equal(ext_hdu.header, hdu.header)
+                assert_true((ext_hdu.data == hdu.data).all())
+
+
 
 class TestConvenienceFunctions(PyfitsTestCase):
     def test_writeto(self):
@@ -325,7 +386,7 @@ class TestFileFunctions(PyfitsTestCase):
         assert_raises(IOError, pyfits.open, zf, 'update')
         assert_raises(IOError, pyfits.open, zf, 'append')
 
-    def test_open_multipe_member_zipfile(self):
+    def test_open_multiple_member_zipfile(self):
         """
         Opening zip files containing more than one member files should fail
         as there's no obvious way to specify which file is the FITS file to

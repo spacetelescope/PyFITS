@@ -41,14 +41,16 @@ import pyfits.py3compat
 import pyfits.card
 import pyfits.column
 import pyfits.convenience
+import pyfits.diff
 import pyfits.hdu
+
 from pyfits.card import *
 from pyfits.column import *
 from pyfits.convenience import *
+from pyfits.diff import *
 from pyfits.fitsrec import FITS_record, FITS_rec
 from pyfits.hdu import *
 
-from pyfits.hdu.groups import GroupData
 from pyfits.hdu.hdulist import fitsopen as open
 from pyfits.hdu.image import Section
 from pyfits.hdu.table import new_table
@@ -65,9 +67,10 @@ from pyfits.verify import VerifyError
 # values from environment variables
 GLOBALS = [
      # Variable name                       # Default
+    ('ENABLE_RECORD_VALUED_KEYWORD_CARDS', True),
     ('EXTENSION_NAME_CASE_SENSITIVE',      False),
-    ('USE_MEMMAP',                         True),
-    ('ENABLE_RECORD_VALUED_KEYWORD_CARDS', True)
+    ('STRIP_HEADER_WHITESPACE',            True),
+    ('USE_MEMMAP',                         True)
 ]
 
 for varname, default in GLOBALS:
@@ -79,10 +82,11 @@ for varname, default in GLOBALS:
 
 
 __all__ = (pyfits.card.__all__ + pyfits.column.__all__ +
-           pyfits.convenience.__all__ + pyfits.hdu.__all__ +
-          ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',
-           'new_table', 'Header', 'VerifyError', 'TRUE', 'FALSE',
-           'setExtensionNameCaseSensitive'] + [g[0] for g in GLOBALS])
+           pyfits.convenience.__all__ + pyfits.diff.__all__ +
+           pyfits.hdu.__all__ +
+           ['FITS_record', 'FITS_rec', 'open', 'Section', 'new_table',
+            'Header', 'VerifyError', 'TRUE', 'FALSE',
+            'setExtensionNameCaseSensitive'] + [g[0] for g in GLOBALS])
 
 
 # These are of course deprecated, but a handful of external code still uses

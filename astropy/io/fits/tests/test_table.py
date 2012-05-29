@@ -40,6 +40,7 @@ def comparefloats(a, b):
             return False
     return True
 
+
 def comparerecords(a, b):
     """
     Compare two record arrays
@@ -91,6 +92,26 @@ def comparerecords(a, b):
 
 
 class TestTableFunctions(PyfitsTestCase):
+    def test_constructor_copies_header(self):
+       """
+       Regression test for #153.  Ensure that a header from one HDU is copied
+       when used to initialize new HDU.
+
+       This is like the test of the same name in test_image, but tests this for
+       tables as well.
+       """
+
+       ifd = pyfits.HDUList([pyfits.PrimaryHDU(), pyfits.BinTableHDU()])
+       thdr = ifd[1].header
+       thdr['FILENAME'] = 'labq01i3q_rawtag.fits'
+
+       thdu = pyfits.BinTableHDU(header=thdr)
+       ofd = pyfits.HDUList(thdu)
+       ofd[0].header['FILENAME'] = 'labq01i3q_flt.fits'
+
+       # Original header should be unchanged
+       assert_equal(thdr['FILENAME'], 'labq01i3q_rawtag.fits')
+
     def test_open(self):
         # open some existing FITS files:
         tt = pyfits.open(self.data('tb.fits'))
@@ -122,7 +143,7 @@ class TestTableFunctions(PyfitsTestCase):
         a8 = np.array([[1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1],
                        [0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0],
                        [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1]], dtype=np.uint8)
-        c8=pyfits.Column(name='t5', format='11X', array=a8)
+        c8 = pyfits.Column(name='t5', format='11X', array=a8)
 
         # second, create a column-definitions object for all columns in a table
 
@@ -166,11 +187,10 @@ class TestTableFunctions(PyfitsTestCase):
         fout.append(tbhdu)
         fout.writeto(self.temp('tableout1.fits'), clobber=True)
 
-        f2 = pyfits.open(self.temp('tableout1.fits'))
-        temp = f2[1].data.field(7)
-        assert_true((temp[0] == [True, True, False, True, False, True, True,
-                                 True, False, False, True]).all())
-        f2.close()
+        with pyfits.open(self.temp('tableout1.fits')) as f2:
+            temp = f2[1].data.field(7)
+            assert_true((temp[0] == [True, True, False, True, False, True,
+                                     True, True, False, False, True]).all())
 
         # An alternative way to create an output table FITS file:
         fout2 = pyfits.open(self.temp('tableout2.fits'), 'append')
@@ -1844,3 +1864,19 @@ class TestTableFunctions(PyfitsTestCase):
         data = pyfits.getdata(self.temp('table.fits'), ext=1)
         assert_equal(thdu.columns.formats, ['L', 'L'])
         assert_true(comparerecords(data, array))
+
+    def test_bool_column_update(self):
+        """Regression test for #139."""
+
+        c1 = pyfits.Column('F1', 'L', array=[True, False])
+        c2 = pyfits.Column('F2', 'L', array=[False, True])
+        thdu = pyfits.new_table(pyfits.ColDefs([c1, c2]))
+        thdu.writeto(self.temp('table.fits'))
+
+        with pyfits.open(self.temp('table.fits'), mode='update') as hdul:
+            hdul[1].data['F1'][1] = True
+            hdul[1].data['F2'][0] = True
+
+        with pyfits.open(self.temp('table.fits')) as hdul:
+            assert_true((hdul[1].data['F1'] == [True, True]).all())
+            assert_true((hdul[1].data['F2'] == [True, True]).all())

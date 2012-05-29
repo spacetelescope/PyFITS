@@ -44,6 +44,8 @@ class _TableLikeHDU(_ValidHDU):
     otherwise too dissimlary for tables to use _TableBaseHDU directly).
     """
 
+    _data_type = FITS_rec
+
     @classmethod
     def match_header(cls, header):
         """
@@ -72,11 +74,10 @@ class _TableLikeHDU(_ValidHDU):
         names = [n for idx, n in enumerate(columns.names)
                  if not columns[idx]._phantom]
         dtype = np.rec.format_parser(formats, names, None).dtype
-        raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
-                                        shape=columns._shape)
+        raw_data = self._get_raw_data(columns._shape, dtype, self._datLoc)
         data = raw_data.view(np.rec.recarray)
         self._init_tbdata(data)
-        return data.view(FITS_rec)
+        return data.view(self._data_type)
 
     def _init_tbdata(self, data):
         columns = self.columns
@@ -86,6 +87,7 @@ class _TableLikeHDU(_ValidHDU):
         # pass datLoc, for P format
         data._heapoffset = self._theap + self._datLoc
         data._file = self._file
+        data._buffer = self._buffer
         tbsize = self._header['NAXIS1'] * self._header['NAXIS2']
         data._gap = self._theap - tbsize
 
@@ -157,10 +159,10 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             self._header = Header(cards)
 
             if isinstance(data, np.ndarray) and data.dtype.fields is not None:
-                if isinstance(data, FITS_rec):
+                if isinstance(data, self._data_type):
                     self.data = data
                 else:
-                    self.data = data.view(FITS_rec)
+                    self.data = data.view(self._data_type)
 
                 self._header['NAXIS1'] = self.data.itemsize
                 self._header['NAXIS2'] = self.data.shape[0]
@@ -235,14 +237,17 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
         return self.columns
 
+    # TODO: Need to either rename this to update_header, for symmetry with the
+    # Image HDUs, or just at some point deprecate it and remove it altogether,
+    # since header updates should occur automatically when necessary...
     def update(self):
         """
         Update header keywords to reflect recent changes of columns.
         """
 
-        self._header.set('naxis1', self.data.itemsize, after='naxis')
-        self._header.set('naxis2', self.data.shape[0], after='naxis1')
-        self._header.set('tfields', len(self.columns), after='gcount')
+        self._header.set('NAXIS1', self.data.itemsize, after='NAXIS')
+        self._header.set('NAXIS2', self.data.shape[0], after='NAXIS1')
+        self._header.set('TFIELDS', len(self.columns), after='GCOUNT')
 
         self._clear_table_keywords()
         self._populate_table_keywords()
@@ -258,7 +263,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         return new_table(self.columns, header=self._header,
                          tbtype=self.columns._tbtype)
 
-    def _writeheader(self, fileobj, checksum=False):
+    def _prewriteto(self, checksum=False, inplace=False):
         if self._data_loaded and self.data is not None:
             self.data._scale_back()
             # check TFIELDS and NAXIS2
@@ -280,10 +285,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                     max = self.data.field(idx).max
                     format = _FormatP(format, repeat=format.repeat, max=max)
                     self._header['TFORM' + str(idx + 1)] = format.tform
-        return super(_TableBaseHDU, self)._writeheader(fileobj, checksum)
-
-    def _writeto(self, fileobj, checksum=False):
-        return super(_TableBaseHDU, self)._writeto(fileobj, checksum)
+        return super(_TableBaseHDU, self)._prewriteto(checksum, inplace)
 
     def _verify(self, option='warn'):
         """
@@ -412,11 +414,10 @@ class TableHDU(_TableBaseHDU):
                                 self._header['NAXIS1'] - itemsize)
             dtype[columns.names[idx]] = (data_type, columns.starts[idx] - 1)
 
-        raw_data = self._file.readarray(offset=self._datLoc, dtype=dtype,
-                                        shape=columns._shape)
+        raw_data = self._get_raw_data(columns._shape, dtype, self._datLoc)
         data = raw_data.view(np.rec.recarray)
         self._init_tbdata(data)
-        return data.view(FITS_rec)
+        return data.view(self._data_type)
 
     def _calculate_datasum(self, blocking):
         """

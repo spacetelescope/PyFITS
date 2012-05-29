@@ -7,7 +7,7 @@ import numpy as np
 import pyfits
 from pyfits.tests import PyfitsTestCase
 
-from nose.tools import assert_equal
+from nose.tools import assert_equal, assert_true
 
 class TestUintFunctions(PyfitsTestCase):
     def test_uint16(self):
@@ -23,6 +23,7 @@ class TestUintFunctions(PyfitsTestCase):
         hdul1 = pyfits.open(self.temp('tempfile1.fits'), uint16=True)
         assert_equal(np.all(hdul[0].data == hdul1[0].data), True)
         assert_equal(hdul[0].section[:1].dtype.name, 'uint16')
+        assert_true((hdul[0].section[:1] == hdul[0].data[:1]).all())
         hdul.close()
         hdul1.close()
 
@@ -39,6 +40,7 @@ class TestUintFunctions(PyfitsTestCase):
         hdul1 = pyfits.open(self.temp('tempfile1.fits'), uint=True)
         assert_equal(np.all(hdul[0].data == hdul1[0].data), True)
         assert_equal(hdul[0].section[:1].dtype.name, 'uint32')
+        assert_true((hdul[0].section[:1] == hdul[0].data[:1]).all())
         hdul.close()
         hdul1.close()
 
@@ -53,8 +55,9 @@ class TestUintFunctions(PyfitsTestCase):
                              np.array([(2**64)-3,(2**64)-2,(2**64)-1,0,1,2,3],
                              dtype=np.uint64)), True)
             hdul.writeto(self.temp('tempfile1.fits'))
-            hdul1 = pyfits.open(self.temp('tempfile1.fits'),uint=True)
+            hdul1 = pyfits.open(self.temp('tempfile1.fits'), uint=True)
             assert_equal(np.all(hdul[0].data == hdul1[0].data), True)
             assert_equal(hdul[0].section[:1].dtype.name, 'uint64')
+            assert_true((hdul[0].section[:1] == hdul[0].data[:1]).all())
             hdul.close()
             hdul1.close()
