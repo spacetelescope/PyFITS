@@ -9,6 +9,7 @@ import numpy as np
 import pyfits
 
 from pyfits.card import _pad
+from pyfits.util import encode_ascii
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings, ignore_warnings, CaptureStdio
 
@@ -1259,7 +1260,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         # Here we manually make the file invalid
         with open(self.temp('test.fits'), 'rb+') as f:
             f.seek(346)  # Location of the exponent 'E' symbol
-            f.write('e')
+            f.write(encode_ascii('e'))
 
         hdul = pyfits.open(self.temp('test.fits'))
         with catch_warnings(record=True) as w:
