@@ -1397,7 +1397,10 @@ class TestHeaderFunctions(PyfitsTestCase):
         hdu.header.append()
         hdu.writeto(self.temp('test.fits'))
 
-        with pyfits.open(self.temp('test.fits')) as hdul:
+        with pyfits.open(self.temp('test.fits'), memmap=False) as hdul:
+            # memmap = False to avoid leaving open a mmap to the file when we
+            # access the data--this causes problems on Windows when we try to
+            # overwrite the file later
             assert_true('TESTKW' in hdul[0].header)
             assert_equal(hdul[0].header, hdu.header)
             assert_true((hdul[0].data == data).all())
