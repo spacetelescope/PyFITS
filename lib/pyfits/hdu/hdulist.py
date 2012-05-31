@@ -362,7 +362,7 @@ class HDUList(list, _Verify):
                 super(HDUList, self).insert(1, hdu1)
                 super(HDUList, self).__delitem__(0)
 
-            if not isinstance(hdu, PrimaryHDU):
+            if not isinstance(hdu, (PrimaryHDU, _NonstandardHDU)):
                 # You passed in an Extension HDU but we need a Primary HDU.
                 # If you provided an ImageHDU then we can convert it to
                 # a primary HDU and use that.
@@ -418,7 +418,7 @@ class HDUList(list, _Verify):
                 # _hdrLoc and friends need to be copied too.
                 hdu = ImageHDU(hdu.data, hdu.header)
         else:
-            if not isinstance(hdu, PrimaryHDU):
+            if not isinstance(hdu, (PrimaryHDU, _NonstandardHDU)):
                 # You passed in an Extension HDU but we need a Primary
                 # HDU.
                 # If you provided an ImageHDU then we can convert it to
@@ -691,7 +691,7 @@ class HDUList(list, _Verify):
                    'No.    Name         Type      Cards   Dimensions   Format']
 
         format = '%-3d  %-10s  %-11s  %5d   %-10s   %s   %s'
-        default = ('', '', 0, '()', '', '')
+        default = ('', '', 0, (), '', '')
         for idx, hdu in enumerate(self):
             summary = hdu._summary()
             if len(summary) < len(default):
