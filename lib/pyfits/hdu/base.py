@@ -207,7 +207,6 @@ class _BaseHDU(object):
 
         hdu = cls(data=data, header=header, **new_kwargs)
 
-        size = hdu.size()
         hdu._file = fileobj
         hdu._hdrLoc = offset                 # beginning of the header area
         if fileobj:
@@ -216,6 +215,7 @@ class _BaseHDU(object):
             hdu._datLoc = hdrlen
 
         # data area size, including padding
+        size = hdu.size()
         hdu._datSpan = size + _pad_length(size)
 
         # Checksums are not checked on invalid HDU types
@@ -668,8 +668,7 @@ class _NonstandardHDU(_BaseHDU, _Verify):
         Return the file data.
         """
 
-        self._file.seek(self._datLoc)
-        return self._file.readarray()
+        return self._file.readarray(self.size(), self._datLoc)
 
     def _verify(self, option='warn'):
         errs = _ErrList([], unit='Card')
@@ -1511,8 +1510,7 @@ class NonstandardExtHDU(ExtensionHDU):
         Return the file data.
         """
 
-        self._file.seek(self._datLoc)
-        return self._file.readarray()
+        return self._file.readarray(self.size(), self._datLoc)
 # TODO: Mark this as deprecated
 _NonstandardExtHDU = NonstandardExtHDU
 
