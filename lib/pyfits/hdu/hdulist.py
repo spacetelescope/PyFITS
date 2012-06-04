@@ -936,8 +936,9 @@ class HDUList(list, _Verify):
                 # lead to odd behavior in practice.  Better to just not keep
                 # references to data from files that had to be resized upon
                 # flushing (on Windows--again, this is no problem on Linux).
-                for idx, map, arr in mmaps:
-                    arr.data = self[idx].data.data
+                for idx, mmap, arr in mmaps:
+                    if mmap is not None:
+                        arr.data = self[idx].data.data
                 del mmaps  # Just to be sure
 
         else:
