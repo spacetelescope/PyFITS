@@ -75,8 +75,9 @@ class ReleaseManager(object):
         config_parser('setup.cfg', callback)
 
     def prereleaser_after(self, data):
-        """Before preforming the release, get the previously released version
-        from the latest tag in version control.
+        """
+        Before preforming the release, get the previously released version from
+        the latest tag in version control.
         """
 
         if data['name'] != 'pyfits':
@@ -110,8 +111,17 @@ class ReleaseManager(object):
 
         config_parser('setup.cfg', callback)
 
+    def postreleaser_middle(self, data):
+        """
+        A postreleaser.middle hook to change the dev_version_template from the
+        annoying default of 'x.y.z.dev0' to just 'x.y.z.dev' without the 0.
+        """
+
+        data['dev_version_template'] = '%(new_version)s.dev'
+
     def postreleaser_after(self, data):
-        """Used to update the PyFITS website.
+        """
+        Used to update the PyFITS website.
 
         TODO: If at any point we get a Windows build machine that we can remote
         into, use this as a point to create Windows builds as well.
