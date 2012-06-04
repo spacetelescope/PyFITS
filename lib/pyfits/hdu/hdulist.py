@@ -745,11 +745,11 @@ class HDUList(list, _Verify):
             # fromstring case; the data type of `data` will be checked in the
             # _BaseHDU.fromstring call.
 
-        saved_compression_supported = compressed.COMPRESSION_SUPPORTED
+        saved_compression_enabled = compressed.COMPRESSION_ENABLED
 
         try:
-            if 'disable_image_compression' in kwargs and \
-               kwargs['disable_image_compression']:
+            if ('disable_image_compression' in kwargs and
+                kwargs['disable_image_compression']):
                 compressed.COMPRESSION_ENABLED = False
 
             if mode == 'ostream':
@@ -800,7 +800,7 @@ class HDUList(list, _Verify):
             hdulist._truncate = False
 
         finally:
-            compressed.COMPRESSION_SUPPORTED = saved_compression_supported
+            compressed.COMPRESSION_ENABLED = saved_compression_enabled
 
         return hdulist
 

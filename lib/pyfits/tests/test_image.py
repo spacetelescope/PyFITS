@@ -552,12 +552,16 @@ class TestImageFunctions(PyfitsTestCase):
         with catch_warnings():
             # No warnings should be displayed in this case
             warnings.simplefilter('error')
-            hdul = pyfits.open(self.data('comp.fits'),
-                               disable_image_compression=True)
-            # The compressed image HDU should show up as a BinTableHDU, but
-            # *not* a CompImageHDU
-            assert_true(isinstance(hdul[1], pyfits.BinTableHDU))
-            assert_false(isinstance(hdul[1], pyfits.CompImageHDU))
+            with pyfits.open(self.data('comp.fits'),
+                             disable_image_compression=True) as hdul:
+                # The compressed image HDU should show up as a BinTableHDU, but
+                # *not* a CompImageHDU
+                assert_true(isinstance(hdul[1], pyfits.BinTableHDU))
+                assert_false(isinstance(hdul[1], pyfits.CompImageHDU))
+
+        with pyfits.open(self.data('comp.fits')) as hdul:
+            assert_true(isinstance(hdul[1], pyfits.CompImageHDU))
+
 
     def test_do_not_scale_image_data(self):
         hdul = pyfits.open(self.data('scale.fits'),
