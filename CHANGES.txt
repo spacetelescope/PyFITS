@@ -2,12 +2,6 @@ Changelog
 ===========
 
 3.0.8 (unreleased)
-------------------
-
-- Nothing changed yet.
-
-
-3.0.8 (unreleased)
 ---------------------
 
 Changes in Behavior
