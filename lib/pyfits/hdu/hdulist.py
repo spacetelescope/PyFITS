@@ -236,7 +236,7 @@ class HDUList(list, _Verify):
         ffo = _File(fileobj, mode=mode, memmap=memmap)
         hdulist = cls(file=ffo)
 
-        saved_compression_supported = compressed.COMPRESSION_SUPPORTED
+        saved_compression_enabled = compressed.COMPRESSION_ENABLED
 
         try:
             if 'disable_image_compression' in kwargs and \
@@ -282,7 +282,7 @@ class HDUList(list, _Verify):
             hdulist._truncate = False
 
         finally:
-            compressed.COMPRESSION_SUPPORTED = saved_compression_supported
+            compressed.COMPRESSION_ENABLED = saved_compression_enabled
 
         return hdulist
 
