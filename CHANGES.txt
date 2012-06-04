@@ -51,7 +51,7 @@ Bug Fixes
   try to prepend an unwanted valid PRIMARY HDU. (#157)
 
 - Fixed a bug where opening an image with ``disable_image_compression = True``
-  caused compression to be disabled for all subsequent ``pyfits.open()``.
+  caused compression to be disabled for all subsequent ``pyfits.open()`` calls.
   (r1651)
 
 
