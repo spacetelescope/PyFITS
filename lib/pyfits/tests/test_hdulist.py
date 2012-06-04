@@ -540,21 +540,21 @@ class TestHDUListFunctions(PyfitsTestCase):
     def test_update_resized_header(self):
         """
         Test saving updates to a file where the header is one block smaller
-        than before, and in the case where the heade ris one block larger than
+        than before, and in the case where the header is one block larger than
         before.
         """
 
         data = np.arange(100)
         hdu = pyfits.PrimaryHDU(data=data)
         idx = 1
-        while len(str(hdu.header)) <= 2880:
+        while len(hdu.header) <= 35:
             hdu.header.update('TEST%d' % idx, idx)
             idx += 1
         orig_header = hdu.header.copy()
         hdu.writeto(self.temp('temp.fits'))
 
         with pyfits.open(self.temp('temp.fits'), mode='update') as hdul:
-            while len(str(hdul[0].header)) > 2880:
+            while len(hdul[0].header) >= 36:
                 del hdul[0].header[-1]
 
         with pyfits.open(self.temp('temp.fits')) as hdul:
@@ -563,7 +563,7 @@ class TestHDUListFunctions(PyfitsTestCase):
 
         with pyfits.open(self.temp('temp.fits'), mode='update') as hdul:
             idx = 101
-            while len(str(hdul[0].header)) <= 2880 * 2:
+            while len(hdul[0].header) < 36 * 2:
                 hdul[0].header.update('TEST%d' % idx, idx)
                 idx += 1
             # Touch something in the data too so that it has to be rewritten
@@ -586,15 +586,12 @@ class TestHDUListFunctions(PyfitsTestCase):
         data2 = np.arange(100) + 100
         phdu = pyfits.PrimaryHDU(data=data1)
         hdu = pyfits.ImageHDU(data=data2)
-
         phdu.writeto(self.temp('temp.fits'))
-
         with pyfits.open(self.temp('temp.fits'), mode='append') as hdul:
             hdul.append(hdu)
-
         with pyfits.open(self.temp('temp.fits'), mode='update') as hdul:
             idx = 1
-            while len(str(hdul[0].header)) <= 2880 * 2:
+            while len(hdul[0].header) < 36 * 2:
                 hdul[0].header.update('TEST%d' % idx, idx)
                 idx += 1
             hdul.flush()
