@@ -326,7 +326,7 @@ class Column(object):
         name and format, and be case-insensitive with respect to the column name.
         """
 
-        return id((self.name.lower(), self.format))
+        return hash((self.name.lower(), self.format))
 
     def copy(self):
         """
