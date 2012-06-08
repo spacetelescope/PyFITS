@@ -413,7 +413,7 @@ class Card(_Verify):
         # This attribute is set to False when creating the card from a card
         # image to ensure that the contents of the image get verified at some
         # point
-        self._parsed = True
+        self._verified = True
 
         # If the card could not be parsed according the the FITS standard or
         # any recognized non-standard conventions, this will be True
@@ -649,8 +649,8 @@ class Card(_Verify):
 
     @property
     def image(self):
-        if self._image and not self._parsed:
-            self.verify('silentfix')
+        if self._image and not self._verified:
+            self.verify('fix')
         if self._image is None or self._modified:
             self._image = self._format_image()
         return self._image
@@ -662,31 +662,30 @@ class Card(_Verify):
 
     @deprecated('3.1', alternative='the `.image` attribute')
     def ascardimage(self, option='silentfix'):
-        if not self._parsed:
+        if not self._verified:
             self.verify(option)
         return self.image
 
     @classmethod
     def fromstring(cls, image):
         """
-        Construct a `Card` object from a (raw) string. It will pad the
-        string if it is not the length of a card image (80 columns).
-        If the card image is longer than 80 columns, assume it
-        contains ``CONTINUE`` card(s).
+        Construct a `Card` object from a (raw) string. It will pad the string
+        if it is not the length of a card image (80 columns).  If the card
+        image is longer than 80 columns, assume it contains ``CONTINUE``
+        card(s).
         """
 
         card = cls()
         card._image = _pad(image)
-        card._parsed = False
+        card._verified = False
         return card
 
     @classmethod
     def normalize_keyword(cls, keyword):
         """
         `classmethod` to convert a keyword value that may contain a
-        field-specifier to uppercase.  The effect is to raise the
-        key to uppercase and leave the field specifier in its original
-        case.
+        field-specifier to uppercase.  The effect is to raise the key to
+        uppercase and leave the field specifier in its original case.
 
         Parameters
         ----------
@@ -770,9 +769,6 @@ class Card(_Verify):
                     return True
 
     def _parse_keyword(self):
-        if self._value is not None and self._comment is not None:
-            self._parsed = False
-
         if self._check_if_rvkc(self._image):
             return self._keyword
 
@@ -800,9 +796,6 @@ class Card(_Verify):
 
     def _parse_value(self):
         """Extract the keyword value from the card image."""
-
-        if self._keyword is not None and self._comment is not None:
-            self._parsed = False
 
         # for commentary cards, no need to parse further
         if self.keyword.upper() in self._commentary_keywords:
@@ -869,9 +862,6 @@ class Card(_Verify):
 
     def _parse_comment(self):
         """Extract the keyword value from the card image."""
-
-        if self._keyword is not None and self._value is not None:
-            self._parsed = False
 
         # for commentary cards, no need to parse further
         if self.keyword in Card._commentary_keywords:
@@ -1121,16 +1111,18 @@ class Card(_Verify):
         return ''.join(output)
 
     def _verify(self, option='warn'):
+        self._verified = True
+
         errs = _ErrList([])
-        fix_text = 'Fixed card to meet the FITS standard: %s' % self.keyword
+        fix_text = 'Fixed %r card to meet the FITS standard.' % self.keyword
         # verify the equal sign position
         if (self.keyword not in self._commentary_keywords and
             (self._image and self._image[:8].upper() != 'HIERARCH' and
              self._image.find('=') != 8)):
             errs.append(self.run_option(
                 option,
-                err_text='Card image is not FITS standard (equal sign not '
-                         'at column 8).',
+                err_text='Card %r is not FITS standard (equal sign not '
+                         'at column 8).' % self.keyword,
                 fix_text=fix_text,
                 fix=self._fix_value))
 
@@ -1148,7 +1140,7 @@ class Card(_Verify):
             # Keyword should be uppercase unless it's a HIERARCH card
                 errs.append(self.run_option(
                     option,
-                    err_text='Card keyword is not upper case.',
+                    err_text='Card keyword %r is not upper case.' % keyword,
                     fix_text=fix_text,
                     fix=self._fix_keyword))
             elif not self._keywd_FSC_RE.match(keyword):
@@ -1163,8 +1155,8 @@ class Card(_Verify):
         if not (m or self.keyword in self._commentary_keywords):
             errs.append(self.run_option(
                 option,
-                err_text='Card image is not FITS standard (invalid value '
-                         'string: %s).' % valuecomment,
+                err_text='Card %r is not FITS standard (invalid value '
+                         'string: %s).' % (self.keyword, valuecomment),
                 fix_text=fix_text,
                 fix=self._fix_value))
 

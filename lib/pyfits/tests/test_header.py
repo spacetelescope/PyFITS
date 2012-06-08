@@ -307,7 +307,8 @@ class TestHeaderFunctions(PyfitsTestCase):
                      "HISTORY  (1, 2)                                                                 ")
 
     def test_equal_sign_after_column8(self):
-        # equal sign after column 8 of a commentary card will be part ofthe string value
+        # equal sign after column 8 of a commentary card will be part ofthe
+        # string value
         c = pyfits.Card.fromstring("history =   (1, 2)")
         assert_equal(str(c),
                      "HISTORY =   (1, 2)                                                              ")
@@ -337,16 +338,18 @@ class TestHeaderFunctions(PyfitsTestCase):
         # fixable non-standard FITS card will keep the original format
         c = pyfits.Card.fromstring('abc     = +  2.1   e + 12')
         assert_equal(c.value, 2100000000000.0)
-        assert_equal(str(c),
-                     "ABC     =             +2.1E+12                                                  ")
+        with CaptureStdio():
+            assert_equal(str(c),
+                         "ABC     =             +2.1E+12                                                  ")
 
     def test_fixable_non_fsc(self):
         # fixable non-FSC: if the card is not parsable, it's value will be
         # assumed
         # to be a string and everything after the first slash will be comment
         c = pyfits.Card.fromstring("no_quote=  this card's value has no quotes / let's also try the comment")
-        assert_equal(str(c),
-                     "NO_QUOTE= 'this card''s value has no quotes' / let's also try the comment       ")
+        with CaptureStdio():
+            assert_equal(str(c),
+                         "NO_QUOTE= 'this card''s value has no quotes' / let's also try the comment       ")
 
     def test_undefined_value_using_string_input(self):
         # undefined value using string input
@@ -354,22 +357,24 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(str(c),
                      "ABC     =                                                                       ")
 
-    def test_misalocated_equal_sign(self):
+    def test_mislocated_equal_sign(self):
         # test mislocated "=" sign
         c = pyfits.Card.fromstring('xyz= 100')
         assert_equal(c.keyword, 'XYZ')
         assert_equal(c.value, 100)
-        assert_equal(str(c),
-                     "XYZ     =                  100                                                  ")
+        with CaptureStdio():
+            assert_equal(str(c),
+                         "XYZ     =                  100                                                  ")
 
     def test_equal_only_up_to_column_10(self):
         # the test of "=" location is only up to column 10
-        c = pyfits.Card.fromstring("histo       =   (1, 2)")
-        assert_equal(str(c),
-                     "HISTO   = '=   (1, 2)'                                                          ")
-        c = pyfits.Card.fromstring("   history          (1, 2)")
-        assert_equal(str(c),
-                     "HISTO   = 'ry          (1, 2)'                                                  ")
+        with CaptureStdio():
+            c = pyfits.Card.fromstring("histo       =   (1, 2)")
+            assert_equal(str(c),
+                         "HISTO   = '=   (1, 2)'                                                          ")
+            c = pyfits.Card.fromstring("   history          (1, 2)")
+            assert_equal(str(c),
+                         "HISTO   = 'ry          (1, 2)'                                                  ")
 
     def test_verify_invalid_equal_sign(self):
         # verification
@@ -377,10 +382,10 @@ class TestHeaderFunctions(PyfitsTestCase):
         with catch_warnings(record=True) as w:
             with CaptureStdio():
                 c.verify()
-            err_text1 = ('Card image is not FITS standard (equal sign not at '
-                         'column 8)')
-            err_text2 = ('Card image is not FITS standard (invalid value '
-                         'string: a6')
+            err_text1 = ("Card 'ABC' is not FITS standard (equal sign not at "
+                         "column 8)")
+            err_text2 = ("Card 'ABC' is not FITS standard (invalid value "
+                         "string: a6")
             assert_equal(len(w), 2)
             assert_true(err_text1 in str(w[0].message))
             assert_true(err_text2 in str(w[1].message))
@@ -390,7 +395,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         with catch_warnings(record=True) as w:
             with CaptureStdio():
                 c.verify('fix')
-            fix_text = 'Fixed card to meet the FITS standard: ABC'
+            fix_text = "Fixed 'ABC' card to meet the FITS standard."
             assert_equal(len(w), 2)
             assert_true(fix_text in str(w[0].message))
         assert_equal(str(c),
@@ -1213,24 +1218,26 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         # Now if this were reserialized, would new values for these cards be
         # written with repaired exponent signs?
-        assert_equal(str(h.cards['FOCALLEN']),
-                     _pad("FOCALLEN= +1.550000000000E+002"))
-        assert_true(h.cards['FOCALLEN']._modified)
-        assert_equal(str(h.cards['APERTURE']),
-                     _pad("APERTURE= +0.000000000000E+000"))
-        assert_true(h.cards['APERTURE']._modified)
-        assert_true(h._modified)
+        with CaptureStdio():
+            assert_equal(str(h.cards['FOCALLEN']),
+                         _pad("FOCALLEN= +1.550000000000E+002"))
+            assert_true(h.cards['FOCALLEN']._modified)
+            assert_equal(str(h.cards['APERTURE']),
+                         _pad("APERTURE= +0.000000000000E+000"))
+            assert_true(h.cards['APERTURE']._modified)
+            assert_true(h._modified)
 
         # This is the case that was specifically causing problems; generating
         # the card strings *before* parsing the values.  Also, the card strings
         # really should be "fixed" before being returned to the user
         h = pyfits.Header.fromstring(hstr, sep='\n')
-        assert_equal(str(h.cards['FOCALLEN']),
-                     _pad("FOCALLEN= +1.550000000000E+002"))
-        assert_true(h.cards['FOCALLEN']._modified)
-        assert_equal(str(h.cards['APERTURE']),
-                     _pad("APERTURE= +0.000000000000E+000"))
-        assert_true(h.cards['APERTURE']._modified)
+        with CaptureStdio():
+            assert_equal(str(h.cards['FOCALLEN']),
+                         _pad("FOCALLEN= +1.550000000000E+002"))
+            assert_true(h.cards['FOCALLEN']._modified)
+            assert_equal(str(h.cards['APERTURE']),
+                         _pad("APERTURE= +0.000000000000E+000"))
+            assert_true(h.cards['APERTURE']._modified)
 
         assert_equal(h['FOCALLEN'], 155.0)
         assert_equal(h['APERTURE'], 0.0)
