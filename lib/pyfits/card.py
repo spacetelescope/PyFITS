@@ -300,6 +300,8 @@ class Card(_Verify):
 
     # String for a FITS standard compliant (FSC) keyword.
     _keywd_FSC_RE = re.compile(r'^[A-Z0-9_-]{0,8}$')
+    # This will match any printable ASCII character excluding '='
+    _keywd_hierarch_RE = re.compile(r'^(?:HIERARCH )?(?:^[ -<>-~]+ ?)+$', re.I)
 
     # A number sub-string, either an integer or a float in fixed or
     # scientific notation.  One for FSC and one for non-FSC (NFSC) format:
@@ -414,6 +416,10 @@ class Card(_Verify):
         # point
         self._verified = True
 
+        # A flag to conveniently mark whether or not this was a valid HIERARCH
+        # card
+        self._hierarch = False
+
         # If the card could not be parsed according the the FITS standard or
         # any recognized non-standard conventions, this will be True
         self._invalid = False
@@ -469,22 +475,23 @@ class Card(_Verify):
             # pads keywords out with spaces; leading whitespace, however,
             # should be strictly disallowed.
             keyword = keyword.rstrip()
-            if len(keyword) <= 8:
+            keyword_upper = keyword.upper()
+            if len(keyword) <= 8 and self._keywd_FSC_RE.match(keyword_upper):
                 # For keywords with length > 8 they will be HIERARCH cards,
                 # and can have arbitrary case keywords
-                keyword = keyword.upper()
-                if not self._keywd_FSC_RE.match(keyword):
-                    raise ValueError('Illegal keyword name: %r.' % keyword)
-                elif keyword == 'END':
+                if keyword_upper == 'END':
                     raise ValueError("Keyword 'END' not allowed.")
-            else:
+                keyword = keyword_upper
+            elif self._keywd_hierarch_RE.match(keyword):
                 # In prior versions of PyFITS HIERARCH cards would only be
                 # created if the user-supplied keyword explicitly started with
                 # 'HIERARCH '.  Now we will create them automtically for long
                 # keywords, but we still want to support the old behavior too;
                 # the old behavior makes it possible to create HEIRARCH cards
                 # that would otherwise be recognized as RVKCs
-                if keyword[:9].upper() == 'HIERARCH ':
+                self._hierarch = True
+
+                if keyword_upper[:9] == 'HIERARCH ':
                     # The user explicitly asked for a HIERARCH card, so don't
                     # bug them about it...
                     keyword = keyword[9:]
@@ -492,8 +499,11 @@ class Card(_Verify):
                     # We'll gladly create a HIERARCH card, but a warning is
                     # also displayed
                     warnings.warn(
-                        'Keyword name %r is greater than 8 characters; a '
-                        'HIERARCH card will be created.' % keyword)
+                        'Keyword name %r is greater than 8 characters or '
+                        'or contains spaces; a HIERARCH card will be created.' %
+                        keyword)
+            else:
+                raise ValueError('Illegal keyword name: %r.' % keyword)
             self._keyword = keyword
             self._modified = True
         else:
@@ -999,10 +1009,10 @@ class Card(_Verify):
         if self.keyword:
             if self.field_specifier:
                 return '%-8s' % self.keyword.split('.', 1)[0]
-            elif len(self.keyword) <= 8:
-                return '%-8s' % self.keyword
-            else:
+            elif self._hierarch:
                 return 'HIERARCH %s ' % self.keyword
+            else:
+                return '%-8s' % self.keyword
         else:
             return ' ' * 8
 
