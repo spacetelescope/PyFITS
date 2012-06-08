@@ -1,5 +1,6 @@
 import gzip
 import os
+import shutil
 import sys
 import warnings
 
@@ -22,7 +23,7 @@ from pyfits.util import (_is_int, _tmp_name, _pad_length, BLOCK_SIZE, isfile,
 from pyfits.verify import _Verify, _ErrList, VerifyError
 
 
-def fitsopen(name, mode='readonly', memmap=None, **kwargs):
+def fitsopen(name, mode='readonly', memmap=None, save_backup=False, **kwargs):
     """Factory function to open a FITS file and return an `HDUList` object.
 
     Parameters
@@ -41,6 +42,12 @@ def fitsopen(name, mode='readonly', memmap=None, **kwargs):
 
     memmap : bool
         Is memory mapping to be used?
+
+    save_backup : bool
+        If the file was opened in update or append mode, this ensures that a
+        backup of the original file is saved before any changes are flushed.
+        The backup has the same name as the original file with ".bak" appended.
+        If "file.bak" already exists then "file.bak.1" is used, and so on.
 
     kwargs : dict
         optional keyword arguments, possible values are:
@@ -100,7 +107,7 @@ def fitsopen(name, mode='readonly', memmap=None, **kwargs):
     if not name:
         raise ValueError('Empty filename: %s' % repr(name))
 
-    return HDUList.fromfile(name, mode, memmap, **kwargs)
+    return HDUList.fromfile(name, mode, memmap, save_backup, **kwargs)
 
 
 class HDUList(list, _Verify):
@@ -124,6 +131,8 @@ class HDUList(list, _Verify):
         """
 
         self.__file = file
+        self._save_backup = False
+
         if hdus is None:
             hdus = []
 
@@ -219,7 +228,8 @@ class HDUList(list, _Verify):
         self.close()
 
     @classmethod
-    def fromfile(cls, fileobj, mode='readonly', memmap=False, **kwargs):
+    def fromfile(cls, fileobj, mode='readonly', memmap=False,
+                 save_backup=False, **kwargs):
         """
         Creates an HDUList instance from a file-like object.
 
@@ -229,7 +239,7 @@ class HDUList(list, _Verify):
         """
 
         return cls._readfrom(fileobj=fileobj, mode=mode, memmap=memmap,
-                             **kwargs)
+                             save_backup=save_backup, **kwargs)
 
     @classmethod
     def fromstring(cls, data, **kwargs):
@@ -518,6 +528,24 @@ class HDUList(list, _Verify):
                           % self.__file.mode)
             return
 
+        if self._save_backup and self.__file.mode in ('append', 'update'):
+            filename = self.__file.name
+            if os.path.exists(filename):
+                # The the file doesn't actually exist anymore for some reason
+                # then there's no point in trying to make a backup
+                backup = filename + '.bak'
+                idx = 1
+                while os.path.exists(backup):
+                    backup = filename + '.bak.' + str(idx)
+                    idx += 1
+                warnings.warn('Saving a backup of %s to %s.' %
+                              (filename, backup))
+                try:
+                    shutil.copy(filename, backup)
+                except IOError, e:
+                    raise IOError('Failed to save backup to destination %s: '
+                                  '%s' % (filename, str(e)))
+
         self.verify(option=output_verify)
 
         if self.__file.mode in ('append', 'ostream'):
@@ -727,7 +755,7 @@ class HDUList(list, _Verify):
 
     @classmethod
     def _readfrom(cls, fileobj=None, data=None, mode='readonly',
-                  memmap=False, **kwargs):
+                  memmap=False, save_backup=False, **kwargs):
         """
         Provides the implementations from HDUList.fromfile and
         HDUList.fromstring, both of which wrap this method, as their
@@ -744,6 +772,8 @@ class HDUList(list, _Verify):
             # HDUList.fromfile.  If fileobj is None then this must be the
             # fromstring case; the data type of `data` will be checked in the
             # _BaseHDU.fromstring call.
+
+        hdulist._save_backup = save_backup
 
         saved_compression_enabled = compressed.COMPRESSION_ENABLED
 
