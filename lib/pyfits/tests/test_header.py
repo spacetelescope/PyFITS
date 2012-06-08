@@ -511,7 +511,66 @@ class TestHeaderFunctions(PyfitsTestCase):
         header['hierarch abcdefghi'] = 10
         assert_true('abcdefghi' in header)
         assert_equal(header['abcdefghi'], 10)
-        assert_false('ABCDEFGHI' in header)
+        # This used to be assert_false, but per ticket #155 hierarch keywords
+        # should be treated case-insensitively when performing lookups
+        assert_true('ABCDEFGHI' in header)
+
+    def test_hierarch_create_and_update(self):
+        """
+        Regression test for #158.  Tests several additional use cases for
+        working with HIERARCH cards.
+        """
+
+        msg = 'a HIERARCH card will be created'
+
+        header = pyfits.Header()
+        with catch_warnings(record=True) as w:
+            header.update('HIERARCH BLAH BLAH', 'TESTA')
+            assert_equal(len(w), 0)
+            assert_true('BLAH BLAH' in header)
+            assert_equal(header['BLAH BLAH'], 'TESTA')
+
+            header.update('HIERARCH BLAH BLAH', 'TESTB')
+            assert_equal(len(w), 0)
+            assert_true(header['BLAH BLAH'], 'TESTB')
+
+            # Update without explicitly stating 'HIERARCH':
+            header.update('BLAH BLAH', 'TESTC')
+            assert_equal(len(w), 0)
+            assert_true(header['BLAH BLAH'], 'TESTC')
+
+            # Test case-insensitivity
+            header.update('HIERARCH blah blah', 'TESTD')
+            assert_equal(len(w), 0)
+            assert_true(header['blah blah'], 'TESTD')
+
+            header.update('blah blah', 'TESTE')
+            assert_equal(len(w), 0)
+            assert_true(header['blah blah'], 'TESTE')
+
+            # Create a HIERARCH card > 8 characters without explicitly stating
+            # 'HIERARCH'
+            header.update('BLAH BLAH BLAH', 'TESTA')
+            assert_equal(len(w), 1)
+            assert_true(msg in str(w[0].message))
+
+            header.update('HIERARCH BLAH BLAH BLAH', 'TESTB')
+            assert_equal(len(w), 1)
+            assert_true(header['BLAH BLAH'], 'TESTB')
+
+            # Update without explicitly stating 'HIERARCH':
+            header.update('BLAH BLAH BLAH', 'TESTC')
+            assert_equal(len(w), 1)
+            assert_true(header['BLAH BLAH'], 'TESTC')
+
+            # Test case-insensitivity
+            header.update('HIERARCH blah blah blah', 'TESTD')
+            assert_equal(len(w), 1)
+            assert_true(header['blah blah blah'], 'TESTD')
+
+            header.update('blah blah blah', 'TESTE')
+            assert_equal(len(w), 1)
+            assert_true(header['blah blah blah'], 'TESTE')
 
     def test_header_setitem_invalid(self):
         header = pyfits.Header()

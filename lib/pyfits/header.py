@@ -763,7 +763,12 @@ class Header(object):
         # Create a temporary card that looks like the one being set; if the
         # temporary card turns out to be a RVKC this will make it easier to
         # deal with the idiosyncrasies thereof
-        new_card = Card(keyword, value, comment)
+        if len(keyword) > 8:
+            new_keyword = 'HIERARCH ' + keyword
+        else:
+            new_keyword = keyword
+
+        new_card = Card(new_keyword, value, comment)
 
         if (new_card.keyword in self and
             new_card.keyword not in Card._commentary_keywords):
@@ -1493,8 +1498,11 @@ class Header(object):
         """
 
         if not isinstance(card, Card):
+            keyword = card[0]
             comment = card[-1]
-            card = Card(*card)
+            if len(keyword) > 8 and keyword in self:
+                keyword = 'HIERARCH ' + keyword
+            card = Card(keyword, card[1], comment)
         else:
             comment = card.comment
 

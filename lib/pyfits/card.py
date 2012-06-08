@@ -722,8 +722,11 @@ class Card(_Verify):
         if match:
             return '.'.join((match.group('keyword').strip().upper(),
                              match.group('field_specifier')))
-        elif len(keyword) > 8:
-            return keyword.strip()
+        elif len(keyword) > 9 and keyword[:9].upper() == 'HIERARCH ':
+            # Remove 'HIERARCH' from HIERARCH keywords; this could lead to
+            # ambiguity if there is actually a keyword card containing
+            # "HIERARCH HIERARCH", but shame on you if you do that.
+            return keyword[9:].strip()
         else:
             return keyword.strip().upper()
 
