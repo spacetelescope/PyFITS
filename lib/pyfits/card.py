@@ -524,6 +524,11 @@ class Card(_Verify):
 
     @value.setter
     def value(self, value):
+        if self._invalid:
+            raise ValueError(
+                'The value of invalid/unparseable cards cannot set.  Either '
+                'delete this card from the header or replace it.')
+
         if value is None:
             value = ''
         oldvalue = self._value
@@ -567,6 +572,11 @@ class Card(_Verify):
 
     @value.deleter
     def value(self):
+        if self._invalid:
+            raise ValueError(
+                'The value of invalid/unparseable cards cannot deleted.  '
+                'Either delete this card from the header or replace it.')
+
         if not self.field_specifier:
             self.value = ''
         else:
@@ -576,6 +586,7 @@ class Card(_Verify):
     @property
     def comment(self):
         """Get the comment attribute from the card image if not already set."""
+
         if self._comment is not None:
             return self._comment
         elif self._image:
@@ -587,6 +598,11 @@ class Card(_Verify):
 
     @comment.setter
     def comment(self, comment):
+        if self._invalid:
+            raise ValueError(
+                'The comment of invalid/unparseable cards cannot set.  Either '
+                'delete this card from the header or replace it.')
+
         if comment is None:
             comment = ''
 
@@ -609,6 +625,11 @@ class Card(_Verify):
 
     @comment.deleter
     def comment(self):
+        if self._invalid:
+            raise ValueError(
+                'The comment of invalid/unparseable cards cannot deleted.  '
+                'Either delete this card from the header or replace it.')
+
         self.comment = ''
 
     @property
@@ -804,7 +825,8 @@ class Card(_Verify):
         """Extract the keyword value from the card image."""
 
         # for commentary cards, no need to parse further
-        if self.keyword.upper() in self._commentary_keywords:
+        # Likewise for invalid cards
+        if self.keyword.upper() in self._commentary_keywords or self._invalid:
             return self._image[8:].rstrip()
 
         if self._check_if_rvkc(self._image):
@@ -870,7 +892,8 @@ class Card(_Verify):
         """Extract the keyword value from the card image."""
 
         # for commentary cards, no need to parse further
-        if self.keyword in Card._commentary_keywords:
+        # likewise for invalid/unparseable cards
+        if self.keyword in Card._commentary_keywords or self._invalid:
             return ''
 
         if len(self._image) > self.length:
@@ -1121,6 +1144,11 @@ class Card(_Verify):
 
         errs = _ErrList([])
         fix_text = 'Fixed %r card to meet the FITS standard.' % self.keyword
+
+        # Don't try to verify cards that already don't meet any recognizable
+        # standard
+        if self._invalid:
+            return errs
 
         # verify the equal sign position
         if (self.keyword not in self._commentary_keywords and

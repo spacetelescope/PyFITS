@@ -368,13 +368,19 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_equal_only_up_to_column_10(self):
         # the test of "=" location is only up to column 10
+
+        # This test used to check if PyFITS rewrote this card to a new format,
+        # something like "HISTO   = '=   (1, 2)".  But since ticket #109 if the
+        # format is completely wrong we don't make any assumptions and the card
+        # should be left alone
         with CaptureStdio():
             c = pyfits.Card.fromstring("histo       =   (1, 2)")
-            assert_equal(str(c),
-                         "HISTO   = '=   (1, 2)'                                                          ")
+            assert_equal(str(c), _pad("histo       =   (1, 2)"))
+
+            # Likewise this card should just be left in its original form and
+            # we shouldn't guess how to parse it or rewrite it.
             c = pyfits.Card.fromstring("   history          (1, 2)")
-            assert_equal(str(c),
-                         "HISTO   = 'ry          (1, 2)'                                                  ")
+            assert_equal(str(c), _pad("   history          (1, 2)"))
 
     def test_verify_invalid_equal_sign(self):
         # verification
@@ -1578,6 +1584,10 @@ class TestHeaderFunctions(PyfitsTestCase):
                 assert_true('CLFIND2D' in header)
                 assert_true('Just som' in header)
                 assert_true('AAAAAAAA' in header)
+
+                assert_equal(header['CLFIND2D'], ': contour = 0.30')
+                assert_equal(header['Just som'], 'e random text.')
+                assert_equal(header['AAAAAAAA'], 'A' * 72)
 
                 # It should not be possible to assign to the invalid keywords
                 assert_raises(ValueError, header.set, 'CLFIND2D', 'foo')

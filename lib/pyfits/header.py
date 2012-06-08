@@ -1131,7 +1131,7 @@ class Header(object):
             self._cards.insert(idx, card)
             self._updateindices(idx)
 
-        keyword = card.keyword
+        keyword = Card.normalize_keyword(card.keyword)
         self._keyword_indices[keyword].append(idx)
 
         if not end:
