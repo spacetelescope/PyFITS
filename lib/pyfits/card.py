@@ -408,7 +408,6 @@ class Card(_Verify):
         self._value = None
         self._comment = None
         self._image = None
-        self._modified = False
 
         # This attribute is set to False when creating the card from a card
         # image to ensure that the contents of the image get verified at some
@@ -774,25 +773,32 @@ class Card(_Verify):
 
         keyword = self._image[:8].strip()
         keyword_upper = keyword.upper()
-        if keyword_upper in self._commentary_keywords + ['CONTINUE']:
+        value_indicator = self._image.find('= ')
+
+        special = self._commentary_keywords + ['CONTINUE']
+
+        if keyword_upper in special or 0 <= value_indicator <= 8:
+            # The value indicator should appear in byte 8, but we are flexible
+            # and allow this to be fixed
+            if value_indicator >= 0:
+                keyword = keyword[:value_indicator]
+                keyword_upper = keyword_upper[:value_indicator]
+
             if keyword_upper != keyword:
                 self._modified = True
             return keyword_upper
-        if '=' in self._image:
-            keyword = self._image.split('=', 1)[0].strip()
-        if len(keyword) > 8:
-            if keyword[:8].upper() == 'HIERARCH':
-                return keyword[9:].strip()
-            else:
-                raise VerifyError(
-                    'Invalid keyword value in header:\n    %r\nkeywords '
-                    'longer than 8 characters must be prefixed with the '
-                    'HIERARCH keyword.' % keyword)
+        elif (keyword_upper == 'HIERARCH' and self._image[8] == ' ' and
+              '=' in self._image):
+            # This is valid HIERARCH card as described by the HIERARCH keyword
+            # convention:
+            # http://fits.gsfc.nasa.gov/registry/hierarch_keyword.html
+            return self._image.split('=', 1)[0][9:].rstrip()
         else:
-            keyword_upper = keyword.upper()
-            if keyword_upper != keyword:
-                self._modified = True
-            return keyword_upper
+            warnings.warn('The following header keyword is invalid or follows '
+                          'an unrecognized non-standard convention:\n%s' %
+                          self._image)
+            self._invalid = True
+            return keyword
 
     def _parse_value(self):
         """Extract the keyword value from the card image."""
@@ -899,7 +905,7 @@ class Card(_Verify):
             keyword, valuecomment = image.split(' ', 1)
         else:
             try:
-                delim_index = image.index('=')
+                delim_index = image.index('= ')
             except ValueError:
                 delim_index = None
 
@@ -910,9 +916,9 @@ class Card(_Verify):
                 valuecomment = image[8:]
             elif delim_index > 10 and image[:9] != 'HIERARCH ':
                 keyword = image[:8]
-                valuecomment = image[10:]
+                valuecomment = image[8:]
             else:
-                keyword, valuecomment = image.split('=', 1)
+                keyword, valuecomment = image.split('= ', 1)
         return keyword.strip(), valuecomment.strip()
 
     def _fix_keyword(self):
@@ -1115,6 +1121,7 @@ class Card(_Verify):
 
         errs = _ErrList([])
         fix_text = 'Fixed %r card to meet the FITS standard.' % self.keyword
+
         # verify the equal sign position
         if (self.keyword not in self._commentary_keywords and
             (self._image and self._image[:8].upper() != 'HIERARCH' and

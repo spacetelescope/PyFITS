@@ -1209,7 +1209,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         # Create a header containing two of the problematic cards in the test
         # case where this came up:
-        hstr = "FOCALLEN= +1.550000000000e+002\nAPERTURE=+0.000000000000e+000"
+        hstr = "FOCALLEN= +1.550000000000e+002\nAPERTURE= +0.000000000000e+000"
         h = pyfits.Header.fromstring(hstr, sep='\n')
 
         # First the case that *does* work prior to fixing this issue
@@ -1575,14 +1575,14 @@ class TestHeaderFunctions(PyfitsTestCase):
                 assert_equal(len(w), 3)
 
                 header = hdul[0].header
-                assert_true('CLFIND2D:' in header)
-                assert_true('Just' in header)
-                assert_true('A' * 80 in header)
+                assert_true('CLFIND2D' in header)
+                assert_true('Just som' in header)
+                assert_true('AAAAAAAA' in header)
 
                 # It should not be possible to assign to the invalid keywords
-                assert_raises(ValueError, header.set, 'CLFIND2D:', 'foo')
-                assert_raises(ValueError, header.set, 'Just', 'foo')
-                assert_raises(ValueError, header.set, 'A' * 80, 'foo')
+                assert_raises(ValueError, header.set, 'CLFIND2D', 'foo')
+                assert_raises(ValueError, header.set, 'Just som', 'foo')
+                assert_raises(ValueError, header.set, 'AAAAAAAA', 'foo')
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
