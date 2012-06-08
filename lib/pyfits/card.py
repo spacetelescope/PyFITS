@@ -415,6 +415,10 @@ class Card(_Verify):
         # point
         self._parsed = True
 
+        # If the card could not be parsed according the the FITS standard or
+        # any recognized non-standard conventions, this will be True
+        self._invalid = False
+
         self._field_specifier = None
         if not self._check_if_rvkc(keyword, value):
             # If _check_if_rvkc passes, it will handle setting the keyword and
