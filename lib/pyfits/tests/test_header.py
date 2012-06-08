@@ -1547,6 +1547,43 @@ class TestHeaderFunctions(PyfitsTestCase):
         with pyfits.open(self.temp('test2.fits')) as hdul:
             assert_equal(hdul[0].header['HISTORY'], history)
 
+    def test_invalid_keyword_cards(self):
+        """
+        Test for #109.  Allow opening files with headers containing invalid
+        keywords.
+        """
+
+        # Create a header containing a few different types of BAD headers.
+        c1 = pyfits.Card.fromstring('CLFIND2D: contour = 0.30')
+        c2 = pyfits.Card.fromstring('Just some random text.')
+        c3 = pyfits.Card.fromstring('A' * 80)
+
+        hdu = pyfits.PrimaryHDU()
+        # This should work with some warnings
+        with catch_warnings(record=True) as w:
+            hdu.header.append(c1)
+            hdu.header.append(c2)
+            hdu.header.append(c3)
+            assert_equal(len(w), 3)
+
+        hdu.writeto(self.temp('test.fits'))
+
+        with catch_warnings(record=True) as w:
+            with pyfits.open(self.temp('test.fits')) as hdul:
+                # Merely opening the file should blast some warnings about the
+                # invalid keywords
+                assert_equal(len(w), 3)
+
+                header = hdul[0].header
+                assert_true('CLFIND2D:' in header)
+                assert_true('Just' in header)
+                assert_true('A' * 80 in header)
+
+                # It should not be possible to assign to the invalid keywords
+                assert_raises(ValueError, header.set, 'CLFIND2D:', 'foo')
+                assert_raises(ValueError, header.set, 'Just', 'foo')
+                assert_raises(ValueError, header.set, 'A' * 80, 'foo')
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """
