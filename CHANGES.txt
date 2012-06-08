@@ -167,6 +167,12 @@ New Features
   ``pyfits.diff`` module powers the new ``fitsdiff`` program installed with
   PyFITS.  After installing PyFITS, run ``fitsdiff --help`` for usage details.
 
+- ``pyfits.open()`` not accepts a ``save_backup`` argument.  If set to
+  ``True``, this automatically saves a backup of the original file before
+  flushing any changes to it (this of course only applies to update and append
+  mode).  This may be especially useful when working with scaled image data.
+  (#121)
+
 Bug Fixes
 +++++++++
 
