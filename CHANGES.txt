@@ -197,7 +197,7 @@ Bug Fixes
   being unintentionally removed. (#148)
 
 
-3.0.8 (unreleased)
+3.0.8 (2012-06-04)
 ---------------------
 
 Changes in Behavior
