@@ -343,8 +343,8 @@ class _ImageBaseHDU(_ValidHDU):
             _zero = bzero
         else:
             if option == 'old':
-                _scale = self._bscale
-                _zero = self._bzero
+                _scale = self._orig_bscale
+                _zero = self._orig_bzero
             elif option == 'minmax':
                 if issubclass(_type, np.floating):
                     _scale = 1
@@ -844,6 +844,9 @@ class ImageHDU(_ImageBaseHDU, ExtensionHDU):
             data.  For example, `int16` data with ``BZERO = 32768``
             and ``BSCALE = 1`` would be treated as `uint16` data.
         """
+
+        # This __init__ currently does nothing differently from the base class,
+        # and is only explicitly defined for the docstring.
 
         super(ImageHDU, self).__init__(
             data=data, header=header, name=name,

@@ -47,9 +47,11 @@ class TestChecksumFunctions(PyfitsTestCase):
 
     def test_scaled_data(self):
         hdul = pyfits.open(self.data('scale.fits'))
+        orig_data = hdul[0].data.copy()
         hdul[0].scale('int16', 'old')
         hdul.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
         hdul1 = pyfits.open(self.temp('tmp.fits'), checksum=True)
+        assert_true((hdul1[0].data == orig_data).all())
         hdul.close()
         hdul1.close()
 
