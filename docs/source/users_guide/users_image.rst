@@ -119,7 +119,7 @@ before and after the data is touched
 
     One may also manually reapply scale parameters by using ``hdu.scale()``
     (see below).  Alternately, one may open files with the ``scale_back=True``
-    argument.  This assumes that the original scaling is preserved when saving.
+    argument.  This assures that the original scaling is preserved when saving.
 
 
 Writing Scaled Image Data
