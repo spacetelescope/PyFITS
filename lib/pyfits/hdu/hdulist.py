@@ -88,6 +88,14 @@ def fitsopen(name, mode='readonly', memmap=None, save_backup=False, **kwargs):
             If `True`, image data is not scaled using BSCALE/BZERO values
             when read.
 
+        - **scale_back** : bool
+
+            If `True`, when saving changes to a file that contained scaled
+            image data, restore the data to the original type and reapply the
+            original BSCALE/BZERO values.  This could lead to loss of accuracy
+            if scaling back to integer values after performing floating point
+            operations on the data.
+
     Returns
     -------
         hdulist : an `HDUList` object
