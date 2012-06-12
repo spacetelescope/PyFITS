@@ -400,9 +400,9 @@ class TestHeaderFunctions(PyfitsTestCase):
                          "column 8)")
             err_text2 = ("Card 'ABC' is not FITS standard (invalid value "
                          "string: a6")
-            assert_equal(len(w), 2)
-            assert_true(err_text1 in str(w[0].message))
-            assert_true(err_text2 in str(w[1].message))
+            assert_equal(len(w), 4)
+            assert_true(err_text1 in str(w[1].message))
+            assert_true(err_text2 in str(w[2].message))
 
     def test_fix_invalid_equal_sign(self):
         c = pyfits.Card.fromstring('abc= a6')
@@ -410,8 +410,8 @@ class TestHeaderFunctions(PyfitsTestCase):
             with CaptureStdio():
                 c.verify('fix')
             fix_text = "Fixed 'ABC' card to meet the FITS standard."
-            assert_equal(len(w), 2)
-            assert_true(fix_text in str(w[0].message))
+            assert_equal(len(w), 4)
+            assert_true(fix_text in str(w[1].message))
         assert_equal(str(c),
                      "ABC     = 'a6      '                                                            ")
 
@@ -1414,12 +1414,12 @@ class TestHeaderFunctions(PyfitsTestCase):
         with catch_warnings(record=True) as w:
             with CaptureStdio():
                 hdul.writeto(self.temp('temp.fits'), output_verify='warn')
-            assert_equal(len(w), 3)
+            assert_equal(len(w), 5)
             # The first two warnings are just the headers to the actual warning
             # message (HDU 0, Card 4).  I'm still not sure things like that
             # should be output as separate warning messages, but that's
             # something to think about...
-            msg = str(w[2].message)
+            msg = str(w[3].message)
             assert_true('(invalid value string: 5.0022221e-07)' in msg)
 
     def test_leading_zeros(self):

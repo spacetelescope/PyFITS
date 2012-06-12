@@ -1,4 +1,3 @@
-import sys
 import warnings
 
 from pyfits.util import indent
@@ -67,12 +66,12 @@ class _Verify(object):
         if opt in ['fix', 'silentfix'] and 'Unfixable' in x:
             raise VerifyError('\n' + x)
         if opt not in ['silentfix', 'exception'] and x:
-            sys.stderr.write(u'Output verification result:\n')
+            warnings.warn(u'Output verification result:')
             for line in x.splitlines():
                 # Each line contains a single issue that was fixed--issue a
                 # separate warning for each of those issues
                 warnings.warn(line, VerifyWarning)
-            sys.stderr.write(u'Note: PyFITS uses zero-based indexing.\n')
+            warnings.warn(u'Note: PyFITS uses zero-based indexing.\n')
         if opt == 'exception' and x:
             raise VerifyError('\n' + x)
 
