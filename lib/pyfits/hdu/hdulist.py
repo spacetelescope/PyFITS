@@ -20,7 +20,7 @@ from pyfits.hdu.table import _TableBaseHDU
 from pyfits.util import (_is_int, _tmp_name, _pad_length, BLOCK_SIZE, isfile,
                          fileobj_name, fileobj_closed, fileobj_mode,
                          ignore_sigint, _get_array_memmap, indent)
-from pyfits.verify import _Verify, _ErrList, VerifyError
+from pyfits.verify import _Verify, _ErrList, VerifyError, VerifyWarning
 
 
 def fitsopen(name, mode='readonly', memmap=None, save_backup=False, **kwargs):
@@ -825,7 +825,7 @@ class HDUList(list, _Verify):
                         'uses zero-based indexing).\n%s\n'
                         'There may be extra bytes after the last HDU or the '
                         'file is corrupted.' %
-                        (len(hdulist), indent(str(err))))
+                        (len(hdulist), indent(str(err))), VerifyWarning)
                     break
 
             # If we're trying to read only and no header units were found,

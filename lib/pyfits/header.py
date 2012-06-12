@@ -1373,7 +1373,7 @@ class Header(object):
             # There were already keywords with this same name
             if keyword not in Card._commentary_keywords:
                 warnings.warn(
-                    'A %s keyword already exists in this header.  Inserting '
+                    'A %r keyword already exists in this header.  Inserting '
                     'duplicate keyword.' % keyword)
             self._keyword_indices[keyword].sort()
 

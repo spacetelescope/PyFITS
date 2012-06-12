@@ -11,6 +11,12 @@ class VerifyError(Exception):
     pass
 
 
+class VerifyWarning(UserWarning):
+    """
+    Verify warning class.
+    """
+
+
 class _Verify(object):
     """
     Shared methods for verification.
@@ -65,7 +71,7 @@ class _Verify(object):
             for line in x.splitlines():
                 # Each line contains a single issue that was fixed--issue a
                 # separate warning for each of those issues
-                warnings.warn(line)
+                warnings.warn(line, VerifyWarning)
             sys.stderr.write(u'Note: PyFITS uses zero-based indexing.\n')
         if opt == 'exception' and x:
             raise VerifyError('\n' + x)

@@ -9,7 +9,7 @@ import numpy as np
 import pyfits
 from pyfits.util import (_str_to_num, _is_int, deprecated, maketrans,
                          translate, _words_group, lazyproperty)
-from pyfits.verify import _Verify, _ErrList, VerifyError
+from pyfits.verify import _Verify, _ErrList, VerifyError, VerifyWarning
 
 
 __all__ = ['Card', 'CardList', 'create_card', 'create_card_from_string',
@@ -501,7 +501,7 @@ class Card(_Verify):
                     warnings.warn(
                         'Keyword name %r is greater than 8 characters or '
                         'or contains spaces; a HIERARCH card will be created.' %
-                        keyword)
+                        keyword, VerifyWarning)
             else:
                 raise ValueError('Illegal keyword name: %r.' % keyword)
             self._keyword = keyword
@@ -1094,7 +1094,8 @@ class Card(_Verify):
                 len(value) > (self.length - 10)):
                 output = self._format_long_image()
             else:
-                warnings.warn('Card is too long, comment is truncated.')
+                warnings.warn('Card is too long, comment will be truncated.',
+                              VerifyWarning)
                 output = output[:Card.length]
         return output
 
