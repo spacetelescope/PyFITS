@@ -51,6 +51,7 @@ class ReleaseManager(object):
         self.vcs = version_control()
         self.history_lines = []
         self.previous_version = ''
+        self.released_version = ''
 
     def prereleaser_before(self, data):
         """Set tag_svn_revision to False."""
@@ -94,6 +95,7 @@ class ReleaseManager(object):
             return
 
         self.previous_version = get_last_tag(self.vcs)
+        self.released_version = data['new_version']
         self.history_lines = data['history_lines']
 
     def postreleaser_before(self, data):
@@ -138,9 +140,9 @@ class ReleaseManager(object):
             previous_version = self.previous_version
 
         new_version = raw_input(
-            'Enter new version [%s]: ' % data['new_version']).strip()
+            'Enter new version [%s]: ' % self.released_version).strip()
         if not new_version:
-            new_version = data['new_version']
+            new_version = self.released_version
 
         username = raw_input(
                 'Enter your Zope username [%s]: ' % getpass.getuser()).strip()
