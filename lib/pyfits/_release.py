@@ -58,6 +58,8 @@ class ReleaseManager(object):
         if data['name'] != 'pyfits':
             return
 
+        from zest.releaser.release import Releaser
+
         global log
         log = logging.getLogger('prerelease')
 
@@ -72,6 +74,15 @@ class ReleaseManager(object):
                 return line
 
         config_parser('setup.cfg', callback)
+
+        # This is some monkey-patching to work around the annoyance that
+        # zest.releaser currently *insists* on making .zip source dists instead
+        # of .tar.gz; this could really go anywhere as long as it's before the
+        # release stage
+        def _my_sdist_options(self):
+            return ''
+
+        Releaser._sdist_options = _my_sdist_options
 
     def prereleaser_after(self, data):
         """
