@@ -68,10 +68,10 @@ API Changes
        >>> header.comments['NAXIS']
        Number of axes
 
-  * ``Card`` objects can now be used interchangeably with ``(keyword, value,
-    comment)`` 3-tuples.  They still have ``.value`` and ``.comment``
-    attributes as well.  The ``.key`` attribute has been renamed to
-    ``.keyword`` for consistency, though ``.key`` is still supported (but
+  * ``Card`` objects can now be used interchangeably with
+    ``(keyword, value, comment)`` 3-tuples.  They still have ``.value`` and
+    ``.comment`` attributes as well.  The ``.key`` attribute has been renamed
+    to ``.keyword`` for consistency, though ``.key`` is still supported (but
     deprecated).
 
 - Memory mapping is now used by default to access HDU data.  That is,
@@ -800,8 +800,7 @@ The following enhancements were made:
     >>> print table.field('c2') # this is the data for column 2
     ['abc' 'xy']
     >>> print table['c2'] # this is also the data for column 2
-    array(['abc', 'xy '],
-    dtype='|S3')
+    array(['abc', 'xy '], dtype='\|S3')
     >>> print table[1] # this is the data for row 1
     (2, 'xy', 6.6999997138977054, True)
 
