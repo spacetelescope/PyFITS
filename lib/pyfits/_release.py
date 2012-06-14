@@ -245,6 +245,9 @@ def generate_release_notes(lines):
 
     content = re.sub(r'<h(\d)>([^<]+)</h\d>', increment_header, content)
 
+    # Another hackish regexp--this one to replace tt tags with code tags
+    content = re.sub(r'<tt (.*?)</tt>', r'<code \1</code>', content, re.M)
+
     # A few more quickie formatting hacks...
     content = content.splitlines()
 
