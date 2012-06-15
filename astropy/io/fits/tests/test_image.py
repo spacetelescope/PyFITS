@@ -1,6 +1,7 @@
 from __future__ import division  # confidence high
 from __future__ import with_statement
 
+import math
 import os
 import shutil
 import time
@@ -237,15 +238,15 @@ class TestImageFunctions(PyfitsTestCase):
             hdu = pyfits.HDUList(x)
             with CaptureStdio():
                 hdu.verify()
-            assert_equal(len(w), 1)
-            assert_true(err_text in str(w[0].message))
+            assert_equal(len(w), 3)
+            assert_true(err_text in str(w[1].message))
 
         fix_text = err_text + "  Fixed by inserting one as 0th HDU."
         with catch_warnings(record=True) as w:
             with CaptureStdio():
                 hdu.writeto(self.temp('test_new2.fits'), 'fix')
-            assert_equal(len(w), 1)
-            assert_true(fix_text in str(w[0].message))
+            assert_equal(len(w), 3)
+            assert_true(fix_text in str(w[1].message))
 
     def test_section(self):
         # section testing
@@ -717,3 +718,27 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(hdul[0].header['BITPIX'], -32)
         assert_true('BZERO' not in hdul[0].header)
         assert_true('BSCALE' not in hdul[0].header)
+
+    def test_scale_back(self):
+        """A simple test for #120--the scale_back feature for image HDUs."""
+
+        shutil.copy(self.data('scale.fits'), self.temp('scale.fits'))
+        with pyfits.open(self.temp('scale.fits'), mode='update',
+                         scale_back=True) as hdul:
+            orig_bitpix = hdul[0].header['BITPIX']
+            orig_bzero = hdul[0].header['BZERO']
+            orig_bscale = hdul[0].header['BSCALE']
+            orig_data = hdul[0].data.copy()
+            hdul[0].data[0] = 0
+
+        with pyfits.open(self.temp('scale.fits'),
+                         do_not_scale_image_data=True) as hdul:
+            assert_equal(hdul[0].header['BITPIX'], orig_bitpix)
+            assert_equal(hdul[0].header['BZERO'], orig_bzero)
+            assert_equal(hdul[0].header['BSCALE'], orig_bscale)
+
+            zero_point = int(math.floor(-orig_bzero / orig_bscale))
+            assert_true((hdul[0].data[0] == zero_point).all())
+
+        with pyfits.open(self.temp('scale.fits')) as hdul:
+            assert_true((hdul[0].data[1:] == orig_data[1:]).all())

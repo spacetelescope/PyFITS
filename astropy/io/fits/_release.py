@@ -51,12 +51,15 @@ class ReleaseManager(object):
         self.vcs = version_control()
         self.history_lines = []
         self.previous_version = ''
+        self.released_version = ''
 
     def prereleaser_before(self, data):
         """Set tag_svn_revision to False."""
 
         if data['name'] != 'pyfits':
             return
+
+        from zest.releaser.release import Releaser
 
         global log
         log = logging.getLogger('prerelease')
@@ -73,6 +76,15 @@ class ReleaseManager(object):
 
         config_parser('setup.cfg', callback)
 
+        # This is some monkey-patching to work around the annoyance that
+        # zest.releaser currently *insists* on making .zip source dists instead
+        # of .tar.gz; this could really go anywhere as long as it's before the
+        # release stage
+        def _my_sdist_options(self):
+            return ''
+
+        Releaser._sdist_options = _my_sdist_options
+
     def prereleaser_after(self, data):
         """
         Before preforming the release, get the previously released version from
@@ -83,6 +95,7 @@ class ReleaseManager(object):
             return
 
         self.previous_version = get_last_tag(self.vcs)
+        self.released_version = data['new_version']
         self.history_lines = data['history_lines']
 
     def postreleaser_before(self, data):
@@ -102,12 +115,8 @@ class ReleaseManager(object):
 
         config_parser('setup.cfg', callback)
 
-    def postreleaser_middle(self, data):
-        """
-        A postreleaser.middle hook to change the dev_version_template from the
-        annoying default of 'x.y.z.dev0' to just 'x.y.z.dev' without the 0.
-        """
-
+        # change the dev_version_template from the annoying default of
+        # 'x.y.z.dev0' to just 'x.y.z.dev' without the 0.
         data['dev_version_template'] = '%(new_version)s.dev'
 
     def postreleaser_after(self, data):
@@ -131,9 +140,9 @@ class ReleaseManager(object):
             previous_version = self.previous_version
 
         new_version = raw_input(
-            'Enter new version [%s]: ' % data['new_version']).strip()
+            'Enter new version [%s]: ' % self.released_version).strip()
         if not new_version:
-            new_version = data['new_version']
+            new_version = self.released_version
 
         username = raw_input(
                 'Enter your Zope username [%s]: ' % getpass.getuser()).strip()
@@ -248,6 +257,9 @@ def generate_release_notes(lines):
         return '<h%d>%s</h%d>' % (hlvl + 2, cont, hlvl + 2)
 
     content = re.sub(r'<h(\d)>([^<]+)</h\d>', increment_header, content)
+
+    # Another hackish regexp--this one to replace tt tags with code tags
+    content = re.sub(r'<tt (.*?)</tt>', r'<code \1</code>', content, re.M)
 
     # A few more quickie formatting hacks...
     content = content.splitlines()
