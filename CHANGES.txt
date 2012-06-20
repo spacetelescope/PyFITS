@@ -181,6 +181,14 @@ New Features
   mode).  This may be especially useful when working with scaled image data.
   (#121)
 
+Changes in Behavior
++++++++++++++++++++
+
+- Warnings from PyFITS are not output to stderr by default, instead of stdout
+  as it has been for some time.  This is contrary to most users' expectations
+  and makes it more difficult for them to separate output from PyFITS from the
+  desired output for their scripts. (r1319)
+
 Bug Fixes
 +++++++++
 
