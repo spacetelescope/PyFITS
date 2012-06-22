@@ -1,5 +1,7 @@
 from __future__ import with_statement
 
+import shutil
+
 import numpy as np
 from numpy import char as chararray
 
@@ -42,13 +44,19 @@ class TestGroupsFunctions(PyfitsTestCase):
         the parameter names.
         """
 
+        # Because this test tries to update the random_groups.fits file, let's
+        # make a copy of it first (so that the file doesn't actually get
+        # modified in the off chance that the test fails
+        shutil.copy(self.data('random_groups.fits'),
+                    self.temp('random_groups.fits'))
+
         parameters = ['UU', 'VV', 'WW', 'BASELINE', 'DATE']
-        with pyfits.open(self.data('random_groups.fits'), mode='update') as h:
+        with pyfits.open(self.temp('random_groups.fits'), mode='update') as h:
             assert_equal(h[0].parnames, parameters)
             h.flush()
         # Open again just in read-only mode to ensure the parnames didn't
         # change
-        with pyfits.open(self.data('random_groups.fits')) as h:
+        with pyfits.open(self.temp('random_groups.fits')) as h:
             assert_equal(h[0].parnames, parameters)
             h.writeto(self.temp('test.fits'))
 
