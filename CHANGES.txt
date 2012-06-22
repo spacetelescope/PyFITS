@@ -2170,6 +2170,7 @@ Changes since 0.7.6:
 
 
 0.7.6 (2002-11-22)
+------------------
 
 **NOTE:** This version will only work with numarray Version 0.4.
 
