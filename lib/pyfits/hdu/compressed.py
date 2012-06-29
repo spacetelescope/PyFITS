@@ -1341,9 +1341,10 @@ class CompImageHDU(BinTableHDU):
         zvalList = []
 
         # Check to see that the image_header matches the image data
-        if self._header.get('NAXIS', 0) != len(self.data.shape) or \
-           self._header.get('BITPIX', 0) != \
-           _ImageBaseHDU.ImgCode[self.data.dtype.name]:
+        image_bitpix = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+
+        if (self.header.get('NAXIS', 0) != len(self.data.shape) or
+            self.header.get('BITPIX', 0) != image_bitpix):
             self.updateHeaderData(self.header)
 
         # Create lists to hold the number of pixels along each axis of

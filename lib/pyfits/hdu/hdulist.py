@@ -1052,7 +1052,7 @@ class HDUList(list, _Verify):
                 if not hdu._data_loaded or hdu.data is None:
                     continue
 
-                nbytes = hdu.data.nbytes
+                nbytes = hdu.size
                 nbytes = nbytes + _pad_length(nbytes)
                 if nbytes != hdu._datSpan:
                     self._resize = True
