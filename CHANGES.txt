@@ -222,6 +222,20 @@ Bug Fixes
   was not restoring the image to its original BSCALE and BZERO values. (#162)
 
 
+3.0.9 (unreleased)
+==================
+
+This is a bug fix release for the 3.0.x series.
+
+- Fixed a bug where opening a file containing compressed image HDUs in
+  'update' mode and then immediately closing it without making any changes
+  caused the file to be rewritten unncessarily. (#167)
+
+- Fixed two memory leaks that could occur when writing compressed image data,
+  or in some cases when opening files containing compressed image HDUs in
+  'update' mode. (#168)
+
+
 3.0.8 (2012-06-04)
 ---------------------
 
