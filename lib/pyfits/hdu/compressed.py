@@ -1692,7 +1692,8 @@ class CompImageHDU(BinTableHDU):
     # TODO: Fix this class so that it doesn't actually inherit from
     # BinTableHDU, but instead has an internal BinTableHDU reference
     def _prewriteto(self, checksum=False, inplace=False):
-        self.updateCompressedData()
+        if self._data_loaded and self.data is not None:
+            self.updateCompressedData()
         # Doesn't call the super's _prewriteto, since it calls
         # self.data._scale_back(), which is meaningless here.
         return ExtensionHDU._prewriteto(self, checksum=checksum,
