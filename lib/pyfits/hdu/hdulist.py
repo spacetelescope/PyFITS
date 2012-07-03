@@ -569,7 +569,7 @@ class HDUList(list, _Verify):
             for hdu in self:
                 if verbose:
                     try:
-                        extver = str(hdu.header['extver'])
+                        extver = str(hdu._header['extver'])
                     except KeyError:
                         extver = ''
 
@@ -855,7 +855,7 @@ class HDUList(list, _Verify):
 
             # reset the modification attributes after updating
             for hdu in self:
-                hdu.header._modified = False
+                hdu._header._mod = False
         finally:
             for hdu in self:
                 hdu._postwriteto()
@@ -966,8 +966,8 @@ class HDUList(list, _Verify):
         self._resize = False
         self._truncate = False
         for hdu in self:
-            hdu.header._mod = False
-            hdu.header.ascard._mod = False
+            hdu._header._mod = False
+            hdu._header.ascard._mod = False
             hdu._new = False
             hdu._file = ffo
 
@@ -985,10 +985,10 @@ class HDUList(list, _Verify):
             for hdu in self:
                 # Header:
                 # Add 1 to .ascard to include the END card
-                _nch80 = sum([card._ncards() for card in hdu.header.ascard])
+                _nch80 = sum([card._ncards() for card in hdu._header.ascard])
                 _bytes = (_nch80+1) * Card.length
                 _bytes = _bytes + _pad_length(_bytes)
-                if _bytes != (hdu._datLoc-hdu._hdrLoc):
+                if _bytes != (hdu._datLoc - hdu._hdrLoc):
                     self._resize = True
                     self._truncate = False
                     if verbose:
@@ -998,7 +998,8 @@ class HDUList(list, _Verify):
                 # Data:
                 if not hdu._data_loaded or hdu.data is None:
                     continue
-                _bytes = hdu.data.nbytes
+
+                _bytes = hdu.size()
                 _bytes = _bytes + _pad_length(_bytes)
                 if _bytes != hdu._datSpan:
                     self._resize = True

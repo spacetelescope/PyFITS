@@ -795,6 +795,25 @@ class TestImageFunctions(PyfitsTestCase):
         with pyfits.open(self.data('comp.fits')) as hdul:
             assert_true(isinstance(hdul[1], pyfits.CompImageHDU))
 
+    def test_open_comp_image_in_update_mode(self):
+        """
+        Regression test for #167.
+
+        Similar to test_open_scaled_in_update_mode(), but specifically for
+        compressed images.
+        """
+
+        # Copy the original file before making any possible changes to it
+        shutil.copy(self.data('comp.fits'), self.temp('comp.fits'))
+        mtime = os.stat(self.temp('comp.fits')).st_mtime
+
+        time.sleep(1)
+
+        pyfits.open(self.temp('comp.fits'), mode='update').close()
+
+        # Ensure that no changes were made to the file merely by immediately
+        # opening and closing it.
+        assert_equal(mtime, os.stat(self.temp('comp.fits')).st_mtime)
 
     def test_do_not_scale_image_data(self):
         hdul = pyfits.open(self.data('scale.fits'),

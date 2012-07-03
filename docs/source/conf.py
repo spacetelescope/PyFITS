@@ -148,6 +148,9 @@ html_static_path = ['_static']
 # If false, no module index is generated.
 #html_use_modindex = True
 
+# This should remove all modindexes from different domains
+html_domain_indices = []
+
 # If false, no index is generated.
 #html_use_index = True
 
