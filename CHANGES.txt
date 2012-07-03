@@ -7,6 +7,18 @@ Changelog
 Bug Fixes
 +++++++++
 
+- Fixed ``Header.values()``/``Header.itervalues()`` and ``Header.items()``/
+  ``Header.iteritems()`` to correctly return the different values for
+  duplicate keywords (particularly commentary keywords like HISTORY and
+  COMMENT).  This makes the old Header implementation slightly more compatible
+  with the new implementation in PyFITS 3.1. (#127)
+
+  .. note::
+      This fix did not change the existing behavior from earlier PyFITS
+      versions where ``Header.keys()`` returns all keywords in the header with
+      duplicates removed.  PyFITS 3.1 changes that behavior, so that
+      ``Header.keys()`` includes duplicates.
+
 - Fixed a bug where ``ImageHDU.scale(option='old')`` wasn't working at all--it
   was not restoring the image to its original BSCALE and BZERO values. (#162)
 

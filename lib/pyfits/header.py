@@ -198,6 +198,14 @@ class Header(__HEADERBASE):
     def keys(self):
         """
         Return a list of keys with duplicates removed.
+
+        .. warning::
+            There is a surprising incogruity in Header objecets between
+            :meth:`Header.keys` and :meth:`Header.iterkeys`.  The latter does
+            *not* remove duplicates.  This incongruity exists for historical
+            reasons, but is not be design.  In PyFITS 3.1 it is done away with,
+            and :meth:Header.keys returns the exact keywords appearin the
+            header, including duplicates.
         """
 
         retval = []
@@ -207,6 +215,53 @@ class Header(__HEADERBASE):
                 retval.append(key)
 
         return retval
+
+    def setdefault(self, keyword, default=''):
+        """
+        PyFITS < 3.1 won't allow item assignment to keywords that don't already
+        exist, but for the setdefault dict method to work at all, it needs to
+        be able to add nonexistent keywords with the default value.
+        """
+
+        try:
+            return self[keyword]
+        except KeyError:
+            self.update(keyword, default)
+            return default
+
+    def itervalues(self):
+        """
+        Override itervalues since the default implementation does not
+        properly handle duplicate keywords.
+        """
+
+        for card in self.ascard:
+            yield card.value
+
+    def iteritems(self):
+        """
+        Override iteritems since the default implementation does not properly
+        handle duplicate keywords.
+        """
+
+        for card in self.ascard:
+            yield (card.key, card.value)
+
+    def values(self):
+        """
+        Override values since the default implementation does not properly
+        handle duplicate keywords.
+        """
+
+        return list(self.itervalues())
+
+    def items(self):
+        """
+        Override items since the default implementation does not propertly
+        handle duplicate keywords.
+        """
+
+        return list(self.iteritems())
 
     def update(self, key, value, comment=None, before=None, after=None,
                savecomment=False):

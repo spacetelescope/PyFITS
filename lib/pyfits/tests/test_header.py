@@ -1,10 +1,12 @@
 from __future__ import with_statement
 
+import itertools
+
 import numpy as np
 
 import pyfits
 
-from pyfits.card import _pad
+from pyfits.card import _pad, Card
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import ignore_warnings
 
@@ -122,6 +124,125 @@ class TestHeaderFunctions(PyfitsTestCase):
             assert_true('TESTKW' in hdul[0].header)
             assert_equal(hdul[0].header, hdu.header)
             assert_true((hdul[0].data == data).all())
+
+    def test_has_key(self):
+        header = pyfits.Header([Card('A', 'B', 'C'), Card('D', 'E', 'F')])
+        assert_true(header.has_key('A'))
+        assert_true(header.has_key('D'))
+        assert_false(header.has_key('C'))
+
+    def test_header_iter(self):
+        header = pyfits.Header([Card('A', 'B'), Card('C', 'D')])
+        assert_equal(list(header), ['A', 'C'])
+
+    def test_header_clear(self):
+        header = pyfits.Header([Card('A', 'B'), Card('C', 'D')])
+        header.clear()
+        assert_true('A' not in header)
+        assert_true('C' not in header)
+        assert_equal(len(header), 0)
+
+    def test_header_items(self):
+        header = pyfits.Header([Card('A', 'B'), Card('C', 'D')])
+        assert_equal(header.items(), list(header.iteritems()))
+
+        # Add a regression test specifically for #127
+        header.add_history('HISTORY 1')
+        header.add_history('HISTORY 2')
+
+        assert_equal(list(header.iteritems()),
+                     [('A', 'B'), ('C', 'D'), ('HISTORY', 'HISTORY 1'),
+                      ('HISTORY', 'HISTORY 2')])
+
+        assert_equal(header.items(), list(header.iteritems()))
+
+    def test_header_iterkeys(self):
+        header = pyfits.Header([Card('A', 'B'), Card('C', 'D')])
+        for a, b in itertools.izip(header.iterkeys(), header):
+            assert_equal(a, b)
+
+        # Add a regression test specifically for #127
+        header.add_history('HISTORY 1')
+        header.add_history('HISTORY 2')
+
+        assert_equal(list(header.iterkeys()), ['A', 'C', 'HISTORY', 'HISTORY'])
+
+        # There is a built-in incongruity between Header.keys() and
+        # Header.iterkeys(), in that Header.keys() removes duplicates, while
+        # Header.iterkeys() does not.  This has gone away in PyFITS 3.1 but for
+        # now it should remain.
+
+    def test_header_itervalues(self):
+        header = pyfits.Header([Card('A', 'B'), Card('C', 'D')])
+        for a, b in itertools.izip(header.itervalues(), ['B', 'D']):
+            assert_equal(a, b)
+
+        # Add a regression test specifically for #127
+        header.add_history('HISTORY 1')
+        header.add_history('HISTORY 2')
+
+        assert_equal(list(header.itervalues()),
+                     ['B', 'D', 'HISTORY 1', 'HISTORY 2'])
+        assert_equal(header.values(), list(header.itervalues()))
+
+    def test_header_keys(self):
+        hdul = pyfits.open(self.data('arange.fits'))
+        assert_equal(hdul[0].header.keys(),
+                     ['SIMPLE', 'BITPIX', 'NAXIS', 'NAXIS1', 'NAXIS2',
+                      'NAXIS3', 'EXTEND'])
+
+    def test_header_dict_like_pop(self):
+        header = pyfits.Header([Card('A', 'B'), Card('C', 'D'), Card('E', 'F'),
+                                Card('G', 'H')])
+        assert_raises(TypeError, header.pop, 'A', 'B', 'C')
+
+        last = header.pop('G')
+        assert_equal(last, 'H')
+        assert_equal(len(header), 3)
+        assert_equal(header.keys(), ['A', 'C', 'E'])
+
+        mid = header.pop('C')
+        assert_equal(mid, 'D')
+        assert_equal(len(header), 2)
+        assert_equal(header.keys(), ['A', 'E'])
+
+        first = header.pop('A')
+        assert_equal(first, 'B')
+        assert_equal(len(header), 1)
+        assert_equal(header.keys(), ['E'])
+
+        default = header.pop('X', 'Y')
+        assert_equal(default, 'Y')
+        assert_equal(len(header), 1)
+
+        assert_raises(KeyError, header.pop, 'X')
+
+    def test_popitem(self):
+        header = pyfits.Header([Card('A', 'B'), Card('C', 'D'),
+                                Card('E', 'F')])
+        keyword, value = header.popitem()
+        assert_true(keyword not in header)
+        assert_equal(len(header), 2)
+        keyword, value = header.popitem()
+        assert_true(keyword not in header)
+        assert_equal(len(header), 1)
+        keyword, value = header.popitem()
+        assert_true(keyword not in header)
+        assert_equal(len(header), 0)
+        assert_raises(KeyError, header.popitem)
+
+    def test_setdefault(self):
+        header = pyfits.Header([Card('A', 'B'), Card('C', 'D'),
+                                Card('E', 'F')])
+        assert_equal(header.setdefault('A'), 'B')
+        assert_equal(header.setdefault('C'), 'D')
+        assert_equal(header.setdefault('E'), 'F')
+        assert_equal(len(header), 3)
+        assert_equal(header.setdefault('G', 'H'), 'H')
+        assert_equal(len(header), 4)
+        assert_true('G' in header)
+        assert_equal(header.setdefault('G', 'H'), 'H')
+        assert_equal(len(header), 4)
 
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
