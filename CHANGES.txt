@@ -223,7 +223,7 @@ Bug Fixes
 
 
 3.0.9 (unreleased)
-==================
+------------------
 
 This is a bug fix release for the 3.0.x series.
 
