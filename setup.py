@@ -9,7 +9,7 @@ except ImportError:
 
 
 setup(
-    setup_requires=['d2to1>=0.2.5', 'stsci.distutils>=0.2.1'],
+    setup_requires=['d2to1>=0.2.5', 'stsci.distutils>=0.3'],
     entry_points={
         'zest.releaser.prereleaser.before': [
             'pyfits.prereleaser.before = '

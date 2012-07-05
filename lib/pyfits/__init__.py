@@ -3,8 +3,7 @@
 from __future__ import division # confidence high
 
 try:
-    import pkg_resources
-    __version__ = pkg_resources.get_distribution('pyfits').version
+    from pyfits.version import __version__
 except:
     __version__ = ''
 
