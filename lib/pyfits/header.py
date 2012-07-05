@@ -1,4 +1,5 @@
 import os
+import sys
 import warnings
 
 try:
@@ -12,6 +13,9 @@ from pyfits.card import Card, CardList, RecordValuedKeywordCard, \
                         _ContinueCard, _HierarchCard, create_card, \
                         create_card_from_string, upper_key
 from pyfits.util import BLOCK_SIZE, deprecated
+
+
+PY3K = sys.version_info[:2] >= (3, 0)
 
 
 class Header(__HEADERBASE):
@@ -216,19 +220,6 @@ class Header(__HEADERBASE):
 
         return retval
 
-    def setdefault(self, keyword, default=''):
-        """
-        PyFITS < 3.1 won't allow item assignment to keywords that don't already
-        exist, but for the setdefault dict method to work at all, it needs to
-        be able to add nonexistent keywords with the default value.
-        """
-
-        try:
-            return self[keyword]
-        except KeyError:
-            self.update(keyword, default)
-            return default
-
     def itervalues(self):
         """
         Override itervalues since the default implementation does not
@@ -262,6 +253,27 @@ class Header(__HEADERBASE):
         """
 
         return list(self.iteritems())
+
+    # Some fixes for compatibility with the Python 3 dict interface, where
+    # iteritems -> items, etc.
+    if PY3K:  # pragma: py3
+        values = itervalues
+        items = iteritems
+        del itervalues
+        del iteritems
+
+    def setdefault(self, keyword, default=''):
+        """
+        PyFITS < 3.1 won't allow item assignment to keywords that don't already
+        exist, but for the setdefault dict method to work at all, it needs to
+        be able to add nonexistent keywords with the default value.
+        """
+
+        try:
+            return self[keyword]
+        except KeyError:
+            self.update(keyword, default)
+            return default
 
     def update(self, key, value, comment=None, before=None, after=None,
                savecomment=False):

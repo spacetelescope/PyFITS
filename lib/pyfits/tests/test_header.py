@@ -1,6 +1,7 @@
 from __future__ import with_statement
 
 import itertools
+import sys
 
 import numpy as np
 
@@ -156,21 +157,27 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         assert_equal(header.items(), list(header.iteritems()))
 
-    def test_header_iterkeys(self):
-        header = pyfits.Header([Card('A', 'B'), Card('C', 'D')])
-        for a, b in itertools.izip(header.iterkeys(), header):
-            assert_equal(a, b)
+    if sys.version_info[:2] < (3, 0):
+        # 2to3 converts the iterkeys() call here to just keys(); however,
+        # Header.keys() features completely different behavior from
+        # Header.iterkeys() in PyFITS 3.0.x, so this test will fail in Python
+        # 3--thus it is disabled
+        def test_header_iterkeys(self):
+            header = pyfits.Header([Card('A', 'B'), Card('C', 'D')])
+            for a, b in itertools.izip(header.iterkeys(), header):
+                assert_equal(a, b)
 
-        # Add a regression test specifically for #127
-        header.add_history('HISTORY 1')
-        header.add_history('HISTORY 2')
+            # Add a regression test specifically for #127
+            header.add_history('HISTORY 1')
+            header.add_history('HISTORY 2')
 
-        assert_equal(list(header.iterkeys()), ['A', 'C', 'HISTORY', 'HISTORY'])
+            assert_equal(list(header.iterkeys()),
+                         ['A', 'C', 'HISTORY', 'HISTORY'])
 
-        # There is a built-in incongruity between Header.keys() and
-        # Header.iterkeys(), in that Header.keys() removes duplicates, while
-        # Header.iterkeys() does not.  This has gone away in PyFITS 3.1 but for
-        # now it should remain.
+            # There is a built-in incongruity between Header.keys() and
+            # Header.iterkeys(), in that Header.keys() removes duplicates,
+            # while Header.iterkeys() does not.  This has gone away in PyFITS
+            # 3.1 but for now it should remain.
 
     def test_header_itervalues(self):
         header = pyfits.Header([Card('A', 'B'), Card('C', 'D')])
