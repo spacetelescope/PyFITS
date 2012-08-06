@@ -8,6 +8,7 @@ import textwrap
 import xmlrpclib
 
 from ConfigParser import ConfigParser
+from datetime import datetime
 
 try:
     from docutils.core import publish_parts
@@ -73,6 +74,20 @@ class ReleaseManager(object):
                 return line
 
         config_parser('setup.cfg', callback)
+
+    def prereleaser_middle(self, data):
+        """Update the Sphinx conf.py"""
+
+        if data['name'] != 'pyfits':
+            return
+
+        # Get the authors out of the setup.cfg
+        cfg = ConfigParser()
+        cfg.read('setup.cfg')
+        authors = cfg.get('metadata', 'authors')
+        authors = [a.strip() for a in authors.split(', ')]
+
+        update_docs_config(data['new_version'], authors)
 
     def prereleaser_after(self, data):
         """
@@ -212,6 +227,38 @@ class ReleaseManager(object):
             pass
 
 
+def update_docs_config(new_version, authors):
+    """
+    Updates the conf.py for the Sphinx documentation with the new version
+    string and an up to date authors list and copyright date.
+    """
+
+    conf_py = os.path.join('docs', 'source', 'conf.py')
+
+    with open(conf_py) as f:
+        conf_py_src = f.read()
+
+    # Update the 'copyright_year' string
+    year = datetime.now().year
+    conf_py_src = re.sub(r"^copyright_year\s*=\s*'[^']+'",
+                         'copyright_year = %r' % str(year), conf_py_src,
+                         flags=re.M)
+
+    # Update the 'authors' list
+    authors_list = ('authors = [\n    ' +
+                    ',\n    '.join(repr(a) for a in authors) + '\n]')
+    conf_py_src = re.sub(r'^authors\s*=\s*\[[^]]+\]$', authors_list,
+                         conf_py_src, flags=re.M)
+
+    # Update the version and release variables (for PyFITS we always just set
+    # these to the same)
+    conf_py_src = re.sub(r"^(version|release)\s*=\s*'[^']+'",
+                         r"\1 = %r" % new_version, conf_py_src, flags=re.M)
+
+    with open(conf_py, 'w') as f:
+        f.write(conf_py_src)
+
+
 def generate_release_notes(lines):
     """
     Generates the release notes page from the lines of restructuredText in the
@@ -254,6 +301,9 @@ def generate_release_notes(lines):
         return '<h%d>%s</h%d>' % (hlvl + 2, cont, hlvl + 2)
 
     content = re.sub(r'<h(\d)>([^<]+)</h\d>', increment_header, content)
+
+    # Another hackish regexp--this one to replace tt tags with code tags
+    content = re.sub(r'<tt (.*?)</tt>', r'<code \1</code>', content, re.M)
 
     # A few more quickie formatting hacks...
     content = content.splitlines()

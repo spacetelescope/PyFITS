@@ -15,6 +15,10 @@ setup(
             'pyfits.prereleaser.before = '
                 'pyfits._release:releaser.prereleaser_before'
         ],
+        'zest.releaser.prereleaser.middle': [
+            'pyfits.prereleaser.middle = '
+                'pyfits._release:releaser.prereleaser_middle'
+        ],
         'zest.releaser.prereleaser.after': [
             'pyfits.prereleaser.after = '
                 'pyfits._release:releaser.prereleaser_after'
