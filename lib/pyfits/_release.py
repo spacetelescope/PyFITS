@@ -1,4 +1,3 @@
-import datetime
 import getpass
 import logging
 import os
@@ -201,7 +200,7 @@ class ReleaseManager(object):
         def version_replace(match):
             repl = match.group('prefix') + new_version_str
             if match.group('date'):
-                today = datetime.datetime.today().strftime(DATE_FORMAT)
+                today = datetime.today().strftime(DATE_FORMAT)
                 repl += ' (%s)' % today
             return repl
 
