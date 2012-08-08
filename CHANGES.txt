@@ -233,7 +233,7 @@ Bug Fixes
 This is a bug fix release for the 3.0.x series.
 
 Bug Fixes
-+++++++++
+^^^^^^^^^
 
 - Fixed ``Header.values()``/``Header.itervalues()`` and ``Header.items()``/
   ``Header.iteritems()`` to correctly return the different values for
