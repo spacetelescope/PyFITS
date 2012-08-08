@@ -91,7 +91,7 @@ authors = [
     'Michael Droettboom',
     'Erik M. Bray'
 ]
-copyright_year = '2011'
+copyright_year = '2012'
 copyright = ', '.join([copyright_year] + authors)
 
 # The version info for the project you're documenting, acts as replacement for
