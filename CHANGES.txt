@@ -221,6 +221,11 @@ Bug Fixes
 - Fixed a bug where ``ImageHDU.scale(option='old')`` wasn't working at all--it
   was not restoring the image to its original BSCALE and BZERO values. (#162)
 
+- Fixed a bug when writing out files containing zero-width table columns,
+  where the TFIELDS keyword would be updated incorrectly, leaving the table
+  largely unreadable.  This fix will be backported to the 3.0.x series in
+  version 3.0.10.  (#174)
+
 
 3.0.9 (2012-08-06)
 ------------------
