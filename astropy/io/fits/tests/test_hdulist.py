@@ -3,6 +3,7 @@ from __future__ import division, with_statement  # confidence high
 import glob
 import os
 import shutil
+import sys
 
 import numpy as np
 
@@ -639,6 +640,10 @@ class TestHDUListFunctions(PyfitsTestCase):
                         assert_true((hdul[idx].data == hdul2[idx].data).all())
 
         for filename in glob.glob(os.path.join(self.data_dir, '*.fits')):
+            if sys.platform == 'win32' and filename == 'zerowidth.fits':
+                # Running this test on this file causes a crash in some
+                # versions of Numpy on Windows.  See PyFITS ticket #174
+                continue
             test_fromstring(os.path.join(self.data_dir, filename))
 
         # Test that creating an HDUList from something silly raises a TypeError

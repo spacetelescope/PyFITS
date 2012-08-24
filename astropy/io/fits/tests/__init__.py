@@ -3,6 +3,7 @@ from __future__ import division  # confidence high
 import os
 import shutil
 import tempfile
+import warnings
 
 import pyfits
 
@@ -15,6 +16,10 @@ class PyfitsTestCase(object):
         # Restore global settings to defaults
         for name, value in pyfits.core.GLOBALS:
             setattr(pyfits, name, value)
+
+        # Ignore deprecation warnings--this only affects Python 2.5 and 2.6,
+        # since deprecation warnings are ignored by defualt on 2.7
+        warnings.simplefilter('ignore', DeprecationWarning)
 
     def teardown(self):
         shutil.rmtree(self.temp_dir)

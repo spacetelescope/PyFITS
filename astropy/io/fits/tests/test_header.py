@@ -1729,6 +1729,17 @@ class TestHeaderFunctions(PyfitsTestCase):
                 assert_raises(ValueError, header.set, 'Just som', 'foo')
                 assert_raises(ValueError, header.set, 'AAAAAAAA', 'foo')
 
+    def test_fix_hierarch_with_invalid_value(self):
+        """
+        Regression test for #172.  Ensures that when fixing a hierarch card it
+        remains a hierarch card.
+        """
+
+        c = pyfits.Card.fromstring('HIERARCH ESO DET CHIP PXSPACE = 5e6')
+        with CaptureStdio():
+            c.verify('fix')
+        assert_equal(str(c), _pad('HIERARCH ESO DET CHIP PXSPACE = 5E6'))
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """

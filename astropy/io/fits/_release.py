@@ -1,4 +1,3 @@
-import datetime
 import getpass
 import logging
 import os
@@ -8,6 +7,7 @@ import textwrap
 import xmlrpclib
 
 from ConfigParser import ConfigParser
+from datetime import datetime
 
 try:
     from docutils.core import publish_parts
@@ -59,8 +59,6 @@ class ReleaseManager(object):
         if data['name'] != 'pyfits':
             return
 
-        from zest.releaser.release import Releaser
-
         global log
         log = logging.getLogger('prerelease')
 
@@ -76,14 +74,19 @@ class ReleaseManager(object):
 
         config_parser('setup.cfg', callback)
 
-        # This is some monkey-patching to work around the annoyance that
-        # zest.releaser currently *insists* on making .zip source dists instead
-        # of .tar.gz; this could really go anywhere as long as it's before the
-        # release stage
-        def _my_sdist_options(self):
-            return ''
+    def prereleaser_middle(self, data):
+        """Update the Sphinx conf.py"""
 
-        Releaser._sdist_options = _my_sdist_options
+        if data['name'] != 'pyfits':
+            return
+
+        # Get the authors out of the setup.cfg
+        cfg = ConfigParser()
+        cfg.read('setup.cfg')
+        authors = cfg.get('metadata', 'author')
+        authors = [a.strip() for a in authors.split(',')]
+
+        update_docs_config(data['new_version'], authors)
 
     def prereleaser_after(self, data):
         """
@@ -95,8 +98,15 @@ class ReleaseManager(object):
             return
 
         self.previous_version = get_last_tag(self.vcs)
-        self.released_version = data['new_version']
         self.history_lines = data['history_lines']
+
+    def releaser_after(self, data):
+        """Save the version that was just released."""
+
+        if data['name'] != 'pyfits':
+            return
+
+        self.released_version = data['version']
 
     def postreleaser_before(self, data):
         """Restore tag_svn_revision"""
@@ -115,10 +125,6 @@ class ReleaseManager(object):
 
         config_parser('setup.cfg', callback)
 
-        # change the dev_version_template from the annoying default of
-        # 'x.y.z.dev0' to just 'x.y.z.dev' without the 0.
-        data['dev_version_template'] = '%(new_version)s.dev'
-
     def postreleaser_after(self, data):
         """
         Used to update the PyFITS website.
@@ -134,15 +140,20 @@ class ReleaseManager(object):
             return
 
 
-        previous_version = raw_input(
-            'Enter previous version [%s]: ' % self.previous_version).strip()
-        if not previous_version:
-            previous_version = self.previous_version
+        previous_version = new_version = None
 
-        new_version = raw_input(
-            'Enter new version [%s]: ' % self.released_version).strip()
-        if not new_version:
-            new_version = self.released_version
+        while not previous_version:
+            previous_version = raw_input(
+                'Enter previous version [%s]: ' %
+                self.previous_version).strip()
+            if not previous_version:
+                previous_version = self.previous_version
+
+        while not new_version:
+            new_version = raw_input(
+                'Enter new version [%s]: ' % self.released_version).strip()
+            if not new_version:
+                new_version = self.released_version
 
         username = raw_input(
                 'Enter your Zope username [%s]: ' % getpass.getuser()).strip()
@@ -189,7 +200,7 @@ class ReleaseManager(object):
         def version_replace(match):
             repl = match.group('prefix') + new_version_str
             if match.group('date'):
-                today = datetime.datetime.today().strftime(DATE_FORMAT)
+                today = datetime.today().strftime(DATE_FORMAT)
                 repl += ' (%s)' % today
             return repl
 
@@ -213,6 +224,38 @@ class ReleaseManager(object):
             proxy.update(content)
         except Exception, e:
             pass
+
+
+def update_docs_config(new_version, authors):
+    """
+    Updates the conf.py for the Sphinx documentation with the new version
+    string and an up to date authors list and copyright date.
+    """
+
+    conf_py = os.path.join('docs', 'source', 'conf.py')
+
+    with open(conf_py) as f:
+        conf_py_src = f.read()
+
+    # Update the 'copyright_year' string
+    year = datetime.now().year
+    conf_py_src = re.sub(r"^copyright_year\s*=\s*'[^']+'",
+                         'copyright_year = %r' % str(year), conf_py_src,
+                         flags=re.M)
+
+    # Update the 'authors' list
+    authors_list = ('authors = [\n    ' +
+                    ',\n    '.join(repr(a) for a in authors) + '\n]')
+    conf_py_src = re.sub(r'^authors\s*=\s*\[[^]]+\]$', authors_list,
+                         conf_py_src, flags=re.M)
+
+    # Update the version and release variables (for PyFITS we always just set
+    # these to the same)
+    conf_py_src = re.sub(r"^(version|release)\s*=\s*'[^']+'",
+                         r"\1 = %r" % new_version, conf_py_src, flags=re.M)
+
+    with open(conf_py, 'w') as f:
+        f.write(conf_py_src)
 
 
 def generate_release_notes(lines):
@@ -393,3 +436,25 @@ class _ZopeProxy(object):
 
 
 releaser = ReleaseManager()
+
+
+def _test_postrelease_after():
+    """
+    The postrelease_after hook is by far the trickiest part of this releaser
+    hook, so it's helpful for development to have a simple test function for
+    it.
+
+    This test monkey-patches _ZopeProxy so that the update() method just prints
+    the contents that would be updated, without actually doing so.
+    """
+
+    def update(self, content):
+        print content
+        return
+
+    _ZopeProxy.update = update
+
+    test_releaser = ReleaseManager()
+    test_releaser.history_lines = [l.rstrip('\n') for l in
+                                   open('CHANGES.txt').readlines()]
+    test_releaser.postreleaser_after({'name': 'pyfits'})
