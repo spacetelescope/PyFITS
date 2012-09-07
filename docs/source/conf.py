@@ -271,13 +271,3 @@ latex_use_modindex = False
 
 # Example configuration for intersphinx: refer to the Python standard library.
 # intersphinx_mapping = {'http://docs.python.org/': None}
-
-# Additional hacks
-
-# Copy the changelog and faq into the documentation source tree
-import shutil
-
-shutil.copy2(os.path.join(os.pardir, os.pardir, 'CHANGES.txt'),
-             os.path.join('appendix', 'changelog.rst'))
-shutil.copy2(os.path.join(os.pardir, os.pardir, 'FAQ.txt'),
-             os.path.join('appendix', 'faq.rst'))
