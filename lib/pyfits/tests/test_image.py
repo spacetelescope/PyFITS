@@ -542,12 +542,13 @@ class TestImageFunctions(PyfitsTestCase):
     def test_comp_image_hcompression_1_invalid_data(self):
         """
         Tests compression with the HCOMPRESS_1 algorithm with data that is
-        not 2D (and thus should not work).
+        not 2D and has a non-2D tile size.
         """
 
         assert_raises(ValueError, pyfits.CompImageHDU,
                       np.zeros((2, 10, 10), dtype=np.float32), name='SCI',
-                      compressionType='HCOMPRESS_1', quantizeLevel=16)
+                      compressionType='HCOMPRESS_1', quantizeLevel=16,
+                      tileSize=[2, 10, 10])
 
     def test_comp_image_hcompress_image_stack(self):
         """
@@ -558,13 +559,13 @@ class TestImageFunctions(PyfitsTestCase):
         be flattened to two dimensions.
         """
 
-        cube = np.arange(300).reshape((3, 10, 10))
+        cube = np.arange(300, dtype=np.float32).reshape((3, 10, 10))
         hdu = pyfits.CompImageHDU(data=cube, name='SCI',
                                   compressionType='HCOMPRESS_1',
                                   quantizeLevel=16, tileSize=[5, 5, 1])
         hdu.writeto(self.temp('test.fits'))
 
-        with open(self.temp('test.fits')) as hdul:
+        with pyfits.open(self.temp('test.fits')) as hdul:
             assert_true((hdul['SCI'].data == cube).all())
 
     def test_disable_image_compression(self):
