@@ -384,7 +384,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
             except KeyError:
                 pass
 
-        if isinstance(self.data, GroupData):
+        if self._data_loaded and isinstance(self.data, GroupData):
             self._header.update('GROUPS', True,
                                 after='NAXIS' + str(len(self._axes)))
             self._header.update('PCOUNT', len(self.data.parnames),
