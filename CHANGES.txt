@@ -24,6 +24,9 @@ Bug Fixes
   mode could cause an unnecessary rewrite of the file even if none of the
   data is modified. (#179)
 
+- Fixed a bug that could caused a deadlock in the filesystem on OSX if PyFITS
+  is used with Numpy 1.7 in some cases. (#180)
+
 - Fixed some bugs with WCS Paper IV record-valued keyword cards:
   - Cards that looked kind of like RVKCs but were not intended to be were
     over-permissively treated as such--commentary keywords like COMMENT and
@@ -50,11 +53,14 @@ Bug Fixes
 - HCOMPRESS can again be used to compress data cubes (and higher-dimensional
   arrays) so long as the tile size is effectively 2-dimensional. In fact,
   PyFITS will not automatically use compatible tile sizes even if they're not
-  explicitly specified. This fix was backported from 3.1.1. (#171)
+  explicitly specified.  Backported from 3.1.1. (#171)
 
 - Fixed an issue where opening files containing random groups HDUs in update
   mode could cause an unnecessary rewrite of the file even if none of the
-  data is modified.  This fix was backported from 3.1.1. (#179)
+  data is modified.  Backported from 3.1.1. (#179)
+
+- Fixed a bug that could caused a deadlock in the filesystem on OSX if PyFITS
+  is used with Numpy 1.7 in some cases. Backported from 3.1.1. (#180)
 
 
 3.1 (2012-08-08)
