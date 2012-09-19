@@ -16,7 +16,7 @@ from pyfits.header import Header, HEADER_END_RE
 from pyfits.util import (lazyproperty, _is_int, _is_pseudo_unsigned,
                          _unsigned_zero, _pad_length, itersubclasses,
                          encode_ascii, decode_ascii, BLOCK_SIZE, deprecated,
-                         _get_array_memmap)
+                         _get_array_mmap)
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -519,12 +519,12 @@ class _BaseHDU(object):
                     # Of course, if we're copying the data to a new file we
                     # don't care about flushing the original mmap; instead just
                     # read it into the new file
-                    memmap_array = None
+                    array_mmap = None
                 else:
-                    memmap_array = _get_array_memmap(self.data)
+                    array_mmap = _get_array_mmap(self.data)
 
-                if memmap_array is not None:
-                    memmap_array.flush()
+                if array_mmap is not None:
+                    array_mmap.flush()
                 else:
                     self._file.seek(self._datLoc)
                     datloc, datsize = self._writedata(fileobj)

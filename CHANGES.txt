@@ -4,7 +4,41 @@ Changelog
 3.1.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+This is a bug fix release for the 3.1.x series.
+
+Bug Fixes
+^^^^^^^^^
+
+- Fixed an issue where opening files containing random groups HDUs in update
+  mode could cause an unnecessary rewrite of the file even if none of the
+  data is modified. (#179)
+
+- Fixed some bugs with WCS Paper IV record-valued keyword cards:
+  - Cards that looked kind of like RVKCs but were not intended to be were
+    over-permissively treated as such--commentary keywords like COMMENT and
+    HISTORY were particularly affected. (#183)
+
+  - Looking up a card in a header by its standard FITS keyword only should
+    always return the raw value of that card.  That way cards containing
+    values that happen to valid RVKCs but were not intended to be will still
+    be treated like normal cards. (#184)
+
+  - Looking up a RVKC in a header with only part of the field-specifier (for
+    example "DP1.AXIS" instead of "DP1.AXIS.1") was implicitly treated as a
+    wildcard lookup. (#184)
+
+
+3.0.10 (unreleased)
+-------------------
+
+This is a bug fix release for the 3.0.x series.
+
+Bug Fixes
+^^^^^^^^^
+
+- Fixed an issue where opening files containing random groups HDUs in update
+  mode could cause an unnecessary rewrite of the file even if none of the
+  data is modified.  This fix was backported from 3.1.1. (#179)
 
 
 3.1 (2012-08-08)

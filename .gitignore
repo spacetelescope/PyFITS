@@ -6,8 +6,6 @@
 
 # Other generated files
 lib/pyfits/version.py
-docs/source/appendix/changelog.rst
-docs/source/appendix/faq.rst
 
 # Sphinx
 _build

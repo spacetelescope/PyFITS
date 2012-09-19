@@ -123,7 +123,17 @@ class Header(object):
             key = key.upper()
             # Special case for commentary cards
             return _HeaderCommentaryCards(self, key)
-        return self._cards[self._cardindex(key)].value
+        if isinstance(key, tuple):
+            keyword = key[0]
+        else:
+            keyword = key
+        card = self._cards[self._cardindex(key)]
+        if (card.field_specifier is not None and
+            keyword == card.keyword.split('.', 1)[0]):
+            # This is RVKC; if only the top-level keyword was specified return
+            # the raw value, not the parsed out float value
+            return card.rawvalue
+        return card.value
 
     def __setitem__(self, key, value):
         if isinstance(key, slice) or self._haswildcard(key):
@@ -1560,7 +1570,7 @@ class Header(object):
             # Returns the index into _cards for the n-th card with the given
             # keyword (where n is 0-based)
             if keyword and keyword not in self._keyword_indices:
-                if len(keyword) > 8:
+                if len(keyword) > 8 or '.' in keyword:
                     raise KeyError("Keyword %r not found." % keyword)
                 # Great--now we have to check if there's a RVKC that starts
                 # with the given keyword, making failed lookups fairly
