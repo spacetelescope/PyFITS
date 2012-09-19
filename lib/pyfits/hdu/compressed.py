@@ -512,9 +512,11 @@ class CompImageHDU(BinTableHDU):
         # Verify that any input tile size parameter is the appropriate
         # size to match the HDU's data.
 
+        naxis = self._image_header['NAXIS']
+
         if not tileSize:
             tileSize = []
-        elif len(tileSize) != self._image_header['NAXIS']:
+        elif len(tileSize) != naxis:
             warnings.warn('Provided tile size not appropriate for the data.  '
                           'Default tile size will be used.')
             tileSize = []
@@ -522,24 +524,28 @@ class CompImageHDU(BinTableHDU):
         # Set default tile dimensions for HCOMPRESS_1
 
         if compressionType == 'HCOMPRESS_1':
-            if self._image_header['NAXIS'] != 2:
-                raise ValueError('Hcompress can only be used with '
-                                 '2-dimensional images.')
-            elif self._image_header['NAXIS1'] < 4 or \
-            self._image_header['NAXIS2'] < 4:
+            if (self._image_header['NAXIS1'] < 4 or
+                self._image_header['NAXIS2'] < 4):
                 raise ValueError('Hcompress minimum image dimension is '
                                  '4 pixels')
-            elif tileSize and (tileSize[0] < 4 or tileSize[1] < 4):
-                # user specified tile size is too small
-                raise ValueError('Hcompress minimum tile dimension is '
-                                 '4 pixels')
+            elif tileSize:
+                if tileSize[0] < 4 or tileSize[1] < 4:
+                    # user specified tile size is too small
+                    raise ValueError('Hcompress minimum tile dimension is '
+                                     '4 pixels')
+                major_dims = len(filter(lambda x: x > 1, tileSize))
+                if major_dims > 2:
+                    raise ValueError(
+                        'HCOMPRESS can only support 2-dimensional tile sizes.'
+                        'All but two of the tileSize dimensions must be set '
+                        'to 1.')
 
             if tileSize and (tileSize[0] == 0 and tileSize[1] == 0):
                 #compress the whole image as a single tile
                 tileSize[0] = self._image_header['NAXIS1']
                 tileSize[1] = self._image_header['NAXIS2']
 
-                for i in range(2, self._image_header['NAXIS']):
+                for i in range(2, naxis):
                     # set all higher tile dimensions = 1
                     tileSize[i] = 1
             elif not tileSize:
@@ -569,6 +575,11 @@ class CompImageHDU(BinTableHDU):
                             break
                     else:
                         tileSize.append(17)
+
+                for i in range(2, naxis):
+                    # set all higher tile dimensions = 1
+                    tileSize.append(1)
+
             # check if requested tile size causes the last tile to have
             # less than 4 pixels
 
@@ -606,7 +617,7 @@ class CompImageHDU(BinTableHDU):
         # write the ZNAXISn and ZTILEn cards to the table header.
         nrows = 1
 
-        for idx in range(0, self._image_header['NAXIS']):
+        for idx in range(0, naxis):
             naxis = 'NAXIS' + str(idx + 1)
             znaxis = 'ZNAXIS' + str(idx + 1)
             ztile = 'ZTILE' + str(idx + 1)

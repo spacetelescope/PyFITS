@@ -9,6 +9,11 @@ This is a bug fix release for the 3.1.x series.
 Bug Fixes
 ^^^^^^^^^
 
+- HCOMPRESS can again be used to compress data cubes (and higher-dimensional
+  arrays) so long as the tile size is effectively 2-dimensional. In fact,
+  PyFITS will not automatically use compatible tile sizes even if they're not
+  explicitly specified. (#171)
+
 - Fixed an issue where opening files containing random groups HDUs in update
   mode could cause an unnecessary rewrite of the file even if none of the
   data is modified. (#179)
@@ -35,6 +40,11 @@ This is a bug fix release for the 3.0.x series.
 
 Bug Fixes
 ^^^^^^^^^
+
+- HCOMPRESS can again be used to compress data cubes (and higher-dimensional
+  arrays) so long as the tile size is effectively 2-dimensional. In fact,
+  PyFITS will not automatically use compatible tile sizes even if they're not
+  explicitly specified. This fix was backported from 3.1.1. (#171)
 
 - Fixed an issue where opening files containing random groups HDUs in update
   mode could cause an unnecessary rewrite of the file even if none of the
