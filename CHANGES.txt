@@ -15,6 +15,10 @@ This is a bug fix release for the 3.1.x series.
 Bug Fixes
 ^^^^^^^^^
 
+- Permits non-string values for the EXTNAME keyword when reading in a file,
+  rather than throwing an exception due to the malformatting.  Added
+  verification for the format of the EXTNAME keyword when writing. (#96)
+
 - HCOMPRESS can again be used to compress data cubes (and higher-dimensional
   arrays) so long as the tile size is effectively 2-dimensional. In fact,
   PyFITS will not automatically use compatible tile sizes even if they're not
@@ -49,6 +53,10 @@ This is a bug fix release for the 3.0.x series.
 
 Bug Fixes
 ^^^^^^^^^
+
+- Permits non-string values for the EXTNAME keyword when reading in a file,
+  rather than throwing an exception due to the malformatting.  Added
+  verification for the format of the EXTNAME keyword when writing. (#96)
 
 - HCOMPRESS can again be used to compress data cubes (and higher-dimensional
   arrays) so long as the tile size is effectively 2-dimensional. In fact,
