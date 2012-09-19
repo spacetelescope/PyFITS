@@ -522,11 +522,13 @@ class CompImageHDU(BinTableHDU):
         # Set default tile dimensions for HCOMPRESS_1
 
         if compressionType == 'HCOMPRESS_1':
-            if self._image_header['NAXIS'] != 2:
-                raise ValueError('Hcompress can only be used with '
-                                 '2-dimensional images.')
-            elif self._image_header['NAXIS1'] < 4 or \
-            self._image_header['NAXIS2'] < 4:
+            major_dims = len(filter(lambda x: x > 1, tileSize))
+            if major_dims > 2:
+                raise ValueError('HCOMPRESS can only support 2-dimensional '
+                                 'tilesizes. All but two of the tileSize '
+                                 'dimensions must be set to 1.')
+            elif (self._image_header['NAXIS1'] < 4 or
+                  self._image_header['NAXIS2'] < 4):
                 raise ValueError('Hcompress minimum image dimension is '
                                  '4 pixels')
             elif tileSize and (tileSize[0] < 4 or tileSize[1] < 4):
