@@ -110,7 +110,7 @@ class _BaseHDU(object):
             elif 'CHECKSUM' in self._header:
                 self._output_checksum = True
 
-        self.name = ''
+        self._name = ''
 
     @property
     def header(self):
@@ -119,6 +119,16 @@ class _BaseHDU(object):
     @header.setter
     def header(self, value):
         self._header = value
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        if not isinstance(value, basestring):
+            raise TypeError("'name' attribute must be a string")
+        self._name = value
 
     @property
     def is_image(self):
@@ -829,7 +839,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         if 'extname' in self._header and savecomment:
             comment = None
 
-        self._header.set('extname', value, comment, before, after)
+        self._header.set('EXTNAME', value, comment, before, after)
         self.name = value
 
     def update_ext_version(self, value, comment=None, before=None,
@@ -1401,35 +1411,31 @@ class ExtensionHDU(_ValidHDU):
 
     def __init__(self, data=None, header=None, name=None, **kwargs):
         super(ExtensionHDU, self).__init__(data=data, header=header)
-        if header:
-            if name is None:
-                if not self.name and 'EXTNAME' in header:
-                    self.name = header['EXTNAME']
-            else:
-                self.name = name
+        if name is not None:
+            self.name = name
 
-            if not hasattr(self, '_extver'):
-                if 'EXTVER' in header:
-                    self._extver = header['EXTVER']
-                else:
-                    self._extver = 1
+        if header and not hasattr(self, '_extver'):
+            self._extver = header.get('EXTVER', 1)
 
-    def __setattr__(self, attr, value):
-        """
-        Set an HDU attribute.
-        """
+    @property
+    def name(self):
+        # Convert the value to a string to be flexible in some pathological
+        # cases (see ticket #96)
+        if self._header and 'EXTNAME' in self._header:
+            self._name = str(self._header['EXTNAME'])
+        return self._name
 
-        if attr == 'name' and value:
-            if not isinstance(value, basestring):
-                raise TypeError("'name' attribute must be a string")
-            if not pyfits.EXTENSION_NAME_CASE_SENSITIVE:
-                value = value.upper()
+    @name.setter
+    def name(self, value):
+        if not isinstance(value, basestring):
+            raise TypeError("'name' attribute must be a string")
+        if not pyfits.EXTENSION_NAME_CASE_SENSITIVE:
+            value = value.upper()
+        if self._header:
             if 'EXTNAME' in self._header:
                 self._header['EXTNAME'] = value
             else:
                 self._header.append(('EXTNAME', value, 'extension name'))
-
-        super(ExtensionHDU, self).__setattr__(attr, value)
 
     @classmethod
     def match_header(cls, header):
@@ -1466,6 +1472,19 @@ class ExtensionHDU(_ValidHDU):
                        0, option, errs)
         self.req_cards('GCOUNT', naxis + 4, lambda v: (_is_int(v) and v == 1),
                        1, option, errs)
+
+        # Verify that the EXTNAME keyword exists and is a string
+        if 'EXTNAME' in self._header:
+            if not isinstance(self._header['EXTNAME'], basestring):
+                err_text = 'The EXTNAME keyword must have a string value.'
+                fix_text = 'Converted the EXTNAME keyword to a string value.'
+
+                def fix(header=self._header):
+                    header['EXTNAME'] = str(header['EXTNAME'])
+
+                errs.append(self.run_option(option, err_text=err_text,
+                                            fix_text=fix_text, fix=fix))
+
         return errs
 # For backwards compatilibity, though this needs to be deprecated
 # TODO: Mark this as deprecated
