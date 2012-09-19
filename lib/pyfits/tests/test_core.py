@@ -11,7 +11,7 @@ import numpy as np
 import pyfits
 from pyfits.convenience import _getext
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings, BytesIO
+from pyfits.tests.util import catch_warnings, BytesIO, CaptureStdout
 
 from nose.tools import assert_equal, assert_raises, assert_true, assert_false
 
@@ -502,6 +502,20 @@ class TestStreamingFunctions(PyfitsTestCase):
         with open(self.temp('new.fits'), 'ab+') as f:
             shdu = self._make_streaming_hdu(f)
             shdu.write(arr)
+
+    def test_fix_invalid_extname(self):
+        phdu = pyfits.PrimaryHDU()
+        ihdu = pyfits.ImageHDU()
+        ihdu.header.update('EXTNAME', 12345678)
+        hdul = pyfits.HDUList([phdu, ihdu])
+
+        assert_raises(pyfits.VerifyError, hdul.writeto, self.temp('temp.fits'),
+                      output_verify='exception')
+        with CaptureStdout():
+            hdul.writeto(self.temp('temp.fits'), output_verify='fix')
+        with pyfits.open(self.temp('temp.fits')):
+            assert_equal(hdul[1].name, '12345678')
+            assert_equal(hdul[1].header['EXTNAME'], '12345678')
 
     def _make_streaming_hdu(self, fileobj):
         hd = pyfits.Header()
