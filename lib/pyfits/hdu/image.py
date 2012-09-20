@@ -149,6 +149,10 @@ class _ImageBaseHDU(_ValidHDU):
         raise NotImplementedError
 
     @property
+    def is_image(self):
+        return True
+
+    @property
     def section(self):
         """
         Access a section of the image array without loading the entire array
