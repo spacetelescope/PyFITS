@@ -19,6 +19,10 @@ Changelog
   PyFITS will not automatically use compatible tile sizes even if they're not
   explicitly specified.  Backported from 3.1.1. (#171)
 
+- Fixed a bug when writing out files containing zero-width table columns,
+  where the TFIELDS keyword would be updated incorrectly, leaving the table
+  largely unreadable.  Backported from 3.1.0. (#174)
+
 - Fixed an issue where opening files containing random groups HDUs in update
   mode could cause an unnecessary rewrite of the file even if none of the
   data is modified.  Backported from 3.1.1. (#179)
