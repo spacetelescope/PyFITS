@@ -696,6 +696,34 @@ class _ValidHDU(_BaseHDU, _Verify):
     Base class for all HDUs which are not corrupted.
     """
 
+    def __init__(self, data=None, header=None, name=None, **kwargs):
+        super(_ValidHDU, self).__init__(data=data, header=header)
+        if name is not None:
+            self.name = name
+
+        if header and not hasattr(self, '_extver'):
+            self._extver = header.get('EXTVER', 1)
+
+    @property
+    def name(self):
+        # Convert the value to a string to be flexible in some pathological
+        # cases (see ticket #96)
+        if self._header and 'EXTNAME' in self._header:
+            self._name = str(self._header['EXTNAME'])
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        if not isinstance(value, basestring):
+            raise TypeError("'name' attribute must be a string")
+        if not pyfits.EXTENSION_NAME_CASE_SENSITIVE:
+            value = value.upper()
+        if self._header:
+            if 'EXTNAME' in self._header:
+                self._header['EXTNAME'] = value
+            else:
+                self._header.append(('EXTNAME', value, 'extension name'))
+
     @classmethod
     def match_header(cls, header):
         """
@@ -930,6 +958,19 @@ class _ValidHDU(_BaseHDU, _Verify):
                         errs.append(
                             self.run_option(option=option, err_text=err_text,
                                             fix=fix, fix_text="Deleted."))
+
+
+        # Verify that the EXTNAME keyword exists and is a string
+        if 'EXTNAME' in self._header:
+            if not isinstance(self._header['EXTNAME'], basestring):
+                err_text = 'The EXTNAME keyword must have a string value.'
+                fix_text = 'Converted the EXTNAME keyword to a string value.'
+
+                def fix(header=self._header):
+                    header['EXTNAME'] = str(header['EXTNAME'])
+
+                errs.append(self.run_option(option, err_text=err_text,
+                                            fix_text=fix_text, fix=fix))
 
         # verify each card
         for card in self._header.cards:
@@ -1409,34 +1450,6 @@ class ExtensionHDU(_ValidHDU):
 
     _extension = ''
 
-    def __init__(self, data=None, header=None, name=None, **kwargs):
-        super(ExtensionHDU, self).__init__(data=data, header=header)
-        if name is not None:
-            self.name = name
-
-        if header and not hasattr(self, '_extver'):
-            self._extver = header.get('EXTVER', 1)
-
-    @property
-    def name(self):
-        # Convert the value to a string to be flexible in some pathological
-        # cases (see ticket #96)
-        if self._header and 'EXTNAME' in self._header:
-            self._name = str(self._header['EXTNAME'])
-        return self._name
-
-    @name.setter
-    def name(self, value):
-        if not isinstance(value, basestring):
-            raise TypeError("'name' attribute must be a string")
-        if not pyfits.EXTENSION_NAME_CASE_SENSITIVE:
-            value = value.upper()
-        if self._header:
-            if 'EXTNAME' in self._header:
-                self._header['EXTNAME'] = value
-            else:
-                self._header.append(('EXTNAME', value, 'extension name'))
-
     @classmethod
     def match_header(cls, header):
         """
@@ -1472,18 +1485,6 @@ class ExtensionHDU(_ValidHDU):
                        0, option, errs)
         self.req_cards('GCOUNT', naxis + 4, lambda v: (_is_int(v) and v == 1),
                        1, option, errs)
-
-        # Verify that the EXTNAME keyword exists and is a string
-        if 'EXTNAME' in self._header:
-            if not isinstance(self._header['EXTNAME'], basestring):
-                err_text = 'The EXTNAME keyword must have a string value.'
-                fix_text = 'Converted the EXTNAME keyword to a string value.'
-
-                def fix(header=self._header):
-                    header['EXTNAME'] = str(header['EXTNAME'])
-
-                errs.append(self.run_option(option, err_text=err_text,
-                                            fix_text=fix_text, fix=fix))
 
         return errs
 # For backwards compatilibity, though this needs to be deprecated
