@@ -794,7 +794,8 @@ class PrimaryHDU(_ImageBaseHDU):
             data=data, header=header,
             do_not_scale_image_data=do_not_scale_image_data, uint=uint,
             scale_back=scale_back)
-        self.name = 'PRIMARY'
+
+        self._name = 'PRIMARY'
         self._extver = 1
 
         # insert the keywords EXTEND

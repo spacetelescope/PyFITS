@@ -98,7 +98,7 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(hdul[0].name, 'XPRIMARY')
         assert_equal(hdul[0].name, hdul[0].header['EXTNAME'])
 
-        info = [(0, 'XPRIMARY', 'PrimaryHDU', 7, (), 'int16', '')]
+        info = [(0, 'XPRIMARY', 'PrimaryHDU', 5, (), 'int16', '')]
         assert_equal(hdul.info(output=False), info)
 
         assert_true(hdul['PRIMARY'] is hdul['XPRIMARY'])
