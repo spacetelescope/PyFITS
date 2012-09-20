@@ -83,6 +83,34 @@ class TestImageFunctions(PyfitsTestCase):
         finally:
             r.close()
 
+    def test_primary_with_extname(self):
+        """Regression test for #151.
+
+        Tests that the EXTNAME keyword works with Primary HDUs as well, and
+        interacts properly with the .name attribute.  For convenience
+        hdulist['PRIMARY'] will still refer to the first HDU even if it has an
+        EXTNAME not equal to 'PRIMARY'.
+        """
+
+        prihdr = pyfits.Header([('EXTNAME', 'XPRIMARY'), ('EXTVER', 1)])
+        hdul = pyfits.HDUList([pyfits.PrimaryHDU(header=prihdr)])
+        assert_true('EXTNAME' in hdul[0].header)
+        assert_equal(hdul[0].name, 'XPRIMARY')
+        assert_equal(hdul[0].name, hdul[0].header['EXTNAME'])
+
+        info = [(0, 'XPRIMARY', 'PrimaryHDU', 7, (), 'int16', '')]
+        assert_equal(hdul.info(output=False), info)
+
+        assert_true(hdul['PRIMARY'] is hdul['XPRIMARY'])
+        assert_true(hdul['PRIMARY'] is hdul[('XPRIMARY', 1)])
+
+        hdul[0].name = 'XPRIMARY2'
+        assert_equal(hdul[0].header['EXTNAME'], 'XPRIMARY2')
+
+        hdul.writeto(self.temp('test.fits'))
+        with pyfits.open(self.temp('test.fits')) as hdul:
+            assert_equal(hdul[0].name, 'XPRIMARY2')
+
     def test_io_manipulation(self):
         # Get a keyword value.  An extension can be referred by name or by
         # number.  Both extension and keyword names are case insensitive.
