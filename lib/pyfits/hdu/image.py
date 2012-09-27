@@ -3,8 +3,8 @@ import numpy as np
 
 from pyfits.hdu.base import DELAYED, _ValidHDU, ExtensionHDU
 from pyfits.header import Header
-from pyfits.util import _is_pseudo_unsigned, _unsigned_zero, _is_int, \
-                        _pad_length, _normalize_slice, lazyproperty
+from pyfits.util import (_is_pseudo_unsigned, _unsigned_zero, _is_int,
+                         _pad_length, _normalize_slice, lazyproperty)
 
 class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class.

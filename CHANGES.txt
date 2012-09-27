@@ -9,6 +9,12 @@ This is a bug fix release for the 3.1.x series.
 Bug Fixes
 ^^^^^^^^^
 
+- Improved handling of scaled images and pseudo-unsigned integer images in
+  compressed image HDUs.  They now work more transparently like normal image
+  HDUs with support for the ``do_not_scale_image_data`` and ``uint`` options,
+  as well as ``scale_back`` and ``save_backup``.  The ``.scale()`` method
+  works better too. (#88)
+
 - Permits non-string values for the EXTNAME keyword when reading in a file,
   rather than throwing an exception due to the malformatting.  Added
   verification for the format of the EXTNAME keyword when writing. (#96)
@@ -54,9 +60,16 @@ This is a bug fix release for the 3.0.x series.
 Bug Fixes
 ^^^^^^^^^
 
+- Improved handling of scaled images and pseudo-unsigned integer images in
+  compressed image HDUs.  They now work more transparently like normal image
+  HDUs with support for the ``do_not_scale_image_data`` and ``uint`` options,
+  as well as ``scale_back`` and ``save_backup``.  The ``.scale()`` method
+  works better too.  Backported from 3.1.1. (#88)
+
 - Permits non-string values for the EXTNAME keyword when reading in a file,
   rather than throwing an exception due to the malformatting.  Added
-  verification for the format of the EXTNAME keyword when writing. (#96)
+  verification for the format of the EXTNAME keyword when writing.  Backported
+  from 3.1.1. (#96)
 
 - Added support for EXTNAME and EXTVER in PRIMARY HDUs.  That is, if EXTNAME
   is specified in the header, it will also be reflected in the ``.name``
