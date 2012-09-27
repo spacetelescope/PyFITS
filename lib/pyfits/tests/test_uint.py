@@ -75,3 +75,7 @@ class TestUintFunctions(PyfitsTestCase):
             hdul.writeto(self.temp('temp2.fits'))
             with pyfits.open(self.temp('temp2.fits'), uint=True) as hdul2:
                 assert_true((hdul[1].data == hdul2[1].data).all())
+                # TODO: Enable these lines if CompImageHDUs ever grow .section
+                # support
+                #assert_equal(hdul[1].section[:1].dtype.name, 'uint32')
+                #assert_true((hdul[1].section[:1] == hdul[1].data[:1]).all())

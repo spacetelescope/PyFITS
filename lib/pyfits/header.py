@@ -1780,7 +1780,8 @@ class Header(object):
                     pass
 
         for name in ('SIMPLE', 'XTENSION', 'BITPIX', 'NAXIS', 'EXTEND',
-                     'PCOUNT', 'GCOUNT', 'GROUPS', 'BSCALE', 'TFIELDS'):
+                     'PCOUNT', 'GCOUNT', 'GROUPS', 'BSCALE', 'BZERO',
+                     'TFIELDS'):
             try:
                 del self[name]
             except KeyError:
