@@ -61,3 +61,20 @@ class TestUintFunctions(PyfitsTestCase):
             assert_true((hdul[0].section[:1] == hdul[0].data[:1]).all())
             hdul.close()
             hdul1.close()
+
+    def test_uint_compressed(self):
+        hdu = pyfits.CompImageHDU(np.array([-3, -2, -1, 0, 1, 2, 3]))
+        hdu.scale('int32', '', bzero=2**31)
+        hdu.writeto(self.temp('temp.fits'))
+        with pyfits.open(self.temp('temp.fits'), unit=True) as hdul:
+            assert_equal(hdul[0].data.dtype, np.uint32)
+            assert_true(
+                (hdul[0].data ==
+                 np.array([(2**32)-3, (2**32)-2, (2**32)-1, 0, 1, 2, 3],
+                          dtype=np.uint32)).all())
+            hdul.writeto(self.temp('temp2.fits'))
+            with pyfits.open(self.temp('temp2.fits'), uint=True) as hdul2:
+                assert_truee((hdul[0].data == hdul1[0].data).all())
+                assert_equal(hdul[0].section[:1].dtype.name, 'uint32')
+                assert_true((hdul[0].section[:1] == hdul[0].data[:1]).all())
+
