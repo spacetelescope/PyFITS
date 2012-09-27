@@ -10,7 +10,7 @@ import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import CaptureStdout, catch_warnings
+from pyfits.tests.util import CaptureStdout, catch_warnings, ignore_warnings
 
 from nose.tools import (assert_equal, assert_raises, assert_true, assert_false,
                         assert_not_equal)
@@ -947,6 +947,55 @@ class TestImageFunctions(PyfitsTestCase):
         hdul = pyfits.open(self.temp('test_new.fits'))
         hdul.close()
 
+    def test_rewriting_large_scaled_image_compressed(self):
+        """
+        Regression test for #88 1.
+
+        Identical to test_rewriting_large_scaled_image() but with a compressed
+        image.
+        """
+
+        with pyfits.open(self.data('fixed-1890.fits'),
+                         do_not_scale_image_data=True) as hdul:
+            chdu = pyfits.CompImageHDU(data=hdul[0].data,
+                                       header=hdul[0].header)
+            chdu.writeto(self.temp('fixed-1890-z.fits'))
+
+        hdul = pyfits.open(self.temp('fixed-1890-z.fits'))
+        orig_data = hdul[1].data
+        with ignore_warnings():
+            hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        hdul.close()
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        assert_true((hdul[1].data == orig_data).all())
+        hdul.close()
+
+        # Just as before, but this time don't touch hdul[0].data before writing
+        # back out--this is the case that failed in #84
+        hdul = pyfits.open(self.temp('fixed-1890-z.fits'))
+        with ignore_warnings():
+            hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        hdul.close()
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        assert_true((hdul[1].data == orig_data).all())
+        hdul.close()
+
+        # Test opening/closing/reopening a scaled file in update mode
+        hdul = pyfits.open(self.temp('fixed-1890-z.fits'),
+                           do_not_scale_image_data=True)
+        hdul.writeto(self.temp('test_new.fits'), clobber=True,
+                     output_verify='silentfix')
+        hdul.close()
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        orig_data = hdul[1].data
+        hdul.close()
+        hdul = pyfits.open(self.temp('test_new.fits'), mode='update')
+        hdul.close()
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        assert_true((hdul[1].data == orig_data).all())
+        hdul = pyfits.open(self.temp('test_new.fits'))
+        hdul.close()
+
     def test_image_update_header(self):
         """
         Regression test for #105.
@@ -1015,3 +1064,56 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(hdul[0].header['BITPIX'], -32)
         assert_true('BZERO' not in hdul[0].header)
         assert_true('BSCALE' not in hdul[0].header)
+
+    def test_open_scaled_in_update_mode_compressed(self):
+        """
+        Regression test for #88 2.
+
+        Identical to test_open_scaled_in_update_mode() but with a compressed
+        version of the scaled image.
+        """
+
+        # Copy+compress the original file before making any possible changes to
+        # it
+        with pyfits.open(self.data('scale.fits'),
+                         do_not_scale_image_data=True) as hdul:
+            chdu = pyfits.CompImageHDU(data=hdul[0].data,
+                                       header=hdul[0].header)
+            chdu.writeto(self.temp('scale.fits'))
+        mtime = os.stat(self.temp('scale.fits')).st_mtime
+
+        time.sleep(1)
+
+        pyfits.open(self.temp('scale.fits'), mode='update').close()
+
+        # Ensure that no changes were made to the file merely by immediately
+        # opening and closing it.
+        assert_equal(mtime, os.stat(self.temp('scale.fits')).st_mtime)
+
+        # Insert a slight delay to ensure the mtime does change when the file
+        # is changed
+        time.sleep(1)
+
+        hdul = pyfits.open(self.temp('scale.fits'), 'update')
+        hdul[1].data
+        hdul.close()
+
+        # Now the file should be updated with the rescaled data
+        assert_not_equal(mtime, os.stat(self.temp('scale.fits')).st_mtime)
+        hdul = pyfits.open(self.temp('scale.fits'), mode='update')
+        assert_equal(hdul[1].data.dtype, np.dtype('float32'))
+        assert_equal(hdul[1].header['BITPIX'], -32)
+        assert_true('BZERO' not in hdul[1].header)
+        assert_true('BSCALE' not in hdul[1].header)
+
+        # Try reshaping the data, then closing and reopening the file; let's
+        # see if all the changes are preseved properly
+        hdul[1].data.shape = (42, 10)
+        hdul.close()
+
+        hdul = pyfits.open(self.temp('scale.fits'))
+        assert_equal(hdul[1].shape, (42, 10))
+        assert_equal(hdul[1].data.dtype, np.dtype('float32'))
+        assert_equal(hdul[1].header['BITPIX'], -32)
+        assert_true('BZERO' not in hdul[1].header)
+        assert_true('BSCALE' not in hdul[1].header)

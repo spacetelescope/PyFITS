@@ -708,7 +708,8 @@ class Header(__HEADERBASE):
                     del self[name + str(idx + 1)]
 
             for name in ('SIMPLE', 'XTENSION', 'BITPIX', 'NAXIS', 'EXTEND',
-                         'PCOUNT', 'GCOUNT', 'GROUPS', 'BSCALE', 'TFIELDS'):
+                         'PCOUNT', 'GCOUNT', 'GROUPS', 'BSCALE', 'BZERO',
+                         'TFIELDS'):
                 del self[name]
         except KeyError:
             pass
