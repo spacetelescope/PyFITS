@@ -43,6 +43,9 @@ Bug Fixes
 - Fixed a bug that could caused a deadlock in the filesystem on OSX if PyFITS
   is used with Numpy 1.7 in some cases. (#180)
 
+- Fixed a crash when generating diff reports from diffs using the
+  ``ignore_comments`` options. (#181)
+
 - Fixed some bugs with WCS Paper IV record-valued keyword cards:
   - Cards that looked kind of like RVKCs but were not intended to be were
     over-permissively treated as such--commentary keywords like COMMENT and
