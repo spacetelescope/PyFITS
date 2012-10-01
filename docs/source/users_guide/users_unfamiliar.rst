@@ -326,7 +326,7 @@ create the HDU itself:
 
     >>>
     # Create the image arrays. The first dimension is the number of groups.
-    >>> imdata = numpy.arange(100., shape=(10, 1, 1, 2, 5))
+    >>> imdata = numpy.arange(100.0, shape=(10, 1, 1, 2, 5))
     # Next, create the group parameter data, we'll have two parameters.
     # Note that the size of each parameter's data is also the number of groups.
     # A parameter's data can also be a numeric constant.

@@ -3,12 +3,19 @@ from __future__ import division # confidence high
 import os
 import shutil
 import tempfile
+import warnings
 
 
 class PyfitsTestCase(object):
     def setup(self):
         self.data_dir = os.path.join(os.path.dirname(__file__), 'data')
         self.temp_dir = tempfile.mkdtemp(prefix='pyfits-test-')
+
+        # Ignore deprecation warnings--this only affects Python 2.5 and 2.6,
+        # since deprecation warnings are ignored by defualt on 2.7
+        warnings.resetwarnings()
+        warnings.simplefilter('ignore')
+        warnings.simplefilter('always', UserWarning)
 
     def teardown(self):
         shutil.rmtree(self.temp_dir)
