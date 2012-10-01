@@ -1024,6 +1024,11 @@ class TableDataDiff(_BaseDiff):
             self.diff_rows = (len(self.a), len(self.b))
             return
 
+        # If the tables contain no rows there's no data to compare, so we're
+        # done at this point. (See ticket #178)
+        if len(self.a) == len(self.b) == 0:
+            return
+
         # Like in the old fitsdiff, compare tables on a column by column basis
         # The difficulty here is that, while FITS column names are meant to be
         # case-insensitive, PyFITS still allows, for the sake of flexibility,
