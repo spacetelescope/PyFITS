@@ -166,10 +166,34 @@ class TestDiff(PyfitsTestCase):
         assert_false(diff.identical)
         assert_equal(diff.diff_keyword_values, {'C': [(3, 5)]})
 
+        report = diff.report()
+        assert_true('Keyword B        has different values' not in report)
+        assert_true('Keyword C        has different values' in report)
+
         # Test case-insensitivity
         diff = HeaderDiff(ha, hb, ignore_keywords=['b'])
         assert_false(diff.identical)
         assert_equal(diff.diff_keyword_values, {'C': [(3, 5)]})
+
+    def test_ignore_keyword_comments(self):
+        ha = Header([('A', 1, 'A'), ('B', 2, 'B'), ('C', 3, 'C')])
+        hb = ha.copy()
+        hb.comments['B'] = 'D'
+        hb.comments['C'] = 'E'
+        diff = HeaderDiff(ha, hb, ignore_comments=['*'])
+        assert_true(diff.identical)
+        diff = HeaderDiff(ha, hb, ignore_comments=['B'])
+        assert_false(diff.identical)
+        assert_equal(diff.diff_keyword_comments, {'C': [('C', 'E')]})
+
+        report = diff.report()
+        assert_true('Keyword B        has different comments' not in report)
+        assert_true('Keyword C        has different comments' in report)
+
+        # Test case-insensitivity
+        diff = HeaderDiff(ha, hb, ignore_comments=['b'])
+        assert_false(diff.identical)
+        assert_equal(diff.diff_keyword_comments, {'C': [('C', 'E')]})
 
     def test_trivial_identical_images(self):
         ia = np.arange(100).reshape((10, 10))
@@ -184,6 +208,24 @@ class TestDiff(PyfitsTestCase):
         diff = ImageDataDiff(ia, ib, tolerance=1.0e-4)
         assert_true(diff.identical)
         assert_equal(diff.diff_total, 0)
+
+    def test_identical_comp_image_hdus(self):
+        """Regression test for #189.
+
+        For this test we mostly just care that comparing to compressed images
+        does not crash, and returns the correct results.  Two compressed images
+        will be considered identical if the decompressed data is the same.
+        Obviously we test whether or not the same compression was used by
+        looking for (or ignoring) header differences.
+        """
+
+        data = np.arange(100.0).reshape((10, 10))
+        hdu = pyfits.CompImageHDU(data=data)
+        hdu.writeto(self.temp('test.fits'))
+        hdula = pyfits.open(self.temp('test.fits'))
+        hdulb = pyfits.open(self.temp('test.fits'))
+        diff = FITSDiff(hdula, hdulb)
+        assert_true(diff.identical)
 
     def test_different_dimensions(self):
         ia = np.arange(100).reshape((10, 10))

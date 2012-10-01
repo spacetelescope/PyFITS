@@ -19,7 +19,9 @@ class PyfitsTestCase(object):
 
         # Ignore deprecation warnings--this only affects Python 2.5 and 2.6,
         # since deprecation warnings are ignored by defualt on 2.7
-        warnings.simplefilter('ignore', DeprecationWarning)
+        warnings.resetwarnings()
+        warnings.simplefilter('ignore')
+        warnings.simplefilter('always', UserWarning)
 
     def teardown(self):
         shutil.rmtree(self.temp_dir)

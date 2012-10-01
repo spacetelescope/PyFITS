@@ -300,7 +300,7 @@ class FITSDiff(_BaseDiff):
         if self.ignore_comments:
             ignore_comments = ' '.join(sorted(self.ignore_comments))
             self._writeln(' Keyword(s) whose comments are not to be compared:'
-                          '\n%s' % wrapper.fill(ignore_keywords))
+                          '\n%s' % wrapper.fill(ignore_comments))
         if self.ignore_fields:
             ignore_fields = ' '.join(sorted(self.ignore_fields))
             self._writeln(' Table column(s) not to be compared:\n%s' %
