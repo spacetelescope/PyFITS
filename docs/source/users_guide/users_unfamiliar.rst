@@ -158,7 +158,7 @@ is regular and the other variable length array.
     >>> tbhdu.writeto('var_table.fits')
     >>> hdu = pyfits.open('var_table.fits')
     # Note that heap info is taken care of (PCOUNT) when written to FITS file.
-    >>> print hdu[1].header.ascardlist()
+    >>> hdu[1].header
     XTENSION= 'BINTABLE'       / binary table extension
     BITPIX  =                8 / array data type
     NAXIS   =                2 / number of array dimensions
@@ -343,7 +343,7 @@ to create the HDU itself:
     # Now, create the GroupsHDU and write to a FITS file.
     >>> hdu = pyfits.GroupsHDU(x)
     >>> hdu.writeto('test_group.fits')
-    >>> print hdu.header.ascardlist()[:]
+    >>> hdu.header
     SIMPLE =            T / conforms to FITS standard
     BITPIX =          -32 / array data type
     NAXIS  =            5 / number of array dimensions
