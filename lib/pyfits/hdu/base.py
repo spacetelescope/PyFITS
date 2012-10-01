@@ -134,10 +134,10 @@ class _BaseHDU(object):
     def is_image(self):
         return (
             self.name == 'PRIMARY' or
-            ('XTENSION' in self.header and
-             (self.header['XTENSION'] == 'IMAGE' or
-              (self.header['XTENSION'] == 'BINTABLE' and
-               'ZIMAGE' in self.header and self.header['ZIMAGE'] == True))))
+            ('XTENSION' in self._header and
+             (self._header['XTENSION'] == 'IMAGE' or
+              (self._header['XTENSION'] == 'BINTABLE' and
+               'ZIMAGE' in self._header and self._header['ZIMAGE'] == True))))
 
     @property
     def _data_loaded(self):

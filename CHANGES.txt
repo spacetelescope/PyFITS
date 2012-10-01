@@ -60,6 +60,10 @@ Bug Fixes
     example "DP1.AXIS" instead of "DP1.AXIS.1") was implicitly treated as a
     wildcard lookup. (#184)
 
+- Fixed a crash when diffing two FITS files where at least one contains a
+  compressed image HDU which was not recognized as an image instead of a
+  table. (#187)
+
 
 3.0.10 (unreleased)
 -------------------
