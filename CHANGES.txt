@@ -30,6 +30,9 @@ Bug Fixes
   PyFITS will not automatically use compatible tile sizes even if they're not
   explicitly specified. (#171)
 
+- Fixed a crash when running fitsdiff on two empty (that is, zero row) tables.
+  (#178)
+
 - Fixed an issue where opening files containing random groups HDUs in update
   mode could cause an unnecessary rewrite of the file even if none of the
   data is modified. (#179)

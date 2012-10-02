@@ -282,6 +282,23 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.diff_ratio, 0)
         assert_equal(diff.diff_total, 0)
 
+    def test_diff_empty_tables(self):
+        """
+        Regression test for #178.
+
+        Ensure that diffing tables containing empty data doesn't crash.
+        """
+
+        c1 = Column('D', format='J')
+        c2 = Column('E', format='J')
+        thdu = new_table([c1, c2], nrows=0)
+
+        hdula = pyfits.HDUList([thdu])
+        hdulb = pyfits.HDUList([thdu])
+
+        diff = FITSDiff(hdula, hdulb)
+        assert_true(diff.identical)
+
     def test_ignore_table_fields(self):
         c1 = Column('A', format='L', array=[True, False])
         c2 = Column('B', format='X', array=[[0], [1]])
