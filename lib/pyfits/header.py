@@ -616,21 +616,21 @@ class Header(object):
                 fileobj.close()
 
     @classmethod
-    def fromtextfile(cls, fileobj):
+    def fromtextfile(cls, fileobj, endcard=False):
         """
         Equivalent to ``Header.fromfile(fileobj, sep='\\n', endcard=False,
         padding=False)``.
         """
 
-        return cls.fromfile(fileobj, sep='\n', endcard=False, padding=False)
+        return cls.fromfile(fileobj, sep='\n', endcard=endcard, padding=False)
 
-    def totextfile(self, fileobj, clobber=False):
+    def totextfile(self, fileobj, endcard=False, clobber=False):
         """
         Equivalent to ``Header.tofile(fileobj, sep='\\n', endcard=False,
         padding=False, clobber=clobber)``.
         """
 
-        self.tofile(fileobj, sep='\n', endcard=False, padding=False,
+        self.tofile(fileobj, sep='\n', endcard=endcard, padding=False,
                     clobber=clobber)
 
     def clear(self):

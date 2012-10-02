@@ -36,6 +36,12 @@ Bug Fixes
   PyFITS will not automatically use compatible tile sizes even if they're not
   explicitly specified. (#171)
 
+- Added support for the optional ``endcard`` parameter in the
+  ``Header.fromtextfile()`` and ``Header.totextfile()`` methods.  Although
+  ``endcard=False`` was a reasonable default assumption, there are still text
+  dumps of FITS headers that include the END card, so this should have been
+  more flexible. (#176)
+
 - Fixed a crash when running fitsdiff on two empty (that is, zero row) tables.
   (#178)
 
