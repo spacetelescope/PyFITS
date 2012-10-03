@@ -116,15 +116,15 @@ class _BaseHDU(object):
         self._header = value
     header = property(_getheader, _setheader)
 
-    @property
     def name(self):
         return self._name
 
-    @name.setter
-    def name(self, value):
+    def _set_name(self, value):
         if not isinstance(value, basestring):
             raise TypeError("'name' attribute must be a string")
         self._name = value
+
+    name = property(name, _set_name)
 
     @property
     def _data_loaded(self):
@@ -706,7 +706,6 @@ class _ValidHDU(_BaseHDU, _Verify):
             else:
                 self._extver = 1
 
-    @property
     def name(self):
         # Convert the value to a string to be flexible in some pathological
         # cases (see ticket #96)
@@ -714,8 +713,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             self._name = str(self._header['EXTNAME'])
         return self._name
 
-    @name.setter
-    def name(self, value):
+    def _set_name(self, value):
         if not isinstance(value, basestring):
             raise TypeError("'name' attribute must be a string")
         if not pyfits.core.EXTENSION_NAME_CASE_SENSITIVE:
@@ -725,6 +723,8 @@ class _ValidHDU(_BaseHDU, _Verify):
                 self._header['EXTNAME'] = value
             else:
                 self._header.update('EXTNAME', value, 'extension name')
+
+    name = property(name, _set_name)
 
     @classmethod
     def match_header(cls, header):
