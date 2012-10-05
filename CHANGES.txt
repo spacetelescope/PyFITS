@@ -56,6 +56,7 @@ Bug Fixes
   ``ignore_comments`` options. (#181)
 
 - Fixed some bugs with WCS Paper IV record-valued keyword cards:
+
   - Cards that looked kind of like RVKCs but were not intended to be were
     over-permissively treated as such--commentary keywords like COMMENT and
     HISTORY were particularly affected. (#183)
