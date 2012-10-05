@@ -794,7 +794,8 @@ if sys.version_info[:2] < (2, 6):
     # 'mmap.mmap', but the mmap.mmap type is otherwise not accessible through
     # the module
     def _is_mmap(obj):
-        return type(obj).__name__ == 'mmap.mmap'
+        return (type(obj).__module__ == 'mmap' and
+                type(obj).__name__ == 'mmap')
 else:
     def _is_mmap(obj):
         return isinstance(obj, mmap.mmap)
