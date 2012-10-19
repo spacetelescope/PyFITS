@@ -226,11 +226,11 @@ class CardList(list):
 
     @deprecated('3.1', alternative=':meth:`Header.index`')
     def index(self, card):
-        return self._header.cards.index(card)
+        return self._header._cards.index(card)
 
     @deprecated('3.1', alternative=':meth:`Header.count`')
     def count(self, card):
-        return self._header.cards.count(card)
+        return self._header._cards.count(card)
 
     @deprecated('3.1', alternative=':meth:`Header.index`', pending=False)
     def index_of(self, key, backward=False):

@@ -190,6 +190,27 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert_equal(h.ascard['FOO'].cardimage, fooimg)
         assert_equal(h.ascard['BAR'].cardimage, barimg)
 
+    def test_cardlist_list_methods(self):
+        """Regression test for #190."""
+
+        header = pyfits.Header()
+        header.update('A', 'B', 'C')
+        header.update('D', 'E', 'F')
+        # The old header.update method won't let you append a duplicate keyword
+        header.append(('D', 'G', 'H'))
+
+        assert_equal(header.ascardlist().index(header.cards['A']), 0)
+        assert_equal(header.ascardlist().index(header.cards['D']), 1)
+        assert_equal(header.ascardlist().index(header.cards[('D', 1)]), 2)
+
+        # Since the original CardList class really only works on card objects
+        # the count method is mostly useless since cards didn't used to compare
+        # equal sensibly
+        assert_equal(header.ascardlist().count(header.cards['A']), 1)
+        assert_equal(header.ascardlist().count(header.cards['D']), 1)
+        assert_equal(header.ascardlist().count(header.cards[('D', 1)]), 1)
+        assert_equal(header.ascardlist().count(pyfits.Card('A', 'B', 'C')), 0)
+
 
 class TestHeaderFunctions(PyfitsTestCase):
     """Test PyFITS Header and Card objects."""

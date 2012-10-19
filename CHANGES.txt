@@ -68,6 +68,9 @@ Bug Fixes
   compressed image HDU which was not recognized as an image instead of a
   table. (#187)
 
+- Fixed bugs in the backwards compatibility layer for the ``CardList.index``
+  and ``CardList.count`` methods. (#190)
+
 
 3.0.10 (unreleased)
 -------------------
