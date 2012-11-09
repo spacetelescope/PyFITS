@@ -113,15 +113,15 @@ static long* get_long_array(PyObject* data, const char* description,
    int    size;
    long*  out;
    int    seq;
-   char   errMsg[80];
+   char   err_msg[80];
 
    seq = PyList_Check(data);
 
    if (!seq)
    {
-      strncpy(errMsg,description,79);
-      strncat(errMsg," argument must be a list.",79-strlen(errMsg));
-      PyErr_SetString(PyExc_TypeError,errMsg);
+      strncpy(err_msg, description, 79);
+      strncat(err_msg, " argument must be a list.", 79-strlen(err_msg));
+      PyErr_SetString(PyExc_TypeError, err_msg);
       return NULL;
    }
 
@@ -129,9 +129,9 @@ static long* get_long_array(PyObject* data, const char* description,
 
    if (size < 0)
    {
-      strncpy(errMsg,description,79);
-      strncat(errMsg," list has invalid size.",79-strlen(errMsg));
-      PyErr_SetString(PyExc_ValueError,errMsg);
+      strncpy(err_msg, description, 79);
+      strncat(err_msg, " list has invalid size.", 79-strlen(err_msg));
+      PyErr_SetString(PyExc_ValueError, err_msg);
       return NULL;
    }
 
@@ -172,15 +172,15 @@ static unsigned char** get_char_array(PyObject* data, const char* description,
    int             size;
    unsigned char** out;
    int             seq;
-   char            errMsg[80];
+   char            err_msg[80];
 
    seq = PyList_Check(data);
 
    if (!seq)
    {
-      strncpy(errMsg,description,79);
-      strncat(errMsg," argument must be a list.",79-strlen(errMsg));
-      PyErr_SetString(PyExc_TypeError,errMsg);
+      strncpy(err_msg, description, 79);
+      strncat(err_msg, " argument must be a list.", 79-strlen(err_msg));
+      PyErr_SetString(PyExc_TypeError, err_msg);
       return NULL;
    }
 
@@ -188,9 +188,9 @@ static unsigned char** get_char_array(PyObject* data, const char* description,
 
    if ( size < 0)
    {
-      strncpy(errMsg,description,79);
-      strncat(errMsg," list has invalid size.",79-strlen(errMsg));
-      PyErr_SetString(PyExc_ValueError,errMsg);
+      strncpy(err_msg, description, 79);
+      strncat(err_msg, " list has invalid size.", 79-strlen(err_msg));
+      PyErr_SetString(PyExc_ValueError, err_msg);
       return NULL;
    }
 
@@ -218,8 +218,8 @@ static unsigned char** get_char_array(PyObject* data, const char* description,
 
    for (i = 0; i < size; i++)
    {
-      out[i] = (unsigned char*)PyString_AsString(PyList_GetItem(data,i));
-      (*dataLen)[i] = PyString_Size(PyList_GetItem(data,i));
+      out[i] = (unsigned char*)PyString_AsString(PyList_GetItem(data, i));
+      (*dataLen)[i] = PyString_Size(PyList_GetItem(data, i));
    }
 
    if (PyErr_Occurred())
@@ -241,15 +241,15 @@ static float* get_float_array(PyObject* data, const char* description,
    int    size;
    float* out;
    int    seq;
-   char   errMsg[80];
+   char   err_msg[80];
 
    seq = PyList_Check(data);
 
    if (!seq)
    {
-      strncpy(errMsg,description,79);
-      strncat(errMsg," argument must be a list.",79-strlen(errMsg));
-      PyErr_SetString(PyExc_TypeError,errMsg);
+      strncpy(err_msg, description, 79);
+      strncat(err_msg, " argument must be a list.", 79-strlen(err_msg));
+      PyErr_SetString(PyExc_TypeError, err_msg);
       return NULL;
    }
 
@@ -257,9 +257,9 @@ static float* get_float_array(PyObject* data, const char* description,
 
    if (size < 0)
    {
-      strncpy(errMsg,description,79);
-      strncat(errMsg," list has invalid size.",79-strlen(errMsg));
-      PyErr_SetString(PyExc_ValueError,errMsg);
+      strncpy(err_msg, description, 79);
+      strncat(err_msg, " list has invalid size.", 79-strlen(err_msg));
+      PyErr_SetString(PyExc_ValueError, err_msg);
       return NULL;
    }
 
@@ -299,15 +299,15 @@ static double* get_double_array(PyObject* data, const char* description,
    int     size;
    double* out;
    int     seq;
-   char    errMsg[80];
+   char    err_msg[80];
 
    seq = PyList_Check(data);
 
    if (!seq)
    {
-      strncpy(errMsg,description,79);
-      strncat(errMsg," argument must be a list.",79-strlen(errMsg));
-      PyErr_SetString(PyExc_TypeError,errMsg);
+      strncpy(err_msg, description, 79);
+      strncat(err_msg, " argument must be a list.", 79-strlen(err_msg));
+      PyErr_SetString(PyExc_TypeError, err_msg);
       return NULL;
    }
 
@@ -315,9 +315,9 @@ static double* get_double_array(PyObject* data, const char* description,
 
    if (size < 0)
    {
-      strncpy(errMsg,description,79);
-      strncat(errMsg," list has invalid size.",79-strlen(errMsg));
-      PyErr_SetString(PyExc_ValueError,errMsg);
+      strncpy(err_msg, description, 79);
+      strncat(err_msg, " list has invalid size.", 79-strlen(err_msg));
+      PyErr_SetString(PyExc_ValueError, err_msg);
       return NULL;
    }
 
@@ -350,58 +350,58 @@ static double* get_double_array(PyObject* data, const char* description,
 
 /* Report any error based on the status returned from cfitsio. */
 
-void processStatusErr(int status)
+void process_status_err(int status)
 {
-   PyObject* exceptType;
-   char      errMsg[81];
-   char      defErrMsg[81];
+   PyObject* except_type;
+   char      err_msg[81];
+   char      def_err_msg[81];
 
-   errMsg[0] = '\0';
-   defErrMsg[0] = '\0';
+   err_msg[0] = '\0';
+   def_err_msg[0] = '\0';
 
    switch (status)
    {
       case MEMORY_ALLOCATION:
-         exceptType = PyExc_MemoryError;
+         except_type = PyExc_MemoryError;
          break;
       case OVERFLOW_ERR:
-         exceptType = PyExc_OverflowError;
+         except_type = PyExc_OverflowError;
          break;
       case BAD_COL_NUM:
-         strcpy(defErrMsg,"bad column number");
-         exceptType = PyExc_ValueError;
+         strcpy(def_err_msg, "bad column number");
+         except_type = PyExc_ValueError;
          break;
       case BAD_PIX_NUM:
-         strcpy(defErrMsg,"bad pixel number");
-         exceptType = PyExc_ValueError;
+         strcpy(def_err_msg, "bad pixel number");
+         except_type = PyExc_ValueError;
          break;
       case NEG_AXIS:
-         strcpy(defErrMsg,"negative axis number");
-         exceptType = PyExc_ValueError;
+         strcpy(def_err_msg, "negative axis number");
+         except_type = PyExc_ValueError;
          break;
       case BAD_DATATYPE:
-         strcpy(defErrMsg,"bad data type");
-         exceptType = PyExc_TypeError;
+         strcpy(def_err_msg, "bad data type");
+         except_type = PyExc_TypeError;
          break;
       case NO_COMPRESSED_TILE:
-         strcpy(defErrMsg,"no compressed or uncompressed data for tile.");
-         exceptType = PyExc_ValueError;
+         strcpy(def_err_msg, "no compressed or uncompressed data for tile.");
+         except_type = PyExc_ValueError;
          break;
       default:
-         exceptType = PyExc_RuntimeError;
+         except_type = PyExc_RuntimeError;
    }
 
-   if (_pyfits_ffgmsg(errMsg))
+   if (_pyfits_ffgmsg(err_msg))
    {
-      PyErr_SetString(exceptType,errMsg);
+      PyErr_SetString(except_type, err_msg);
    }
-   else if (*defErrMsg)
+   else if (*def_err_msg)
    {
-      PyErr_SetString(exceptType,defErrMsg);
+      PyErr_SetString(except_type, def_err_msg);
    }
    else
    {
-      PyErr_SetString(exceptType, "unknown error.");
+      PyErr_SetString(except_type, "unknown error.");
    }
 }
 
@@ -460,7 +460,7 @@ PyObject* compression_compressData(PyObject* self, PyObject* args)
                          &quantize_level, &hcomp_scale, &zvalObj,
                          &compressTypeStr, &bitpix, &firstelem, &nelem))
    {
-      PyErr_SetString(PyExc_TypeError,"Couldn't parse agruments");
+      PyErr_SetString(PyExc_TypeError, "Couldn't parse agruments");
       return NULL;
    }
 
@@ -487,7 +487,7 @@ PyObject* compression_compressData(PyObject* self, PyObject* args)
          datatype = TDOUBLE;
          break;
       default:
-         PyErr_SetString(PyExc_ValueError,"Invalid value for BITPIX");
+         PyErr_SetString(PyExc_ValueError, "Invalid value for BITPIX");
          return NULL;
    }
 
@@ -712,12 +712,12 @@ PyObject* compression_compressData(PyObject* self, PyObject* args)
       }
       else
       {
-         processStatusErr(status);
+         process_status_err(status);
          break;
       }
 
       returnTuple = PyTuple_New(5);
-      PyTuple_SetItem(returnTuple, 0, Py_BuildValue("i",status));
+      PyTuple_SetItem(returnTuple, 0, Py_BuildValue("i", status));
       PyTuple_SetItem(returnTuple, 1, outList);
       PyTuple_SetItem(returnTuple, 2, outScale);
       PyTuple_SetItem(returnTuple, 3, outZero);
@@ -813,7 +813,7 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
                          &zvalObj, &compressTypeStr, &bitpix, &firstelem,
                          &nelem, &nulval, &PyArray_Type, &decompDataArray))
    {
-      PyErr_SetString(PyExc_TypeError,"Couldn't parse arguments");
+      PyErr_SetString(PyExc_TypeError, "Couldn't parse arguments");
       return NULL;
    }
 
@@ -963,7 +963,7 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
          }
          break;
       default:
-         PyErr_SetString(PyExc_ValueError,"Invalid value for BITPIX");
+         PyErr_SetString(PyExc_ValueError, "Invalid value for BITPIX");
          return NULL;
    }
 
@@ -1091,7 +1091,7 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
 
    if (status != 0)
    {
-      processStatusErr(status);
+      process_status_err(status);
    }
 
    error:
@@ -1133,7 +1133,7 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
       }
       else
       {
-         return Py_BuildValue("i",status);
+         return Py_BuildValue("i", status);
       }
 }
 
@@ -1143,7 +1143,7 @@ static PyMethodDef compression_methods[] =
 {
    {"decompressData", compression_decompressData, METH_VARARGS},
    {"compressData", compression_compressData, METH_VARARGS},
-   {NULL,NULL}
+   {NULL, NULL}
 };
 
 #if PY_MAJOR_VERSION >=3
