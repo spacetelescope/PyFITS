@@ -1071,6 +1071,43 @@ void process_status_err(int status)
 //}
 
 
+void bitpix_to_datatypes(int bitpix, int* datatype, int* npdatatype) {
+    /* Given a FITS BITPIX value, returns the appropriate CFITSIO type code and
+       Numpy type code for that BITPIX into datatype and npdatatype
+       respectively.
+     */
+    switch (bitpix) {
+        case BYTE_IMG:
+            *datatype = TBYTE;
+            *npdatatype = NPY_INT8;
+            break;
+        case SHORT_IMG:
+            *datatype = TSHORT;
+            *npdatatype = NPY_INT16;
+            break;
+        case LONG_IMG:
+            *datatype = TINT;
+            *npdatatype = NPY_LONG;
+            break;
+        case LONGLONG_IMG:
+            *datatype = TLONGLONG;
+            *npdatatype = NPY_LONGLONG;
+            break;
+        case FLOAT_IMG:
+            *datatype = TFLOAT;
+            *npdatatype = NPY_FLOAT;
+            break;
+        case DOUBLE_IMG:
+            *datatype = TDOUBLE;
+            *npdatatype = NPY_DOUBLE;
+            break;
+        default:
+            PyErr_SetString(PyExc_ValueError, "Invalid value for BITPIX");
+   }
+
+   return;
+}
+
 // TODO: It might be possible to simplify these further by making the
 // conversion function (eg. PyString_AsString) an argument to a macro or
 // something, but I'm not sure yet how easy it is to generalize the error
@@ -1599,7 +1636,12 @@ PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
     size_t inbufsize;
 
     PyArrayObject* outdata;
-    npy_intp znaxes[2] = {300, 440};
+    int datatype;
+    int npdatatype;
+    int zndim;
+    long* znaxis;
+    long arrsize;
+    unsigned int idx;
 
     int status;
     fitsfile* fileptr;
@@ -1631,17 +1673,33 @@ PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
 
     Py_DECREF(fileobj);
     Py_XDECREF(filename);
+
+    bitpix_to_datatypes(fileptr->Fptr->zbitpix, &datatype, &npdatatype);
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
+
+    zndim = fileptr->Fptr->zndim;
+    znaxis = (long*) malloc(sizeof(long) * zndim);
+    arrsize = 1;
+    for (idx = 0; idx < zndim; idx++) {
+        znaxis[zndim - idx - 1] = fileptr->Fptr->znaxis[idx];
+        arrsize *= fileptr->Fptr->znaxis[idx];
+    }
+
     /* Create and allocate a new array for the decompressed data */
-    outdata = (PyArrayObject*) PyArray_SimpleNew(2, znaxes, NPY_INT16);
+    outdata = (PyArrayObject*) PyArray_SimpleNew(zndim, znaxis, npdatatype);
 
     // Test values
-    fits_read_img(fileptr, TSHORT, 1, 440 * 300, NULL, outdata->data, &anynul,
+    fits_read_img(fileptr, datatype, 1, arrsize, NULL, outdata->data, &anynul,
                   &status);
 
     // TODO: Reconsider how to handle memory allocation/cleanup in a clean way
     if (columns != NULL) {
         PyMem_Free(columns);
     }
+
+    free(znaxis);
 
     return outdata;
 }
