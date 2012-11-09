@@ -897,7 +897,6 @@ class CompImageHDU(BinTableHDU):
 
         # Now that we have the compressed data, we need to uncompress
         # it into the image data.
-        dataList = []
         naxesList = []
         tileSizeList = []
         zvalList = []
@@ -975,8 +974,6 @@ class CompImageHDU(BinTableHDU):
         # TODO: I wonder if maybe a lot of this couldn't be done in C by
         # running directly over the array data and not copying it like this
         for row in self.compData:
-            dataList.append(row.field('COMPRESSED_DATA').tostring())
-
             # If we have a column with uncompressed data then create
             # a list of lists of the data in the coulum.  Each
             # underlying list contains the uncompressed data for a
@@ -1077,8 +1074,7 @@ class CompImageHDU(BinTableHDU):
         # Call the C decompression routine to decompress the data.
         # Note that any errors in this routine will raise an
         # exception.
-        status = compression.decompressData(dataList,
-                                            self._header['ZNAXIS'],
+        status = compression.decompressData(self._header['ZNAXIS'],
                                             naxesList, tileSizeList,
                                             cn_zscale, zscale,
                                             cn_zzero, zzero, cn_zblank,

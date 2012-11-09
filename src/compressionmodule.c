@@ -754,7 +754,6 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
 {
    int             status;
    int             nUcTiles = 0;
-   int*            inDataLen = 0;
    int             naxis;
    int             numzVals;
    int*            numUncompressedVals = 0;
@@ -776,13 +775,11 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
    int             zblank;
    double          quantize_level;
    double          hcomp_scale;
-   unsigned char** inData = 0;
    void**          uncompressedData = 0;
    int             i;
    int             ii;
    char*           compressTypeStr = "";
 
-   PyObject*       inDataObj;
    PyObject*       naxesObj;
    PyObject*       tileSizeObj;
    PyObject*       uncompressedDataObj;
@@ -796,8 +793,7 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
    /* Get Python arguments */
 
    if (!PyArg_ParseTuple(args, 
-                         "OiOOididiiOiddOsiildO!:compression.decompressData",
-                         &inDataObj,
+                         "iOOididiiOiddOsiildO!:compression.decompressData",
                          &naxis, &naxesObj, &tileSizeObj, &cn_zscale, &zscale,
                          &cn_zzero, &zzero, &cn_zblank, &zblank, &uncompressedDataObj,
                          &cn_uncompressed, &quantize_level, &hcomp_scale,
@@ -806,15 +802,6 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
    {
       PyErr_SetString(PyExc_TypeError, "Couldn't parse arguments");
       return NULL;
-   }
-
-   /* Convert the input lists into C type arrays */
-
-   inData = get_char_array(inDataObj, "Compressed Data", NULL, &inDataLen);
-
-   if (!inData)
-   {
-      goto error;
    }
 
    naxes = get_long_array(naxesObj, "ZNAXISn", NULL);
@@ -972,8 +959,6 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
    (theFile.Fptr)->zndim = naxis;
    (theFile.Fptr)->maxtilelen = 1;
    (theFile.Fptr)->zbitpix = bitpix;
-   (theFile.Fptr)->data = inData;
-   (theFile.Fptr)->dataLen = inDataLen;
 
    (theFile.Fptr)->cn_zscale = cn_zscale;
    (theFile.Fptr)->quantize_level = quantize_level;
@@ -1050,8 +1035,6 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
    }
 
    error:
-      PyMem_Free(inData);
-      PyMem_Free(inDataLen);
       PyMem_Free(naxes);
       PyMem_Free(tileSize);
       PyMem_Free(zval);
