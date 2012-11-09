@@ -1,0 +1,15 @@
+This directory contains third-party C libraries used by PyFITS.  Currently
+there is only one external library used, which is CFITSIO.  The current
+version of CFITSIO is 3.30 (though the version can be checked by looking at
+cextern/cfitsio/changes.txt).
+
+It should be noted that this directory actually only contains cherry-picked
+parts of CFITSIO used to specifically to support image tile compression.  This
+does not contain the entirety of CFITSIO.  However, system packagers may remove
+this bundled version of CFITSIO and link with a system-installed version
+instead.
+
+TODO: Provide instructions for system packagers.
+
+Note that CFITSIO also includes a complete copy of zlib.  This may also be
+replaced in favor of a system version of zlib.
