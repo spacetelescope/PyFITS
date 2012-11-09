@@ -104,6 +104,8 @@
 #define PyString_Size PyBytes_Size
 #endif
 
+#define MAX_TILE_DIMS 6
+
 /* Function to get the input long values from the input list */
 
 static long* get_long_array(PyObject* data, const char* description,
@@ -1159,8 +1161,8 @@ unsigned long long get_header_longlong(PyObject* header, char* keyword,
 }
 
 
-int tcolumns_from_header(PyObject* header, tcolumn** columns,
-                         unsigned long* tfields) {
+void tcolumns_from_header(PyObject* header, tcolumn** columns,
+                          unsigned long* tfields) {
     // Creates the array of tcolumn structures from the table column keywords
     // read from the PyFITS Header object; caller is responsible for freeing
     // the memory allocated for this array
@@ -1176,12 +1178,13 @@ int tcolumns_from_header(PyObject* header, tcolumn** columns,
     int status;
     status = 0;
 
-    // TODO: Error handling for keyword not found, etc.
     *tfields = get_header_long(header, "TFIELDS", 0);
 
     *columns = column = PyMem_New(tcolumn, (size_t) *tfields);
+    if (column == NULL) {
+        return;
+    }
 
-    // TODO: Error handling
 
     for (idx = 1; idx <= *tfields; idx++, column++) {
         /* set some invalid defaults */
@@ -1209,7 +1212,10 @@ int tcolumns_from_header(PyObject* header, tcolumn** columns,
         strncpy(column->tform, tform, 9);
         column->tform[9] = '\0';
         fits_binary_tform(tform, &dtcode, &trepeat, &twidth, &status);
-        // TODO: Handle bad status
+        if (status != 0) {
+            process_status_err(status);
+            return;
+        }
         column->tdatatype = dtcode;
         column->trepeat = trepeat;
         column->twidth = twidth;
@@ -1224,17 +1230,17 @@ int tcolumns_from_header(PyObject* header, tcolumn** columns,
         column->tnull = get_header_longlong(header, tkw, NULL_UNDEFINED);
     }
 
-    return 0;
+    return;
 }
 
-
-static long __znaxis[6] = {440, 300, 0, 0, 0, 0};
-static long __tilesize[6] = {440, 1, 0, 0, 0, 0};
 
 
 void configure_compression(fitsfile* fileptr, PyObject* header) {
     /* Configure the compression-related elements in the fitsfile struct
        using values in the FITS header. */
+
+    long znaxis[MAX_TILE_DIMS] = {440, 300, 0, 0, 0, 0};
+    long tilesize[MAX_TILE_DIMS] = {440, 1, 0, 0, 0, 0};
 
     // Some dummy values specific to the test file; will set the values for
     // once this is confirmed to work
@@ -1244,8 +1250,8 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
     fileptr->Fptr->compress_type = RICE_1;
     fileptr->Fptr->zbitpix = 16;
     fileptr->Fptr->zndim = 2;
-    memcpy(fileptr->Fptr->znaxis, __znaxis, sizeof(long) * MAX_COMPRESS_DIM);
-    memcpy(fileptr->Fptr->tilesize, __tilesize,
+    memcpy(fileptr->Fptr->znaxis, znaxis, sizeof(long) * MAX_COMPRESS_DIM);
+    memcpy(fileptr->Fptr->tilesize, tilesize,
            sizeof(long) * MAX_COMPRESS_DIM);
     fileptr->Fptr->maxtilelen = 440;
 
@@ -1280,42 +1286,79 @@ void open_from_filename(fitsfile** fileptr, char* filename) {
 }
 
 
-void open_from_pyfits_hdu(fitsfile** fileptr, PyObject* hdu,
-                          tcolumn* columns) {
+void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
+                          PyObject* hdu, tcolumn* columns) {
     PyObject* header;
     PyArrayObject* data;
-
-    void* buf;
-    size_t bufsize;
+    PyObject* tmp;
 
     int status;
     unsigned long tfields;
     unsigned long long rowlen;
     unsigned long long nrows;
-    unsigned long long pcount;
+    unsigned long long heapsize;
+    unsigned long long theap;
+    unsigned long long datspan;
 
     header = PyObject_GetAttrString(hdu, "_header");
-    data = (PyArrayObject*) PyObject_GetAttrString(hdu, "data");
-
-    // TODO: Input argument type checking
-    tcolumns_from_header(header, &columns, &tfields);
-
-    // TODO: Maybe sanity check the NAXIS value?, also error checking...
-    rowlen = get_header_longlong(header, "NAXIS1", 0);
-    nrows = get_header_longlong(header, "NAXIS2", 0);
-    // The PCOUNT keyword contains the number of bytes in the table heap
-    // TODO: Also add support for the optional THEAP keyword
-    pcount = get_header_longlong(header, "PCOUNT", 0);
-
-    buf = PyArray_DATA(data);
-    bufsize = (size_t) PyArray_NBYTES(data) + (size_t) pcount;
-
-    // Just for now let's see...
-    if (bufsize < 2880) {
-        bufsize = 2880;
+    if (header == NULL) {
+        goto fail;
     }
 
-    fits_create_memfile(fileptr, &buf, &bufsize, 0, NULL, &status);
+    data = (PyArrayObject*) PyObject_GetAttrString(hdu, "compData");
+    if (data == NULL) {
+        goto fail;
+    }
+
+
+    tcolumns_from_header(header, &columns, &tfields);
+    if (PyErr_Occurred()) {
+        goto fail;
+    }
+
+    rowlen = get_header_longlong(header, "NAXIS1", 0);
+    nrows = get_header_longlong(header, "NAXIS2", 0);
+
+    // The PCOUNT keyword contains the number of bytes in the table heap
+    heapsize = get_header_longlong(header, "PCOUNT", 0);
+
+    // The THEAP keyword gives the offset of the heap from the beginning of
+    // the HDU data portion; normally this offset is 0 but it can be set
+    // to something else with THEAP
+    theap = get_header_longlong(header, "THEAP", 0);
+
+    // Get the total byte size of the HDU data; walk the array bases until
+    // the base containing the entire data (including the heap) is found
+    tmp = PyObject_GetAttrString(hdu, "_datSpan");
+    if (tmp == NULL) {
+        goto fail;
+    }
+    datspan = PyInt_AsUnsignedLongLongMask(tmp);  // This function name...
+    Py_DECREF(tmp);
+
+    *bufsize = (size_t) PyArray_NBYTES(data);
+    while (*bufsize != datspan) {
+        data = (PyArrayObject*) PyArray_BASE(data);
+        // TODO: Type check that data is an ndarray
+        if (data == NULL) {
+            PyErr_SetString(PyExc_ValueError, "couldn't find HDU heap data");
+            goto fail;
+        }
+        *bufsize = (size_t) PyArray_NBYTES(data);
+    }
+
+    *buf = PyArray_DATA(data);
+
+    // This shouldn't happen, but just for sanity's sake
+    if (*bufsize < 2880) {
+        *bufsize = 2880;
+    }
+
+    fits_create_memfile(fileptr, buf, bufsize, 0, NULL, &status);
+    if (status != 0) {
+        process_status_err(status);
+        goto fail;
+    }
 
     // Now we have some fun munging some of the elements in the fitsfile struct
     (*fileptr)->Fptr->tableptr = columns;
@@ -1324,15 +1367,19 @@ void open_from_pyfits_hdu(fitsfile** fileptr, PyObject* hdu,
     (*fileptr)->Fptr->tfield = tfields;
     (*fileptr)->Fptr->origrows = (*fileptr)->Fptr->numrows = nrows;
     (*fileptr)->Fptr->rowlength = rowlen;
-    (*fileptr)->Fptr->heapstart = rowlen * nrows;
-    (*fileptr)->Fptr->heapsize = pcount;
+    if (theap != 0) {
+        (*fileptr)->Fptr->heapstart = theap;
+    }
+    else {
+        (*fileptr)->Fptr->heapstart = rowlen * nrows;
+    }
+    (*fileptr)->Fptr->heapsize = heapsize;
 
     configure_compression(*fileptr, header);
 
-    printf("Status: %d\n", status);
-    printf("Size: %llu\n", (*fileptr)->Fptr->filesize);
-    printf("HDU Type: %d\n", (*fileptr)->Fptr->hdutype);
-    printf("Valid: %d\n", (*fileptr)->Fptr->validcode);
+fail:
+    Py_XDECREF(header);
+    Py_XDECREF(data);
     return;
 }
 
@@ -1340,17 +1387,19 @@ void open_from_pyfits_hdu(fitsfile** fileptr, PyObject* hdu,
 PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
 {
     PyObject* hdu;
-    PyObject* fileobj;
-    PyObject* filename;
-    tcolumn* columns;
+    PyObject* fileobj = NULL;
+    PyObject* filename = NULL;
+    tcolumn* columns = NULL;
+
+    void* inbuf;
+    size_t inbufsize;
+
     PyArrayObject* outdata;
     npy_intp znaxes[2] = {300, 440};
 
     int status;
     fitsfile* fileptr;
-    int anynul;
-    anynul = 0;
-    columns = NULL;
+    int anynul = 0;
 
     if (!PyArg_ParseTuple(args, "O:compression.decompress_hdu", &hdu))
     {
@@ -1370,7 +1419,10 @@ PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
         open_from_filename(&fileptr, PyString_AsString(filename));
     }
     else {
-        open_from_pyfits_hdu(&fileptr, hdu, columns);
+        open_from_pyfits_hdu(&fileptr, &inbuf, &inbufsize, hdu, columns);
+        if (PyErr_Occurred()) {
+            return NULL;
+        }
     }
 
     Py_DECREF(fileobj);

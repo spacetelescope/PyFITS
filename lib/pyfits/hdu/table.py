@@ -74,8 +74,20 @@ class _TableLikeHDU(_ValidHDU):
         names = [n for idx, n in enumerate(columns.names)
                  if not columns[idx]._phantom]
         dtype = np.rec.format_parser(formats, names, None).dtype
-        raw_data = self._get_raw_data(columns._shape, dtype, self._datLoc)
-        data = raw_data.view(np.rec.recarray)
+
+        # TODO: Details related to variable length arrays need to be dealt with
+        # specifically in the BinTableHDU class, since they're a detail
+        # specific to FITS binary tables
+        if (_FormatP in [type(r) for r in recformats] and
+            self._datSpan > self._theap):
+            # We have a heap; include it in the raw_data
+            raw_data = self._get_raw_data(self._datSpan, np.byte, self._datLoc)
+            data = raw_data[:self._theap].view(dtype=dtype,
+                                               type=np.rec.recarray)
+        else:
+            raw_data = self._get_raw_data(columns._shape, dtype, self._datLoc)
+            data = raw_data.view(np.rec.recarray)
+
         self._init_tbdata(data)
         return data.view(self._data_type)
 
