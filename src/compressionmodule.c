@@ -339,7 +339,7 @@ static double* get_double_array(PyObject* data, const char* description,
       out[i] = PyFloat_AsDouble(PyList_GetItem(data, i));
    }
 
-   if ( PyErr_Occurred())
+   if (PyErr_Occurred())
    {
       PyMem_Free(out);
       out = NULL;
@@ -391,7 +391,7 @@ void process_status_err(int status)
          except_type = PyExc_RuntimeError;
    }
 
-   if (_pyfits_ffgmsg(err_msg))
+   if (fits_read_errmsg(err_msg))
    {
       PyErr_SetString(except_type, err_msg);
    }
@@ -405,7 +405,7 @@ void process_status_err(int status)
    }
 }
 
-/* Wrapper for the _pyfits_fits_write_img() function */
+/* Wrapper for the fits_write_img() function */
 
 PyObject* compression_compressData(PyObject* self, PyObject* args)
 {
@@ -495,8 +495,8 @@ PyObject* compression_compressData(PyObject* self, PyObject* args)
    /* without allocating memory for them.                             */
 
    theFile.Fptr = &fileParms;
-   (theFile.Fptr)->c_zscale = 0;
-   (theFile.Fptr)->c_zzero = 0;
+   (theFile.Fptr)->cn_zscale = 0;
+   (theFile.Fptr)->cn_zzero = 0;
    (theFile.Fptr)->ucDataLen = 0;
    (theFile.Fptr)->ucData = 0;
    (theFile.Fptr)->dataLen = 0;
@@ -605,7 +605,7 @@ PyObject* compression_compressData(PyObject* self, PyObject* args)
          ntiles *= (naxes[ii] - 1) / tileSize[ii] + 1;
       }
 
-      (theFile.Fptr)->maxelem = _pyfits_imcomp_calc_max_elem(
+      (theFile.Fptr)->maxelem = imcomp_calc_max_elem(
                                  (theFile.Fptr)->compress_type,
                                  (theFile.Fptr)->maxtilelen,
                                  (theFile.Fptr)->zbitpix,
@@ -613,12 +613,12 @@ PyObject* compression_compressData(PyObject* self, PyObject* args)
 
       if (cn_zscale > 0)
       {
-         (theFile.Fptr)->c_zscale = 
+         (theFile.Fptr)->cn_zscale =
                          (double*)PyMem_Malloc(ntiles * sizeof(double));
-         (theFile.Fptr)->c_zzero = 
+         (theFile.Fptr)->cn_zzero =
                          (double*)PyMem_Malloc(ntiles * sizeof(double));
 
-         if(!(theFile.Fptr)->c_zzero)
+         if(!(theFile.Fptr)->cn_zzero)
          {
             PyErr_NoMemory();
             break;
@@ -664,8 +664,8 @@ PyObject* compression_compressData(PyObject* self, PyObject* args)
          (theFile.Fptr)->data[i] = 0;
       }
 
-      status = _pyfits_fits_write_img(&theFile, datatype, firstelem,
-                                      nelem, (void*)array->data, &status);
+      status = fits_write_img(&theFile, datatype, firstelem, nelem,
+                              (void*)array->data, &status);
 
       if (status == 0)
       {
@@ -688,19 +688,19 @@ PyObject* compression_compressData(PyObject* self, PyObject* args)
 
             if (cn_zscale > 0)
             {
-               PyList_Append(outScale, 
-                             PyFloat_FromDouble((theFile.Fptr)->c_zscale[i]));
-               PyList_Append(outZero, 
-                             PyFloat_FromDouble((theFile.Fptr)->c_zzero[i]));
+               PyList_Append(outScale,
+                             PyFloat_FromDouble((theFile.Fptr)->cn_zscale[i]));
+               PyList_Append(outZero,
+                             PyFloat_FromDouble((theFile.Fptr)->cn_zzero[i]));
             }
 
             if (cn_uncompressed > 0)
             {
                uncompressedTileDataList = PyList_New(0);
-   
+
                for (ii = 0; ii < (theFile.Fptr)->ucDataLen[i]; ii++)
                {
-                   PyList_Append(uncompressedTileDataList, 
+                   PyList_Append(uncompressedTileDataList,
                    PyFloat_FromDouble(
                                ((double**)((theFile.Fptr)->ucData))[i][ii]));
                }
@@ -723,13 +723,13 @@ PyObject* compression_compressData(PyObject* self, PyObject* args)
       PyTuple_SetItem(returnTuple, 3, outZero);
       PyTuple_SetItem(returnTuple, 4, outUncompressed);
    }
-   
+
    /* Free any allocated memory */
 
    PyMem_Free((theFile.Fptr)->dataLen);
    PyMem_Free((theFile.Fptr)->data);
-   PyMem_Free((theFile.Fptr)->c_zscale);
-   PyMem_Free((theFile.Fptr)->c_zzero);
+   PyMem_Free((theFile.Fptr)->cn_zscale);
+   PyMem_Free((theFile.Fptr)->cn_zzero);
    PyMem_Free((theFile.Fptr)->ucData);
    PyMem_Free((theFile.Fptr)->ucDataLen);
    PyMem_Free(naxes);
@@ -748,7 +748,7 @@ PyObject* compression_compressData(PyObject* self, PyObject* args)
    }
 }
 
-/* Wrapper for the _pyfits_fits_read_img() function */
+/* Wrapper for the fits_read_img() function */
 
 PyObject* compression_decompressData(PyObject* self, PyObject* args)
 {
@@ -804,10 +804,10 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
 
    if (!PyArg_ParseTuple(args, 
                          "OiOOO!iO!iO!iOiddOsiildO!:compression.decompressData",
-                         &inDataObj, 
-                         &naxis, &naxesObj, &tileSizeObj, &PyArray_Type, 
+                         &inDataObj,
+                         &naxis, &naxesObj, &tileSizeObj, &PyArray_Type,
                          &bscaleArray, &cn_zscale, &PyArray_Type, &bzeroArray,
-                         &cn_zzero, &PyArray_Type, &nullDvalsArray, 
+                         &cn_zzero, &PyArray_Type, &nullDvalsArray,
                          &cn_zblank, &uncompressedDataObj,
                          &cn_uncompressed, &quantize_level, &hcomp_scale,
                          &zvalObj, &compressTypeStr, &bitpix, &firstelem,
@@ -1085,9 +1085,8 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
    /* Call the C function */
 
    status = 0;
-   status = _pyfits_fits_read_img(&theFile, datatype, firstelem,
-                                  nelem, &nulval, decompDataArray->data,
-                                  &anynul, &status);
+   status = fits_read_img(&theFile, datatype, firstelem, nelem, &nulval,
+                          decompDataArray->data, &anynul, &status);
 
    if (status != 0)
    {
@@ -1126,7 +1125,7 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
       {
          Py_DECREF(nullDvalsArray1);
       }
-   
+
       if (status != 0)
       {
          return NULL;
