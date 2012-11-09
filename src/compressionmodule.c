@@ -93,7 +93,7 @@
 
 #include "Python.h"
 #include <numpy/arrayobject.h>
-#include "fitsio.h"
+#include "fitsio2.h"
 #include "string.h"
 
 /* Some defines for Python3 support--bytes objects should be used where */
