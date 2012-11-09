@@ -1066,106 +1066,129 @@ void process_status_err(int status)
 // conversion function (eg. PyString_AsString) an argument to a macro or
 // something, but I'm not sure yet how easy it is to generalize the error
 // handling
-char* get_header_string(PyObject* header, char* keyword, char* def, int err) {
+int get_header_string(PyObject* header, char* keyword, char** val, char* def) {
     PyObject* keystr;
     PyObject* keyval;
-    char* strvalue;
+    int retval;
 
     keystr = PyString_FromString(keyword);
     keyval = PyObject_GetItem(header, keystr);
 
     if (keyval != NULL) {
-        strvalue = PyString_AsString(keyval);
+        *val = PyString_AsString(keyval);
+        retval = 0;
     }
     else {
-        if (!err) {
-            PyErr_Clear();
-        }
-        strvalue = def;
-    }
-
-    Py_DECREF(keystr);
-    Py_XDECREF(keyval);
-    return strvalue;
-}
-
-
-unsigned long get_header_long(PyObject* header, char* keyword,
-                              unsigned long def, int err) {
-    PyObject* keystr;
-    PyObject* keyval;
-    unsigned long long longvalue;
-
-    keystr = PyString_FromString(keyword);
-    keyval = PyObject_GetItem(header, keystr);
-
-    if (keyval != NULL) {
-        longvalue = PyLong_AsLong(keyval);
-    }
-    else {
-        if (!err) {
-            PyErr_Clear();
-        }
-        longvalue = def;
-    }
-
-    Py_DECREF(keystr);
-    Py_XDECREF(keyval);
-    return longvalue;
-}
-
-
-double get_header_double(PyObject* header, char* keyword, double def,
-                         int err) {
-    PyObject* keystr;
-    PyObject* keyval;
-    double doublevalue;
-
-    keystr = PyString_FromString(keyword);
-    keyval = PyObject_GetItem(header, keystr);
-
-    if (keyval != NULL) {
-        doublevalue = PyLong_AsDouble(keyval);
-    }
-    else {
-        if (!err) {
-            PyErr_Clear();
-        }
-        doublevalue = def;
-    }
-
-    Py_DECREF(keystr);
-    Py_XDECREF(keyval);
-    return doublevalue;
-}
-
-
-unsigned long long get_header_longlong(PyObject* header, char* keyword,
-                                       unsigned long long def, int err) {
-    PyObject* keystr;
-    PyObject* keyval;
-    unsigned long long longvalue;
-
-    keystr = PyString_FromString(keyword);
-    keyval = PyObject_GetItem(header, keystr);
-
-    if (keyval != NULL) {
-        longvalue = PyLong_AsLongLong(keyval);
-    }
-    else
-    {
         PyErr_Clear();
-        longvalue = def;
+        *val = def;
+        retval = 1;
     }
 
     Py_DECREF(keystr);
     Py_XDECREF(keyval);
-    return longvalue;
+    return retval;
 }
 
 
-void tcolumns_from_header(PyObject* header, tcolumn** columns,
-                          unsigned long* tfields) {
+int get_header_int(PyObject* header, char* keyword, int* val, int def) {
+    PyObject* keystr;
+    PyObject* keyval;
+    int retval;
+
+    keystr = PyString_FromString(keyword);
+    keyval = PyObject_GetItem(header, keystr);
+
+    if (keyval != NULL) {
+        *val = (int) PyInt_AsLong(keyval);
+        retval = 0;
+    }
+    else {
+        PyErr_Clear();
+        *val = def;
+        retval = 1;
+    }
+
+    Py_DECREF(keystr);
+    Py_XDECREF(keyval);
+    return retval;
+}
+
+
+int get_header_long(PyObject* header, char* keyword, long* val, long def) {
+    PyObject* keystr;
+    PyObject* keyval;
+    int retval;
+
+    keystr = PyString_FromString(keyword);
+    keyval = PyObject_GetItem(header, keystr);
+
+    if (keyval != NULL) {
+        *val = PyLong_AsLong(keyval);
+        retval = 0;
+    }
+    else {
+        PyErr_Clear();
+        *val = def;
+        retval = 1;
+    }
+
+    Py_DECREF(keystr);
+    Py_XDECREF(keyval);
+    return retval;
+}
+
+
+int get_header_double(PyObject* header, char* keyword, double* val,
+                      double def) {
+    PyObject* keystr;
+    PyObject* keyval;
+    int retval;
+
+    keystr = PyString_FromString(keyword);
+    keyval = PyObject_GetItem(header, keystr);
+
+    if (keyval != NULL) {
+        *val = PyLong_AsDouble(keyval);
+        retval = 0;
+    }
+    else {
+        PyErr_Clear();
+        *val = def;
+        retval = 1;
+    }
+
+    Py_DECREF(keystr);
+    Py_XDECREF(keyval);
+    return retval;
+}
+
+
+int get_header_longlong(PyObject* header, char* keyword, long long* val,
+                        long long def) {
+    PyObject* keystr;
+    PyObject* keyval;
+    int retval;
+
+    keystr = PyString_FromString(keyword);
+    keyval = PyObject_GetItem(header, keystr);
+
+    if (keyval != NULL) {
+        *val = PyLong_AsLongLong(keyval);
+        retval = 0;
+    }
+    else {
+        PyErr_Clear();
+        *val = def;
+        retval = 1;
+    }
+
+    Py_DECREF(keystr);
+    Py_XDECREF(keyval);
+    return retval;
+}
+
+
+void tcolumns_from_header(PyObject* header, tcolumn** columns, long* tfields) {
     // Creates the array of tcolumn structures from the table column keywords
     // read from the PyFITS Header object; caller is responsible for freeing
     // the memory allocated for this array
@@ -1174,6 +1197,7 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns,
     char tkw[9];
     unsigned int idx;
 
+    char* ttype;
     char* tform;
     int dtcode;
     long trepeat;
@@ -1181,7 +1205,7 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns,
     int status;
     status = 0;
 
-    *tfields = get_header_long(header, "TFIELDS", 0, 0);
+    get_header_long(header, "TFIELDS", tfields, 0);
 
     *columns = column = PyMem_New(tcolumn, (size_t) *tfields);
     if (column == NULL) {
@@ -1200,18 +1224,19 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns,
         column->twidth = 0;
 
         snprintf(tkw, 9, "TTYPE%u", idx);
-        strncpy(column->ttype, get_header_string(header, tkw, ""), 69, 0);
+        get_header_string(header, tkw, &ttype, "");
+        strncpy(column->ttype, ttype, 69);
         column->ttype[69] = '\0';
 
         // TODO: I think TBCOL is usually inferred rather than specified in the
         // header keyword; see what CFITSIO does here.
         snprintf(tkw, 9, "TBCOL%u", idx);
-        column->tbcol = get_header_longlong(header, tkw, 0, 0);
+        get_header_longlong(header, tkw, &(column->tbcol), 0);
 
         // TODO: I think TBCOL is usually inferred rather than specified in the
         // header keyword; see what CFITSIO does here.
         snprintf(tkw, 9, "TFORM%u", idx);
-        tform = get_header_string(header, tkw, "", 0);
+        get_header_string(header, tkw, &tform, "");
         strncpy(column->tform, tform, 9);
         column->tform[9] = '\0';
         fits_binary_tform(tform, &dtcode, &trepeat, &twidth, &status);
@@ -1224,13 +1249,13 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns,
         column->twidth = twidth;
 
         snprintf(tkw, 9, "TSCAL%u", idx);
-        column->tscale = get_header_double(header, tkw, 1.0, 0);
+        get_header_double(header, tkw, &(column->tscale), 1.0);
 
         snprintf(tkw, 9, "TZERO%u", idx);
-        column->tzero = get_header_double(header, tkw, 0.0, 0);
+        get_header_double(header, tkw, &(column->tzero), 0.0);
 
         snprintf(tkw, 9, "TNULL%u", idx);
-        column->tnull = get_header_longlong(header, tkw, NULL_UNDEFINED, 0);
+        get_header_longlong(header, tkw, &(column->tnull), NULL_UNDEFINED);
     }
 
     return;
@@ -1238,15 +1263,15 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns,
 
 
 
-void configure_compression(fitsfile* fileptr, tcolumn* columns,
-                           unsigned long tfields, PyObject* header) {
+void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
+                           PyObject* header) {
     /* Configure the compression-related elements in the fitsfile struct
        using values in the FITS header. */
 
-    FITSfile Fptr;
+    FITSfile* Fptr;
 
-    long znaxis[MAX_COMPRESS_DIM] = {0, 0, 0, 0, 0, 0};
-    long tilesize[MAX_COMPRESS_DIM] = {0, 0, 0, 0, 0, 0};
+    long znaxis[MAX_COMPRESS_DIM] = {440, 300, 0, 0, 0, 0};
+    long tilesize[MAX_COMPRESS_DIM] = {440, 1, 0, 0, 0, 0};
 
     unsigned int idx;
 
@@ -1262,6 +1287,13 @@ void configure_compression(fitsfile* fileptr, tcolumn* columns,
         if (0 == strncmp(columns[idx].ttype, "ZBLANK", 69)) {
             Fptr->cn_zblank = 1;
             break;
+        }
+    }
+
+    // No ZBLANK column--check the ZBLANK and BLANK heard keywords
+    if (Fptr->cn_zblank != 1) {
+        if(0 != get_header_int(header, "ZBLANK", &(Fptr->cn_zblank), 0)) {
+            // ZBLANK keyword not found
         }
     }
 
@@ -1311,17 +1343,15 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     PyObject* header;
     PyArrayObject* data;
     PyObject* tmp;
-    FITSfile Fptr;
+    FITSfile* Fptr;
 
     int status;
-    unsigned long tfields;
-    unsigned long long rowlen;
-    unsigned long long nrows;
-    unsigned long long heapsize;
-    unsigned long long theap;
-    unsigned long long datspan;
-
-    Fptr = (*fileptr)->Fptr;
+    long tfields;
+    long long rowlen;
+    long long nrows;
+    long long heapsize;
+    long long theap;
+    long long datspan;
 
     header = PyObject_GetAttrString(hdu, "_header");
     if (header == NULL) {
@@ -1339,16 +1369,16 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
         goto fail;
     }
 
-    rowlen = get_header_longlong(header, "NAXIS1", 0, 0);
-    nrows = get_header_longlong(header, "NAXIS2", 0, 0);
+    get_header_longlong(header, "NAXIS1", &rowlen, 0);
+    get_header_longlong(header, "NAXIS2", &nrows, 0);
 
     // The PCOUNT keyword contains the number of bytes in the table heap
-    heapsize = get_header_longlong(header, "PCOUNT", 0, 0);
+    get_header_longlong(header, "PCOUNT", &heapsize, 0);
 
     // The THEAP keyword gives the offset of the heap from the beginning of
     // the HDU data portion; normally this offset is 0 but it can be set
     // to something else with THEAP
-    theap = get_header_longlong(header, "THEAP", 0, 0);
+    get_header_longlong(header, "THEAP", &theap, 0);
 
     // Get the total byte size of the HDU data; walk the array bases until
     // the base containing the entire data (including the heap) is found
@@ -1382,6 +1412,8 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
         process_status_err(status);
         goto fail;
     }
+
+    Fptr = (*fileptr)->Fptr;
 
     // Now we have some fun munging some of the elements in the fitsfile struct
     Fptr->tableptr = columns;
