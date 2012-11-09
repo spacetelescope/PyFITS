@@ -14,3 +14,13 @@ Trac.  To report an issue in PyFITS, send an e-mail to help@stsci.edu.
 The latest source code can be checked out from SVN with::
 
  svn checkout https://svn6.assembla.com/svn/pyfits/trunk
+
+For Packagers
+===============
+As of version 3.2.0 PyFITS supports use of the standard CFITSIO library for
+compression support.  A minimal copy of CFITSIO is included in the PyFITS
+source under cextern/cfitsio.  Packagers wishing to link with an existing
+system CFITSIO remove this directory and modify the setup.cfg as instructed
+by the comments in that file.  CFITSIO support has been tested for versions
+3.28 through 3.30.  Earlier versions *may* work by YMMV.  Please send in any
+results of experimentation with other CFITSIO versions.
