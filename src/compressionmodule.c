@@ -1368,7 +1368,6 @@ void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
     char* tmp;
 
     unsigned int idx;
-    unsigned int found;
 
     Fptr = fileptr->Fptr;
 
@@ -1381,29 +1380,28 @@ void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
     // BLANK in the header
     Fptr->cn_zblank = Fptr->cn_zzero = Fptr->cn_zscale = -1;
     Fptr->cn_uncompressed = 0;
+    Fptr->cn_gzip_data = 0;
 
-    found = 0;
-    // Check for a ZBLANK, ZZERO, and UNCOMPRESSED_DATA columns in the
-    // compressed data table
-    for (idx = 1; idx <= tfields; idx++) {
-        if (0 == strncmp(columns[idx].ttype, "ZBLANK", 7)) {
-            Fptr->cn_zblank = 1;
-            found++;
+    // Check for a ZBLANK, ZZERO, ZSCALE, and
+    // UNCOMPRESSED_DATA/GZIP_COMPRESSED_DATA columns in the compressed data
+    // table
+    for (idx = 0; idx < tfields; idx++) {
+        if (0 == strncmp(columns[idx].ttype, "UNCOMPRESSED_DATA", 18)) {
+            Fptr->cn_uncompressed = idx + 1;
+        } else if (0 == strncmp(columns[idx].ttype,
+                                "GZIP_COMPRESSED_DATA", 21)) {
+            Fptr->cn_gzip_data = idx + 1;
+        } else if (0 == strncmp(columns[idx].ttype, "ZSCALE", 7)) {
+            Fptr->cn_zscale = idx + 1;
         } else if (0 == strncmp(columns[idx].ttype, "ZZERO", 6)) {
-            Fptr->cn_zzero = 1;
-            found++;
-        } else if (0 == strncmp(columns[idx].ttype, "UNCOMPRESSED_DATA", 18)) {
-            Fptr->cn_uncompressed = 1;
-            found++;
-        }
-
-        if (found == 3) {
-            break;
+            Fptr->cn_zzero = idx + 1;
+        } else if (0 == strncmp(columns[idx].ttype, "ZBLANK", 7)) {
+            Fptr->cn_zblank = idx + 1;
         }
     }
 
     Fptr->zblank = 0;
-    if (Fptr->cn_zblank != 1) {
+    if (Fptr->cn_zblank < 1) {
         // No ZBLANK column--check the ZBLANK and BLANK heard keywords
         if(0 != get_header_int(header, "ZBLANK", &(Fptr->zblank), 0)) {
             // ZBLANK keyword not found
@@ -1411,30 +1409,16 @@ void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
         }
     }
 
-    for (idx = 1; idx <= tfields; idx++) {
-        if (0 == strncmp(columns[idx].ttype, "ZSCALE", 69)) {
-            Fptr->cn_zscale = 1;
-            break;
-        }
-    }
-
     Fptr->zscale = 1.0;
-    if (Fptr->cn_zscale != 1) {
+    if (Fptr->cn_zscale < 1) {
         if (0 != get_header_double(header, "ZSCALE", &(Fptr->zscale), 1.0)) {
             Fptr->cn_zscale = 0;
         }
     }
     Fptr->cn_bscale = Fptr->zscale;
 
-    for (idx = 1; idx <= tfields; idx++) {
-        if (0 == strncmp(columns[idx].ttype, "ZZERO", 69)) {
-            Fptr->cn_zzero = 1;
-            break;
-        }
-    }
-
     Fptr->zzero = 0.0;
-    if (Fptr->cn_zzero != 1) {
+    if (Fptr->cn_zzero < 1) {
         if (0 != get_header_double(header, "ZZERO", &(Fptr->zzero), 0.0)) {
             Fptr->cn_zzero = 0;
         }
@@ -1519,7 +1503,6 @@ void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
                                          Fptr->zbitpix,
                                          Fptr->rice_blocksize);
     Fptr->cn_compressed = 1;
-    Fptr->cn_gzip_data = -1;
     return;
 }
 
@@ -1597,11 +1580,6 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     }
 
     *buf = PyArray_DATA(base);
-
-    // This shouldn't happen, but just for sanity's sake
-    if (*bufsize < 2880) {
-        *bufsize = 2880;
-    }
 
     fits_create_memfile(fileptr, buf, bufsize, 0, PyArray_realloc, &status);
 

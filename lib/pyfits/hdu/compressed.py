@@ -13,7 +13,7 @@ from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
 from pyfits.header import Header
 from pyfits.util import (lazyproperty, _pad_length, _is_pseudo_unsigned,
-                         _unsigned_zero)
+                         _unsigned_zero, BLOCK_SIZE)
 
 try:
     from pyfits import compression
@@ -451,20 +451,35 @@ class CompImageHDU(BinTableHDU):
             # 'UNCOMPRESSED_DATA', 'ZSCALE', and 'ZZERO' columns.
             ncols = 4
 
-            # Set up the second column for the table that will hold
-            # any uncompressable data.
-            self._header.set('TTYPE2', 'UNCOMPRESSED_DATA',
-                             'label for field 2', after='TFORM1')
+            # CFITSIO 3.28 and up automatically use the GZIP_COMPRESSED_DATA
+            # store floating point data that couldn't be quantized, instead
+            # of the UNCOMPRESSED_DATA column.  There's no way to control
+            # this behavior so the only way to determine which behavior will
+            # be employed is via the CFITSIO version
 
-            if self._image_header['BITPIX'] == -32:
-                tform2 = '1PE'
+            if compression.cfitsio_version >= 3.28:
+                ttype2 = 'GZIP_COMPRESSED_DATA'
+                # The required format for the GZIP_COMPRESSED_DATA is actually
+                # missing from the standard docs, but CFITSIO suggests it
+                # should be 1PB, which is logical.
+                tform2 = '1PB'
             else:
-                tform2 = '1PD'
+                ttype2 = 'UNCOMPRESSED_DATA'
+                if self._image_header['BITPIX'] == -32:
+                    tform2 = '1PE'
+                else:
+                    tform2 = '1PD'
+
+            # Set up the second column for the table that will hold any
+            # uncompressable data.
+            self._header.set('TTYPE2', ttype2, 'label for field 2',
+                             after='TFORM1')
 
             self._header.set('TFORM2', tform2,
                              'data format of field: variable length array',
                              after='TTYPE2')
-            col2 = Column(name=self._header['TTYPE2'], format=tform2)
+
+            col2 = Column(name=ttype2, format=tform2)
 
             # Set up the third column for the table that will hold
             # the scale values for quantized data.
@@ -1216,8 +1231,11 @@ class CompImageHDU(BinTableHDU):
                                              maxtilelen,
                                              self._header['ZBITPIX'],
                                              rice_blocksize)
-        self.compData = np.zeros((tbsize + (nrows * max_elem),),
-                                 dtype=np.byte)
+        dataspan = tbsize + (nrows * max_elem)
+        if dataspan < BLOCK_SIZE:
+            # We must a full FITS block at a minimum
+            dataspan = BLOCK_SIZE
+        self.compData = np.zeros((dataspan,), dtype=np.byte)
 
         try:
             # Compress the data.
