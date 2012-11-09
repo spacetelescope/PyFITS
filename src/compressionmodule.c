@@ -1067,7 +1067,7 @@ void process_status_err(int status)
 // conversion function (eg. PyString_AsString) an argument to a macro or
 // something, but I'm not sure yet how easy it is to generalize the error
 // handling
-char* get_header_string(PyObject* header, char* keyword, char* def) {
+char* get_header_string(PyObject* header, char* keyword, char* def, int err) {
     PyObject* keystr;
     PyObject* keyval;
     char* strvalue;
@@ -1078,9 +1078,10 @@ char* get_header_string(PyObject* header, char* keyword, char* def) {
     if (keyval != NULL) {
         strvalue = PyString_AsString(keyval);
     }
-    else
-    {
-        PyErr_Clear();
+    else {
+        if (!err) {
+            PyErr_Clear();
+        }
         strvalue = def;
     }
 
@@ -1091,7 +1092,7 @@ char* get_header_string(PyObject* header, char* keyword, char* def) {
 
 
 unsigned long get_header_long(PyObject* header, char* keyword,
-                              unsigned long def) {
+                              unsigned long def, int err) {
     PyObject* keystr;
     PyObject* keyval;
     unsigned long long longvalue;
@@ -1102,9 +1103,10 @@ unsigned long get_header_long(PyObject* header, char* keyword,
     if (keyval != NULL) {
         longvalue = PyLong_AsLong(keyval);
     }
-    else
-    {
-        PyErr_Clear();
+    else {
+        if (!err) {
+            PyErr_Clear();
+        }
         longvalue = def;
     }
 
@@ -1114,7 +1116,8 @@ unsigned long get_header_long(PyObject* header, char* keyword,
 }
 
 
-double get_header_double(PyObject* header, char* keyword, double def) {
+double get_header_double(PyObject* header, char* keyword, double def,
+                         int err) {
     PyObject* keystr;
     PyObject* keyval;
     double doublevalue;
@@ -1125,9 +1128,10 @@ double get_header_double(PyObject* header, char* keyword, double def) {
     if (keyval != NULL) {
         doublevalue = PyLong_AsDouble(keyval);
     }
-    else
-    {
-        PyErr_Clear();
+    else {
+        if (!err) {
+            PyErr_Clear();
+        }
         doublevalue = def;
     }
 
@@ -1138,7 +1142,7 @@ double get_header_double(PyObject* header, char* keyword, double def) {
 
 
 unsigned long long get_header_longlong(PyObject* header, char* keyword,
-                                       unsigned long long def) {
+                                       unsigned long long def, int err) {
     PyObject* keystr;
     PyObject* keyval;
     unsigned long long longvalue;
@@ -1178,7 +1182,7 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns,
     int status;
     status = 0;
 
-    *tfields = get_header_long(header, "TFIELDS", 0);
+    *tfields = get_header_long(header, "TFIELDS", 0, 0);
 
     *columns = column = PyMem_New(tcolumn, (size_t) *tfields);
     if (column == NULL) {
@@ -1197,18 +1201,18 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns,
         column->twidth = 0;
 
         snprintf(tkw, 9, "TTYPE%u", idx);
-        strncpy(column->ttype, get_header_string(header, tkw, ""), 69);
+        strncpy(column->ttype, get_header_string(header, tkw, ""), 69, 0);
         column->ttype[69] = '\0';
 
         // TODO: I think TBCOL is usually inferred rather than specified in the
         // header keyword; see what CFITSIO does here.
         snprintf(tkw, 9, "TBCOL%u", idx);
-        column->tbcol = get_header_longlong(header, tkw, 0);
+        column->tbcol = get_header_longlong(header, tkw, 0, 0);
 
         // TODO: I think TBCOL is usually inferred rather than specified in the
         // header keyword; see what CFITSIO does here.
         snprintf(tkw, 9, "TFORM%u", idx);
-        tform = get_header_string(header, tkw, "");
+        tform = get_header_string(header, tkw, "", 0);
         strncpy(column->tform, tform, 9);
         column->tform[9] = '\0';
         fits_binary_tform(tform, &dtcode, &trepeat, &twidth, &status);
@@ -1221,13 +1225,13 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns,
         column->twidth = twidth;
 
         snprintf(tkw, 9, "TSCAL%u", idx);
-        column->tscale = get_header_double(header, tkw, 1.0);
+        column->tscale = get_header_double(header, tkw, 1.0, 0);
 
         snprintf(tkw, 9, "TZERO%u", idx);
-        column->tzero = get_header_double(header, tkw, 0.0);
+        column->tzero = get_header_double(header, tkw, 0.0, 0);
 
         snprintf(tkw, 9, "TNULL%u", idx);
-        column->tnull = get_header_longlong(header, tkw, NULL_UNDEFINED);
+        column->tnull = get_header_longlong(header, tkw, NULL_UNDEFINED, 0);
     }
 
     return;
@@ -1316,16 +1320,16 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
         goto fail;
     }
 
-    rowlen = get_header_longlong(header, "NAXIS1", 0);
-    nrows = get_header_longlong(header, "NAXIS2", 0);
+    rowlen = get_header_longlong(header, "NAXIS1", 0, 0);
+    nrows = get_header_longlong(header, "NAXIS2", 0, 0);
 
     // The PCOUNT keyword contains the number of bytes in the table heap
-    heapsize = get_header_longlong(header, "PCOUNT", 0);
+    heapsize = get_header_longlong(header, "PCOUNT", 0, 0);
 
     // The THEAP keyword gives the offset of the heap from the beginning of
     // the HDU data portion; normally this offset is 0 but it can be set
     // to something else with THEAP
-    theap = get_header_longlong(header, "THEAP", 0);
+    theap = get_header_longlong(header, "THEAP", 0, 0);
 
     // Get the total byte size of the HDU data; walk the array bases until
     // the base containing the entire data (including the heap) is found
