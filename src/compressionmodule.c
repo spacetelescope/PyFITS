@@ -1680,7 +1680,7 @@ PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
     }
 
     zndim = fileptr->Fptr->zndim;
-    znaxis = (long*) malloc(sizeof(long) * zndim);
+    znaxis = (long*) PyMem_Malloc(sizeof(long) * zndim);
     arrsize = 1;
     for (idx = 0; idx < zndim; idx++) {
         znaxis[zndim - idx - 1] = fileptr->Fptr->znaxis[idx];
@@ -1699,7 +1699,7 @@ PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
         PyMem_Free(columns);
     }
 
-    free(znaxis);
+    PyMem_Free(znaxis);
 
     return outdata;
 }
