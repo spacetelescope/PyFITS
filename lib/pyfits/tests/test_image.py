@@ -952,3 +952,21 @@ class TestImageFunctions(PyfitsTestCase):
                 # above
                 hdul2[0].data[0] = 0
                 assert_true((hdul[1].data == hdul2[0].data).all())
+
+    def test_insufficient_compression_allocation(self):
+        data = np.arange(10000, dtype='int32').reshape(100, 100)
+        hdu = pyfits.CompImageHDU(data=data)
+        old_compress_hdu = pyfits.compression.compress_hdu
+
+        def hacked_compress_hdu(hdu):
+            # Long enough to hold the table, but not enough for the full heap
+            hdu.compData = np.zeros((2880,), dtype=np.uint8)
+            return old_compress_hdu(hdu)
+
+        pyfits.compression.compress_hdu = hacked_compress_hdu
+
+        try:
+            hdu.updateCompressedData()
+            assert_true((data == pyfits.compression.decompress_hdu(hdu)).all())
+        finally:
+            pyfits.compression.compress_hdu = old_compress_hdu

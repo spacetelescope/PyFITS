@@ -382,6 +382,23 @@ int get_header_longlong(PyObject* header, char* keyword, long long* val,
 }
 
 
+void* compression_realloc(void* ptr, size_t size) {
+    // This realloc()-like function actually just mallocs the requested
+    // size and copies from the original memory address into the new one, and
+    // returns the newly malloc'd address.
+    // This is generally less efficient than an actual realloc(), but the
+    // problem with using realloc in this case is that when it succeeds it will
+    // free() the original memory, which may still be in use by the ndarray
+    // using that memory as its data buffer.  This seems like the least hacky
+    // way around that for now.
+    // I'm open to other ideas though.
+    void* tmp;
+    tmp = malloc(size);
+    memcpy(tmp, ptr, size);
+    return tmp;
+}
+
+
 void tcolumns_from_header(fitsfile* fileptr, PyObject* header,
                           tcolumn** columns) {
     // Creates the array of tcolumn structures from the table column keywords
@@ -675,7 +692,8 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
 
     *buf = PyArray_DATA(base);
 
-    fits_create_memfile(fileptr, buf, bufsize, 0, PyArray_realloc, &status);
+    fits_create_memfile(fileptr, buf, bufsize, 0, compression_realloc,
+                        &status);
     if (status != 0) {
         process_status_err(status);
         goto fail;
@@ -725,10 +743,14 @@ PyObject* compression_compress_hdu(PyObject* self, PyObject* args)
     PyObject* retval = NULL;
     tcolumn* columns = NULL;
 
+    void* orig_outbuf;
+    size_t orig_outbufsize;
     void* outbuf;
     size_t outbufsize;
 
     PyArrayObject* indata;
+    PyArrayObject* tmp;
+    long znaxis;
     int datatype;
     int npdatatype;
     unsigned long long heapsize;
@@ -751,6 +773,8 @@ PyObject* compression_compress_hdu(PyObject* self, PyObject* args)
     if (PyErr_Occurred()) {
         return NULL;
     }
+    orig_outbuf = outbuf;
+    orig_outbufsize = outbufsize;
 
     bitpix_to_datatypes(fileptr->Fptr->zbitpix, &datatype, &npdatatype);
     if (PyErr_Occurred()) {
@@ -771,6 +795,21 @@ PyObject* compression_compress_hdu(PyObject* self, PyObject* args)
     if (status != 0) {
         process_status_err(status);
         goto fail;
+    }
+
+    // It's possible that between calls to fits_write_img and fits_flush_buffer
+    // the size of the output buffer was insufficient and the buffer had to be
+    // reallocated.  The address and size of the new buffer should be in
+    // outbuf and outbufsize.  We need to create a new PyArrayObject using the
+    // new buffer and size
+    if (orig_outbuf != outbuf || orig_outbufsize != outbufsize) {
+        // It's possible, albeit unlikely, that realloc can return a block of
+        // memory with the same address but different size.
+        znaxis = (long) outbufsize;  // The output array is just one dimension.
+        tmp = (PyArrayObject*) PyArray_SimpleNewFromData(1, &znaxis, NPY_UBYTE,
+                                                         outbuf);
+        PyObject_SetAttrString(hdu, "compData", (PyObject*) tmp);
+        Py_DECREF(tmp);
     }
 
     heapsize = (unsigned long long) fileptr->Fptr->heapsize;
