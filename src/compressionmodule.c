@@ -104,7 +104,6 @@
 #define PyString_Size PyBytes_Size
 #endif
 
-#define MAX_TILE_DIMS 6
 
 /* Function to get the input long values from the input list */
 
@@ -1239,43 +1238,60 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns,
 
 
 
-void configure_compression(fitsfile* fileptr, PyObject* header) {
+void configure_compression(fitsfile* fileptr, tcolumn* columns,
+                           unsigned long tfields, PyObject* header) {
     /* Configure the compression-related elements in the fitsfile struct
        using values in the FITS header. */
 
-    long znaxis[MAX_TILE_DIMS] = {440, 300, 0, 0, 0, 0};
-    long tilesize[MAX_TILE_DIMS] = {440, 1, 0, 0, 0, 0};
+    FITSfile Fptr;
 
-    // Some dummy values specific to the test file; will set the values for
-    // once this is confirmed to work
-    fileptr->Fptr->compressimg = 1;
-    strcpy(fileptr->Fptr->zcmptype, "RICE_1");
-    fileptr->Fptr->zcmptype[6] = '\0';
-    fileptr->Fptr->compress_type = RICE_1;
-    fileptr->Fptr->zbitpix = 16;
-    fileptr->Fptr->zndim = 2;
-    memcpy(fileptr->Fptr->znaxis, znaxis, sizeof(long) * MAX_COMPRESS_DIM);
-    memcpy(fileptr->Fptr->tilesize, tilesize,
-           sizeof(long) * MAX_COMPRESS_DIM);
-    fileptr->Fptr->maxtilelen = 440;
+    long znaxis[MAX_COMPRESS_DIM] = {0, 0, 0, 0, 0, 0};
+    long tilesize[MAX_COMPRESS_DIM] = {0, 0, 0, 0, 0, 0};
 
-    fileptr->Fptr->rice_blocksize = 32;
-    fileptr->Fptr->rice_bytepix = 2;
+    unsigned int idx;
 
-    fileptr->Fptr->maxelem = imcomp_calc_max_elem(
-                                 fileptr->Fptr->compress_type,
-                                 fileptr->Fptr->maxtilelen,
-                                 fileptr->Fptr->zbitpix,
-                                 fileptr->Fptr->rice_blocksize);
+    Fptr = fileptr->Fptr;
 
-    fileptr->Fptr->cn_compressed = 1;
-    fileptr->Fptr->cn_uncompressed = -1;
-    fileptr->Fptr->cn_gzip_data = -1;
-    fileptr->Fptr->cn_zscale = -1;
-    fileptr->Fptr->cn_zzero = -1;
-    fileptr->Fptr->cn_zblank = -1;
 
-    fileptr->Fptr->zscale = fileptr->Fptr->cn_bscale = 1.0;
+    // By default assume there is no ZBLANK column and check for ZBLANK or
+    // BLANK in the header
+    Fptr->cn_zblank = -1;
+
+    // Check for a ZBLANK column in the compressed data table
+    for (idx = 1; idx <= tfields; idx++) {
+        if (0 == strncmp(columns[idx].ttype, "ZBLANK", 69)) {
+            Fptr->cn_zblank = 1;
+            break;
+        }
+    }
+
+
+    Fptr->compressimg = 1;
+    strcpy(Fptr->zcmptype, "RICE_1");
+    Fptr->zcmptype[6] = '\0';
+    Fptr->compress_type = RICE_1;
+    Fptr->zbitpix = 16;
+    Fptr->zndim = 2;
+    memcpy(Fptr->znaxis, znaxis, sizeof(long) * MAX_COMPRESS_DIM);
+    memcpy(Fptr->tilesize, tilesize, sizeof(long) * MAX_COMPRESS_DIM);
+    Fptr->maxtilelen = 440;
+
+    Fptr->rice_blocksize = 32;
+    Fptr->rice_bytepix = 2;
+
+    Fptr->maxelem = imcomp_calc_max_elem(Fptr->compress_type,
+                                         Fptr->maxtilelen,
+                                         Fptr->zbitpix,
+                                         Fptr->rice_blocksize);
+
+    Fptr->cn_compressed = 1;
+    Fptr->cn_uncompressed = -1;
+    Fptr->cn_gzip_data = -1;
+    Fptr->cn_zscale = -1;
+    Fptr->cn_zzero = -1;
+    Fptr->cn_zblank = -1;
+
+    Fptr->zscale = Fptr->cn_bscale = 1.0;
     return;
 }
 
@@ -1295,6 +1311,7 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     PyObject* header;
     PyArrayObject* data;
     PyObject* tmp;
+    FITSfile Fptr;
 
     int status;
     unsigned long tfields;
@@ -1303,6 +1320,8 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     unsigned long long heapsize;
     unsigned long long theap;
     unsigned long long datspan;
+
+    Fptr = (*fileptr)->Fptr;
 
     header = PyObject_GetAttrString(hdu, "_header");
     if (header == NULL) {
@@ -1365,21 +1384,21 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     }
 
     // Now we have some fun munging some of the elements in the fitsfile struct
-    (*fileptr)->Fptr->tableptr = columns;
-    (*fileptr)->Fptr->hdutype = BINARY_TBL;  /* This is a binary table HDU */
-    (*fileptr)->Fptr->datastart = 0;  /* There is no header, data starts at 0 */
-    (*fileptr)->Fptr->tfield = tfields;
-    (*fileptr)->Fptr->origrows = (*fileptr)->Fptr->numrows = nrows;
-    (*fileptr)->Fptr->rowlength = rowlen;
+    Fptr->tableptr = columns;
+    Fptr->hdutype = BINARY_TBL;  /* This is a binary table HDU */
+    Fptr->datastart = 0;  /* There is no header, data starts at 0 */
+    Fptr->tfield = tfields;
+    Fptr->origrows = Fptr->numrows = nrows;
+    Fptr->rowlength = rowlen;
     if (theap != 0) {
-        (*fileptr)->Fptr->heapstart = theap;
+        Fptr->heapstart = theap;
     }
     else {
-        (*fileptr)->Fptr->heapstart = rowlen * nrows;
+        Fptr->heapstart = rowlen * nrows;
     }
-    (*fileptr)->Fptr->heapsize = heapsize;
+    Fptr->heapsize = heapsize;
 
-    configure_compression(*fileptr, header);
+    configure_compression(*fileptr, columns, tfields, header);
 
 fail:
     Py_XDECREF(header);
