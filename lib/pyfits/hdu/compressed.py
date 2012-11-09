@@ -1344,19 +1344,20 @@ class CompImageHDU(BinTableHDU):
 
         try:
             # Compress the data.
-            status, compDataList, scaleList, zeroList, uncompDataList = \
-               compression.compressData(data,
-                                        self._header['ZNAXIS'],
-                                        naxesList, tileSizeList,
-                                        cn_zblank, zblank,
-                                        cn_bscale, cn_bzero, cn_zscale,
-                                        cn_zzero, cn_uncompressed,
-                                        quantizeLevel,
-                                        hcompScale,
-                                        zvalList,
-                                        self._header['ZCMPTYPE'],
-                                        self.header['BITPIX'], 1,
-                                        data.size)
+#            status, compDataList, scaleList, zeroList, uncompDataList = \
+#               compression.compressData(data,
+#                                        self._header['ZNAXIS'],
+#                                        naxesList, tileSizeList,
+#                                        cn_zblank, zblank,
+#                                        cn_bscale, cn_bzero, cn_zscale,
+#                                        cn_zzero, cn_uncompressed,
+#                                        quantizeLevel,
+#                                        hcompScale,
+#                                        zvalList,
+#                                        self._header['ZCMPTYPE'],
+#                                        self.header['BITPIX'], 1,
+#                                        data.size)
+            self.compData = compression.compress_hdu(self)
         finally:
             # if data was byteswapped return it to its original order
             if should_swap:
@@ -1372,30 +1373,30 @@ class CompImageHDU(BinTableHDU):
         if self._header['ZCMPTYPE'] == 'PLIO_1':
             colDType = 'i2'
 
-        for idx in xrange(len(compDataList)):
-            self.compData[idx].setfield('COMPRESSED_DATA',
-                                        np.fromstring(compDataList[idx],
-                                                      dtype=colDType))
+#        for idx in xrange(len(compDataList)):
+#            self.compData[idx].setfield('COMPRESSED_DATA',
+#                                        np.fromstring(compDataList[idx],
+#                                                      dtype=colDType))
 
         # Convert the linear scale factor values from a list to an
         # array and set it in the ZSCALE field of the table.
-        if cn_zscale > 0:
-            for idx in xrange(len(scaleList)):
-                self.compData[idx].setfield('ZSCALE', scaleList[idx])
-
-        # Convert the zero point offset values from a list to an
-        # array and set it in the ZZERO field of the table.
-        if cn_zzero > 0:
-            for idx in xrange(len(zeroList)):
-                self.compData[idx].setfield('ZZERO', zeroList[idx])
-
-        # Convert the uncompressed data values from a list to an
-        # array and set it in the UNCOMPRESSED_DATA field of the table.
-        if cn_uncompressed > 0:
-            for idx in xrange(len(uncompDataList)):
-                self.compData[idx].setfield('UNCOMPRESSED_DATA',
-                                            uncompDataList[idx])
-
+#        if cn_zscale > 0:
+#            for idx in xrange(len(scaleList)):
+#                self.compData[idx].setfield('ZSCALE', scaleList[idx])
+#
+#        # Convert the zero point offset values from a list to an
+#        # array and set it in the ZZERO field of the table.
+#        if cn_zzero > 0:
+#            for idx in xrange(len(zeroList)):
+#                self.compData[idx].setfield('ZZERO', zeroList[idx])
+#
+#        # Convert the uncompressed data values from a list to an
+#        # array and set it in the UNCOMPRESSED_DATA field of the table.
+#        if cn_uncompressed > 0:
+#            for idx in xrange(len(uncompDataList)):
+#                self.compData[idx].setfield('UNCOMPRESSED_DATA',
+#                                            uncompDataList[idx])
+#
         # Update the table header cards to match the compressed data.
         self.updateHeader()
 
