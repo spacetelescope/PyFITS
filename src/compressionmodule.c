@@ -1065,7 +1065,7 @@ void process_status_err(int status)
 // conversion function (eg. PyString_AsString) an argument to a macro or
 // something, but I'm not sure yet how easy it is to generalize the error
 // handling
-char* get_header_string(PyObject* header, char* keyword, const char* def) {
+char* get_header_string(PyObject* header, char* keyword, char* def) {
     PyObject* keystr;
     PyObject* keyval;
     char* strvalue;
@@ -1266,36 +1266,36 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
     fileptr->Fptr->cn_zblank = -1;
 
     fileptr->Fptr->zscale = fileptr->Fptr->cn_bscale = 1.0;
+    return;
 }
 
 
-PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
-{
+void open_from_filename(fitsfile** fileptr, char* filename) {
+    int status;
+    status = 0;
+    // TODO: This function should probably actually return the status code for
+    // error handling
+    fits_open_data(fileptr, filename, 0, &status);
+    return;
+}
 
+
+void open_from_pyfits_hdu(fitsfile** fileptr, PyObject* hdu,
+                          tcolumn* columns) {
     PyObject* header;
     PyArrayObject* data;
-    PyArrayObject* outdata;
+
     void* buf;
     size_t bufsize;
 
     int status;
-    fitsfile* fileptr;
-    tcolumn* columns;
     unsigned long tfields;
     unsigned long long rowlen;
     unsigned long long nrows;
     unsigned long long pcount;
 
-    npy_intp znaxes[2] = {300, 440};
-    int anynul;
-    anynul = 0;
-
-    if (!PyArg_ParseTuple(args, "OO!:compression.decompress_hdu",
-                          &header, &PyArray_Type, &data))
-    {
-        PyErr_SetString(PyExc_TypeError, "Couldn't parse arguments");
-        return NULL;
-    }
+    header = PyObject_GetAttrString(hdu, "_header");
+    data = (PyArrayObject*) PyObject_GetAttrString(hdu, "data");
 
     // TODO: Input argument type checking
     tcolumns_from_header(header, &columns, &tfields);
@@ -1315,25 +1315,66 @@ PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
         bufsize = 2880;
     }
 
-    fits_create_memfile(&fileptr, &buf, &bufsize, 0, NULL, &status);
+    fits_create_memfile(fileptr, &buf, &bufsize, 0, NULL, &status);
 
     // Now we have some fun munging some of the elements in the fitsfile struct
-    fileptr->Fptr->tableptr = columns;
-    fileptr->Fptr->hdutype = BINARY_TBL;  /* This is a binary table HDU */
-    fileptr->Fptr->datastart = 0;  /* There is no header, data starts at 0 */
-    fileptr->Fptr->tfield = tfields;
-    fileptr->Fptr->origrows = fileptr->Fptr->numrows = nrows;
-    fileptr->Fptr->rowlength = rowlen;
-    fileptr->Fptr->heapstart = rowlen * nrows;
-    fileptr->Fptr->heapsize = pcount;
+    (*fileptr)->Fptr->tableptr = columns;
+    (*fileptr)->Fptr->hdutype = BINARY_TBL;  /* This is a binary table HDU */
+    (*fileptr)->Fptr->datastart = 0;  /* There is no header, data starts at 0 */
+    (*fileptr)->Fptr->tfield = tfields;
+    (*fileptr)->Fptr->origrows = (*fileptr)->Fptr->numrows = nrows;
+    (*fileptr)->Fptr->rowlength = rowlen;
+    (*fileptr)->Fptr->heapstart = rowlen * nrows;
+    (*fileptr)->Fptr->heapsize = pcount;
 
-    configure_compression(fileptr, header);
+    configure_compression(*fileptr, header);
 
     printf("Status: %d\n", status);
-    printf("Size: %llu\n", fileptr->Fptr->filesize);
-    printf("HDU Type: %d\n", fileptr->Fptr->hdutype);
-    printf("Valid: %d\n", fileptr->Fptr->validcode);
+    printf("Size: %llu\n", (*fileptr)->Fptr->filesize);
+    printf("HDU Type: %d\n", (*fileptr)->Fptr->hdutype);
+    printf("Valid: %d\n", (*fileptr)->Fptr->validcode);
+    return;
+}
 
+
+PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
+{
+    PyObject* hdu;
+    PyObject* fileobj;
+    PyObject* filename;
+    tcolumn* columns;
+    PyArrayObject* outdata;
+    npy_intp znaxes[2] = {300, 440};
+
+    int status;
+    fitsfile* fileptr;
+    int anynul;
+    anynul = 0;
+    columns = NULL;
+
+    if (!PyArg_ParseTuple(args, "O:compression.decompress_hdu", &hdu))
+    {
+        PyErr_SetString(PyExc_TypeError, "Couldn't parse arguments");
+        return NULL;
+    }
+
+    // TODO: Error checking, obviously...; type check that the passed in HDU is
+    // a CompImageHDU
+    // Use '_header' instead of 'header' since the latter returns the header
+    // for the compressed image when returned from CompImageHDU, instead of the
+    // original header
+    fileobj = PyObject_GetAttrString(hdu, "_file");
+    if (fileobj != Py_None) {
+        filename = PyObject_GetAttrString(fileobj, "name");
+        // TODO: Check that the file exists and is readable
+        open_from_filename(&fileptr, PyString_AsString(filename));
+    }
+    else {
+        open_from_pyfits_hdu(&fileptr, hdu, columns);
+    }
+
+    Py_DECREF(fileobj);
+    Py_XDECREF(filename);
     /* Create and allocate a new array for the decompressed data */
     outdata = (PyArrayObject*) PyArray_SimpleNew(2, znaxes, NPY_INT16);
 
@@ -1341,8 +1382,10 @@ PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
     fits_read_img(fileptr, TSHORT, 1, 440 * 300, NULL, outdata->data, &anynul,
                   &status);
 
-
-    PyMem_Free(columns);
+    // TODO: Reconsider how to handle memory allocation/cleanup in a clean way
+    if (columns != NULL) {
+        PyMem_Free(columns);
+    }
 
     return outdata;
 }
