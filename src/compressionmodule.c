@@ -1526,7 +1526,8 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
                           PyObject* hdu, tcolumn* columns) {
     PyObject* header;
     PyArrayObject* data;
-    PyObject* tmp;
+    PyArrayObject* base;
+    PyArrayObject* tmp;
     FITSfile* Fptr;
 
     int status;
@@ -1535,7 +1536,6 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     long long nrows;
     long long heapsize;
     long long theap;
-    long long datspan;
 
     header = PyObject_GetAttrString(hdu, "_header");
     if (header == NULL) {
@@ -1564,34 +1564,35 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     // to something else with THEAP
     get_header_longlong(header, "THEAP", &theap, 0);
 
-    // Get the total byte size of the HDU data; walk the array bases until
-    // the base containing the entire data (including the heap) is found
-    tmp = PyObject_GetAttrString(hdu, "_datSpan");
-    if (tmp == NULL) {
+
+    // Walk the array data bases until we find the lowest ndarray base; for
+    // CompImageHDUs there should always be at least one contiguous byte array
+    // allocated for the table and its heap
+    if (!PyObject_TypeCheck(data, &PyArray_Type)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "CompImageHDU.compData must be a numpy.ndarray");
         goto fail;
     }
-    datspan = PyInt_AsUnsignedLongLongMask(tmp);  // This function name...
-    Py_DECREF(tmp);
 
-    *bufsize = (size_t) PyArray_NBYTES(data);
-    while (*bufsize != datspan) {
-        data = (PyArrayObject*) PyArray_BASE(data);
-        // TODO: Type check that data is an ndarray
-        if (data == NULL) {
-            PyErr_SetString(PyExc_ValueError, "couldn't find HDU heap data");
-            goto fail;
+    tmp = base = data;
+    while (PyObject_TypeCheck((PyObject*) tmp, &PyArray_Type)) {
+        base = tmp;
+        *bufsize = (size_t) PyArray_NBYTES(base);
+        tmp = (PyArrayObject*) PyArray_BASE(base);
+        if (tmp == NULL) {
+            break;
         }
-        *bufsize = (size_t) PyArray_NBYTES(data);
     }
 
-    *buf = PyArray_DATA(data);
+    *buf = PyArray_DATA(base);
 
     // This shouldn't happen, but just for sanity's sake
     if (*bufsize < 2880) {
         *bufsize = 2880;
     }
 
-    fits_create_memfile(fileptr, buf, bufsize, 0, NULL, &status);
+    fits_create_memfile(fileptr, buf, bufsize, 0, PyArray_realloc, &status);
+
     if (status != 0) {
         process_status_err(status);
         goto fail;
@@ -1602,16 +1603,19 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     // Now we have some fun munging some of the elements in the fitsfile struct
     Fptr->tableptr = columns;
     Fptr->hdutype = BINARY_TBL;  /* This is a binary table HDU */
+    Fptr->lasthdu = 1;
+    Fptr->headstart[0] = 0;
+    Fptr->headend = 0;
     Fptr->datastart = 0;  /* There is no header, data starts at 0 */
     Fptr->tfield = tfields;
     Fptr->origrows = Fptr->numrows = nrows;
     Fptr->rowlength = rowlen;
     if (theap != 0) {
         Fptr->heapstart = theap;
-    }
-    else {
+    } else {
         Fptr->heapstart = rowlen * nrows;
     }
+
     Fptr->heapsize = heapsize;
 
     // If any errors occur in this function they'll bubble up from here to
@@ -1625,7 +1629,74 @@ fail:
 }
 
 
-PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
+PyObject* compression_compress_hdu(PyObject* self, PyObject* args)
+{
+    PyObject* hdu;
+    tcolumn* columns = NULL;
+
+    void* outbuf;
+    size_t outbufsize;
+
+    PyArrayObject* indata;
+    int datatype;
+    int npdatatype;
+
+    fitsfile* fileptr;
+    int status = 0;
+
+    if (!PyArg_ParseTuple(args, "O:compression.decompress_hdu", &hdu))
+    {
+        PyErr_SetString(PyExc_TypeError, "Couldn't parse arguments");
+        return NULL;
+    }
+
+    // For HDU compression never use CFITSIO to write directly to the file;
+    // although there's nothing wrong with CFITSIO, right now that would cause
+    // too much confusion to PyFITS' internal book keeping.
+    // We just need to get the compressed bytes and PyFITS will handle the
+    // writing of them.
+    open_from_pyfits_hdu(&fileptr, &outbuf, &outbufsize, hdu, columns);
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
+
+    bitpix_to_datatypes(fileptr->Fptr->zbitpix, &datatype, &npdatatype);
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
+
+    indata = (PyArrayObject*) PyObject_GetAttrString(hdu, "data");
+
+    // Test values
+    fits_write_img(fileptr, datatype, 1, PyArray_SIZE(indata), indata->data,
+                   &status);
+    if (status != 0) {
+        process_status_err(status);
+        goto fail;
+    }
+
+    status = 0;
+    fits_flush_buffer(fileptr, 1, &status);
+
+    if (columns != NULL) {
+        PyMem_Free(columns);
+    }
+    Py_XDECREF(indata);
+
+    return Py_None;
+
+fail:
+    // TODO: Reconsider how to handle memory allocation/cleanup in a clean way
+    if (columns != NULL) {
+        PyMem_Free(columns);
+        Py_XDECREF(indata);
+    }
+
+    return NULL;
+}
+
+
+PyObject* compression_decompress_hdu(PyObject* self, PyObject* args)
 {
     PyObject* hdu;
     PyObject* fileobj = NULL;
@@ -1643,9 +1714,9 @@ PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
     long arrsize;
     unsigned int idx;
 
-    int status;
     fitsfile* fileptr;
     int anynul = 0;
+    int status = 0;
 
     if (!PyArg_ParseTuple(args, "O:compression.decompress_hdu", &hdu))
     {
@@ -1700,8 +1771,9 @@ PyArrayObject* compression_decompress_hdu(PyObject* self, PyObject* args)
     }
 
     PyMem_Free(znaxis);
+    fits_close_file(fileptr, &status);
 
-    return outdata;
+    return (PyObject*) outdata;
 }
 
 
@@ -1710,8 +1782,8 @@ static PyMethodDef compression_methods[] =
 {
    /*{"decompressData", compression_decompressData, METH_VARARGS},
    {"compressData", compression_compressData, METH_VARARGS},*/
+   {"compress_hdu", compression_compress_hdu, METH_VARARGS},
    {"decompress_hdu", compression_decompress_hdu, METH_VARARGS},
-   /*{"compress_hdu", compression_compress_hdu, METH_VARARGS},*/
    {NULL, NULL}
 };
 

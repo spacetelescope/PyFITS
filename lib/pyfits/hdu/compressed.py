@@ -675,8 +675,14 @@ class CompImageHDU(BinTableHDU):
 
         # Create the record array to be used for the table data.
         self.columns = cols
-        compData = np.rec.array(None, formats=','.join(cols._recformats),
-                                names=cols.names, shape=nrows)
+        dtype = np.rec.format_parser(','.join(cols._recformats), cols.names,
+                                     None).dtype
+        # CFITSIO will write the compressed data in big-endian order
+        dtype = dtype.newbyteorder('>')
+        buf = np.zeros((72000,), dtype=np.byte)
+        compData = buf[:2400].view(dtype=dtype, type=np.rec.recarray)
+        compData._heapoffset = 2400
+        compData._buffer = buf.data
         self.compData = compData.view(FITS_rec)
         self.compData._coldefs = self.columns
         self.compData.formats = self.columns.formats
@@ -686,14 +692,14 @@ class CompImageHDU(BinTableHDU):
         # UNCOMPRESSED_DATA) depending on whether we have floating point
         # data or not.  Note: the ZSCALE and ZZERO columns are fixed
         # length columns.
-        for idx in range(min(2, len(cols))):
-            self.columns._arrays[idx] = \
-                np.rec.recarray.field(self.compData, idx)
-            np.rec.recarray.field(self.compData, idx)[0:] = 0
-            self.compData._convert[idx] = \
-                _makep(self.columns._arrays[idx],
-                       np.rec.recarray.field(self.compData, idx),
-                       self.columns._recformats[idx])
+        #for idx in range(min(2, len(cols))):
+        #    self.columns._arrays[idx] = \
+        #        np.rec.recarray.field(self.compData, idx)
+        #    np.rec.recarray.field(self.compData, idx)[0:] = 0
+        #    self.compData._convert[idx] = \
+        #        _makep(self.columns._arrays[idx],
+        #               np.rec.recarray.field(self.compData, idx),
+        #               self.columns._recformats[idx])
 
         # Set the compression parameters in the table header.
 
@@ -1357,7 +1363,10 @@ class CompImageHDU(BinTableHDU):
 #                                        self._header['ZCMPTYPE'],
 #                                        self.header['BITPIX'], 1,
 #                                        data.size)
-            self.compData = compression.compress_hdu(self)
+            # The current implementation of compress_hdu assumes the empty
+            # compressed data table has already been initialized in
+            # self.compData, and writes directly to it
+            compression.compress_hdu(self)
         finally:
             # if data was byteswapped return it to its original order
             if should_swap:
