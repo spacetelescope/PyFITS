@@ -1089,7 +1089,7 @@ void bitpix_to_datatypes(int bitpix, int* datatype, int* npdatatype) {
             break;
         case LONG_IMG:
             *datatype = TINT;
-            *npdatatype = NPY_LONG;
+            *npdatatype = NPY_INT32;
             break;
         case LONGLONG_IMG:
             *datatype = TLONGLONG;
@@ -1700,8 +1700,6 @@ fail:
 PyObject* compression_decompress_hdu(PyObject* self, PyObject* args)
 {
     PyObject* hdu;
-    PyObject* fileobj = NULL;
-    PyObject* filename = NULL;
     tcolumn* columns = NULL;
 
     void* inbuf;
