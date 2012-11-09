@@ -636,8 +636,8 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
 
 void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
                           PyObject* hdu, tcolumn* columns) {
-    PyObject* header;
-    PyArrayObject* data;
+    PyObject* header = NULL;
+    PyArrayObject* data = NULL;
     PyArrayObject* base;
     PyArrayObject* tmp;
     FITSfile* Fptr;
