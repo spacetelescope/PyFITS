@@ -91,6 +91,8 @@
 
 /* Include the Python C API */
 
+#include <math.h>
+
 #include "Python.h"
 #include <numpy/arrayobject.h>
 #include "fitsio2.h"
@@ -1441,7 +1443,7 @@ void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
 
     get_header_string(header, "ZCMPTYPE", &tmp, DEFAULT_COMPRESSION_TYPE);
     strncpy(Fptr->zcmptype, tmp, 11);
-    Fptr->zcmptype[strnlen(tmp, 11)] = '\0';
+    Fptr->zcmptype[strlen(tmp)] = '\0';
 
     Fptr->compress_type = compress_type_from_string(Fptr->zcmptype);
     if (PyErr_Occurred()) {
@@ -1829,6 +1831,32 @@ PyObject* compression_calc_max_elem(PyObject* self, PyObject* args) {
 }
 
 
+/* CFITSIO version float as returned by fits_get_version() */
+static double cfitsio_version;
+
+void compression_module_init(PyObject* module) {
+    /* Python version-indendependent initialization routine for the
+       compression module */
+    PyObject* tmp;
+    float version_tmp;
+
+    fits_get_version(&version_tmp);
+    cfitsio_version = (double) version_tmp;
+    /* The conversion to double can lead to some rounding errors; round to the
+       nearest 3 decimal places, which should be accurate for any past or
+       current CFITSIO version. This is why relying on floats for version
+       comparison isn't generally a bright idea... */
+    cfitsio_version = floor((1000 * version_tmp + 0.5)) / 1000;
+
+    tmp = PyFloat_FromDouble(cfitsio_version);
+    PyObject_SetAttrString(module, "cfitsio_version", tmp);
+    Py_XDECREF(tmp);
+
+    /* Needed to use Numpy routines */
+    import_array();
+}
+
+
 /* Method table mapping names to wrappers */
 static PyMethodDef compression_methods[] =
 {
@@ -1850,15 +1878,16 @@ static struct PyModuleDef compressionmodule = {
 PyObject *
 PyInit_compression(void)
 {
-    PyObject *module = PyModule_Create(&compressionmodule);
-    import_array();
+    PyObject* module = PyModule_Create(&compressionmodule);
+    compression_module_init(module);
     return module;
 }
 #else
 PyMODINIT_FUNC initcompression(void)
 {
-   Py_InitModule4("compression", compression_methods, "compression module",
-                  NULL, PYTHON_API_VERSION);
-   import_array();
+   PyObject* module = Py_InitModule4("compression", compression_methods,
+                                     "pyfits.compression module",
+                                     NULL, PYTHON_API_VERSION);
+   compression_module_init(module);
 }
 #endif
