@@ -897,7 +897,17 @@ class CompImageHDU(BinTableHDU):
             new_dtype = self._dtype_for_bitpix()
             data = np.array(data, dtype=new_dtype)
 
-            if cn_zblank == -1:
+            zblank = None
+
+            if 'ZBLANK' in self.compData.columns.names:
+                zblank = self.compData['ZBLANK']
+            else:
+                if 'ZBLANK' in self._header:
+                    zblank = np.array(self._header['ZBLANK'], dtype='int32')
+                elif 'BLANK' in self._header:
+                    zblank = np.array(self._header['BLANK'], dtype='int32')
+
+            if zblank is not None:
                 blanks = (data == zblank)
 
             if self._bscale != 1:
@@ -905,7 +915,7 @@ class CompImageHDU(BinTableHDU):
             if self._bzero != 0:
                 data += self._bzero
 
-            if cn_zblank == -1:
+            if zblank is not None:
                 data = np.where(blanks, np.nan, data)
 
         # Right out of _ImageBaseHDU.data
@@ -1242,6 +1252,11 @@ class CompImageHDU(BinTableHDU):
             dataspan = BLOCK_SIZE
         self.compData = np.zeros((dataspan,), dtype=np.byte)
 
+        self._header['PCOUNT'] = 0
+        if 'THEAP' in self._header:
+            del self._header['THEAP']
+        self._theap = tbsize
+
         try:
             # Compress the data.
             # The current implementation of compress_hdu assumes the empty
@@ -1391,19 +1406,22 @@ class CompImageHDU(BinTableHDU):
             self.data += -_zero
             self.header['BZERO'] = _zero
         else:
-            try:
-                del self.header['BZERO']
-            except KeyError:
-                pass
+            # Delete from both headers
+            for header in (self.header, self._header):
+                try:
+                    del header['BZERO']
+                except KeyError:
+                    pass
 
         if _scale != 1:
             self.data /= _scale
             self.header['BSCALE'] = _scale
         else:
-            try:
-                del self.header['BSCALE']
-            except KeyError:
-                pass
+            for header in (self.header, self._header):
+                try:
+                    del header['BSCALE']
+                except KeyError:
+                    pass
 
         if self.data.dtype.type != _type:
             self.data = np.array(np.around(self.data), dtype=_type)  # 0.7.7.1
@@ -1500,14 +1518,17 @@ class CompImageHDU(BinTableHDU):
         if (not self._do_not_scale_image_data and
             not (self._orig_bzero == 0 and self._orig_bscale == 1)):
             for keyword in ['BSCALE', 'BZERO']:
-                try:
-                    del self.header[keyword]
-                    # Since _update_header_scale_info can, currently, be called
-                    # *after* _prewriteto(), replace these with blank cards so
-                    # the header size doesn't change
-                    self.header.append()
-                except KeyError:
-                    pass
+                # Make sure to delete from both the image header and the table
+                # header; later this will be streamlined
+                for header in (self.header, self._header):
+                    try:
+                        del header[keyword]
+                        # Since _update_header_scale_info can, currently, be
+                        # called *after* _prewriteto(), replace these with
+                        # blank cards so the header size doesn't change
+                        header.append()
+                    except KeyError:
+                        pass
 
             if dtype is None:
                 dtype = self._dtype_for_bitpix()

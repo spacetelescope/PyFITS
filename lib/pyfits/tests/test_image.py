@@ -811,7 +811,7 @@ class TestImageFunctions(PyfitsTestCase):
         time.sleep(1)
 
         hdul = pyfits.open(self.temp('scale.fits'), 'update')
-        hdul[0].data
+        orig_data = hdul[0].data
         hdul.close()
 
         # Now the file should be updated with the rescaled data
@@ -821,6 +821,7 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(hdul[0].header['BITPIX'], -32)
         assert_true('BZERO' not in hdul[0].header)
         assert_true('BSCALE' not in hdul[0].header)
+        assert_true((orig_data == hdul[0].data).all())
 
         # Try reshaping the data, then closing and reopening the file; let's
         # see if all the changes are preseved properly

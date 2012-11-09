@@ -1517,16 +1517,6 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
 }
 
 
-void open_from_filename(fitsfile** fileptr, char* filename) {
-    int status;
-    status = 0;
-    // TODO: This function should probably actually return the status code for
-    // error handling
-    fits_open_data(fileptr, filename, 0, &status);
-    return;
-}
-
-
 void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
                           PyObject* hdu, tcolumn* columns) {
     PyObject* header;
@@ -1535,7 +1525,7 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     PyArrayObject* tmp;
     FITSfile* Fptr;
 
-    int status;
+    int status = 0;
     long long rowlen;
     long long nrows;
     long long heapsize;
@@ -1735,26 +1725,10 @@ PyObject* compression_decompress_hdu(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    // TODO: Error checking, obviously...; type check that the passed in HDU is
-    // a CompImageHDU
-    // Use '_header' instead of 'header' since the latter returns the header
-    // for the compressed image when returned from CompImageHDU, instead of the
-    // original header
-    fileobj = PyObject_GetAttrString(hdu, "_file");
-    if (fileobj != Py_None) {
-        filename = PyObject_GetAttrString(fileobj, "name");
-        // TODO: Check that the file exists and is readable
-        open_from_filename(&fileptr, PyString_AsString(filename));
+    open_from_pyfits_hdu(&fileptr, &inbuf, &inbufsize, hdu, columns);
+    if (PyErr_Occurred()) {
+        return NULL;
     }
-    else {
-        open_from_pyfits_hdu(&fileptr, &inbuf, &inbufsize, hdu, columns);
-        if (PyErr_Occurred()) {
-            return NULL;
-        }
-    }
-
-    Py_DECREF(fileobj);
-    Py_XDECREF(filename);
 
     bitpix_to_datatypes(fileptr->Fptr->zbitpix, &datatype, &npdatatype);
     if (PyErr_Occurred()) {
