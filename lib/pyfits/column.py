@@ -158,7 +158,7 @@ class _FormatP(str):
 
     def __new__(cls, dtype, repeat=None, max=None):
         obj = super(_FormatP, cls).__new__(cls, '2i4')
-        obj.dtype = np.dtype(dtype)
+        obj.dtype = dtype
         obj.repeat = repeat
         obj.max = max
         return obj
@@ -992,7 +992,7 @@ def _makep(input, desp_output, format, nrows=None):
     if format.dtype == 'a':
         _nbytes = 1
     else:
-        _nbytes = np.array([], dtype=np.typeDict[format.dtype]).itemsize
+        _nbytes = np.array([], dtype=format.dtype).itemsize
 
     for idx in range(nrows):
         if idx < len(input):

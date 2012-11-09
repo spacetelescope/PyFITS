@@ -569,11 +569,17 @@ class FITS_rec(np.recarray):
 
                 field[:] = 0  # reset
                 npts = map(len, self._convert[indx])
+
+                # Irritatingly, this can return a different dtype than just
+                # doing np.dtype(recformat.dtype); but this returns the results
+                # that we want.  For example if recformat.dtype is 'a' we want
+                # an array of characters.
+                dtype = np.array([], dtype=recformat.dtype).dtype
                 field[:len(npts), 0] = npts
                 field[1:, 1] = (np.add.accumulate(field[:-1, 0]) *
-                                recformat.dtype.itemsize)
+                                dtype.itemsize)
                 field[:, 1][:] += self._heapsize
-                self._heapsize += field[:, 0].sum() * recformat.dtype.itemsize
+                self._heapsize += field[:, 0].sum() * dtype.itemsize
 
             # conversion for both ASCII and binary tables
             if _number or _str:
