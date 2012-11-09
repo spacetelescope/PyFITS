@@ -771,11 +771,11 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
    long*           tileSize = 0;
    long*           zval = 0;
    double          nulval;
-   double*         bscale;
-   double*         bzero;
+   double          zscale;
+   double          zzero;
+   int             zblank;
    double          quantize_level;
    double          hcomp_scale;
-   long*           nullDVals;
    unsigned char** inData = 0;
    void**          uncompressedData = 0;
    int             i;
@@ -791,24 +791,15 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
    FITSfile        fileParms;
    fitsfile        theFile;
 
-   PyArrayObject*  bscaleArray;
-   PyArrayObject*  bzeroArray;
-   PyArrayObject*  nullDvalsArray;
    PyArrayObject*  decompDataArray;
-
-   PyArrayObject*  bscaleArray1 = 0;
-   PyArrayObject*  bzeroArray1 = 0;
-   PyArrayObject*  nullDvalsArray1 = 0;
 
    /* Get Python arguments */
 
    if (!PyArg_ParseTuple(args, 
-                         "OiOOO!iO!iO!iOiddOsiildO!:compression.decompressData",
+                         "OiOOididiiOiddOsiildO!:compression.decompressData",
                          &inDataObj,
-                         &naxis, &naxesObj, &tileSizeObj, &PyArray_Type,
-                         &bscaleArray, &cn_zscale, &PyArray_Type, &bzeroArray,
-                         &cn_zzero, &PyArray_Type, &nullDvalsArray,
-                         &cn_zblank, &uncompressedDataObj,
+                         &naxis, &naxesObj, &tileSizeObj, &cn_zscale, &zscale,
+                         &cn_zzero, &zzero, &cn_zblank, &zblank, &uncompressedDataObj,
                          &cn_uncompressed, &quantize_level, &hcomp_scale,
                          &zvalObj, &compressTypeStr, &bitpix, &firstelem,
                          &nelem, &nulval, &PyArray_Type, &decompDataArray))
@@ -838,39 +829,6 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
    if (!tileSize)
    {
       goto error;
-   }
-
-   if (cn_zzero != 1)
-   {
-      bzero = (double*)bzeroArray->data;
-   }
-   else
-   {
-      bzeroArray1 = (PyArrayObject*)PyArray_ContiguousFromObject(
-                     (PyObject*)bzeroArray, PyArray_DOUBLE, 1, 1);
-      bzero = (double*)bzeroArray1->data;
-   }
-
-   if (cn_zscale != 1)
-   {
-      bscale = (double*)bscaleArray->data;
-   }
-   else
-   {
-      bscaleArray1 = (PyArrayObject*)PyArray_ContiguousFromObject(
-                      (PyObject*)bscaleArray, PyArray_DOUBLE, 1, 1);
-      bscale = (double*)bscaleArray1->data;
-   }
-
-   if (cn_zblank != 1)
-   {
-      nullDVals = (long*)nullDvalsArray->data;
-   }
-   else
-   {
-      nullDvalsArray1 = (PyArrayObject*)PyArray_ContiguousFromObject(
-                         (PyObject*)nullDvalsArray, PyArray_LONG, 1, 1);
-      nullDVals = (long*)nullDvalsArray1->data;
    }
 
    zval = get_long_array(zvalObj, "ZVALn", &numzVals);
@@ -1017,15 +975,14 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
    (theFile.Fptr)->data = inData;
    (theFile.Fptr)->dataLen = inDataLen;
 
-   (theFile.Fptr)->bscale = bscale;
    (theFile.Fptr)->cn_zscale = cn_zscale;
    (theFile.Fptr)->quantize_level = quantize_level;
    (theFile.Fptr)->hcomp_scale = hcomp_scale;
 
    if (cn_zscale == -1)
    {
-      (theFile.Fptr)->zscale = bscale[0];
-      (theFile.Fptr)->cn_bscale = bscale[0];
+      (theFile.Fptr)->zscale = zscale;
+      (theFile.Fptr)->cn_bscale = zscale;
    }
    else
    {
@@ -1033,13 +990,12 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
       (theFile.Fptr)->cn_bscale = 1.0;
    }
 
-   (theFile.Fptr)->bzero = bzero;
    (theFile.Fptr)->cn_zzero = cn_zzero;
 
    if (cn_zzero == -1)
    {
-      (theFile.Fptr)->zzero = bzero[0];
-      (theFile.Fptr)->cn_bzero = bzero[0];
+      (theFile.Fptr)->zzero = zzero;
+      (theFile.Fptr)->cn_bzero = zzero;
    }
    else
    {
@@ -1047,12 +1003,12 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
       (theFile.Fptr)->cn_bzero = 0.0;
    }
 
-   (theFile.Fptr)->blank = nullDVals;
+   (theFile.Fptr)->zblank = zblank;
    (theFile.Fptr)->cn_zblank = cn_zblank;
 
    if (cn_zblank == -1)
    {
-      (theFile.Fptr)->zblank = nullDVals[0];
+      (theFile.Fptr)->zblank = zblank;
    }
    else
    {
@@ -1109,21 +1065,6 @@ PyObject* compression_decompressData(PyObject* self, PyObject* args)
 
          PyMem_Free(uncompressedData);
          PyMem_Free(numUncompressedVals);
-      }
-
-      if (bscaleArray1 != 0)
-      {
-         Py_DECREF(bscaleArray1);
-      }
-
-      if (bzeroArray1 != 0)
-      {
-         Py_DECREF(bzeroArray1);
-      }
-
-      if (nullDvalsArray1 != 0)
-      {
-         Py_DECREF(nullDvalsArray1);
       }
 
       if (status != 0)

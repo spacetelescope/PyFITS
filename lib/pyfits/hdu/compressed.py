@@ -908,21 +908,18 @@ class CompImageHDU(BinTableHDU):
         # from the table, or from the ZBLANK header card (if no
         # ZBLANK column (all null values are the same for each tile)),
         # or from the BLANK header card.
+        zblank = 0
         if not 'ZBLANK' in self.compData.names:
             if 'ZBLANK' in self._header:
-                nullDvals = np.array(self._header['ZBLANK'],
-                                     dtype='int32')
                 cn_zblank = -1  # null value is a constant
+                zblank = self._header['ZBLANK']
             elif 'BLANK' in self._header:
-                nullDvals = np.array(self._header['BLANK'],
-                                     dtype='int32')
                 cn_zblank = -1  # null value is a constant
+                zblank = self._header['BLANK']
             else:
                 cn_zblank = 0  # no null value given so don't check
-                nullDvals = np.array(0, dtype='int32')
         else:
             cn_zblank = 1  # null value supplied as a column
-            nullDvals = self.compData.field('ZBLANK')
 
         # Set up an array holding the linear scale factor values
         # This could come from the ZSCALE column from the table, or
@@ -935,17 +932,15 @@ class CompImageHDU(BinTableHDU):
         else:
             self._bscale = 1.
 
+        zscale = 1.0
         if not 'ZSCALE' in self.compData.names:
             if 'ZSCALE' in self._header:
-                zScaleVals = np.array(self._header['ZSCALE'],
-                                      dtype='float64')
                 cn_zscale = -1  # scale value is a constant
+                zscale = self._header['ZSCALE']
             else:
                 cn_zscale = 0  # no scale factor given so don't scale
-                zScaleVals = np.array(1.0, dtype='float64')
         else:
             cn_zscale = 1  # scale value supplied as a column
-            zScaleVals = self.compData.field('ZSCALE')
 
         # Set up an array holding the zero point offset values
         # This could come from the ZZERO column from the table, or
@@ -958,17 +953,15 @@ class CompImageHDU(BinTableHDU):
         else:
             self._bzero = 0.
 
+        zzero = 0.0
         if not 'ZZERO' in self.compData.names:
             if 'ZZERO' in self._header:
-                zZeroVals = np.array(self._header['ZZERO'],
-                                     dtype='float64')
                 cn_zzero = -1  # zero value is a constant
+                zzero = self._header['ZZERO']
             else:
                 cn_zzero = 0  # no zero value given so don't scale
-                zZeroVals = np.array(1.0, dtype='float64')
         else:
             cn_zzero = 1  # zero value supplied as a column
-            zZeroVals = self.compData.field('ZZERO')
 
         # Is uncompressed data supplied in a column?
         if not 'UNCOMPRESSED_DATA' in self.compData.names:
@@ -1087,9 +1080,9 @@ class CompImageHDU(BinTableHDU):
         status = compression.decompressData(dataList,
                                             self._header['ZNAXIS'],
                                             naxesList, tileSizeList,
-                                            zScaleVals, cn_zscale,
-                                            zZeroVals, cn_zzero,
-                                            nullDvals, cn_zblank,
+                                            cn_zscale, zscale,
+                                            cn_zzero, zzero, cn_zblank,
+                                            zblank,
                                             uncompressedDataList,
                                             cn_uncompressed,
                                             quantizeLevel,
@@ -1104,15 +1097,15 @@ class CompImageHDU(BinTableHDU):
             new_dtype = self._dtype_for_bitpix()
             data = np.array(data, dtype=new_dtype)
 
-            if cn_zblank:
-                blanks = (data == nullDvals)
+            if cn_zblank == -1:
+                blanks = (data == zblank)
 
             if self._bscale != 1:
                 np.multiply(data, self._bscale, data)
             if self._bzero != 0:
                 data += self._bzero
 
-            if cn_zblank:
+            if cn_zblank == -1:
                 data = np.where(blanks, np.nan, data)
 
         # Right out of _ImageBaseHDU.data
