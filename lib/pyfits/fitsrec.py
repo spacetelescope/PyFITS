@@ -174,6 +174,7 @@ class FITS_rec(np.recarray):
         self._nfields = len(self.dtype.names)
         self._convert = [None] * len(self.dtype.names)
         self._heapoffset = 0
+        self._heapsize = 0
         self._file = None
         self._buffer = None
         self._coldefs = None
@@ -189,6 +190,7 @@ class FITS_rec(np.recarray):
         if isinstance(obj, FITS_rec):
             self._convert = obj._convert
             self._heapoffset = obj._heapoffset
+            self._heapsize = obj._heapsize
             self._file = obj._file
             self._buffer = obj._buffer
             self._coldefs = obj._coldefs
@@ -203,6 +205,7 @@ class FITS_rec(np.recarray):
             self._convert = [None] * len(obj.dtype.names)
 
             self._heapoffset = getattr(obj, '_heapoffset', 0)
+            self._heapsize = getattr(obj, '_heapsize', 0)
             self._file = getattr(obj, '_file', None)
             self._buffer = getattr(obj, '_buffer', None)
 
@@ -542,7 +545,6 @@ class FITS_rec(np.recarray):
                 widths.append(f[1])
             loc.append(loc[-1] + super(FITS_rec, self).field(idx).itemsize)
 
-        self._heapsize = 0
         for indx in range(len(self.dtype.names)):
             recformat = self._coldefs._recformats[indx]
             field = super(FITS_rec, self).field(indx)
@@ -560,14 +562,18 @@ class FITS_rec(np.recarray):
             # add the location offset of the heap area for each
             # variable length column
             if isinstance(recformat, _FormatP):
+                # Reset the heapsize and recompute it starting from the first P
+                # column
+                if indx == 0:
+                    self._heapsize = 0
+
                 field[:] = 0  # reset
                 npts = map(len, self._convert[indx])
                 field[:len(npts), 0] = npts
-                dtype = np.array([], dtype=recformat.dtype)
                 field[1:, 1] = (np.add.accumulate(field[:-1, 0]) *
-                                dtype.itemsize)
+                                recformat.dtype.itemsize)
                 field[:, 1][:] += self._heapsize
-                self._heapsize += field[:, 0].sum() * dtype.itemsize
+                self._heapsize += field[:, 0].sum() * recformat.dtype.itemsize
 
             # conversion for both ASCII and binary tables
             if _number or _str:

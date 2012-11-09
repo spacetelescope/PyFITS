@@ -158,7 +158,7 @@ class _FormatP(str):
 
     def __new__(cls, dtype, repeat=None, max=None):
         obj = super(_FormatP, cls).__new__(cls, '2i4')
-        obj.dtype = dtype
+        obj.dtype = np.dtype(dtype)
         obj.repeat = repeat
         obj.max = max
         return obj

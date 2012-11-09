@@ -1108,6 +1108,25 @@ void bitpix_to_datatypes(int bitpix, int* datatype, int* npdatatype) {
    return;
 }
 
+
+
+int compress_type_from_string(char* zcmptype) {
+    if (0 == strcmp(zcmptype, "RICE_1")) {
+        return RICE_1;
+    } else if (0 == strcmp(zcmptype, "GZIP_1")) {
+        return GZIP_1;
+    } else if (0 == strcmp(zcmptype, "PLIO_1")) {
+        return PLIO_1;
+    } else if (0 == strcmp(zcmptype, "HCOMPRESS_1")) {
+        return HCOMPRESS_1;
+    } else {
+        PyErr_Format(PyExc_ValueError, "Unrecognized compression type: %s",
+                     zcmptype);
+        return -1;
+    }
+}
+
+
 // TODO: It might be possible to simplify these further by making the
 // conversion function (eg. PyString_AsString) an argument to a macro or
 // something, but I'm not sure yet how easy it is to generalize the error
@@ -1424,17 +1443,8 @@ void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
     strncpy(Fptr->zcmptype, tmp, 11);
     Fptr->zcmptype[strnlen(tmp, 11)] = '\0';
 
-    if (0 == strcmp(Fptr->zcmptype, "RICE_1")) {
-        Fptr->compress_type = RICE_1;
-    } else if (0 == strcmp(Fptr->zcmptype, "GZIP_1")) {
-        Fptr->compress_type = GZIP_1;
-    } else if (0 == strcmp(Fptr->zcmptype, "PLIO_1")) {
-        Fptr->compress_type = PLIO_1;
-    } else if (0 == strcmp(Fptr->zcmptype, "HCOMPRESS_1")) {
-        Fptr->compress_type = HCOMPRESS_1;
-    } else {
-        PyErr_Format(PyExc_ValueError, "Unrecognized compression type: %s",
-                     Fptr->zcmptype);
+    Fptr->compress_type = compress_type_from_string(Fptr->zcmptype);
+    if (PyErr_Occurred()) {
         return;
     }
 
@@ -1601,6 +1611,7 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     Fptr = (*fileptr)->Fptr;
 
     // Now we have some fun munging some of the elements in the fitsfile struct
+    Fptr->open_count = 1;
     Fptr->tableptr = columns;
     Fptr->hdutype = BINARY_TBL;  /* This is a binary table HDU */
     Fptr->lasthdu = 1;
@@ -1629,9 +1640,11 @@ fail:
 }
 
 
+
 PyObject* compression_compress_hdu(PyObject* self, PyObject* args)
 {
     PyObject* hdu;
+    PyObject* retval = NULL;
     tcolumn* columns = NULL;
 
     void* outbuf;
@@ -1640,11 +1653,12 @@ PyObject* compression_compress_hdu(PyObject* self, PyObject* args)
     PyArrayObject* indata;
     int datatype;
     int npdatatype;
+    unsigned long long heapsize;
 
     fitsfile* fileptr;
     int status = 0;
 
-    if (!PyArg_ParseTuple(args, "O:compression.decompress_hdu", &hdu))
+    if (!PyArg_ParseTuple(args, "O:compression.compress_hdu", &hdu))
     {
         PyErr_SetString(PyExc_TypeError, "Couldn't parse arguments");
         return NULL;
@@ -1675,24 +1689,33 @@ PyObject* compression_compress_hdu(PyObject* self, PyObject* args)
         goto fail;
     }
 
-    status = 0;
     fits_flush_buffer(fileptr, 1, &status);
+    if (status != 0) {
+        process_status_err(status);
+        goto fail;
+    }
 
+    heapsize = (unsigned long long) fileptr->Fptr->heapsize;
+
+    retval = PyLong_FromUnsignedLongLong(heapsize);
+
+fail:
+    if (fileptr != NULL) {
+        status = 1; // Disable header-related errors
+        fits_close_file(fileptr, &status);
+        if (status != 1) {
+            process_status_err(status);
+            retval = NULL;
+        }
+    }
+
+    // TODO: Reconsider how to handle memory allocation/cleanup in a clean way
     if (columns != NULL) {
         PyMem_Free(columns);
     }
     Py_XDECREF(indata);
 
-    return Py_None;
-
-fail:
-    // TODO: Reconsider how to handle memory allocation/cleanup in a clean way
-    if (columns != NULL) {
-        PyMem_Free(columns);
-        Py_XDECREF(indata);
-    }
-
-    return NULL;
+    return retval;
 }
 
 
@@ -1761,29 +1784,57 @@ PyObject* compression_decompress_hdu(PyObject* self, PyObject* args)
     /* Create and allocate a new array for the decompressed data */
     outdata = (PyArrayObject*) PyArray_SimpleNew(zndim, znaxis, npdatatype);
 
-    // Test values
     fits_read_img(fileptr, datatype, 1, arrsize, NULL, outdata->data, &anynul,
                   &status);
+    if (status != 0) {
+        process_status_err(status);
+        outdata = NULL;
+        goto fail;
+    }
 
-    // TODO: Reconsider how to handle memory allocation/cleanup in a clean way
+fail:
+    if (fileptr != NULL) {
+        status = 1;// Disable header-related errors
+        fits_close_file(fileptr, &status);
+        if (status != 1) {
+            process_status_err(status);
+            outdata = NULL;
+        }
+    }
+
     if (columns != NULL) {
         PyMem_Free(columns);
     }
-
     PyMem_Free(znaxis);
-    fits_close_file(fileptr, &status);
 
     return (PyObject*) outdata;
+}
+
+
+PyObject* compression_calc_max_elem(PyObject* self, PyObject* args) {
+    char* zcmptype;
+    long maxtilelen;
+    int zbitpix;
+    int rice_blocksize;
+
+    if (!PyArg_ParseTuple(args, "slii:compression.calc_max_elem", &zcmptype,
+                          &maxtilelen, &zbitpix, &rice_blocksize)) {
+        PyErr_SetString(PyExc_TypeError, "Couldn't parse arguments");
+        return NULL;
+    }
+
+    return PyLong_FromLong(
+        (long) imcomp_calc_max_elem(compress_type_from_string(zcmptype),
+                                    maxtilelen, zbitpix, rice_blocksize));
 }
 
 
 /* Method table mapping names to wrappers */
 static PyMethodDef compression_methods[] =
 {
-   /*{"decompressData", compression_decompressData, METH_VARARGS},
-   {"compressData", compression_compressData, METH_VARARGS},*/
    {"compress_hdu", compression_compress_hdu, METH_VARARGS},
    {"decompress_hdu", compression_decompress_hdu, METH_VARARGS},
+   {"calc_max_elem", compression_calc_max_elem, METH_VARARGS},
    {NULL, NULL}
 };
 
