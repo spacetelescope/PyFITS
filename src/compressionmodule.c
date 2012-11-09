@@ -1280,7 +1280,8 @@ int get_header_longlong(PyObject* header, char* keyword, long long* val,
 }
 
 
-void tcolumns_from_header(PyObject* header, tcolumn** columns, long* tfields) {
+void tcolumns_from_header(fitsfile* fileptr, PyObject* header,
+                          tcolumn** columns) {
     // Creates the array of tcolumn structures from the table column keywords
     // read from the PyFITS Header object; caller is responsible for freeing
     // the memory allocated for this array
@@ -1289,23 +1290,24 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns, long* tfields) {
     char tkw[9];
     unsigned int idx;
 
+    int tfields;
     char* ttype;
     char* tform;
     int dtcode;
     long trepeat;
     long twidth;
-    int status;
-    status = 0;
+    long long totalwidth;
+    int status = 0;
 
-    get_header_long(header, "TFIELDS", tfields, 0);
+    get_header_int(header, "TFIELDS", &tfields, 0);
 
-    *columns = column = PyMem_New(tcolumn, (size_t) *tfields);
+    *columns = column = PyMem_New(tcolumn, (size_t) tfields);
     if (column == NULL) {
         return;
     }
 
 
-    for (idx = 1; idx <= *tfields; idx++, column++) {
+    for (idx = 1; idx <= tfields; idx++, column++) {
         /* set some invalid defaults */
         column->ttype[0] = '\0';
         column->tbcol = 0;
@@ -1322,11 +1324,6 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns, long* tfields) {
 
         // TODO: I think TBCOL is usually inferred rather than specified in the
         // header keyword; see what CFITSIO does here.
-        snprintf(tkw, 9, "TBCOL%u", idx);
-        get_header_longlong(header, tkw, &(column->tbcol), 0);
-
-        // TODO: I think TBCOL is usually inferred rather than specified in the
-        // header keyword; see what CFITSIO does here.
         snprintf(tkw, 9, "TFORM%u", idx);
         get_header_string(header, tkw, &tform, "");
         strncpy(column->tform, tform, 9);
@@ -1336,6 +1333,7 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns, long* tfields) {
             process_status_err(status);
             return;
         }
+
         column->tdatatype = dtcode;
         column->trepeat = trepeat;
         column->twidth = twidth;
@@ -1350,17 +1348,29 @@ void tcolumns_from_header(PyObject* header, tcolumn** columns, long* tfields) {
         get_header_longlong(header, tkw, &(column->tnull), NULL_UNDEFINED);
     }
 
+    fileptr->Fptr->tableptr = *columns;
+    fileptr->Fptr->tfield = tfields;
+
+    // This routine from CFITSIO calculates the byte offset of each column
+    // and stores it in the column->tbcol field
+    ffgtbc(fileptr, &totalwidth, &status);
+    if (status != 0) {
+        process_status_err(status);
+    }
+
     return;
 }
 
 
 
-void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
-                           PyObject* header) {
+void configure_compression(fitsfile* fileptr, PyObject* header) {
     /* Configure the compression-related elements in the fitsfile struct
        using values in the FITS header. */
 
     FITSfile* Fptr;
+
+    int tfields;
+    tcolumn* columns;
 
     char keyword[9];
     char* zname;
@@ -1370,6 +1380,8 @@ void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
     unsigned int idx;
 
     Fptr = fileptr->Fptr;
+    tfields = Fptr->tfield;
+    columns = Fptr->tableptr;
 
     // Get the ZBITPIX header value; if this is missing we're in trouble
     if (0 != get_header_int(header, "ZBITPIX", &(Fptr->zbitpix), 0)) {
@@ -1443,15 +1455,13 @@ void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
         znaxis = MAX_COMPRESS_DIM;
     }
 
-    Fptr->maxtilelen = 0;
+    Fptr->maxtilelen = 1;
     for (idx = 1; idx <= znaxis; idx++) {
         snprintf(keyword, 9, "ZNAXIS%u", idx);
         get_header_long(header, keyword, Fptr->znaxis + idx - 1, 0);
         snprintf(keyword, 9, "ZTILE%u", idx);
         get_header_long(header, keyword, Fptr->tilesize + idx - 1, 0);
-        if (Fptr->tilesize[idx - 1] > Fptr->maxtilelen) {
-            Fptr->maxtilelen = Fptr->tilesize[idx - 1];
-        }
+        Fptr->maxtilelen *= Fptr->tilesize[idx - 1];
     }
 
     // Set some more default compression options
@@ -1526,7 +1536,6 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     FITSfile* Fptr;
 
     int status;
-    long tfields;
     long long rowlen;
     long long nrows;
     long long heapsize;
@@ -1542,11 +1551,6 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
         goto fail;
     }
 
-
-    tcolumns_from_header(header, &columns, &tfields);
-    if (PyErr_Occurred()) {
-        goto fail;
-    }
 
     get_header_longlong(header, "NAXIS1", &rowlen, 0);
     get_header_longlong(header, "NAXIS2", &nrows, 0);
@@ -1582,7 +1586,6 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     *buf = PyArray_DATA(base);
 
     fits_create_memfile(fileptr, buf, bufsize, 0, PyArray_realloc, &status);
-
     if (status != 0) {
         process_status_err(status);
         goto fail;
@@ -1592,13 +1595,11 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
 
     // Now we have some fun munging some of the elements in the fitsfile struct
     Fptr->open_count = 1;
-    Fptr->tableptr = columns;
     Fptr->hdutype = BINARY_TBL;  /* This is a binary table HDU */
     Fptr->lasthdu = 1;
     Fptr->headstart[0] = 0;
     Fptr->headend = 0;
     Fptr->datastart = 0;  /* There is no header, data starts at 0 */
-    Fptr->tfield = tfields;
     Fptr->origrows = Fptr->numrows = nrows;
     Fptr->rowlength = rowlen;
     if (theap != 0) {
@@ -1609,9 +1610,16 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
 
     Fptr->heapsize = heapsize;
 
+    // Configure the array of table column structs from the PyFITS header
+    // instead of allowing CFITSIO to try to read from the header
+    tcolumns_from_header(*fileptr, header, &columns);
+    if (PyErr_Occurred()) {
+        goto fail;
+    }
+
     // If any errors occur in this function they'll bubble up from here to
     // compression_decompress_hdu
-    configure_compression(*fileptr, columns, tfields, header);
+    configure_compression(*fileptr, header);
 
 fail:
     Py_XDECREF(header);

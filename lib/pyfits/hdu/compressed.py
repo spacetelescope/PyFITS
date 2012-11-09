@@ -926,7 +926,12 @@ class CompImageHDU(BinTableHDU):
         # First we will get the table data (the compressed
         # data) from the file, if there is any.
         compData = super(BinTableHDU, self).data
-        if not isinstance(compData, np.rec.recarray):
+        if isinstance(compData, np.rec.recarray):
+            return compData
+        else:
+            # This will actually set self.compData with the pre-allocated space
+            # for the compression data; this is something I might do away with
+            # in the future
             self.updateCompressedData()
 
         return self.compData
@@ -1223,7 +1228,7 @@ class CompImageHDU(BinTableHDU):
         if self._header['ZCMPTYPE'] == 'RICE_1':
             rice_blocksize = self._header['ZVAL1']
         else:
-            rice_blicksize = 0
+            rice_blocksize = 0
         maxtilelen = reduce(operator.mul, tilesizes, 1)
         nrows = self._header['NAXIS2']
         tbsize = self._header['NAXIS1'] * nrows
