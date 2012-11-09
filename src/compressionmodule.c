@@ -105,6 +105,15 @@
 #endif
 
 
+/* These defaults mirror the defaults in pyfits.hdu.compressed */
+#define DEFAULT_COMPRESSION_TYPE "RICE_1"
+#define DEFAULT_QUANTIZE_LEVEL 16.0
+#define DEFAULT_HCOMP_SCALE 0
+#define DEFAULT_HCOMP_SMOOTH 0
+#define DEFAULT_BLOCK_SIZE 32
+#define DEFAULT_BYTE_PIX 4
+
+
 /* Function to get the input long values from the input list */
 
 static long* get_long_array(PyObject* data, const char* description,
@@ -1138,6 +1147,31 @@ int get_header_long(PyObject* header, char* keyword, long* val, long def) {
 }
 
 
+int get_header_float(PyObject* header, char* keyword, float* val,
+                     float def) {
+    PyObject* keystr;
+    PyObject* keyval;
+    int retval;
+
+    keystr = PyString_FromString(keyword);
+    keyval = PyObject_GetItem(header, keystr);
+
+    if (keyval != NULL) {
+        *val = (float) PyFloat_AsDouble(keyval);
+        retval = 0;
+    }
+    else {
+        PyErr_Clear();
+        *val = def;
+        retval = 1;
+    }
+
+    Py_DECREF(keystr);
+    Py_XDECREF(keyval);
+    return retval;
+}
+
+
 int get_header_double(PyObject* header, char* keyword, double* val,
                       double def) {
     PyObject* keystr;
@@ -1148,7 +1182,7 @@ int get_header_double(PyObject* header, char* keyword, double* val,
     keyval = PyObject_GetItem(header, keystr);
 
     if (keyval != NULL) {
-        *val = PyLong_AsDouble(keyval);
+        *val = PyFloat_AsDouble(keyval);
         retval = 0;
     }
     else {
@@ -1270,60 +1304,173 @@ void configure_compression(fitsfile* fileptr, tcolumn* columns, long tfields,
 
     FITSfile* Fptr;
 
-    long znaxis[MAX_COMPRESS_DIM] = {440, 300, 0, 0, 0, 0};
-    long tilesize[MAX_COMPRESS_DIM] = {440, 1, 0, 0, 0, 0};
+    char keyword[9];
+    char* zname;
+    int znaxis;
+    char* tmp;
 
     unsigned int idx;
+    unsigned int found;
 
     Fptr = fileptr->Fptr;
 
+    // Get the ZBITPIX header value; if this is missing we're in trouble
+    if (0 != get_header_int(header, "ZBITPIX", &(Fptr->zbitpix), 0)) {
+        return;
+    }
 
     // By default assume there is no ZBLANK column and check for ZBLANK or
     // BLANK in the header
-    Fptr->cn_zblank = -1;
+    Fptr->cn_zblank = Fptr->cn_zzero = Fptr->cn_zscale = -1;
+    Fptr->cn_uncompressed = 0;
 
-    // Check for a ZBLANK column in the compressed data table
+    found = 0;
+    // Check for a ZBLANK, ZZERO, and UNCOMPRESSED_DATA columns in the
+    // compressed data table
     for (idx = 1; idx <= tfields; idx++) {
-        if (0 == strncmp(columns[idx].ttype, "ZBLANK", 69)) {
+        if (0 == strncmp(columns[idx].ttype, "ZBLANK", 7)) {
             Fptr->cn_zblank = 1;
+            found++;
+        } else if (0 == strncmp(columns[idx].ttype, "ZZERO", 6)) {
+            Fptr->cn_zzero = 1;
+            found++;
+        } else if (0 == strncmp(columns[idx].ttype, "UNCOMPRESSED_DATA", 18)) {
+            Fptr->cn_uncompressed = 1;
+            found++;
+        }
+
+        if (found == 3) {
             break;
         }
     }
 
-    // No ZBLANK column--check the ZBLANK and BLANK heard keywords
+    Fptr->zblank = 0;
     if (Fptr->cn_zblank != 1) {
-        if(0 != get_header_int(header, "ZBLANK", &(Fptr->cn_zblank), 0)) {
+        // No ZBLANK column--check the ZBLANK and BLANK heard keywords
+        if(0 != get_header_int(header, "ZBLANK", &(Fptr->zblank), 0)) {
             // ZBLANK keyword not found
+            get_header_int(header, "BLANK", &(Fptr->zblank), 0);
         }
+    }
+
+    for (idx = 1; idx <= tfields; idx++) {
+        if (0 == strncmp(columns[idx].ttype, "ZSCALE", 69)) {
+            Fptr->cn_zscale = 1;
+            break;
+        }
+    }
+
+    Fptr->zscale = 1.0;
+    if (Fptr->cn_zscale != 1) {
+        if (0 != get_header_double(header, "ZSCALE", &(Fptr->zscale), 1.0)) {
+            Fptr->cn_zscale = 0;
+        }
+    }
+    Fptr->cn_bscale = Fptr->zscale;
+
+    for (idx = 1; idx <= tfields; idx++) {
+        if (0 == strncmp(columns[idx].ttype, "ZZERO", 69)) {
+            Fptr->cn_zzero = 1;
+            break;
+        }
+    }
+
+    Fptr->zzero = 0.0;
+    if (Fptr->cn_zzero != 1) {
+        if (0 != get_header_double(header, "ZZERO", &(Fptr->zzero), 0.0)) {
+            Fptr->cn_zzero = 0;
+        }
+    }
+    Fptr->cn_bzero = Fptr->zzero;
+
+    get_header_string(header, "ZCMPTYPE", &tmp, DEFAULT_COMPRESSION_TYPE);
+    strncpy(Fptr->zcmptype, tmp, 11);
+    Fptr->zcmptype[strnlen(tmp, 11)] = '\0';
+
+    if (0 == strcmp(Fptr->zcmptype, "RICE_1")) {
+        Fptr->compress_type = RICE_1;
+    } else if (0 == strcmp(Fptr->zcmptype, "GZIP_1")) {
+        Fptr->compress_type = GZIP_1;
+    } else if (0 == strcmp(Fptr->zcmptype, "PLIO_1")) {
+        Fptr->compress_type = PLIO_1;
+    } else if (0 == strcmp(Fptr->zcmptype, "HCOMPRESS_1")) {
+        Fptr->compress_type = HCOMPRESS_1;
+    } else {
+        PyErr_Format(PyExc_ValueError, "Unrecognized compression type: %s",
+                     Fptr->zcmptype);
+        return;
+    }
+
+    get_header_int(header, "ZNAXIS", &znaxis, 0);
+    Fptr->zndim = znaxis;
+
+    if (znaxis > MAX_COMPRESS_DIM) {
+        // The CFITSIO compression code currently only supports up to 6
+        // dimensions by default.
+        znaxis = MAX_COMPRESS_DIM;
+    }
+
+    Fptr->maxtilelen = 0;
+    for (idx = 1; idx <= znaxis; idx++) {
+        snprintf(keyword, 9, "ZNAXIS%u", idx);
+        get_header_long(header, keyword, Fptr->znaxis + idx - 1, 0);
+        snprintf(keyword, 9, "ZTILE%u", idx);
+        get_header_long(header, keyword, Fptr->tilesize + idx - 1, 0);
+        if (Fptr->tilesize[idx - 1] > Fptr->maxtilelen) {
+            Fptr->maxtilelen = Fptr->tilesize[idx - 1];
+        }
+    }
+
+    // Set some more default compression options
+    Fptr->rice_blocksize = DEFAULT_BLOCK_SIZE;
+    Fptr->rice_bytepix = DEFAULT_BYTE_PIX;
+    Fptr->quantize_level = DEFAULT_QUANTIZE_LEVEL;
+    Fptr->hcomp_smooth = DEFAULT_HCOMP_SMOOTH;
+    Fptr->hcomp_scale = DEFAULT_HCOMP_SCALE;
+
+    // Now process the ZVALn keywords
+    idx = 1;
+    while (1) {
+        snprintf(keyword, 9, "ZNAME%u", idx);
+        // Assumes there are no gaps in the ZNAMEn keywords; this same
+        // assumption was made in the Python code.  This could be done slightly
+        // more flexibly by using a wildcard slice of the header
+        if (0 != get_header_string(header, keyword, &zname, "")) {
+            break;
+        }
+        snprintf(keyword, 9, "ZVAL%u", idx);
+        if (Fptr->compress_type == RICE_1) {
+            if (0 == strcmp(zname, "BLOCKSIZE")) {
+                get_header_int(header, keyword, &(Fptr->rice_blocksize),
+                               DEFAULT_BLOCK_SIZE);
+            } else if (0 == strcmp(zname, "BYTEPIX")) {
+                get_header_int(header, keyword, &(Fptr->rice_bytepix),
+                               DEFAULT_BYTE_PIX);
+            }
+        } else if (Fptr->compress_type == HCOMPRESS_1) {
+            if (0 == strcmp(zname, "SMOOTH")) {
+                get_header_int(header, keyword, &(Fptr->hcomp_smooth),
+                               DEFAULT_HCOMP_SMOOTH);
+            } else if (0 == strcmp(zname, "SCALE")) {
+                get_header_float(header, keyword, &(Fptr->hcomp_scale),
+                                 DEFAULT_HCOMP_SCALE);
+            }
+        } else if (Fptr->zbitpix < 0 && 0 == strcmp(zname, "NOISEBIT")) {
+             get_header_float(header, keyword, &(Fptr->quantize_level),
+                              DEFAULT_QUANTIZE_LEVEL);
+        }
+
+        idx++;
     }
 
 
     Fptr->compressimg = 1;
-    strcpy(Fptr->zcmptype, "RICE_1");
-    Fptr->zcmptype[6] = '\0';
-    Fptr->compress_type = RICE_1;
-    Fptr->zbitpix = 16;
-    Fptr->zndim = 2;
-    memcpy(Fptr->znaxis, znaxis, sizeof(long) * MAX_COMPRESS_DIM);
-    memcpy(Fptr->tilesize, tilesize, sizeof(long) * MAX_COMPRESS_DIM);
-    Fptr->maxtilelen = 440;
-
-    Fptr->rice_blocksize = 32;
-    Fptr->rice_bytepix = 2;
-
     Fptr->maxelem = imcomp_calc_max_elem(Fptr->compress_type,
                                          Fptr->maxtilelen,
                                          Fptr->zbitpix,
                                          Fptr->rice_blocksize);
-
     Fptr->cn_compressed = 1;
-    Fptr->cn_uncompressed = -1;
     Fptr->cn_gzip_data = -1;
-    Fptr->cn_zscale = -1;
-    Fptr->cn_zzero = -1;
-    Fptr->cn_zblank = -1;
-
-    Fptr->zscale = Fptr->cn_bscale = 1.0;
     return;
 }
 
@@ -1430,6 +1577,8 @@ void open_from_pyfits_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     }
     Fptr->heapsize = heapsize;
 
+    // If any errors occur in this function they'll bubble up from here to
+    // compression_decompress_hdu
     configure_compression(*fileptr, columns, tfields, header);
 
 fail:
