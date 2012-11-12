@@ -361,6 +361,7 @@ class FITS_rec(np.recarray):
                 self._get_scale_factors(indx)
 
             # for P format
+            buff = None
             if isinstance(recformat, _FormatP):
                 dummy = _VLF([None] * len(self), dtype=recformat.dtype)
                 for i in range(len(self)):
@@ -372,10 +373,22 @@ class FITS_rec(np.recarray):
                             return _array_from_file(self._file, dtype=dtype,
                                                     count=count, sep='')
                     else:  # There must be a _buffer or something is wrong
-                        buff = self._buffer[_offset:]
+                        # Sometimes the buffer is already a Numpy array; in
+                        # particular this can occur in compressed HDUs.
+                        # Hypothetically other cases as well.
+                        if buff is None:
+                            buff = self._buffer
+                        if not isinstance(buff, np.ndarray):
+                            # Go ahead and great a single ndarray from the
+                            # buffer if it is not already one; we will then
+                            # take slices from it.  This is more efficient than
+                            # the previous approach that created separate
+                            # arrays for each VLA.
+                            buff = np.fromstring(buff, dtype=np.uint8)
+
                         def get_pdata(dtype, count):
-                            return np.fromstring(buff, dtype=dtype,
-                                                 count=count, sep='')
+                            slc = slice(_offset, _offset+count)
+                            return buff[slc].view(dtype=dtype)
 
                     if recformat.dtype == 'a':
                         count = field[i, 0]

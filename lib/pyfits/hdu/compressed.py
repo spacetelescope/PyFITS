@@ -1271,6 +1271,18 @@ class CompImageHDU(BinTableHDU):
                 self.data.byteswap(True)
             self.data = old_data
 
+        # Chances are not all the space allocated for the compressed data was
+        # needed.  If not, go ahead and truncate the array:
+        dataspan = tbsize + heapsize
+        if len(self.compData) > dataspan:
+            if self.compData.flags.owndata:
+                self.compData.resize(dataspan)
+            else:
+                # Need to copy to a new array; this generally shouldn't happen
+                # at all though there are some contrived cases (such as in one
+                # of the regression tests) where it can happen.
+                self.compData = np.resize(self.compData, (dataspan,))
+
         dtype = np.rec.format_parser(','.join(self.columns._recformats),
                                      self.columns.names, None).dtype
         # CFITSIO will write the compressed data in big-endian order
@@ -1281,7 +1293,7 @@ class CompImageHDU(BinTableHDU):
         self.compData._coldefs = self.columns
         self.compData._heapoffset = self._theap
         self.compData._heapsize = heapsize
-        self.compData._buffer = buf.data
+        self.compData._buffer = buf
         self.compData.formats = self.columns.formats
 
         # Update the table header cards to match the compressed data.
