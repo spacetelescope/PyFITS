@@ -1250,7 +1250,8 @@ class CompImageHDU(BinTableHDU):
         if dataspan < BLOCK_SIZE:
             # We must a full FITS block at a minimum
             dataspan = BLOCK_SIZE
-        self.compData = np.zeros((dataspan,), dtype=np.byte)
+        self.compData = np.empty((dataspan,), dtype=np.byte)
+        self.compData[:tbsize] = 0
 
         self._header['PCOUNT'] = 0
         if 'THEAP' in self._header:
