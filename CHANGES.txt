@@ -4,7 +4,12 @@ Changelog
 3.2 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Rewrote CFITSIO-based backend for handling tile compression of FITS files.
+  It now uses a standard CFITSIO instead of heavily modified pieces of CFITSIO
+  as before.  PyFITS ships with its own copy of CFITSIO v3.30, but system
+  packagers may choose instead to strip this out in favor of a
+  system-installed version of CFITSIO.  Earlier versions may work, but nothing
+  earlier than 3.28 has been tested yet. (#169)
 
 
 3.1.1 (unreleased)
