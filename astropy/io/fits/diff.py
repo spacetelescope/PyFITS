@@ -300,7 +300,7 @@ class FITSDiff(_BaseDiff):
         if self.ignore_comments:
             ignore_comments = ' '.join(sorted(self.ignore_comments))
             self._writeln(' Keyword(s) whose comments are not to be compared:'
-                          '\n%s' % wrapper.fill(ignore_keywords))
+                          '\n%s' % wrapper.fill(ignore_comments))
         if self.ignore_fields:
             ignore_fields = ' '.join(sorted(self.ignore_fields))
             self._writeln(' Table column(s) not to be compared:\n%s' %
@@ -1022,6 +1022,11 @@ class TableDataDiff(_BaseDiff):
         # is the minimum of the row counts between the two tables.
         if len(self.a) != len(self.b):
             self.diff_rows = (len(self.a), len(self.b))
+            return
+
+        # If the tables contain no rows there's no data to compare, so we're
+        # done at this point. (See ticket #178)
+        if len(self.a) == len(self.b) == 0:
             return
 
         # Like in the old fitsdiff, compare tables on a column by column basis

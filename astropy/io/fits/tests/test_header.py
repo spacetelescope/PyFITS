@@ -190,6 +190,27 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert_equal(h.ascard['FOO'].cardimage, fooimg)
         assert_equal(h.ascard['BAR'].cardimage, barimg)
 
+    def test_cardlist_list_methods(self):
+        """Regression test for #190."""
+
+        header = pyfits.Header()
+        header.update('A', 'B', 'C')
+        header.update('D', 'E', 'F')
+        # The old header.update method won't let you append a duplicate keyword
+        header.append(('D', 'G', 'H'))
+
+        assert_equal(header.ascardlist().index(header.cards['A']), 0)
+        assert_equal(header.ascardlist().index(header.cards['D']), 1)
+        assert_equal(header.ascardlist().index(header.cards[('D', 1)]), 2)
+
+        # Since the original CardList class really only works on card objects
+        # the count method is mostly useless since cards didn't used to compare
+        # equal sensibly
+        assert_equal(header.ascardlist().count(header.cards['A']), 1)
+        assert_equal(header.ascardlist().count(header.cards['D']), 1)
+        assert_equal(header.ascardlist().count(header.cards[('D', 1)]), 1)
+        assert_equal(header.ascardlist().count(pyfits.Card('A', 'B', 'C')), 0)
+
 
 class TestHeaderFunctions(PyfitsTestCase):
     """Test PyFITS Header and Card objects."""
@@ -1870,11 +1891,15 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
 
     def test_get_rvkc_by_keyword(self):
         """
-        Returning a RVKC just via the keyword name should return the floating
-        point value of the first card with that keyword.
+        Returning a RVKC just via the keyword name should return the full value
+        string of the first card with that keyword.
+
+        This test was changed to reflect the requirement in ticket
+        #184--previously it required _test_header['DP1'] to return the parsed
+        float value.
         """
 
-        assert_equal(self._test_header['DP1'], 2.0)
+        assert_equal(self._test_header['DP1'], 'NAXIS: 2')
 
     def test_get_rvkc_by_keyword_and_field_specifier(self):
         """
@@ -2029,3 +2054,66 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         cl = self._test_header['DP1.AXIS.*']
         assert_equal(cl.cards[0].value, 1.0)
         assert_true(isinstance(cl.cards[0].value, float))
+
+    def test_overly_permissive_parsing(self):
+        """
+        Regression test for #183.
+
+        Ensures that cards with standard commentary keywords are never treated
+        as RVKCs.  Also ensures that cards not stricly matching the RVKC
+        pattern are not treated as such.
+        """
+
+        h = pyfits.Header()
+        h['HISTORY'] = 'AXIS.1: 2'
+        h['HISTORY'] = 'AXIS.2: 2'
+        assert_false('HISTORY.AXIS' in h)
+        assert_false('HISTORY.AXIS.1' in h)
+        assert_false('HISTORY.AXIS.2' in h)
+        assert_equal(h['HISTORY'], ['AXIS.1: 2', 'AXIS.2: 2'])
+
+        # This is an example straight out of the ticket where everything after
+        # the '2012' in the date value was being ignored, allowing the value to
+        # successfully be parsed as a "float"
+        h = pyfits.Header()
+        h['HISTORY'] = 'Date: 2012-09-19T13:58:53.756061'
+        assert_false('HISTORY.Date' in h)
+        assert_equal(str(h.cards[0]),
+                     _pad('HISTORY Date: 2012-09-19T13:58:53.756061'))
+
+        c = pyfits.Card.fromstring(
+            "        'Date: 2012-09-19T13:58:53.756061'")
+        assert_equal(c.keyword, '')
+        assert_equal(c.value, "'Date: 2012-09-19T13:58:53.756061'")
+        assert_equal(c.field_specifier, None)
+
+        h = pyfits.Header()
+        h['FOO'] = 'Date: 2012-09-19T13:58:53.756061'
+        assert_false('FOO.Date' in h)
+        assert_equal(str(h.cards[0]),
+                     _pad("FOO     = 'Date: 2012-09-19T13:58:53.756061'"))
+
+    def test_overly_aggressive_rvkc_lookup(self):
+        """
+        Regression test for #184.
+
+        Ensures that looking up a RVKC by keyword only (without the
+        field-specifier) in a header returns the full string value of that card
+        without parsing it as a RVKC.  Also ensures that a full field-specifier
+        is required to match a RVKC--a partial field-specifier that doesn't
+        explicitly match any record-valued keyword should result in a KeyError.
+        """
+
+        c1 = pyfits.Card.fromstring("FOO     = 'AXIS.1: 2'")
+        c2 = pyfits.Card.fromstring("FOO     = 'AXIS.2: 4'")
+        h = pyfits.Header([c1, c2])
+        assert_equal(h['FOO'], 'AXIS.1: 2')
+        assert_equal(h[('FOO', 1)], 'AXIS.2: 4')
+        assert_equal(h['FOO.AXIS.1'], 2.0)
+        assert_equal(h['FOO.AXIS.2'], 4.0)
+        assert_false('FOO.AXIS' in h)
+        assert_false('FOO.AXIS.' in h)
+        assert_false('FOO.' in h)
+        assert_raises(KeyError, lambda: h['FOO.AXIS'])
+        assert_raises(KeyError, lambda: h['FOO.AXIS.'])
+        assert_raises(KeyError, lambda: h['FOO.'])

@@ -3,8 +3,8 @@ import numpy as np
 
 from pyfits.hdu.base import DELAYED, _ValidHDU, ExtensionHDU
 from pyfits.header import Header
-from pyfits.util import _is_pseudo_unsigned, _unsigned_zero, _is_int, \
-                        _pad_length, _normalize_slice, lazyproperty
+from pyfits.util import (_is_pseudo_unsigned, _unsigned_zero, _is_int,
+                         _pad_length, _normalize_slice, lazyproperty)
 
 class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class.
@@ -147,6 +147,10 @@ class _ImageBaseHDU(_ValidHDU):
         """
 
         raise NotImplementedError
+
+    @property
+    def is_image(self):
+        return True
 
     @property
     def section(self):
@@ -790,7 +794,8 @@ class PrimaryHDU(_ImageBaseHDU):
             data=data, header=header,
             do_not_scale_image_data=do_not_scale_image_data, uint=uint,
             scale_back=scale_back)
-        self.name = 'PRIMARY'
+
+        self._name = 'PRIMARY'
         self._extver = 1
 
         # insert the keywords EXTEND
