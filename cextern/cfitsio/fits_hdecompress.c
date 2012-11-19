@@ -1,75 +1,3 @@
-/* $Id$
-*/
-
-/*****************************************************************************/
-/*                                                                           */
-/* This file, fits_hdecompress.c, contains the code required to uncompress   */
-/* data using the HCOMPRESS_1 compression format.                            */
-/*                                                                           */
-/* Copyright (C) 2004 Association of Universities for Research in Astronomy  */
-/* (AURA)                                                                    */
-/*                                                                           */
-/* Redistribution and use in source and binary forms, with or without        */
-/* modification, are permitted provided that the following conditions are    */
-/* met:                                                                      */
-/*                                                                           */
-/*    1. Redistributions of source code must retain the above copyright      */
-/*      notice, this list of conditions and the following disclaimer.        */
-/*                                                                           */
-/*    2. Redistributions in binary form must reproduce the above             */
-/*      copyright notice, this list of conditions and the following          */
-/*      disclaimer in the documentation and/or other materials provided      */
-/*      with the distribution.                                               */
-/*                                                                           */
-/*    3. The name of AURA and its representatives may not be used to         */
-/*      endorse or promote products derived from this software without       */
-/*      specific prior written permission.                                   */
-/*                                                                           */
-/* THIS SOFTWARE IS PROVIDED BY AURA ``AS IS'' AND ANY EXPRESS OR IMPLIED    */
-/* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF      */
-/* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE                  */
-/* DISCLAIMED. IN NO EVENT SHALL AURA BE LIABLE FOR ANY DIRECT, INDIRECT,    */
-/* INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,      */
-/* BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS     */
-/* OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND    */
-/* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR     */
-/* TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE    */
-/* USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH          */
-/* DAMAGE.                                                                   */
-/*                                                                           */
-/* This file was copied intact from the FITSIO software that was written by  */
-/* William Pence at the High Energy Astrophysic Science Archive Research     */
-/* Center (HEASARC) at the NASA Goddard Space Flight Center.  That software  */
-/* contained the following copyright and warranty notices:                   */
-/*                                                                           */
-/* Copyright (Unpublished--all rights reserved under the copyright laws of   */
-/* the United States), U.S. Government as represented by the Administrator   */
-/* of the National Aeronautics and Space Administration.  No copyright is    */
-/* claimed in the United States under Title 17, U.S. Code.                   */
-/*                                                                           */
-/* Permission to freely use, copy, modify, and distribute this software      */
-/* and its documentation without fee is hereby granted, provided that this   */
-/* copyright notice and disclaimer of warranty appears in all copies.        */
-/*                                                                           */
-/* DISCLAIMER:                                                               */
-/*                                                                           */
-/* THE SOFTWARE IS PROVIDED 'AS IS' WITHOUT ANY WARRANTY OF ANY KIND,        */
-/* EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT LIMITED TO,   */
-/* ANY WARRANTY THAT THE SOFTWARE WILL CONFORM TO SPECIFICATIONS, ANY        */
-/* IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR           */
-/* PURPOSE, AND FREEDOM FROM INFRINGEMENT, AND ANY WARRANTY THAT THE         */
-/* DOCUMENTATION WILL CONFORM TO THE SOFTWARE, OR ANY WARRANTY THAT THE      */
-/* SOFTWARE WILL BE ERROR FREE.  IN NO EVENT SHALL NASA BE LIABLE FOR ANY    */
-/* DAMAGES, INCLUDING, BUT NOT LIMITED TO, DIRECT, INDIRECT, SPECIAL OR      */
-/* CONSEQUENTIAL DAMAGES, ARISING OUT OF, RESULTING FROM, OR IN ANY WAY      */
-/* CONNECTED WITH THIS SOFTWARE, WHETHER OR NOT BASED UPON WARRANTY,         */
-/* CONTRACT, TORT , OR OTHERWISE, WHETHER OR NOT INJURY WAS SUSTAINED BY     */
-/* PERSONS OR PROPERTY OR OTHERWISE, AND WHETHER OR NOT LOSS WAS SUSTAINED   */
-/* FROM, OR AROSE OUT OF THE RESULTS OF, OR USE OF, THE SOFTWARE OR          */
-/* SERVICES PROVIDED HEREUNDER."                                             */
-/*                                                                           */
-/*****************************************************************************/
-
 /*  #########################################################################
 These routines to apply the H-compress decompression algorithm to a 2-D Fits
 image were written by R. White at the STScI and were obtained from the STScI at
@@ -107,7 +35,7 @@ The following modifications have been made to the original code:
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include "fitsio.h"
+#include "fitsio2.h"
 
 /* WDP added test to see if min and max are already defined */
 #ifndef min
@@ -140,7 +68,7 @@ static void start_inputing_bits(void);
 static int input_bit(unsigned char *infile);
 static int input_nbits(unsigned char *infile, int n);
 /*  make input_nybble a separate routine, for added effiency */
-/* #define input_nybble(infile) input_nbits(infile,4) */
+/* #define input_nybble(infile)	input_nbits(infile,4) */
 static int input_nybble(unsigned char *infile);
 static int input_nnybble(unsigned char *infile, int n, unsigned char *array);
 
@@ -153,8 +81,8 @@ static void read_bdirect64(unsigned char *infile, LONGLONG a[], int n, int nqx, 
 static int  input_huffman(unsigned char *infile);
 
 /* ---------------------------------------------------------------------- */
-int _pyfits_fits_hdecompress(unsigned char *input, int smooth, int *a,
-                     int *ny, int *nx, int *scale, int *status)
+int fits_hdecompress(unsigned char *input, int smooth, int *a, int *ny, int *nx, 
+                     int *scale, int *status)
 {
   /* 
      decompress the input byte stream using the H-compress algorithm
@@ -175,7 +103,10 @@ int stat;
 
 	/* decode the input array */
 
+        FFLOCK;  /* decode uses the nextchar global variable */
 	stat = decode(input, a, nx, ny, scale);
+        FFUNLOCK;
+
         *status = stat;
 	if (stat) return(*status);
 	
@@ -193,8 +124,8 @@ int stat;
   return(*status);
 }
 /* ---------------------------------------------------------------------- */
-int _pyfits_fits_hdecompress64(unsigned char *input, int smooth, LONGLONG *a,
-                     int *ny, int *nx, int *scale, int *status)
+int fits_hdecompress64(unsigned char *input, int smooth, LONGLONG *a, int *ny, int *nx, 
+                     int *scale, int *status)
 {
   /* 
      decompress the input byte stream using the H-compress algorithm
@@ -215,7 +146,10 @@ int _pyfits_fits_hdecompress64(unsigned char *input, int smooth, LONGLONG *a,
 
 	/* decode the input array */
 
+        FFLOCK;  /* decode uses the nextchar global variable */
 	stat = decode64(input, a, nx, ny, scale);
+        FFUNLOCK;
+
         *status = stat;
 	if (stat) return(*status);
 	
@@ -283,7 +217,7 @@ int *tmp;
 	 */  
 	tmp = (int *) malloc(((nmax+1)/2)*sizeof(int));
 	if (tmp == (int *) NULL) {
-		_pyfits_ffpmsg("hinv: insufficient memory");
+		ffpmsg("hinv: insufficient memory");
 		return(DATA_DECOMPRESSION_ERR);
 	}
 	/*
@@ -475,7 +409,7 @@ LONGLONG *tmp;
 	 */  
 	tmp = (LONGLONG *) malloc(((nmax+1)/2)*sizeof(LONGLONG));
 	if (tmp == (LONGLONG *) NULL) {
-		_pyfits_ffpmsg("hinv64: insufficient memory");
+		ffpmsg("hinv64: insufficient memory");
 		return(DATA_DECOMPRESSION_ERR);
 	}
 	/*
@@ -1132,7 +1066,7 @@ char tmagic[2];
 	 * check for correct magic code value
 	 */
 	if (memcmp(tmagic,code_magic,sizeof(code_magic)) != 0) {
-		_pyfits_ffpmsg("bad file format");
+		ffpmsg("bad file format");
 		return(DATA_DECOMPRESSION_ERR);
 	}
 	*nx =readint(infile);				/* x size of image			*/
@@ -1180,7 +1114,7 @@ char tmagic[2];
 	 * check for correct magic code value
 	 */
 	if (memcmp(tmagic,code_magic,sizeof(code_magic)) != 0) {
-		_pyfits_ffpmsg("bad file format");
+		ffpmsg("bad file format");
 		return(DATA_DECOMPRESSION_ERR);
 	}
 	*nx =readint(infile);				/* x size of image			*/
@@ -1260,7 +1194,7 @@ int i, nel, nx2, ny2, stat;
 	 * make sure there is an EOF symbol (nybble=0) at end
 	 */
 	if (input_nybble(infile) != 0) {
-		_pyfits_ffpmsg("dodecode: bad bit plane values");
+		ffpmsg("dodecode: bad bit plane values");
 		return(DATA_DECOMPRESSION_ERR);
 	}
 	/*
@@ -1269,11 +1203,11 @@ int i, nel, nx2, ny2, stat;
 	 */
 	start_inputing_bits();
 	for (i=0; i<nel; i++) {
-                if (a[i]) {
-                        /* tried putting the input_bit code in-line here, instead of */
-                        /* calling the function, but it made no difference in the speed */
-                        if (input_bit(infile)) a[i] = -a[i];
-                }
+		if (a[i]) {
+			/* tried putting the input_bit code in-line here, instead of */
+			/* calling the function, but it made no difference in the speed */
+			if (input_bit(infile)) a[i] = -a[i];
+		}
 	}
 	return(0);
 }
@@ -1319,7 +1253,7 @@ int i, nel, nx2, ny2, stat;
 	 * make sure there is an EOF symbol (nybble=0) at end
 	 */
 	if (input_nybble(infile) != 0) {
-		_pyfits_ffpmsg("dodecode64: bad bit plane values");
+		ffpmsg("dodecode64: bad bit plane values");
 		return(DATA_DECOMPRESSION_ERR);
 	}
 	/*
@@ -1328,7 +1262,7 @@ int i, nel, nx2, ny2, stat;
 	 */
 	start_inputing_bits();
 	for (i=0; i<nel; i++) {
-                if (a[i]) {
+		if (a[i]) {
 			if (input_bit(infile) != 0) a[i] = -a[i];
 		}
 	}
@@ -1380,7 +1314,7 @@ unsigned char *scratch;
 	nqy2=(nqy+1)/2;
 	scratch = (unsigned char *) malloc(nqx2*nqy2);
 	if (scratch == (unsigned char *) NULL) {
-		_pyfits_ffpmsg("qtree_decode: insufficient memory");
+		ffpmsg("qtree_decode: insufficient memory");
 		return(DATA_DECOMPRESSION_ERR);
 	}
 	/*
@@ -1399,7 +1333,7 @@ unsigned char *scratch;
 			 */
 			read_bdirect(infile,a,n,nqx,nqy,scratch,bit);
 		} else if (b != 0xf) {
-			_pyfits_ffpmsg("qtree_decode: bad format code");
+			ffpmsg("qtree_decode: bad format code");
 			return(DATA_DECOMPRESSION_ERR);
 		} else {
 			/*
@@ -1470,7 +1404,7 @@ unsigned char *scratch;
 	nqy2=(nqy+1)/2;
 	scratch = (unsigned char *) malloc(nqx2*nqy2);
 	if (scratch == (unsigned char *) NULL) {
-		_pyfits_ffpmsg("qtree_decode64: insufficient memory");
+		ffpmsg("qtree_decode64: insufficient memory");
 		return(DATA_DECOMPRESSION_ERR);
 	}
 	/*
@@ -1489,7 +1423,7 @@ unsigned char *scratch;
 			 */
 			read_bdirect64(infile,a,n,nqx,nqy,scratch,bit);
 		} else if (b != 0xf) {
-			_pyfits_ffpmsg("qtree_decode64: bad format code");
+			ffpmsg("qtree_decode64: bad format code");
 			return(DATA_DECOMPRESSION_ERR);
 		} else {
 			/*
@@ -1547,7 +1481,7 @@ int i;
 	 * now read new 4-bit values into b for each non-zero element
 	 */
 	for (i = nx*ny-1; i >= 0; i--) {
-                if (b[i]) b[i] = input_huffman(infile);
+		if (b[i]) b[i] = input_huffman(infile);
 	}
 }
 
@@ -1570,7 +1504,7 @@ int s00, s10;
 	 */
 	nx2 = (nx+1)/2;
 	ny2 = (ny+1)/2;
-	k = ny2*(nx2-1)+ny2-1;			/* k   is index of a[i,j]			*/
+	k = ny2*(nx2-1)+ny2-1;			/* k   is index of a[i,j]		*/
 	for (i = nx2-1; i >= 0; i--) {
 		s00 = 2*(n*i+ny2-1);		/* s00 is index of b[2*i,2*j]		*/
 		for (j = ny2-1; j >= 0; j--) {
@@ -1586,136 +1520,137 @@ int s00, s10;
 
   /* Note:
      Unlike the case in qtree_bitins, this code runs faster on a 32-bit linux
-     machine using the s10 intermediate variable, rather that using s00+n.
+     machine using the s10 intermediate variable, rather that using s00+n. 
      Go figure!
   */
-		s00 = n*i;					/* s00 is index of b[i,j]	*/
+		s00 = n*i;				/* s00 is index of b[i,j]	*/
 		s10 = s00+n;				/* s10 is index of b[i+1,j]	*/
+
 		for (j = 0; j<ny-1; j += 2) {
 
-                    switch (b[s00]) {
-                    case(0):
-                        b[s10+1] = 0;
-                        b[s10  ] = 0;
-                        b[s00+1] = 0;
-                        b[s00  ] = 0;
+		    switch (b[s00]) {
+		    case(0):
+			b[s10+1] = 0;
+			b[s10  ] = 0;
+			b[s00+1] = 0;
+			b[s00  ] = 0;
 
-                        break;
-                    case(1):
-                        b[s10+1] = 1;
-                        b[s10  ] = 0;
-                        b[s00+1] = 0;
-                        b[s00  ] = 0;
+			break;
+		    case(1):
+			b[s10+1] = 1;
+			b[s10  ] = 0;
+			b[s00+1] = 0;
+			b[s00  ] = 0;
 
-                        break;
-                    case(2):
-                        b[s10+1] = 0;
-                        b[s10  ] = 1;
-                        b[s00+1] = 0;
-                        b[s00  ] = 0;
+			break;
+		    case(2):
+			b[s10+1] = 0;
+			b[s10  ] = 1;
+			b[s00+1] = 0;
+			b[s00  ] = 0;
 
-                        break;
-                    case(3):
-                        b[s10+1] = 1;
-                        b[s10  ] = 1;
-                        b[s00+1] = 0;
-                        b[s00  ] = 0;
+			break;
+		    case(3):
+			b[s10+1] = 1;
+			b[s10  ] = 1;
+			b[s00+1] = 0;
+			b[s00  ] = 0;
 
-                        break;
-                    case(4):
-                        b[s10+1] = 0;
-                        b[s10  ] = 0;
-                        b[s00+1] = 1;
-                        b[s00  ] = 0;
+			break;
+		    case(4):
+			b[s10+1] = 0;
+			b[s10  ] = 0;
+			b[s00+1] = 1;
+			b[s00  ] = 0;
 
-                        break;
-                    case(5):
-                        b[s10+1] = 1;
-                        b[s10  ] = 0;
-                        b[s00+1] = 1;
-                        b[s00  ] = 0;
+			break;
+		    case(5):
+			b[s10+1] = 1;
+			b[s10  ] = 0;
+			b[s00+1] = 1;
+			b[s00  ] = 0;
 
-                        break;
-                    case(6):
-                        b[s10+1] = 0;
-                        b[s10  ] = 1;
-                        b[s00+1] = 1;
-                        b[s00  ] = 0;
+			break;
+		    case(6):
+			b[s10+1] = 0;
+			b[s10  ] = 1;
+			b[s00+1] = 1;
+			b[s00  ] = 0;
 
-                        break;
-                    case(7):
-                        b[s10+1] = 1;
-                        b[s10  ] = 1;
-                        b[s00+1] = 1;
-                        b[s00  ] = 0;
+			break;
+		    case(7):
+			b[s10+1] = 1;
+			b[s10  ] = 1;
+			b[s00+1] = 1;
+			b[s00  ] = 0;
 
-                        break;
-                    case(8):
-                        b[s10+1] = 0;
-                        b[s10  ] = 0;
-                        b[s00+1] = 0;
-                        b[s00  ] = 1;
+			break;
+		    case(8):
+			b[s10+1] = 0;
+			b[s10  ] = 0;
+			b[s00+1] = 0;
+			b[s00  ] = 1;
 
-                        break;
-                    case(9):
-                        b[s10+1] = 1;
-                        b[s10  ] = 0;
-                        b[s00+1] = 0;
-                        b[s00  ] = 1;
-                        break;
-                    case(10):
-                        b[s10+1] = 0;
-                        b[s10  ] = 1;
-                        b[s00+1] = 0;
-                        b[s00  ] = 1;
+			break;
+		    case(9):
+			b[s10+1] = 1;
+			b[s10  ] = 0;
+			b[s00+1] = 0;
+			b[s00  ] = 1;
+			break;
+		    case(10):
+			b[s10+1] = 0;
+			b[s10  ] = 1;
+			b[s00+1] = 0;
+			b[s00  ] = 1;
 
-                        break;
-                    case(11):
-                        b[s10+1] = 1;
-                        b[s10  ] = 1;
-                        b[s00+1] = 0;
-                        b[s00  ] = 1;
+			break;
+		    case(11):
+			b[s10+1] = 1;
+			b[s10  ] = 1;
+			b[s00+1] = 0;
+			b[s00  ] = 1;
 
-                        break;
-                    case(12):
-                        b[s10+1] = 0;
-                        b[s10  ] = 0;
-                        b[s00+1] = 1;
-                        b[s00  ] = 1;
+			break;
+		    case(12):
+			b[s10+1] = 0;
+			b[s10  ] = 0;
+			b[s00+1] = 1;
+			b[s00  ] = 1;
 
-                        break;
-                    case(13):
-                        b[s10+1] = 1;
-                        b[s10  ] = 0;
-                        b[s00+1] = 1;
-                        b[s00  ] = 1;
+			break;
+		    case(13):
+			b[s10+1] = 1;
+			b[s10  ] = 0;
+			b[s00+1] = 1;
+			b[s00  ] = 1;
 
-                        break;
-                    case(14):
-                        b[s10+1] = 0;
-                        b[s10  ] = 1;
-                        b[s00+1] = 1;
-                        b[s00  ] = 1;
+			break;
+		    case(14):
+			b[s10+1] = 0;
+			b[s10  ] = 1;
+			b[s00+1] = 1;
+			b[s00  ] = 1;
 
-                        break;
-                    case(15):
-                        b[s10+1] = 1;
-                        b[s10  ] = 1;
-                        b[s00+1] = 1;
-                        b[s00  ] = 1;
+			break;
+		    case(15):
+			b[s10+1] = 1;
+			b[s10  ] = 1;
+			b[s00+1] = 1;
+			b[s00  ] = 1;
 
-                        break;
-                    }
+			break;
+		    }
 /*
-                        b[s10+1] =  b[s00]     & 1;
-                        b[s10  ] = (b[s00]>>1) & 1;
-                        b[s00+1] = (b[s00]>>2) & 1;
-                        b[s00  ] = (b[s00]>>3) & 1;
+			b[s10+1] =  b[s00]     & 1;
+			b[s10  ] = (b[s00]>>1) & 1;
+			b[s00+1] = (b[s00]>>2) & 1;
+			b[s00  ] = (b[s00]>>3) & 1;
 */
 
-                        s00 += 2;
-                        s10 += 2;
-                }
+			s00 += 2;
+			s10 += 2;
+		}
 
 		if (j < ny) {
 			/*
@@ -1767,163 +1702,163 @@ int i, j, k;
 int s00;
 int plane_val;
 
-        plane_val = 1 << bit;
-
+	plane_val = 1 << bit;
+	
 	/*
 	 * expand each 2x2 block
 	 */
-        k = 0;                                          /* k   is index of a[i/2,j/2]   */
+	k = 0;						/* k   is index of a[i/2,j/2]	*/
 	for (i = 0; i<nx-1; i += 2) {
-                s00 = n*i;                              /* s00 is index of b[i,j]       */
+		s00 = n*i;				/* s00 is index of b[i,j]	*/
 
   /* Note:
      this code appears to run very slightly faster on a 32-bit linux
      machine using s00+n rather than the s10 intermediate variable
   */
-  /*            s10 = s00+n;    */                      /* s10 is index of b[i+1,j]     */
+  /*		s10 = s00+n;	*/			/* s10 is index of b[i+1,j]	*/
 		for (j = 0; j<ny-1; j += 2) {
 
-                    switch (a[k]) {
-                    case(0):
-                        break;
-                    case(1):
-                        b[s00+n+1] |= plane_val;
-                        break;
-                    case(2):
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(3):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(4):
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(5):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(6):
-                        b[s00+n  ] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(7):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+n  ] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(8):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(9):
-                        b[s00+n+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(10):
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(11):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(12):
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(13):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(14):
-                        b[s00+n  ] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(15):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+n  ] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    }
+		    switch (a[k]) {
+		    case(0):
+			break;
+		    case(1):
+			b[s00+n+1] |= plane_val;
+			break;
+		    case(2):
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(3):
+			b[s00+n+1] |= plane_val;
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(4):
+			b[s00+1] |= plane_val;
+			break;
+		    case(5):
+			b[s00+n+1] |= plane_val;
+			b[s00+1] |= plane_val;
+			break;
+		    case(6):
+			b[s00+n  ] |= plane_val;
+			b[s00+1] |= plane_val;
+			break;
+		    case(7):
+			b[s00+n+1] |= plane_val;
+			b[s00+n  ] |= plane_val;
+			b[s00+1] |= plane_val;
+			break;
+		    case(8):
+			b[s00  ] |= plane_val;
+			break;
+		    case(9):
+			b[s00+n+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(10):
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(11):
+			b[s00+n+1] |= plane_val;
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(12):
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(13):
+			b[s00+n+1] |= plane_val;
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(14):
+			b[s00+n  ] |= plane_val;
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(15):
+			b[s00+n+1] |= plane_val;
+			b[s00+n  ] |= plane_val;
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    }
 
 /*
-                        b[s10+1] |= ( a[k]     & 1) << bit;
-                        b[s10  ] |= ((a[k]>>1) & 1) << bit;
-                        b[s00+1] |= ((a[k]>>2) & 1) << bit;
-                        b[s00  ] |= ((a[k]>>3) & 1) << bit;
+			b[s10+1] |= ( a[k]     & 1) << bit;
+			b[s10  ] |= ((a[k]>>1) & 1) << bit;
+			b[s00+1] |= ((a[k]>>2) & 1) << bit;
+			b[s00  ] |= ((a[k]>>3) & 1) << bit;
 */
-                        s00 += 2;
-/*                      s10 += 2; */
-                        k += 1;
-                }
+			s00 += 2;
+/*			s10 += 2; */
+			k += 1;
+		}
 		if (j < ny) {
 			/*
 			 * row size is odd, do last element in row
 			 * s00+1, s10+1 are off edge
 			 */
 
-                    switch (a[k]) {
-                    case(0):
-                        break;
-                    case(1):
-                        break;
-                    case(2):
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(3):
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(4):
-                        break;
-                    case(5):
-                        break;
-                    case(6):
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(7):
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(8):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(9):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(10):
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(11):
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(12):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(13):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(14):
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(15):
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    }
+		    switch (a[k]) {
+		    case(0):
+			break;
+		    case(1):
+			break;
+		    case(2):
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(3):
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(4):
+			break;
+		    case(5):
+			break;
+		    case(6):
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(7):
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(8):
+			b[s00  ] |= plane_val;
+			break;
+		    case(9):
+			b[s00  ] |= plane_val;
+			break;
+		    case(10):
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(11):
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(12):
+			b[s00  ] |= plane_val;
+			break;
+		    case(13):
+			b[s00  ] |= plane_val;
+			break;
+		    case(14):
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(15):
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    }
 
 /*
-                        b[s10  ] |= ((a[k]>>1) & 1) << bit;
-                        b[s00  ] |= ((a[k]>>3) & 1) << bit;
+			b[s10  ] |= ((a[k]>>1) & 1) << bit;
+			b[s00  ] |= ((a[k]>>3) & 1) << bit;
 */
-                        k += 1;
-                }
-        }
+			k += 1;
+		}
+	}
 	if (i < nx) {
 		/*
 		 * column size is odd, do last row
@@ -1932,118 +1867,118 @@ int plane_val;
 		s00 = n*i;
 		for (j = 0; j<ny-1; j += 2) {
 
-                    switch (a[k]) {
-                    case(0):
-                        break;
-                    case(1):
-                        break;
-                    case(2):
-                        break;
-                    case(3):
-                        break;
-                    case(4):
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(5):
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(6):
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(7):
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(8):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(9):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(10):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(11):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(12):
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(13):
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(14):
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(15):
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    }
+		    switch (a[k]) {
+		    case(0):
+			break;
+		    case(1):
+			break;
+		    case(2):
+			break;
+		    case(3):
+			break;
+		    case(4):
+			b[s00+1] |= plane_val;
+			break;
+		    case(5):
+			b[s00+1] |= plane_val;
+			break;
+		    case(6):
+			b[s00+1] |= plane_val;
+			break;
+		    case(7):
+			b[s00+1] |= plane_val;
+			break;
+		    case(8):
+			b[s00  ] |= plane_val;
+			break;
+		    case(9):
+			b[s00  ] |= plane_val;
+			break;
+		    case(10):
+			b[s00  ] |= plane_val;
+			break;
+		    case(11):
+			b[s00  ] |= plane_val;
+			break;
+		    case(12):
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(13):
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(14):
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(15):
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    }
 
 /*
-                        b[s00+1] |= ((a[k]>>2) & 1) << bit;
-                        b[s00  ] |= ((a[k]>>3) & 1) << bit;
+			b[s00+1] |= ((a[k]>>2) & 1) << bit;
+			b[s00  ] |= ((a[k]>>3) & 1) << bit;
 */
 
-                        s00 += 2;
-                        k += 1;
-                }
+			s00 += 2;
+			k += 1;
+		}
 		if (j < ny) {
 			/*
 			 * both row and column size are odd, do corner element
 			 * s00+1, s10, s10+1 are off edge
 			 */
 
-                    switch (a[k]) {
-                    case(0):
-                        break;
-                    case(1):
-                        break;
-                    case(2):
-                        break;
-                    case(3):
-                        break;
-                    case(4):
-                        break;
-                    case(5):
-                        break;
-                    case(6):
-                        break;
-                    case(7):
-                        break;
-                    case(8):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(9):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(10):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(11):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(12):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(13):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(14):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(15):
-                        b[s00  ] |= plane_val;
-                        break;
-                    }
+		    switch (a[k]) {
+		    case(0):
+			break;
+		    case(1):
+			break;
+		    case(2):
+			break;
+		    case(3):
+			break;
+		    case(4):
+			break;
+		    case(5):
+			break;
+		    case(6):
+			break;
+		    case(7):
+			break;
+		    case(8):
+			b[s00  ] |= plane_val;
+			break;
+		    case(9):
+			b[s00  ] |= plane_val;
+			break;
+		    case(10):
+			b[s00  ] |= plane_val;
+			break;
+		    case(11):
+			b[s00  ] |= plane_val;
+			break;
+		    case(12):
+			b[s00  ] |= plane_val;
+			break;
+		    case(13):
+			b[s00  ] |= plane_val;
+			break;
+		    case(14):
+			b[s00  ] |= plane_val;
+			break;
+		    case(15):
+			b[s00  ] |= plane_val;
+			break;
+		    }
 
 /*
-                        b[s00  ] |= ((a[k]>>3) & 1) << bit;
+			b[s00  ] |= ((a[k]>>3) & 1) << bit;
 */
-                        k += 1;
+			k += 1;
 		}
 	}
 }
@@ -2064,7 +1999,7 @@ int i, j, k;
 int s00;
 int plane_val;
 
-        plane_val = 1 << bit;
+	plane_val = 1 << bit;
 
 	/*
 	 * expand each 2x2 block
@@ -2077,149 +2012,149 @@ int plane_val;
      this code appears to run very slightly faster on a 32-bit linux
      machine using s00+n rather than the s10 intermediate variable
   */
-  /*            s10 = s00+n;    */                      /* s10 is index of b[i+1,j]     */
+  /*		s10 = s00+n;	*/			/* s10 is index of b[i+1,j]	*/
 		for (j = 0; j<ny-1; j += 2) {
 
-                    switch (a[k]) {
-                    case(0):
-                        break;
-                    case(1):
-                        b[s00+n+1] |= plane_val;
-                        break;
-                    case(2):
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(3):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(4):
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(5):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(6):
-                        b[s00+n  ] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(7):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+n  ] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(8):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(9):
-                        b[s00+n+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(10):
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(11):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(12):
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(13):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(14):
-                        b[s00+n  ] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(15):
-                        b[s00+n+1] |= plane_val;
-                        b[s00+n  ] |= plane_val;
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    }
+		    switch (a[k]) {
+		    case(0):
+			break;
+		    case(1):
+			b[s00+n+1] |= plane_val;
+			break;
+		    case(2):
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(3):
+			b[s00+n+1] |= plane_val;
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(4):
+			b[s00+1] |= plane_val;
+			break;
+		    case(5):
+			b[s00+n+1] |= plane_val;
+			b[s00+1] |= plane_val;
+			break;
+		    case(6):
+			b[s00+n  ] |= plane_val;
+			b[s00+1] |= plane_val;
+			break;
+		    case(7):
+			b[s00+n+1] |= plane_val;
+			b[s00+n  ] |= plane_val;
+			b[s00+1] |= plane_val;
+			break;
+		    case(8):
+			b[s00  ] |= plane_val;
+			break;
+		    case(9):
+			b[s00+n+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(10):
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(11):
+			b[s00+n+1] |= plane_val;
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(12):
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(13):
+			b[s00+n+1] |= plane_val;
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(14):
+			b[s00+n  ] |= plane_val;
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(15):
+			b[s00+n+1] |= plane_val;
+			b[s00+n  ] |= plane_val;
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    }
 
 /*
-                        b[s10+1] |= ((LONGLONG) ( a[k]     & 1)) << bit;
-                        b[s10  ] |= ((((LONGLONG)a[k])>>1) & 1) << bit;
-                        b[s00+1] |= ((((LONGLONG)a[k])>>2) & 1) << bit;
-                        b[s00  ] |= ((((LONGLONG)a[k])>>3) & 1) << bit;
+			b[s10+1] |= ((LONGLONG) ( a[k]     & 1)) << bit;
+			b[s10  ] |= ((((LONGLONG)a[k])>>1) & 1) << bit;
+			b[s00+1] |= ((((LONGLONG)a[k])>>2) & 1) << bit;
+			b[s00  ] |= ((((LONGLONG)a[k])>>3) & 1) << bit;
 */
-                        s00 += 2;
-/*                      s10 += 2;  */
-                        k += 1;
-                }
+			s00 += 2;
+/*			s10 += 2;  */
+			k += 1;
+		}
 		if (j < ny) {
 			/*
 			 * row size is odd, do last element in row
 			 * s00+1, s10+1 are off edge
 			 */
 
-                    switch (a[k]) {
-                    case(0):
-                        break;
-                    case(1):
-                        break;
-                    case(2):
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(3):
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(4):
-                        break;
-                    case(5):
-                        break;
-                    case(6):
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(7):
-                        b[s00+n  ] |= plane_val;
-                        break;
-                    case(8):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(9):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(10):
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(11):
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(12):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(13):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(14):
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(15):
-                        b[s00+n  ] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    }
+		    switch (a[k]) {
+		    case(0):
+			break;
+		    case(1):
+			break;
+		    case(2):
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(3):
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(4):
+			break;
+		    case(5):
+			break;
+		    case(6):
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(7):
+			b[s00+n  ] |= plane_val;
+			break;
+		    case(8):
+			b[s00  ] |= plane_val;
+			break;
+		    case(9):
+			b[s00  ] |= plane_val;
+			break;
+		    case(10):
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(11):
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(12):
+			b[s00  ] |= plane_val;
+			break;
+		    case(13):
+			b[s00  ] |= plane_val;
+			break;
+		    case(14):
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(15):
+			b[s00+n  ] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    }
 /*
-                        b[s10  ] |= ((((LONGLONG)a[k])>>1) & 1) << bit;
-                        b[s00  ] |= ((((LONGLONG)a[k])>>3) & 1) << bit;
+			b[s10  ] |= ((((LONGLONG)a[k])>>1) & 1) << bit;
+			b[s00  ] |= ((((LONGLONG)a[k])>>3) & 1) << bit;
 */
-                        k += 1;
-                }
-        }
+			k += 1;
+		}
+	}
 	if (i < nx) {
 		/*
 		 * column size is odd, do last row
@@ -2228,136 +2163,135 @@ int plane_val;
 		s00 = n*i;
 		for (j = 0; j<ny-1; j += 2) {
 
-                    switch (a[k]) {
-                    case(0):
-                        break;
-                    case(1):
-                        break;
-                    case(2):
-                        break;
-                    case(3):
-                        break;
-                    case(4):
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(5):
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(6):
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(7):
-                        b[s00+1] |= plane_val;
-                        break;
-                    case(8):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(9):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(10):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(11):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(12):
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(13):
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(14):
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(15):
-                        b[s00+1] |= plane_val;
-                        b[s00  ] |= plane_val;
-                        break;
-                    }
+		    switch (a[k]) {
+		    case(0):
+			break;
+		    case(1):
+			break;
+		    case(2):
+			break;
+		    case(3):
+			break;
+		    case(4):
+			b[s00+1] |= plane_val;
+			break;
+		    case(5):
+			b[s00+1] |= plane_val;
+			break;
+		    case(6):
+			b[s00+1] |= plane_val;
+			break;
+		    case(7):
+			b[s00+1] |= plane_val;
+			break;
+		    case(8):
+			b[s00  ] |= plane_val;
+			break;
+		    case(9):
+			b[s00  ] |= plane_val;
+			break;
+		    case(10):
+			b[s00  ] |= plane_val;
+			break;
+		    case(11):
+			b[s00  ] |= plane_val;
+			break;
+		    case(12):
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(13):
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(14):
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    case(15):
+			b[s00+1] |= plane_val;
+			b[s00  ] |= plane_val;
+			break;
+		    }
 
 /*
-                        b[s00+1] |= ((((LONGLONG)a[k])>>2) & 1) << bit;
-                        b[s00  ] |= ((((LONGLONG)a[k])>>3) & 1) << bit;
+			b[s00+1] |= ((((LONGLONG)a[k])>>2) & 1) << bit;
+			b[s00  ] |= ((((LONGLONG)a[k])>>3) & 1) << bit;
 */
-                        s00 += 2;
-                        k += 1;
-                }
+			s00 += 2;
+			k += 1;
+		}
 		if (j < ny) {
 			/*
 			 * both row and column size are odd, do corner element
 			 * s00+1, s10, s10+1 are off edge
 			 */
 
-                    switch (a[k]) {
-                    case(0):
-                        break;
-                    case(1):
-                        break;
-                    case(2):
-                        break;
-                    case(3):
-                        break;
-                    case(4):
-                        break;
-                    case(5):
-                        break;
-                    case(6):
-                        break;
-                    case(7):
-                        break;
-                    case(8):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(9):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(10):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(11):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(12):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(13):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(14):
-                        b[s00  ] |= plane_val;
-                        break;
-                    case(15):
-                        b[s00  ] |= plane_val;
-                        break;
-                    }
+		    switch (a[k]) {
+		    case(0):
+			break;
+		    case(1):
+			break;
+		    case(2):
+			break;
+		    case(3):
+			break;
+		    case(4):
+			break;
+		    case(5):
+			break;
+		    case(6):
+			break;
+		    case(7):
+			break;
+		    case(8):
+			b[s00  ] |= plane_val;
+			break;
+		    case(9):
+			b[s00  ] |= plane_val;
+			break;
+		    case(10):
+			b[s00  ] |= plane_val;
+			break;
+		    case(11):
+			b[s00  ] |= plane_val;
+			break;
+		    case(12):
+			b[s00  ] |= plane_val;
+			break;
+		    case(13):
+			b[s00  ] |= plane_val;
+			break;
+		    case(14):
+			b[s00  ] |= plane_val;
+			break;
+		    case(15):
+			b[s00  ] |= plane_val;
+			break;
+		    }
 /*
-                        b[s00  ] |= ((((LONGLONG)a[k])>>3) & 1) << bit;
+			b[s00  ] |= ((((LONGLONG)a[k])>>3) & 1) << bit;
 */
-                        k += 1;
-                }
-        }
+			k += 1;
+		}
+	}
 }
 
 /*  ############################################################################  */
 static void
 read_bdirect(unsigned char *infile, int a[], int n, int nqx, int nqy, unsigned char scratch[], int bit)
 {
-/*int i; */
-
 	/*
 	 * read bit image packed 4 pixels/nybble
 	 */
 /*
-        for (i = 0; i < ((nqx+1)/2) * ((nqy+1)/2); i++) {
-                scratch[i] = input_nybble(infile);
-        }
+int i;
+	for (i = 0; i < ((nqx+1)/2) * ((nqy+1)/2); i++) {
+		scratch[i] = input_nybble(infile);
+	}
 */
         input_nnybble(infile, ((nqx+1)/2) * ((nqy+1)/2), scratch);
-
+	
 	/*
 	 * insert in bitplane BIT of image A
 	 */
@@ -2367,15 +2301,14 @@ read_bdirect(unsigned char *infile, int a[], int n, int nqx, int nqy, unsigned c
 static void
 read_bdirect64(unsigned char *infile, LONGLONG a[], int n, int nqx, int nqy, unsigned char scratch[], int bit)
 {
-/*int i; */
-
 	/*
 	 * read bit image packed 4 pixels/nybble
 	 */
 /*
-        for (i = 0; i < ((nqx+1)/2) * ((nqy+1)/2); i++) {
-                scratch[i] = input_nybble(infile);
-        }
+int i;
+	for (i = 0; i < ((nqx+1)/2) * ((nqy+1)/2); i++) {
+		scratch[i] = input_nybble(infile);
+	}
 */
         input_nnybble(infile, ((nqx+1)/2) * ((nqy+1)/2), scratch);
 
@@ -2479,10 +2412,10 @@ unsigned char b[4];
 	 *
 	 * This is portable from Vax to Sun since it eliminates the
 	 * need for byte-swapping.
-         *
+	 *
          *  This routine is only called to read the first 3 values
-         *  in the compressed file, so it doesn't have to be
-         *  super-efficient
+	 *  in the compressed file, so it doesn't have to be 
+	 *  super-efficient
 	 */
 	for (i=0; i<4; i++) qread(infile,(char *) &b[i],1);
 	a = b[0];
@@ -2501,10 +2434,10 @@ unsigned char b[8];
 	 *
 	 * This is portable from Vax to Sun since it eliminates the
 	 * need for byte-swapping.
-         *
+	 *
          *  This routine is only called to read the first 3 values
-         *  in the compressed file, so it doesn't have to be
-         *  super-efficient
+	 *  in the compressed file, so it doesn't have to be 
+	 *  super-efficient
 	 */
 	for (i=0; i<8; i++) qread(infile,(char *) &b[i],1);
 	a = b[0];
@@ -2513,7 +2446,7 @@ unsigned char b[8];
 }
 
 /*  ############################################################################  */
-static void qread(unsigned char *file,char buffer[], int n)
+static void qread(unsigned char *file, char buffer[], int n)
 {
     /*
      * read n bytes from file into buffer
@@ -2581,9 +2514,9 @@ static int input_nbits(unsigned char *infile, int n)
 		 * need another byte's worth of bits
 		 */
 
-                buffer2 = (buffer2<<8) | (int) infile[nextchar];
-                nextchar++;
-                bits_to_go += 8;
+		buffer2 = (buffer2<<8) | (int) infile[nextchar];
+		nextchar++;
+		bits_to_go += 8;
 	}
 	/*
 	 * now pick off the first n bits
@@ -2591,95 +2524,95 @@ static int input_nbits(unsigned char *infile, int n)
 	bits_to_go -= n;
 
         /* there was a slight gain in speed by replacing the following line */
-/*      return( (buffer2>>bits_to_go) & ((1<<n)-1) ); */
-        return( (buffer2>>bits_to_go) & (*(mask+n)) );
+/*	return( (buffer2>>bits_to_go) & ((1<<n)-1) ); */
+	return( (buffer2>>bits_to_go) & (*(mask+n)) ); 
 }
 /*  ############################################################################  */
 /* INPUT 4 BITS  */
 
 static int input_nybble(unsigned char *infile)
 {
-        if (bits_to_go < 4) {
-                /*
-                 * need another byte's worth of bits
-                 */
+	if (bits_to_go < 4) {
+		/*
+		 * need another byte's worth of bits
+		 */
 
-                buffer2 = (buffer2<<8) | (int) infile[nextchar];
-                nextchar++;
-                bits_to_go += 8;
-        }
-        /*
-         * now pick off the first 4 bits
-         */
-        bits_to_go -= 4;
+		buffer2 = (buffer2<<8) | (int) infile[nextchar];
+		nextchar++;
+		bits_to_go += 8;
+	}
+	/*
+	 * now pick off the first 4 bits
+	 */
+	bits_to_go -= 4;
 
-        return( (buffer2>>bits_to_go) & 15 );
+	return( (buffer2>>bits_to_go) & 15 ); 
 }
 /*  ############################################################################  */
 /* INPUT array of 4 BITS  */
 
 static int input_nnybble(unsigned char *infile, int n, unsigned char array[])
 {
-        /* copy n 4-bit nybbles from infile to the lower 4 bits of array */
+	/* copy n 4-bit nybbles from infile to the lower 4 bits of array */
 
 int ii, kk, shift1, shift2;
 
 /*  forcing byte alignment doesn;t help, and even makes it go slightly slower
 if (bits_to_go != 8) input_nbits(infile, bits_to_go);
 */
-        if (n == 1) {
-                array[0] = input_nybble(infile);
-                return(0);
-        }
+	if (n == 1) {
+		array[0] = input_nybble(infile);
+		return(0);
+	}
+	
+	if (bits_to_go == 8) {
+		/*
+		   already have 2 full nybbles in buffer2, so 
+		   backspace the infile array to reuse last char
+		*/
+		nextchar--;
+		bits_to_go = 0;
+	}
+	
+	/* bits_to_go now has a value in the range 0 - 7.  After adding  */
+	/* another byte, bits_to_go effectively will be in range 8 - 15 */	
 
-        if (bits_to_go == 8) {
-                /*
-                   already have 2 full nybbles in buffer2, so
-                   backspace the infile array to reuse last char
-                */
-                nextchar--;
-                bits_to_go = 0;
-        }
+	shift1 = bits_to_go + 4;   /* shift1 will be in range 4 - 11 */
+	shift2 = bits_to_go;	   /* shift2 will be in range 0 -  7 */
+	kk = 0;
 
-        /* bits_to_go now has a value in the range 0 - 7.  After adding  */
-        /* another byte, bits_to_go effectively will be in range 8 - 15 */
-
-        shift1 = bits_to_go + 4;   /* shift1 will be in range 4 - 11 */
-        shift2 = bits_to_go;       /* shift2 will be in range 0 -  7 */
-        kk = 0;
-
-        /* special case */
-        if (bits_to_go == 0)
-        {
-            for (ii = 0; ii < n/2; ii++) {
-                /*
-                 * refill the buffer with next byte
-                 */
-                buffer2 = (buffer2<<8) | (int) infile[nextchar];
-                nextchar++;
-                array[kk]     = (int) ((buffer2>>4) & 15);
-                array[kk + 1] = (int) ((buffer2) & 15);    /* no shift required */
-                kk += 2;
-            }
-        }
-        else
-        {
-            for (ii = 0; ii < n/2; ii++) {
-                /*
-                 * refill the buffer with next byte
-                 */
-                buffer2 = (buffer2<<8) | (int) infile[nextchar];
-                nextchar++;
-                array[kk]     = (int) ((buffer2>>shift1) & 15);
-                array[kk + 1] = (int) ((buffer2>>shift2) & 15);
-                kk += 2;
-            }
-        }
+	/* special case */
+	if (bits_to_go == 0) 
+	{
+	    for (ii = 0; ii < n/2; ii++) {
+		/*
+		 * refill the buffer with next byte
+		 */
+		buffer2 = (buffer2<<8) | (int) infile[nextchar];
+		nextchar++;
+		array[kk]     = (int) ((buffer2>>4) & 15);
+		array[kk + 1] = (int) ((buffer2) & 15);    /* no shift required */
+		kk += 2;
+	    }
+	}
+	else
+	{
+	    for (ii = 0; ii < n/2; ii++) {
+		/*
+		 * refill the buffer with next byte
+		 */
+		buffer2 = (buffer2<<8) | (int) infile[nextchar];
+		nextchar++;
+		array[kk]     = (int) ((buffer2>>shift1) & 15);
+		array[kk + 1] = (int) ((buffer2>>shift2) & 15);
+		kk += 2;
+	    }
+	}
 
 
-        if (ii * 2 != n) {  /* have to read last odd byte */
-                array[n-1] = input_nybble(infile);
-        }
+	if (ii * 2 != n) {  /* have to read last odd byte */
+		array[n-1] = input_nybble(infile);
+	}
 
-        return( (buffer2>>bits_to_go) & 15 );
+	return( (buffer2>>bits_to_go) & 15 ); 
 }

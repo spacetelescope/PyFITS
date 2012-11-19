@@ -1,75 +1,3 @@
-/* $Id$
-*/
-
-/*****************************************************************************/
-/*                                                                           */
-/* This file, fits_hcompress.c, contains the code required to compress       */
-/* data using the HCOMPRESS_1 compression format.                            */
-/*                                                                           */
-/* Copyright (C) 2004 Association of Universities for Research in Astronomy  */
-/* (AURA)                                                                    */
-/*                                                                           */
-/* Redistribution and use in source and binary forms, with or without        */
-/* modification, are permitted provided that the following conditions are    */
-/* met:                                                                      */
-/*                                                                           */
-/*    1. Redistributions of source code must retain the above copyright      */
-/*      notice, this list of conditions and the following disclaimer.        */
-/*                                                                           */
-/*    2. Redistributions in binary form must reproduce the above             */
-/*      copyright notice, this list of conditions and the following          */
-/*      disclaimer in the documentation and/or other materials provided      */
-/*      with the distribution.                                               */
-/*                                                                           */
-/*    3. The name of AURA and its representatives may not be used to         */
-/*      endorse or promote products derived from this software without       */
-/*      specific prior written permission.                                   */
-/*                                                                           */
-/* THIS SOFTWARE IS PROVIDED BY AURA ``AS IS'' AND ANY EXPRESS OR IMPLIED    */
-/* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF      */
-/* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE                  */
-/* DISCLAIMED. IN NO EVENT SHALL AURA BE LIABLE FOR ANY DIRECT, INDIRECT,    */
-/* INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,      */
-/* BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS     */
-/* OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND    */
-/* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR     */
-/* TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE    */
-/* USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH          */
-/* DAMAGE.                                                                   */
-/*                                                                           */
-/* This file was copied intact from the FITSIO software that was written by  */
-/* William Pence at the High Energy Astrophysic Science Archive Research     */
-/* Center (HEASARC) at the NASA Goddard Space Flight Center.  That software  */
-/* contained the following copyright and warranty notices:                   */
-/*                                                                           */
-/* Copyright (Unpublished--all rights reserved under the copyright laws of   */
-/* the United States), U.S. Government as represented by the Administrator   */
-/* of the National Aeronautics and Space Administration.  No copyright is    */
-/* claimed in the United States under Title 17, U.S. Code.                   */
-/*                                                                           */
-/* Permission to freely use, copy, modify, and distribute this software      */
-/* and its documentation without fee is hereby granted, provided that this   */
-/* copyright notice and disclaimer of warranty appears in all copies.        */
-/*                                                                           */
-/* DISCLAIMER:                                                               */
-/*                                                                           */
-/* THE SOFTWARE IS PROVIDED 'AS IS' WITHOUT ANY WARRANTY OF ANY KIND,        */
-/* EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT LIMITED TO,   */
-/* ANY WARRANTY THAT THE SOFTWARE WILL CONFORM TO SPECIFICATIONS, ANY        */
-/* IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR           */
-/* PURPOSE, AND FREEDOM FROM INFRINGEMENT, AND ANY WARRANTY THAT THE         */
-/* DOCUMENTATION WILL CONFORM TO THE SOFTWARE, OR ANY WARRANTY THAT THE      */
-/* SOFTWARE WILL BE ERROR FREE.  IN NO EVENT SHALL NASA BE LIABLE FOR ANY    */
-/* DAMAGES, INCLUDING, BUT NOT LIMITED TO, DIRECT, INDIRECT, SPECIAL OR      */
-/* CONSEQUENTIAL DAMAGES, ARISING OUT OF, RESULTING FROM, OR IN ANY WAY      */
-/* CONNECTED WITH THIS SOFTWARE, WHETHER OR NOT BASED UPON WARRANTY,         */
-/* CONTRACT, TORT , OR OTHERWISE, WHETHER OR NOT INJURY WAS SUSTAINED BY     */
-/* PERSONS OR PROPERTY OR OTHERWISE, AND WHETHER OR NOT LOSS WAS SUSTAINED   */
-/* FROM, OR AROSE OUT OF THE RESULTS OF, OR USE OF, THE SOFTWARE OR          */
-/* SERVICES PROVIDED HEREUNDER."                                             */
-/*                                                                           */
-/*****************************************************************************/
-
 /*  #########################################################################
 These routines to apply the H-compress compression algorithm to a 2-D Fits
 image were written by R. White at the STScI and were obtained from the STScI at
@@ -106,7 +34,7 @@ The following modifications have been made to the original code:
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
-#include "fitsio.h"
+#include "fitsio2.h"
 
 static long noutchar;
 static long noutmax;
@@ -140,15 +68,15 @@ static int  bufcopy(unsigned char a[], int n, unsigned char buffer[], int *b, in
 static void write_bdirect(char *outfile, int a[], int n,int nqx, int nqy, unsigned char scratch[], int bit);
 static void write_bdirect64(char *outfile, LONGLONG a[], int n,int nqx, int nqy, unsigned char scratch[], int bit);
 
-/* #define output_nybble(outfile,c)     output_nbits(outfile,c,4) */
+/* #define output_nybble(outfile,c)	output_nbits(outfile,c,4) */
 static void output_nybble(char *outfile, int bits);
 static void output_nnybble(char *outfile, int n, unsigned char array[]);
 
 #define output_huffman(outfile,c)	output_nbits(outfile,code[c],ncode[c])
 
 /* ---------------------------------------------------------------------- */
-int _pyfits_fits_hcompress(int *a, int ny, int nx, int scale, char *output, 
-                           long *nbytes, int *status)
+int fits_hcompress(int *a, int ny, int nx, int scale, char *output, 
+                  long *nbytes, int *status)
 {
   /* 
      compress the input image using the H-compress algorithm
@@ -184,17 +112,19 @@ int _pyfits_fits_hcompress(int *a, int ny, int nx, int scale, char *output,
 
   /* encode and write to output array */
 
+  FFLOCK;
   noutmax = *nbytes;  /* input value is the allocated size of the array */
   *nbytes = 0;  /* reset */
 
   stat = encode(output, nbytes, a, nx, ny, scale);
-
+  FFUNLOCK;
+  
   *status = stat;
   return(*status);
 }
 /* ---------------------------------------------------------------------- */
-int _pyfits_fits_hcompress64(LONGLONG *a, int ny, int nx, int scale,
-                  char *output, long *nbytes, int *status)
+int fits_hcompress64(LONGLONG *a, int ny, int nx, int scale, char *output, 
+                  long *nbytes, int *status)
 {
   /* 
      compress the input image using the H-compress algorithm
@@ -228,10 +158,13 @@ int _pyfits_fits_hcompress64(LONGLONG *a, int ny, int nx, int scale,
   digitize64(a, nx, ny, scale);
 
   /* encode and write to output array */
+
+  FFLOCK;
   noutmax = *nbytes;  /* input value is the allocated size of the array */
   *nbytes = 0;  /* reset */
 
   stat = encode64(output, nbytes, a, nx, ny, scale);
+  FFUNLOCK;
 
   *status = stat;
   return(*status);
@@ -269,7 +202,7 @@ int *tmp;
 	 */
 	tmp = (int *) malloc(((nmax+1)/2)*sizeof(int));
 	if(tmp == (int *) NULL) {
-	        _pyfits_ffpmsg("htrans: insufficient memory");
+	        ffpmsg("htrans: insufficient memory");
 		return(DATA_COMPRESSION_ERR);
 	}
 	/*
@@ -405,7 +338,7 @@ LONGLONG *tmp;
 	 */
 	tmp = (LONGLONG *) malloc(((nmax+1)/2)*sizeof(LONGLONG));
 	if(tmp == (LONGLONG *) NULL) {
-	        _pyfits_ffpmsg("htrans64: insufficient memory");
+	        ffpmsg("htrans64: insufficient memory");
 		return(DATA_COMPRESSION_ERR);
 	}
 	/*
@@ -699,7 +632,7 @@ int stat;
 	 */
 	signbits = (unsigned char *) malloc((nel+7)/8);
 	if (signbits == (unsigned char *) NULL) {
-		_pyfits_ffpmsg("encode: insufficient memory");
+		ffpmsg("encode: insufficient memory");
 		return(DATA_COMPRESSION_ERR);
 	}
 	nsign = 0;
@@ -769,20 +702,20 @@ int stat;
 	 */
 
         /* this is a more efficient way to do this, */
-
-
+ 
+ 
         for (q = 0; q < 3; q++) {
-            for (nbitplanes[q] = 0; vmax[q]>0; vmax[q] = vmax[q]>>1, nbitplanes[q]++) ;
+            for (nbitplanes[q] = 0; vmax[q]>0; vmax[q] = vmax[q]>>1, nbitplanes[q]++) ; 
         }
 
 
 /*
-        for (q = 0; q < 3; q++) {
-                nbitplanes[q] = (int) (log((float) (vmax[q]+1))/log(2.0)+0.5);
-                if ( (vmax[q]+1) > (1<<nbitplanes[q]) ) {
-                        nbitplanes[q] += 1;
-                }
-        }
+	for (q = 0; q < 3; q++) {
+		nbitplanes[q] = (int) (log((float) (vmax[q]+1))/log(2.0)+0.5);
+		if ( (vmax[q]+1) > (1<<nbitplanes[q]) ) {
+			nbitplanes[q] += 1;
+		}
+	}
 */
 
 	/*
@@ -790,7 +723,7 @@ int stat;
 	 */
 	if (0 == qwrite(outfile, (char *) nbitplanes, sizeof(nbitplanes))) {
 	        *nlength = noutchar;
-		_pyfits_ffpmsg("encode: output buffer too small");
+		ffpmsg("encode: output buffer too small");
 		return(DATA_COMPRESSION_ERR);
         }
 	 
@@ -807,7 +740,7 @@ int stat;
 	   if ( 0 == qwrite(outfile, (char *) signbits, nsign)) {
 	        free(signbits);
 	        *nlength = noutchar;
-		_pyfits_ffpmsg("encode: output buffer too small");
+		ffpmsg("encode: output buffer too small");
 		return(DATA_COMPRESSION_ERR);
           }
 	} 
@@ -816,7 +749,7 @@ int stat;
 	*nlength = noutchar;
 
         if (noutchar >= noutmax) {
-		_pyfits_ffpmsg("encode: output buffer too small");
+		ffpmsg("encode: output buffer too small");
 		return(DATA_COMPRESSION_ERR);
         }  
 	
@@ -860,7 +793,7 @@ int stat;
 	 */
 	signbits = (unsigned char *) malloc((nel+7)/8);
 	if (signbits == (unsigned char *) NULL) {
-		_pyfits_ffpmsg("encode64: insufficient memory");
+		ffpmsg("encode64: insufficient memory");
 		return(DATA_COMPRESSION_ERR);
 	}
 	nsign = 0;
@@ -915,16 +848,16 @@ int stat;
 	 */
 	nx2 = (nx+1)/2;
 	ny2 = (ny+1)/2;
-        j=0;    /* column counter       */
-        k=0;    /* row counter          */
-        for (i=0; i<nel; i++) {
-                q = (j>=ny2) + (k>=nx2);
-                if (vmax[q] < a[i]) vmax[q] = a[i];
-                if (++j >= ny) {
-                        j = 0;
-                        k += 1;
-                }
-        }
+	j=0;	/* column counter	*/
+	k=0;	/* row counter		*/
+	for (i=0; i<nel; i++) {
+		q = (j>=ny2) + (k>=nx2);
+		if (vmax[q] < a[i]) vmax[q] = a[i];
+		if (++j >= ny) {
+			j = 0;
+			k += 1;
+		}
+	}
 	/*
 	 * now calculate number of bits for each quadrant
 	 */
@@ -952,7 +885,7 @@ int stat;
 
 	if (0 == qwrite(outfile, (char *) nbitplanes, sizeof(nbitplanes))) {
 	        *nlength = noutchar;
-		_pyfits_ffpmsg("encode: output buffer too small");
+		ffpmsg("encode: output buffer too small");
 		return(DATA_COMPRESSION_ERR);
         }
 	 
@@ -969,7 +902,7 @@ int stat;
 	   if ( 0 == qwrite(outfile, (char *) signbits, nsign)) {
 	        free(signbits);
 	        *nlength = noutchar;
-		_pyfits_ffpmsg("encode: output buffer too small");
+		ffpmsg("encode: output buffer too small");
 		return(DATA_COMPRESSION_ERR);
           }
 	} 
@@ -978,7 +911,7 @@ int stat;
 	*nlength = noutchar;
 
         if (noutchar >= noutmax) {
-		_pyfits_ffpmsg("encode64: output buffer too small");
+		ffpmsg("encode64: output buffer too small");
 		return(DATA_COMPRESSION_ERR);
         }
 		
@@ -1034,8 +967,7 @@ unsigned char b[8];
 }
 /* ######################################################################### */
 static int
-qwrite(char *file, char buffer[], int n)
-{
+qwrite(char *file, char buffer[], int n){
     /*
      * write n bytes from buffer into file
      * returns number of bytes read (=n) if successful, <=0 if not
@@ -1179,8 +1111,8 @@ output_nbits(char *outfile, int bits, int n)
 	 * insert bits at end of buffer
 	 */
 	buffer2 <<= n;
-/*      buffer2 |= ( bits & ((1<<n)-1) ); */
-        buffer2 |= ( bits & (*(mask+n)) );
+/*	buffer2 |= ( bits & ((1<<n)-1) ); */
+	buffer2 |= ( bits & (*(mask+n)) );
 	bits_to_go2 -= n;
 	if (bits_to_go2 <= 0) {
 		/*
@@ -1200,92 +1132,92 @@ output_nbits(char *outfile, int bits, int n)
 static void
 output_nybble(char *outfile, int bits)
 {
-        /*
-         * insert 4 bits at end of buffer
-         */
-        buffer2 = (buffer2<<4) | ( bits & 15 );
-        bits_to_go2 -= 4;
-        if (bits_to_go2 <= 0) {
-                /*
-                 * buffer2 full, put out top 8 bits
-                 */
+	/*
+	 * insert 4 bits at end of buffer
+	 */
+	buffer2 = (buffer2<<4) | ( bits & 15 );
+	bits_to_go2 -= 4;
+	if (bits_to_go2 <= 0) {
+		/*
+		 * buffer2 full, put out top 8 bits
+		 */
 
-                outfile[noutchar] = ((buffer2>>(-bits_to_go2)) & 0xff);
+	        outfile[noutchar] = ((buffer2>>(-bits_to_go2)) & 0xff);
 
-                if (noutchar < noutmax) noutchar++;
-
-                bits_to_go2 += 8;
-        }
-        bitcount += 4;
+		if (noutchar < noutmax) noutchar++;
+		
+		bits_to_go2 += 8;
+	}
+	bitcount += 4;
 }
 /*  ############################################################################  */
 /* OUTPUT array of 4 BITS  */
 
 static void output_nnybble(char *outfile, int n, unsigned char array[])
 {
-        /* pack the 4 lower bits in each element of the array into the outfile array */
+	/* pack the 4 lower bits in each element of the array into the outfile array */
 
 int ii, jj, kk = 0, shift;
 
-        if (n == 1) {
-                output_nybble(outfile, (int) array[0]);
-                return;
-        }
+	if (n == 1) {
+		output_nybble(outfile, (int) array[0]);
+		return;
+	}
 /* forcing byte alignment doesn;t help, and even makes it go slightly slower
 if (bits_to_go2 != 8)
    output_nbits(outfile, kk, bits_to_go2);
 */
-        if (bits_to_go2 <= 4)
-        {
-                /* just room for 1 nybble; write it out separately */
-                output_nybble(outfile, array[0]);
-                kk++;  /* index to next array element */
+	if (bits_to_go2 <= 4)
+	{
+		/* just room for 1 nybble; write it out separately */
+		output_nybble(outfile, array[0]);
+		kk++;  /* index to next array element */
 
-                if (n == 2)  /* only 1 more nybble to write out */
-                {
-                        output_nybble(outfile, (int) array[1]);
-                        return;
-                }
-        }
+		if (n == 2)  /* only 1 more nybble to write out */
+		{
+			output_nybble(outfile, (int) array[1]);
+			return;
+		}
+	}
 
 
         /* bits_to_go2 is now in the range 5 - 8 */
-        shift = 8 - bits_to_go2;
+	shift = 8 - bits_to_go2;  
 
-        /* now write out pairs of nybbles; this does not affect value of bits_to_go2 */
-        jj = (n - kk) / 2;
+	/* now write out pairs of nybbles; this does not affect value of bits_to_go2 */
+	jj = (n - kk) / 2;
+	
+	if (bits_to_go2 == 8) {
+	    /* special case if nybbles are aligned on byte boundary */
+	    /* this actually seems to make very little differnece in speed */
+	    buffer2 = 0;
+	    for (ii = 0; ii < jj; ii++)
+	    {
+		outfile[noutchar] = ((array[kk] & 15)<<4) | (array[kk+1] & 15);
+		kk += 2;
+		noutchar++;
+	    }
+	} else {
+	    for (ii = 0; ii < jj; ii++)
+	    {
+		buffer2 = (buffer2<<8) | ((array[kk] & 15)<<4) | (array[kk+1] & 15);
+		kk += 2;
 
-        if (bits_to_go2 == 8) {
-            /* special case if nybbles are aligned on byte boundary */
-            /* this actually seems to make very little differnece in speed */
-            buffer2 = 0;
-            for (ii = 0; ii < jj; ii++)
-            {
-                outfile[noutchar] = ((array[kk] & 15)<<4) | (array[kk+1] & 15);
-                kk += 2;
-                noutchar++;
-            }
-        } else {
-            for (ii = 0; ii < jj; ii++)
-            {
-                buffer2 = (buffer2<<8) | ((array[kk] & 15)<<4) | (array[kk+1] & 15);
-                kk += 2;
+		/*
+		 buffer2 full, put out top 8 bits
+		 */
 
-                /*
-                 buffer2 full, put out top 8 bits
-                 */
+	        outfile[noutchar] = ((buffer2>>shift) & 0xff);
+		noutchar++;
+	    }
+	}
 
-                outfile[noutchar] = ((buffer2>>shift) & 0xff);
-                noutchar++;
-            }
-        }
+	bitcount += (8 * (ii - 1));
 
-        bitcount += (8 * (ii - 1));
+	/* write out last odd nybble, if present */
+	if (kk != n) output_nybble(outfile, (int) array[n - 1]); 
 
-        /* write out last odd nybble, if present */
-        if (kk != n) output_nybble(outfile, (int) array[n - 1]);
-
-        return;
+	return; 
 }
 
 
@@ -1380,8 +1312,8 @@ unsigned char *scratch, *buffer;
 	scratch = (unsigned char *) malloc(2*bmax);
 	buffer = (unsigned char *) malloc(bmax);
 	if ((scratch == (unsigned char *) NULL) ||
-		(buffer  == (unsigned char *) NULL)) {
-		_pyfits_ffpmsg("qtree_encode: insufficient memory");
+		(buffer  == (unsigned char *) NULL)) {		
+		ffpmsg("qtree_encode: insufficient memory");
 		return(DATA_COMPRESSION_ERR);
 	}
 	/*
@@ -1500,7 +1432,7 @@ unsigned char *scratch, *buffer;
 	buffer = (unsigned char *) malloc(bmax);
 	if ((scratch == (unsigned char *) NULL) ||
 		(buffer  == (unsigned char *) NULL)) {
-		_pyfits_ffpmsg("qtree_encode64: insufficient memory");
+		ffpmsg("qtree_encode64: insufficient memory");
 		return(DATA_COMPRESSION_ERR);
 	}
 	/*
@@ -1634,8 +1566,83 @@ int s10, s00;
 	k = 0;							/* k is index of b[i/2,j/2]	*/
 	for (i = 0; i<nx-1; i += 2) {
 		s00 = n*i;					/* s00 is index of a[i,j]	*/
+/* tried using s00+n directly in the statements, but this had no effect on performance */
 		s10 = s00+n;				/* s10 is index of a[i+1,j]	*/
 		for (j = 0; j<ny-1; j += 2) {
+
+/*
+ this was not any faster..
+ 
+         b[k] = (a[s00]  & b0) ? 
+	            (a[s00+1] & b0) ?
+	                (a[s10] & b0)   ?
+		            (a[s10+1] & b0) ? 15 : 14
+                         :  (a[s10+1] & b0) ? 13 : 12
+		      : (a[s10] & b0)   ?
+		            (a[s10+1] & b0) ? 11 : 10
+                         :  (a[s10+1] & b0) ?  9 :  8
+	          : (a[s00+1] & b0) ?
+	                (a[s10] & b0)   ?
+		            (a[s10+1] & b0) ? 7 : 6
+                         :  (a[s10+1] & b0) ? 5 : 4
+
+		      : (a[s10] & b0)   ?
+		            (a[s10+1] & b0) ? 3 : 2
+                         :  (a[s10+1] & b0) ? 1 : 0;
+*/
+
+/*
+this alternative way of calculating b[k] was slowwer than the original code
+		    if ( a[s00]     & b0)
+			if ( a[s00+1]     & b0)
+			    if ( a[s10]     & b0)
+				if ( a[s10+1]     & b0)
+					b[k] = 15;
+				else
+					b[k] = 14;
+			    else
+				if ( a[s10+1]     & b0)
+					b[k] = 13;
+				else
+					b[k] = 12;
+			else
+			    if ( a[s10]     & b0)
+				if ( a[s10+1]     & b0)
+					b[k] = 11;
+				else
+					b[k] = 10;
+			    else
+				if ( a[s10+1]     & b0)
+					b[k] = 9;
+				else
+					b[k] = 8;
+		    else
+			if ( a[s00+1]     & b0)
+			    if ( a[s10]     & b0)
+				if ( a[s10+1]     & b0)
+					b[k] = 7;
+				else
+					b[k] = 6;
+			    else
+				if ( a[s10+1]     & b0)
+					b[k] = 5;
+				else
+					b[k] = 4;
+			else
+			    if ( a[s10]     & b0)
+				if ( a[s10+1]     & b0)
+					b[k] = 3;
+				else
+					b[k] = 2;
+			    else
+				if ( a[s10+1]     & b0)
+					b[k] = 1;
+				else
+					b[k] = 0;
+*/
+			
+
+
 			b[k] = ( ( a[s10+1]     & b0)
 				   | ((a[s10  ]<<1) & b1)
 				   | ((a[s00+1]<<2) & b2)
@@ -1818,11 +1825,11 @@ write_bdirect(char *outfile, int a[], int n,int nqx, int nqy, unsigned char scra
 	 */
 /*
 int i;
-        for (i = 0; i < ((nqx+1)/2) * ((nqy+1)/2); i++) {
-                output_nybble(outfile,scratch[i]);
-        }
+	for (i = 0; i < ((nqx+1)/2) * ((nqy+1)/2); i++) {
+		output_nybble(outfile,scratch[i]);
+	}
 */
-        output_nnybble(outfile, ((nqx+1)/2) * ((nqy+1)/2), scratch);
+	output_nnybble(outfile, ((nqx+1)/2) * ((nqy+1)/2), scratch);
 
 }
 /* ######################################################################### */
@@ -1843,9 +1850,9 @@ write_bdirect64(char *outfile, LONGLONG a[], int n,int nqx, int nqy, unsigned ch
 	 */
 /*
 int i;
-        for (i = 0; i < ((nqx+1)/2) * ((nqy+1)/2); i++) {
-                output_nybble(outfile,scratch[i]);
-        }
+	for (i = 0; i < ((nqx+1)/2) * ((nqy+1)/2); i++) {
+		output_nybble(outfile,scratch[i]);
+	}
 */
-        output_nnybble(outfile, ((nqx+1)/2) * ((nqy+1)/2), scratch);
+	output_nnybble(outfile, ((nqx+1)/2) * ((nqy+1)/2), scratch);
 }

@@ -1,75 +1,3 @@
-/* $Id$
-*/
-
-/*****************************************************************************/
-/*                                                                           */
-/* This file, ricecomp.c, contains the code required to compress and         */
-/* uncompress data using the RICE_1 compression format.                      */
-/*                                                                           */
-/* Copyright (C) 2004 Association of Universities for Research in Astronomy  */
-/* (AURA)                                                                    */
-/*                                                                           */
-/* Redistribution and use in source and binary forms, with or without        */
-/* modification, are permitted provided that the following conditions are    */
-/* met:                                                                      */
-/*                                                                           */
-/*    1. Redistributions of source code must retain the above copyright      */
-/*      notice, this list of conditions and the following disclaimer.        */
-/*                                                                           */
-/*    2. Redistributions in binary form must reproduce the above             */
-/*      copyright notice, this list of conditions and the following          */
-/*      disclaimer in the documentation and/or other materials provided      */
-/*      with the distribution.                                               */
-/*                                                                           */
-/*    3. The name of AURA and its representatives may not be used to         */
-/*      endorse or promote products derived from this software without       */
-/*      specific prior written permission.                                   */
-/*                                                                           */
-/* THIS SOFTWARE IS PROVIDED BY AURA ``AS IS'' AND ANY EXPRESS OR IMPLIED    */
-/* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF      */
-/* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE                  */
-/* DISCLAIMED. IN NO EVENT SHALL AURA BE LIABLE FOR ANY DIRECT, INDIRECT,    */
-/* INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,      */
-/* BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS     */
-/* OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND    */
-/* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR     */
-/* TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE    */
-/* USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH          */
-/* DAMAGE.                                                                   */
-/*                                                                           */
-/* This file was copied intact from the FITSIO software that was written by  */
-/* William Pence at the High Energy Astrophysic Science Archive Research     */
-/* Center (HEASARC) at the NASA Goddard Space Flight Center.  That software  */
-/* contained the following copyright and warranty notices:                   */
-/*                                                                           */
-/* Copyright (Unpublished--all rights reserved under the copyright laws of   */
-/* the United States), U.S. Government as represented by the Administrator   */
-/* of the National Aeronautics and Space Administration.  No copyright is    */
-/* claimed in the United States under Title 17, U.S. Code.                   */
-/*                                                                           */
-/* Permission to freely use, copy, modify, and distribute this software      */
-/* and its documentation without fee is hereby granted, provided that this   */
-/* copyright notice and disclaimer of warranty appears in all copies.        */
-/*                                                                           */
-/* DISCLAIMER:                                                               */
-/*                                                                           */
-/* THE SOFTWARE IS PROVIDED 'AS IS' WITHOUT ANY WARRANTY OF ANY KIND,        */
-/* EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT LIMITED TO,   */
-/* ANY WARRANTY THAT THE SOFTWARE WILL CONFORM TO SPECIFICATIONS, ANY        */
-/* IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR           */
-/* PURPOSE, AND FREEDOM FROM INFRINGEMENT, AND ANY WARRANTY THAT THE         */
-/* DOCUMENTATION WILL CONFORM TO THE SOFTWARE, OR ANY WARRANTY THAT THE      */
-/* SOFTWARE WILL BE ERROR FREE.  IN NO EVENT SHALL NASA BE LIABLE FOR ANY    */
-/* DAMAGES, INCLUDING, BUT NOT LIMITED TO, DIRECT, INDIRECT, SPECIAL OR      */
-/* CONSEQUENTIAL DAMAGES, ARISING OUT OF, RESULTING FROM, OR IN ANY WAY      */
-/* CONNECTED WITH THIS SOFTWARE, WHETHER OR NOT BASED UPON WARRANTY,         */
-/* CONTRACT, TORT , OR OTHERWISE, WHETHER OR NOT INJURY WAS SUSTAINED BY     */
-/* PERSONS OR PROPERTY OR OTHERWISE, AND WHETHER OR NOT LOSS WAS SUSTAINED   */
-/* FROM, OR AROSE OUT OF THE RESULTS OF, OR USE OF, THE SOFTWARE OR          */
-/* SERVICES PROVIDED HEREUNDER."                                             */
-/*                                                                           */
-/*****************************************************************************/
-
 /*
   The following code was written by Richard White at STScI and made
   available for use in CFITSIO in July 1999.  These routines were
@@ -107,7 +35,7 @@ typedef struct {
 
 #define putcbuf(c,mf) 	((*(mf->current)++ = c), 0)
 
-#include "fitsio.h"
+#include "fitsio2.h"
 
 static void start_outputing_bits(Buffer *buffer);
 static int done_outputing_bits(Buffer *buffer);
@@ -116,8 +44,7 @@ static int output_nbits(Buffer *buffer, int bits, int n);
 /* this routine used to be called 'rcomp'  (WDP)  */
 /*---------------------------------------------------------------------------*/
 
-int _pyfits_fits_rcomp(
-          int a[],		/* input array			*/
+int fits_rcomp(int a[],		/* input array			*/
 	  int nx,		/* number of input pixels	*/
 	  unsigned char *c,	/* output buffer		*/
 	  int clen,		/* max length of output		*/
@@ -186,7 +113,7 @@ unsigned int *diff;
      */
     diff = (unsigned int *) malloc(nblock*sizeof(unsigned int));
     if (diff == (unsigned int *) NULL) {
-        _pyfits_ffpmsg("_pyfits_fits_rcomp: insufficient memory");
+        ffpmsg("fits_rcomp: insufficient memory");
 	return(-1);
     }
     /*
@@ -196,7 +123,7 @@ unsigned int *diff;
 
     /* write out first int value to the first 4 bytes of the buffer */
     if (output_nbits(buffer, a[0], 32) == EOF) {
-        _pyfits_ffpmsg("rice_encode: end of buffer");
+        ffpmsg("rice_encode: end of buffer");
         free(diff);
         return(-1);
     }
@@ -244,13 +171,13 @@ unsigned int *diff;
 	     * Just write pixel difference values directly, no Rice coding at all.
 	     */
 	    if (output_nbits(buffer, fsmax+1, fsbits) == EOF) {
-                _pyfits_ffpmsg("rice_encode: end of buffer");
+                ffpmsg("rice_encode: end of buffer");
                 free(diff);
 		return(-1);
 	    }
 	    for (j=0; j<thisblock; j++) {
 		if (output_nbits(buffer, diff[j], bbits) == EOF) {
-                    _pyfits_ffpmsg("rice_encode: end of buffer");
+                    ffpmsg("rice_encode: end of buffer");
                     free(diff);
 		    return(-1);
 		}
@@ -262,14 +189,14 @@ unsigned int *diff;
 	     * Output a 0 and return
 	     */
 	    if (output_nbits(buffer, 0, fsbits) == EOF) {
-                _pyfits_ffpmsg("rice_encode: end of buffer");
+                ffpmsg("rice_encode: end of buffer");
                 free(diff);
 		return(-1);
 	    }
 	} else {
 	    /* normal case: not either very high or very low entropy */
 	    if (output_nbits(buffer, fs+1, fsbits) == EOF) {
-                _pyfits_ffpmsg("rice_encode: end of buffer");
+                ffpmsg("rice_encode: end of buffer");
                 free(diff);
 		return(-1);
 	    }
@@ -318,7 +245,7 @@ unsigned int *diff;
 
 	    /* check if overflowed output buffer */
 	    if (buffer->current > buffer->end) {
-                 _pyfits_ffpmsg("rice_encode: end of buffer");
+                 ffpmsg("rice_encode: end of buffer");
                  free(diff);
 		 return(-1);
 	    }
@@ -335,7 +262,7 @@ unsigned int *diff;
 }
 /*---------------------------------------------------------------------------*/
 
-int _pyfits_fits_rcomp_short(
+int fits_rcomp_short(
 	  short a[],		/* input array			*/
 	  int nx,		/* number of input pixels	*/
 	  unsigned char *c,	/* output buffer		*/
@@ -414,7 +341,7 @@ unsigned int *diff;
      */
     diff = (unsigned int *) malloc(nblock*sizeof(unsigned int));
     if (diff == (unsigned int *) NULL) {
-        _pyfits_ffpmsg("_pyfits_fits_rcomp: insufficient memory");
+        ffpmsg("fits_rcomp: insufficient memory");
 	return(-1);
     }
     /*
@@ -424,7 +351,7 @@ unsigned int *diff;
 
     /* write out first short value to the first 2 bytes of the buffer */
     if (output_nbits(buffer, a[0], 16) == EOF) {
-        _pyfits_ffpmsg("rice_encode: end of buffer");
+        ffpmsg("rice_encode: end of buffer");
         free(diff);
         return(-1);
     }
@@ -472,13 +399,13 @@ unsigned int *diff;
 	     * Just write pixel difference values directly, no Rice coding at all.
 	     */
 	    if (output_nbits(buffer, fsmax+1, fsbits) == EOF) {
-                _pyfits_ffpmsg("rice_encode: end of buffer");
+                ffpmsg("rice_encode: end of buffer");
                 free(diff);
 		return(-1);
 	    }
 	    for (j=0; j<thisblock; j++) {
 		if (output_nbits(buffer, diff[j], bbits) == EOF) {
-                    _pyfits_ffpmsg("rice_encode: end of buffer");
+                    ffpmsg("rice_encode: end of buffer");
                     free(diff);
 		    return(-1);
 		}
@@ -490,14 +417,14 @@ unsigned int *diff;
 	     * Output a 0 and return
 	     */
 	    if (output_nbits(buffer, 0, fsbits) == EOF) {
-                _pyfits_ffpmsg("rice_encode: end of buffer");
+                ffpmsg("rice_encode: end of buffer");
                 free(diff);
 		return(-1);
 	    }
 	} else {
 	    /* normal case: not either very high or very low entropy */
 	    if (output_nbits(buffer, fs+1, fsbits) == EOF) {
-                _pyfits_ffpmsg("rice_encode: end of buffer");
+                ffpmsg("rice_encode: end of buffer");
                 free(diff);
 		return(-1);
 	    }
@@ -544,7 +471,7 @@ unsigned int *diff;
 	    }
 	    /* check if overflowed output buffer */
 	    if (buffer->current > buffer->end) {
-                 _pyfits_ffpmsg("rice_encode: end of buffer");
+                 ffpmsg("rice_encode: end of buffer");
                  free(diff);
 		 return(-1);
 	    }
@@ -561,7 +488,7 @@ unsigned int *diff;
 }
 /*---------------------------------------------------------------------------*/
 
-int _pyfits_fits_rcomp_byte(
+int fits_rcomp_byte(
 	  signed char a[],		/* input array			*/
 	  int nx,		/* number of input pixels	*/
 	  unsigned char *c,	/* output buffer		*/
@@ -639,7 +566,7 @@ unsigned int *diff;
      */
     diff = (unsigned int *) malloc(nblock*sizeof(unsigned int));
     if (diff == (unsigned int *) NULL) {
-        _pyfits_ffpmsg("_pyfits_fits_rcomp: insufficient memory");
+        ffpmsg("fits_rcomp: insufficient memory");
 	return(-1);
     }
     /*
@@ -649,7 +576,7 @@ unsigned int *diff;
 
     /* write out first byte value to the first  byte of the buffer */
     if (output_nbits(buffer, a[0], 8) == EOF) {
-        _pyfits_ffpmsg("rice_encode: end of buffer");
+        ffpmsg("rice_encode: end of buffer");
         free(diff);
         return(-1);
     }
@@ -697,13 +624,13 @@ unsigned int *diff;
 	     * Just write pixel difference values directly, no Rice coding at all.
 	     */
 	    if (output_nbits(buffer, fsmax+1, fsbits) == EOF) {
-                _pyfits_ffpmsg("rice_encode: end of buffer");
+                ffpmsg("rice_encode: end of buffer");
                 free(diff);
 		return(-1);
 	    }
 	    for (j=0; j<thisblock; j++) {
 		if (output_nbits(buffer, diff[j], bbits) == EOF) {
-                    _pyfits_ffpmsg("rice_encode: end of buffer");
+                    ffpmsg("rice_encode: end of buffer");
                     free(diff);
 		    return(-1);
 		}
@@ -715,14 +642,14 @@ unsigned int *diff;
 	     * Output a 0 and return
 	     */
 	    if (output_nbits(buffer, 0, fsbits) == EOF) {
-                _pyfits_ffpmsg("rice_encode: end of buffer");
+                ffpmsg("rice_encode: end of buffer");
                 free(diff);
 		return(-1);
 	    }
 	} else {
 	    /* normal case: not either very high or very low entropy */
 	    if (output_nbits(buffer, fs+1, fsbits) == EOF) {
-                _pyfits_ffpmsg("rice_encode: end of buffer");
+                ffpmsg("rice_encode: end of buffer");
                 free(diff);
 		return(-1);
 	    }
@@ -769,7 +696,7 @@ unsigned int *diff;
 	    }
 	    /* check if overflowed output buffer */
 	    if (buffer->current > buffer->end) {
-                 _pyfits_ffpmsg("rice_encode: end of buffer");
+                 ffpmsg("rice_encode: end of buffer");
                  free(diff);
 		 return(-1);
 	    }
@@ -889,8 +816,7 @@ static int done_outputing_bits(Buffer *buffer)
 /*---------------------------------------------------------------------------*/
 /* this routine used to be called 'rdecomp'  (WDP)  */
 
-int _pyfits_fits_rdecomp (
-             unsigned char *c,		/* input buffer			*/
+int fits_rdecomp (unsigned char *c,		/* input buffer			*/
 	     int clen,			/* length of input		*/
 	     unsigned int array[],	/* output array			*/
 	     int nx,			/* number of output pixels	*/
@@ -946,6 +872,7 @@ static int *nonzero_count = (int *)NULL;
 
     bbits = 1<<fsbits;
 
+    FFLOCK;
     if (nonzero_count == (int *) NULL) {
 	/*
 	 * nonzero_count is lookup table giving number of bits
@@ -955,7 +882,8 @@ static int *nonzero_count = (int *)NULL;
         /*  NOTE!!!  This memory never gets freed  */
 	nonzero_count = (int *) malloc(256*sizeof(int));
 	if (nonzero_count == (int *) NULL) {
-            _pyfits_ffpmsg("rdecomp: insufficient memory");
+            ffpmsg("rdecomp: insufficient memory");
+            FFUNLOCK;
 	    return 1;
 	}
 	nzero = 8;
@@ -966,6 +894,8 @@ static int *nonzero_count = (int *)NULL;
 	    nzero--;
 	}
     }
+    FFUNLOCK;
+
     /*
      * Decode in blocks of nblock pixels
      */
@@ -1066,20 +996,19 @@ static int *nonzero_count = (int *)NULL;
 	    }
 	}
 	if (c > cend) {
-            _pyfits_ffpmsg("decompression error: hit end of compressed byte stream");
+            ffpmsg("decompression error: hit end of compressed byte stream");
 	    return 1;
 	}
     }
     if (c < cend) {
-        _pyfits_ffpmsg("decompression warning: unused bytes at end of compressed buffer");
+        ffpmsg("decompression warning: unused bytes at end of compressed buffer");
     }
     return 0;
 }
 /*---------------------------------------------------------------------------*/
 /* this routine used to be called 'rdecomp'  (WDP)  */
 
-int _pyfits_fits_rdecomp_short (
-             unsigned char *c,		/* input buffer			*/
+int fits_rdecomp_short (unsigned char *c,		/* input buffer			*/
 	     int clen,			/* length of input		*/
 	     unsigned short array[],  	/* output array			*/
 	     int nx,			/* number of output pixels	*/
@@ -1137,6 +1066,7 @@ static int *nonzero_count = (int *)NULL;
 
     bbits = 1<<fsbits;
 
+    FFLOCK;
     if (nonzero_count == (int *) NULL) {
 	/*
 	 * nonzero_count is lookup table giving number of bits
@@ -1146,7 +1076,8 @@ static int *nonzero_count = (int *)NULL;
         /*  NOTE!!!  This memory never gets freed  */
 	nonzero_count = (int *) malloc(256*sizeof(int));
 	if (nonzero_count == (int *) NULL) {
-            _pyfits_ffpmsg("rdecomp: insufficient memory");
+            ffpmsg("rdecomp: insufficient memory");
+	    FFUNLOCK;
 	    return 1;
 	}
 	nzero = 8;
@@ -1157,6 +1088,7 @@ static int *nonzero_count = (int *)NULL;
 	    nzero--;
 	}
     }
+    FFUNLOCK;
     /*
      * Decode in blocks of nblock pixels
      */
@@ -1254,20 +1186,19 @@ static int *nonzero_count = (int *)NULL;
 	    }
 	}
 	if (c > cend) {
-            _pyfits_ffpmsg("decompression error: hit end of compressed byte stream");
+            ffpmsg("decompression error: hit end of compressed byte stream");
 	    return 1;
 	}
     }
     if (c < cend) {
-        _pyfits_ffpmsg("decompression warning: unused bytes at end of compressed buffer");
+        ffpmsg("decompression warning: unused bytes at end of compressed buffer");
     }
     return 0;
 }
 /*---------------------------------------------------------------------------*/
 /* this routine used to be called 'rdecomp'  (WDP)  */
 
-int _pyfits_fits_rdecomp_byte (
-             unsigned char *c,		/* input buffer			*/
+int fits_rdecomp_byte (unsigned char *c,		/* input buffer			*/
 	     int clen,			/* length of input		*/
 	     unsigned char array[],  	/* output array			*/
 	     int nx,			/* number of output pixels	*/
@@ -1325,6 +1256,7 @@ static int *nonzero_count = (int *)NULL;
 
     bbits = 1<<fsbits;
 
+    FFLOCK;
     if (nonzero_count == (int *) NULL) {
 	/*
 	 * nonzero_count is lookup table giving number of bits
@@ -1334,7 +1266,8 @@ static int *nonzero_count = (int *)NULL;
         /*  NOTE!!!  This memory never gets freed  */
 	nonzero_count = (int *) malloc(256*sizeof(int));
 	if (nonzero_count == (int *) NULL) {
-            _pyfits_ffpmsg("rdecomp: insufficient memory");
+            ffpmsg("rdecomp: insufficient memory");
+	    FFUNLOCK;
 	    return 1;
 	}
 	nzero = 8;
@@ -1345,6 +1278,7 @@ static int *nonzero_count = (int *)NULL;
 	    nzero--;
 	}
     }
+    FFUNLOCK;
     /*
      * Decode in blocks of nblock pixels
      */
@@ -1437,12 +1371,12 @@ static int *nonzero_count = (int *)NULL;
 	    }
 	}
 	if (c > cend) {
-            _pyfits_ffpmsg("decompression error: hit end of compressed byte stream");
+            ffpmsg("decompression error: hit end of compressed byte stream");
 	    return 1;
 	}
     }
     if (c < cend) {
-        _pyfits_ffpmsg("decompression warning: unused bytes at end of compressed buffer");
+        ffpmsg("decompression warning: unused bytes at end of compressed buffer");
     }
     return 0;
 }
