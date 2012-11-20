@@ -1,4 +1,3 @@
-import __builtin__
 import functools
 import itertools
 import mmap
