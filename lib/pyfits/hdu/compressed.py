@@ -31,6 +31,11 @@ DEFAULT_HCOMP_SMOOTH = 0
 DEFAULT_BLOCK_SIZE = 32
 DEFAULT_BYTE_PIX = 4
 
+# CFITSIO version-specific features
+if COMPRESSION_SUPPORTED:
+    CFITSIO_SUPPORTS_GZIPDATA = compression.CFITSIO_VERSION >= 3.28
+    CFITSIO_SUPPORTS_BYTEPIX = compression.CFITSIO_VERSION >= 3.08
+
 
 class CompImageHeader(Header):
     """
@@ -457,7 +462,7 @@ class CompImageHDU(BinTableHDU):
             # this behavior so the only way to determine which behavior will
             # be employed is via the CFITSIO version
 
-            if compression.cfitsio_version >= 3.28:
+            if CFITSIO_SUPPORTS_GZIPDATA:
                 ttype2 = 'GZIP_COMPRESSED_DATA'
                 # The required format for the GZIP_COMPRESSED_DATA is actually
                 # missing from the standard docs, but CFITSIO suggests it
@@ -754,20 +759,29 @@ class CompImageHDU(BinTableHDU):
             self._header.set('ZVAL1', DEFAULT_BLOCK_SIZE, 'pixels per block',
                              after='ZNAME1')
 
-            self._header.set('ZNAME2', 'BYTEPIX',
-                             'bytes per pixel (1, 2, 4, or 8)', after='ZVAL1')
+            if CFITSIO_SUPPORTS_BYTEPIX:
+                # CFITSIO version prior to 3.08 do not support the BYTEPIX
+                # compression parameter, and ZVAL2 for Rice compression should
+                # be the NOISEBIT parameter
+                self._header.set('ZNAME2', 'BYTEPIX',
+                                 'bytes per pixel (1, 2, 4, or 8)',
+                                 after='ZVAL1')
 
-            if self._header['ZBITPIX'] == 8:
-                bytepix = 1
-            elif self._header['ZBITPIX'] == 16:
-                bytepix = 2
+                if self._header['ZBITPIX'] == 8:
+                    bytepix = 1
+                elif self._header['ZBITPIX'] == 16:
+                    bytepix = 2
+                else:
+                    bytepix = DEFAULT_BYTE_PIX
+
+                self._header.set('ZVAL2', bytepix,
+                                 'bytes per pixel (1, 2, 4, or 8)',
+                                 after='ZNAME2')
+                afterCard = 'ZVAL2'
+                idx = 3
             else:
-                bytepix = DEFAULT_BYTE_PIX
-
-            self._header.set('ZVAL2', bytepix,
-                             'bytes per pixel (1, 2, 4, or 8)', after='ZNAME2')
-            afterCard = 'ZVAL2'
-            idx = 3
+                afterCard = 'ZVAL1'
+                idx = 2
         elif compressionType == 'HCOMPRESS_1':
             self._header.set('ZNAME1', 'SCALE', 'HCOMPRESS scale factor',
                              after=afterCard)
@@ -1337,18 +1351,23 @@ class CompImageHDU(BinTableHDU):
             self._header.set('ZVAL1', DEFAULT_BLOCK_SIZE, 'pixels per block',
                              after='ZNAME1')
 
-            self._header.set('ZNAME2', 'BYTEPIX',
-                             'bytes per pixel (1, 2, 4, or 8)', after='ZVAL1')
+            if CFITSIO_SUPPORTS_BYTEPIX:
+                # CFITSIO < 3.08 does not support the BYTEPIX parameter for
+                # Rice compression
+                self._header.set('ZNAME2', 'BYTEPIX',
+                                 'bytes per pixel (1, 2, 4, or 8)',
+                                 after='ZVAL1')
 
-            if self._header['ZBITPIX'] == 8:
-                bytepix = 1
-            elif self._header['ZBITPIX'] == 16:
-                bytepix = 2
-            else:
-                bytepix = DEFAULT_BYTE_PIX
+                if self._header['ZBITPIX'] == 8:
+                    bytepix = 1
+                elif self._header['ZBITPIX'] == 16:
+                    bytepix = 2
+                else:
+                    bytepix = DEFAULT_BYTE_PIX
 
-            self._header.set('ZVAL2', bytepix,
-                             'bytes per pixel (1, 2, 4, or 8)', after='ZNAME2')
+                self._header.set('ZVAL2', bytepix,
+                                 'bytes per pixel (1, 2, 4, or 8)',
+                                 after='ZNAME2')
 
     def scale(self, type=None, option='old', bscale=1, bzero=0):
         """
