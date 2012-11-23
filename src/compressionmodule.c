@@ -584,14 +584,8 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
 
     // Set some more default compression options
     Fptr->rice_blocksize = DEFAULT_BLOCK_SIZE;
-#ifdef CFITSIO_SUPPORTS_BYTEPIX
     Fptr->rice_bytepix = DEFAULT_BYTE_PIX;
-#endif
-#ifdef CFITSIO_SUPPORTS_QUANTIZE_LEVEL
     Fptr->quantize_level = DEFAULT_QUANTIZE_LEVEL;
-#else
-    Fptr->rice_nbits = DEFAULT_QUANTIZE_LEVEL;
-#endif
     Fptr->hcomp_smooth = DEFAULT_HCOMP_SMOOTH;
     Fptr->hcomp_scale = DEFAULT_HCOMP_SCALE;
 
@@ -610,11 +604,9 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
             if (0 == strcmp(zname, "BLOCKSIZE")) {
                 get_header_int(header, keyword, &(Fptr->rice_blocksize),
                                DEFAULT_BLOCK_SIZE);
-#ifdef CFITSIO_SUPPORTS_BYTEPIX
             } else if (0 == strcmp(zname, "BYTEPIX")) {
                 get_header_int(header, keyword, &(Fptr->rice_bytepix),
                                DEFAULT_BYTE_PIX);
-#endif
             }
         } else if (Fptr->compress_type == HCOMPRESS_1) {
             if (0 == strcmp(zname, "SMOOTH")) {
@@ -792,7 +784,6 @@ PyObject* compression_compress_hdu(PyObject* self, PyObject* args)
 
     indata = (PyArrayObject*) PyObject_GetAttrString(hdu, "data");
 
-    // Test values
     fits_write_img(fileptr, datatype, 1, PyArray_SIZE(indata), indata->data,
                    &status);
     if (status != 0) {
@@ -839,6 +830,9 @@ fail:
         PyMem_Free(columns);
     }
     Py_XDECREF(indata);
+
+    // Clear any messages remaining in CFITSIO's error stack
+    fits_clear_errmsg();
 
     return retval;
 }
@@ -913,6 +907,9 @@ fail:
         PyMem_Free(columns);
     }
     PyMem_Free(znaxis);
+
+    // Clear any messages remaining in CFITSIO's error stack
+    fits_clear_errmsg();
 
     return (PyObject*) outdata;
 }
