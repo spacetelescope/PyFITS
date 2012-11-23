@@ -100,25 +100,7 @@
 #include <fitsio2.h>
 #include <string.h>
 
-/* Some defines for Python3 support--bytes objects should be used where */
-/* strings were previously used                                         */
-#if PY_MAJOR_VERSION >= 3
-#define IS_PY3K
-#endif
-
-#ifdef IS_PY3K
-#define PyString_FromString PyUnicode_FromString
-#define PyInt_AsLong PyLong_AsLong
-#endif
-
-
-/* These defaults mirror the defaults in pyfits.hdu.compressed */
-#define DEFAULT_COMPRESSION_TYPE "RICE_1"
-#define DEFAULT_QUANTIZE_LEVEL 16.0
-#define DEFAULT_HCOMP_SCALE 0
-#define DEFAULT_HCOMP_SMOOTH 0
-#define DEFAULT_BLOCK_SIZE 32
-#define DEFAULT_BYTE_PIX 4
+#include "compressionmodule.h"
 
 
 /* Report any error based on the status returned from cfitsio. */
@@ -524,7 +506,9 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
     // BLANK in the header
     Fptr->cn_zblank = Fptr->cn_zzero = Fptr->cn_zscale = -1;
     Fptr->cn_uncompressed = 0;
+#ifdef CFITSIO_SUPPORTS_GZIPDATA
     Fptr->cn_gzip_data = 0;
+#endif
 
     // Check for a ZBLANK, ZZERO, ZSCALE, and
     // UNCOMPRESSED_DATA/GZIP_COMPRESSED_DATA columns in the compressed data
@@ -532,9 +516,11 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
     for (idx = 0; idx < tfields; idx++) {
         if (0 == strncmp(columns[idx].ttype, "UNCOMPRESSED_DATA", 18)) {
             Fptr->cn_uncompressed = idx + 1;
+#ifdef CFITSIO_SUPPORTS_GZIPDATA
         } else if (0 == strncmp(columns[idx].ttype,
                                 "GZIP_COMPRESSED_DATA", 21)) {
             Fptr->cn_gzip_data = idx + 1;
+#endif
         } else if (0 == strncmp(columns[idx].ttype, "ZSCALE", 7)) {
             Fptr->cn_zscale = idx + 1;
         } else if (0 == strncmp(columns[idx].ttype, "ZZERO", 6)) {
@@ -798,7 +784,6 @@ PyObject* compression_compress_hdu(PyObject* self, PyObject* args)
 
     indata = (PyArrayObject*) PyObject_GetAttrString(hdu, "data");
 
-    // Test values
     fits_write_img(fileptr, datatype, 1, PyArray_SIZE(indata), indata->data,
                    &status);
     if (status != 0) {
@@ -845,6 +830,9 @@ fail:
         PyMem_Free(columns);
     }
     Py_XDECREF(indata);
+
+    // Clear any messages remaining in CFITSIO's error stack
+    fits_clear_errmsg();
 
     return retval;
 }
@@ -920,6 +908,9 @@ fail:
     }
     PyMem_Free(znaxis);
 
+    // Clear any messages remaining in CFITSIO's error stack
+    fits_clear_errmsg();
+
     return (PyObject*) outdata;
 }
 
@@ -945,6 +936,7 @@ PyObject* compression_calc_max_elem(PyObject* self, PyObject* args) {
 /* CFITSIO version float as returned by fits_get_version() */
 static double cfitsio_version;
 
+
 void compression_module_init(PyObject* module) {
     /* Python version-indendependent initialization routine for the
        compression module */
@@ -960,7 +952,7 @@ void compression_module_init(PyObject* module) {
     cfitsio_version = floor((1000 * version_tmp + 0.5)) / 1000;
 
     tmp = PyFloat_FromDouble(cfitsio_version);
-    PyObject_SetAttrString(module, "cfitsio_version", tmp);
+    PyObject_SetAttrString(module, "CFITSIO_VERSION", tmp);
     Py_XDECREF(tmp);
 
     /* Needed to use Numpy routines */
