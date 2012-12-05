@@ -100,25 +100,7 @@
 #include <fitsio2.h>
 #include <string.h>
 
-/* Some defines for Python3 support--bytes objects should be used where */
-/* strings were previously used                                         */
-#if PY_MAJOR_VERSION >= 3
-#define IS_PY3K
-#endif
-
-#ifdef IS_PY3K
-#define PyString_FromString PyUnicode_FromString
-#define PyInt_AsLong PyLong_AsLong
-#endif
-
-
-/* These defaults mirror the defaults in pyfits.hdu.compressed */
-#define DEFAULT_COMPRESSION_TYPE "RICE_1"
-#define DEFAULT_QUANTIZE_LEVEL 16.0
-#define DEFAULT_HCOMP_SCALE 0
-#define DEFAULT_HCOMP_SMOOTH 0
-#define DEFAULT_BLOCK_SIZE 32
-#define DEFAULT_BYTE_PIX 4
+#include "compressionmodule.h"
 
 
 /* Report any error based on the status returned from cfitsio. */
@@ -524,7 +506,9 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
     // BLANK in the header
     Fptr->cn_zblank = Fptr->cn_zzero = Fptr->cn_zscale = -1;
     Fptr->cn_uncompressed = 0;
+#ifdef CFITSIO_SUPPORTS_GZIPDATA
     Fptr->cn_gzip_data = 0;
+#endif
 
     // Check for a ZBLANK, ZZERO, ZSCALE, and
     // UNCOMPRESSED_DATA/GZIP_COMPRESSED_DATA columns in the compressed data
@@ -532,9 +516,11 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
     for (idx = 0; idx < tfields; idx++) {
         if (0 == strncmp(columns[idx].ttype, "UNCOMPRESSED_DATA", 18)) {
             Fptr->cn_uncompressed = idx + 1;
+#ifdef CFITSIO_SUPPORTS_GZIPDATA
         } else if (0 == strncmp(columns[idx].ttype,
                                 "GZIP_COMPRESSED_DATA", 21)) {
             Fptr->cn_gzip_data = idx + 1;
+#endif
         } else if (0 == strncmp(columns[idx].ttype, "ZSCALE", 7)) {
             Fptr->cn_zscale = idx + 1;
         } else if (0 == strncmp(columns[idx].ttype, "ZZERO", 6)) {
@@ -598,8 +584,14 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
 
     // Set some more default compression options
     Fptr->rice_blocksize = DEFAULT_BLOCK_SIZE;
+#ifdef CFITSIO_SUPPORTS_BYTEPIX
     Fptr->rice_bytepix = DEFAULT_BYTE_PIX;
+#endif
+#ifdef CFITSIO_SUPPORTS_QUANTIZE_LEVEL
     Fptr->quantize_level = DEFAULT_QUANTIZE_LEVEL;
+#else
+    Fptr->rice_nbits = DEFAULT_QUANTIZE_LEVEL;
+#endif
     Fptr->hcomp_smooth = DEFAULT_HCOMP_SMOOTH;
     Fptr->hcomp_scale = DEFAULT_HCOMP_SCALE;
 
@@ -618,9 +610,11 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
             if (0 == strcmp(zname, "BLOCKSIZE")) {
                 get_header_int(header, keyword, &(Fptr->rice_blocksize),
                                DEFAULT_BLOCK_SIZE);
+#ifdef CFITSIO_SUPPORTS_BYTEPIX
             } else if (0 == strcmp(zname, "BYTEPIX")) {
                 get_header_int(header, keyword, &(Fptr->rice_bytepix),
                                DEFAULT_BYTE_PIX);
+#endif
             }
         } else if (Fptr->compress_type == HCOMPRESS_1) {
             if (0 == strcmp(zname, "SMOOTH")) {
@@ -945,6 +939,7 @@ PyObject* compression_calc_max_elem(PyObject* self, PyObject* args) {
 /* CFITSIO version float as returned by fits_get_version() */
 static double cfitsio_version;
 
+
 void compression_module_init(PyObject* module) {
     /* Python version-indendependent initialization routine for the
        compression module */
@@ -960,7 +955,7 @@ void compression_module_init(PyObject* module) {
     cfitsio_version = floor((1000 * version_tmp + 0.5)) / 1000;
 
     tmp = PyFloat_FromDouble(cfitsio_version);
-    PyObject_SetAttrString(module, "cfitsio_version", tmp);
+    PyObject_SetAttrString(module, "CFITSIO_VERSION", tmp);
     Py_XDECREF(tmp);
 
     /* Needed to use Numpy routines */
