@@ -22,5 +22,7 @@ compression support.  A minimal copy of CFITSIO is included in the PyFITS
 source under cextern/cfitsio.  Packagers wishing to link with an existing
 system CFITSIO remove this directory and modify the setup.cfg as instructed
 by the comments in that file.  CFITSIO support has been tested for versions
-3.28 through 3.30.  Earlier versions *may* work by YMMV.  Please send in any
-results of experimentation with other CFITSIO versions.
+3.08 through 3.30.  The earliers known fully working version is 3.09.  Version
+3.08 mostly works except for a bug in CFITSIO itself when decompressing some
+images with BITPIX=-64.  Earlier versions *may* work but YMMV.  Please send in
+any results of experimentation with other CFITSIO versions.
