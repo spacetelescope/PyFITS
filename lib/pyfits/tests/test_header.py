@@ -469,6 +469,26 @@ class TestHeaderFunctions(PyfitsTestCase):
              "CONTINUE  '&' / long comment                                                    ",
              str(pyfits.Card('TEST3', 'Regular value', 'Regular comment'))])
 
+    def test_blank_keyword_long_value(self):
+        """Regression test for #194
+
+        Test that a blank keyword ('') can be assigned a too-long value that is
+        continued across multiple cards with blank keywords, just like COMMENT
+        and HISTORY cards.
+        """
+
+        value = 'long string value ' * 10
+        header = pyfits.Header()
+        header[''] = value
+
+        assert_equal(len(header), 3)
+        assert_equal(' '.join(header['']), value.rstrip())
+
+        # Ensure that this works like other commentary keywords
+        header['COMMENT'] = value
+        header['HISTORY'] = value
+        assert_equal(header['COMMENT'], header['HISTORY'])
+        assert_equal(header['COMMENT'], header[''])
 
     def test_long_string_from_file(self):
         c = pyfits.Card('abc', 'long string value '*10, 'long comment '*10)
