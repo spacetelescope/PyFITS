@@ -526,7 +526,16 @@ class Header(object):
             A string representing a FITS header.
         """
 
-        s = sep.join(str(card) for card in self._cards)
+        lines = []
+        for card in self._cards:
+            s = str(card)
+            # Cards with CONTINUE cards may be longer than 80 chars; so break
+            # them into multiple lines
+            while s:
+                lines.append(s[:Card.length])
+                s = s[Card.length:]
+
+        s = sep.join(lines)
         if endcard:
             s += sep + _pad('END')
         if padding:
