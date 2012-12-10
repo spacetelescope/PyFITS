@@ -21,7 +21,8 @@ FIX_FP_TABLE = maketrans('de', 'DE')
 FIX_FP_TABLE2 = maketrans('dD', 'eE')
 
 
-BLANK_CARD = ' ' * 80
+CARD_LENGTH = 80
+BLANK_CARD = ' ' * CARD_LENGTH
 
 
 class Undefined:
@@ -296,7 +297,7 @@ class CardList(list):
 
 
 class Card(_Verify):
-    length = 80
+    length = CARD_LENGTH
 
     # String for a FITS standard compliant (FSC) keyword.
     _keywd_FSC_RE = re.compile(r'^[A-Z0-9_-]{0,8}$')

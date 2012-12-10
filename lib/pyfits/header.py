@@ -532,8 +532,8 @@ class Header(object):
             # Cards with CONTINUE cards may be longer than 80 chars; so break
             # them into multiple lines
             while s:
-                lines.append(s[:80])
-                s = s[80:]
+                lines.append(s[:Card.length])
+                s = s[Card.length:]
 
         s = sep.join(lines)
         if endcard:
