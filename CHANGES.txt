@@ -82,6 +82,9 @@ Bug Fixes
 - Fixed bugs in the backwards compatibility layer for the ``CardList.index``
   and ``CardList.count`` methods. (#190)
 
+- Improved ``__repr__`` and text file representation of cards with long values
+  that are split into CONTINUE cards. (#193)
+
 
 3.0.10 (unreleased)
 -------------------
