@@ -2,8 +2,6 @@ import operator
 import sys
 import warnings
 
-from functools import reduce
-
 import numpy as np
 
 from pyfits.column import Column, ColDefs, _FormatP, _makep
@@ -13,7 +11,7 @@ from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
 from pyfits.header import Header
 from pyfits.util import (lazyproperty, _pad_length, _is_pseudo_unsigned,
-                         _unsigned_zero, BLOCK_SIZE)
+                         _unsigned_zero, BLOCK_SIZE, reduce)
 
 try:
     from pyfits import compression

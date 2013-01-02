@@ -10,6 +10,12 @@ import threading
 import warnings
 
 try:
+    from functools import reduce
+except ImportError:
+    # Python 2.5 only has reduce as a builtin
+    from __builtin__ import reduce
+
+try:
     try:
         from cStringIO import StringIO
     except ImportError:
@@ -21,6 +27,7 @@ try:
     from io import BytesIO
 except ImportError:
     BytesIO = StringIO
+
 
 import numpy as np
 
