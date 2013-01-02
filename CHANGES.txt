@@ -12,7 +12,7 @@ Changelog
   earlier than 3.28 has been tested yet. (#169)
 
 
-3.1.1 (unreleased)
+3.1.1 (2013-01-02)
 ------------------
 
 This is a bug fix release for the 3.1.x series.
@@ -94,7 +94,7 @@ Bug Fixes
   (#194)
 
 
-3.0.10 (unreleased)
+3.0.10 (2013-01-02)
 -------------------
 
 This is a bug fix release for the 3.0.x series.
