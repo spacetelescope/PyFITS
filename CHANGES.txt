@@ -1,7 +1,7 @@
 Changelog
 ===========
 
-3.0.10 (unreleased)
+3.0.10 (2013-01-02)
 -------------------
 
 - Improved handling of scaled images and pseudo-unsigned integer images in
