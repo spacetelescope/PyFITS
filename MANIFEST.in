@@ -1,0 +1,7 @@
+include *.txt *.ini
+recursive-include docs *
+recursive-include src *.c *.h
+recursive-include lib/pyfits/tests/data *.fits
+
+exclude *.pyc
+prune docs/build
