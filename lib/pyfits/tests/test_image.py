@@ -970,3 +970,25 @@ class TestImageFunctions(PyfitsTestCase):
             assert_true((data == pyfits.compression.decompress_hdu(hdu)).all())
         finally:
             pyfits.compression.compress_hdu = old_compress_hdu
+
+    def test_lossless_gzip_compression(self):
+        """Regression test for #198."""
+
+        noise = np.random.normal(size=(100, 100))
+
+        chdu1 = pyfits.CompImageHDU(data=noise, compressionType='GZIP_1')
+        # First make a test image with lossy compression and make sure it
+        # wasn't compressed perfectly.  This shouldn't happen ever, but just to
+        # make sure the test non-trivial.
+        chdu1.writeto(self.temp('test.fits'))
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            assert_true(np.abs(noise - h[1].data).max() > 0.0)
+
+        chdu2 = pyfits.CompImageHDU(data=noise, compressionType='GZIP_1',
+                                    quantizeLevel=0.0)  # No quantization
+        with ignore_warnings():
+            chdu2.writeto(self.temp('test.fits'), clobber=True)
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            assert_true((noise == h[1].data).all())

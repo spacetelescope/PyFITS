@@ -29,6 +29,7 @@ DEFAULT_HCOMP_SMOOTH = 0
 DEFAULT_BLOCK_SIZE = 32
 DEFAULT_BYTE_PIX = 4
 
+
 # CFITSIO version-specific features
 if COMPRESSION_SUPPORTED:
     try:
@@ -453,9 +454,10 @@ class CompImageHDU(BinTableHDU):
         # Create the additional columns required for floating point
         # data and calculate the width of the output table.
 
-        if self._image_header['BITPIX'] < 0:
+        if self._image_header['BITPIX'] < 0 and quantizeLevel != 0.0:
             # floating point image has 'COMPRESSED_DATA',
-            # 'UNCOMPRESSED_DATA', 'ZSCALE', and 'ZZERO' columns.
+            # 'UNCOMPRESSED_DATA', 'ZSCALE', and 'ZZERO' columns (unless using
+            # lossless compression, per CFITSIO)
             ncols = 4
 
             # CFITSIO 3.28 and up automatically use the GZIP_COMPRESSED_DATA
