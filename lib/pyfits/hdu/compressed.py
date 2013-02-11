@@ -31,7 +31,12 @@ DEFAULT_BYTE_PIX = 4
 
 # CFITSIO version-specific features
 if COMPRESSION_SUPPORTED:
-    CFITSIO_SUPPORTS_GZIPDATA = compression.CFITSIO_VERSION >= 3.28
+    try:
+        CFITSIO_SUPPORTS_GZIPDATA = compression.CFITSIO_VERSION >= 3.28
+    except AttributeError:
+        # This generally shouldn't happen unless running setup.py in an
+        # environment where an old build of pyfits exists
+        CFITSIO_SUPPORTS_GZIPDATA = True
 
 
 class CompImageHeader(Header):
