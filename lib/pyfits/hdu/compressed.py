@@ -1668,13 +1668,13 @@ class CompImageHDU(BinTableHDU):
 
         # Update TFORM for variable length columns.
         for idx in range(self.compData._nfields):
-            if isinstance(self.compData._coldefs.formats[idx], _FormatP):
+            if isinstance(self.compData._coldefs._recformats[idx], _FormatP):
                 tform = 'TFORM' + str(idx + 1)
                 key = self._header[tform]
-                # TODO: This probably could be cleaned up, whatever it is
-                self._header[tform] = \
-                    key[:key.find('(')+1] + \
-                    repr(hdu.compData.field(idx)._max) + ')'
+                _max = self.compData.field(idx)._max
+                if '(' in key:
+                    key = key[:key.index('(')]
+                self._header[tform] = '%s(%s)' % (key, _max)
         # Insure that for RICE_1 that the BLOCKSIZE and BYTEPIX cards
         # are present and set to the hard coded values used by the
         # compression algorithm.
@@ -1752,18 +1752,17 @@ class CompImageHDU(BinTableHDU):
                     _scale = 1
                     _zero = 0
                 else:
-                    min = np.minimum.reduce(self.data.flat)
-                    max = np.maximum.reduce(self.data.flat)
+                    _min = np.minimum.reduce(self.data.flat)
+                    _max = np.maximum.reduce(self.data.flat)
                     self.data.shape = dims
 
                     if _type == np.uint8:  # uint8 case
-                        _zero = min
-                        _scale = (max - min) / (2.**8 - 1)
+                        _zero = _min
+                        _scale = (_max - _min) / (2. ** 8 - 1)
                     else:
-                        _zero = (max + min) / 2.
+                        _zero = (_max + _min) / 2.
 
-                        # throw away -2^N
-                        _scale = (max - min) / (2.**(8*_type.bytes) - 2)
+                        _scale = (_max - _min) / (2. ** (8 * _type.bytes) - 2)
 
         # Do the scaling
         if _zero != 0:

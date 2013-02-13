@@ -14,6 +14,7 @@ from pyfits.tests.util import CaptureStdout, catch_warnings, ignore_warnings
 
 from nose.tools import (assert_equal, assert_raises, assert_true, assert_false,
                         assert_not_equal)
+from numpy.testing import assert_allclose
 
 
 class TestImageFunctions(PyfitsTestCase):
@@ -1117,3 +1118,25 @@ class TestImageFunctions(PyfitsTestCase):
         assert_equal(hdul[1].header['BITPIX'], -32)
         assert_true('BZERO' not in hdul[1].header)
         assert_true('BSCALE' not in hdul[1].header)
+
+    def test_compression_column_tforms(self):
+        """Regression test for #199."""
+
+        # Some interestingly tiled data so that some of it is quantized and
+        # some of it ends up just getting gzip-compressed
+        data2 = ((np.arange(1, 8, dtype=np.float32) * 10)[:, np.newaxis] +
+                np.arange(1, 7))
+        np.random.seed(0xDEADBEEF)
+        data1 = np.random.uniform(size=(6 * 4, 7 * 4))
+        data1[:data2.shape[0], :data2.shape[1]] = data2
+        chdu = pyfits.CompImageHDU(data1, compressionType='RICE_1',
+                                   tileSize=(6, 7))
+        chdu.writeto(self.temp('test.fits'))
+
+        with pyfits.open(self.temp('test.fits'),
+                         disable_image_compression=True) as h:
+            assert_equal(h[1].header['TFORM1'], '1PB(49)')
+            assert_equal(h[1].header['TFORM2'], '1PD(2)')
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            assert_allclose(h[1].data, data1, rtol=0.01, atol=0.01)

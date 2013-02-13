@@ -1,10 +1,22 @@
 Changelog
 ===========
 
+3.1.2 (unreleased)
+------------------
+
+- Fixed an (apparently long-standing) issue where writing compressed images did
+  not correctly write the TFORMn keywords for variable-length array columns
+  (they ommitted the max array length parameter of the format). Backported from
+  3.1.2. (#199)
+
+
 3.0.11 (unreleased)
 -------------------
 
-- Nothing changed yet.
+- Fixed an (apparently long-standing) issue where writing compressed images did
+  not correctly write the TFORMn keywords for variable-length array columns
+  (they ommitted the max array length parameter of the format). Backported from
+  3.1.2. (#199)
 
 
 3.1.1 (2013-01-02)
