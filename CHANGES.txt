@@ -7,6 +7,88 @@ Changelog
 - Nothing changed yet.
 
 
+3.1.1 (2013-01-02)
+------------------
+
+This is a bug fix release for the 3.1.x series.
+
+Bug Fixes
+^^^^^^^^^
+
+- Improved handling of scaled images and pseudo-unsigned integer images in
+  compressed image HDUs.  They now work more transparently like normal image
+  HDUs with support for the ``do_not_scale_image_data`` and ``uint`` options,
+  as well as ``scale_back`` and ``save_backup``.  The ``.scale()`` method
+  works better too. (#88)
+
+- Permits non-string values for the EXTNAME keyword when reading in a file,
+  rather than throwing an exception due to the malformatting.  Added
+  verification for the format of the EXTNAME keyword when writing. (#96)
+
+- Added support for EXTNAME and EXTVER in PRIMARY HDUs.  That is, if EXTNAME
+  is specified in the header, it will also be reflected in the ``.name``
+  attribute and in ``pyfits.info()``.  These keywords used to be verbotten in
+  PRIMARY HDUs, but the latest version of the FITS standard allows them.
+  (#151)
+
+- HCOMPRESS can again be used to compress data cubes (and higher-dimensional
+  arrays) so long as the tile size is effectively 2-dimensional. In fact,
+  PyFITS will not automatically use compatible tile sizes even if they're not
+  explicitly specified. (#171)
+
+- Added support for the optional ``endcard`` parameter in the
+  ``Header.fromtextfile()`` and ``Header.totextfile()`` methods.  Although
+  ``endcard=False`` was a reasonable default assumption, there are still text
+  dumps of FITS headers that include the END card, so this should have been
+  more flexible. (#176)
+
+- Fixed a crash when running fitsdiff on two empty (that is, zero row) tables.
+  (#178)
+
+- Fixed an issue where opening files containing random groups HDUs in update
+  mode could cause an unnecessary rewrite of the file even if none of the
+  data is modified. (#179)
+
+- Fixed a bug that could caused a deadlock in the filesystem on OSX if PyFITS
+  is used with Numpy 1.7 in some cases. (#180)
+
+- Fixed a crash when generating diff reports from diffs using the
+  ``ignore_comments`` options. (#181)
+
+- Fixed some bugs with WCS Paper IV record-valued keyword cards:
+
+  - Cards that looked kind of like RVKCs but were not intended to be were
+    over-permissively treated as such--commentary keywords like COMMENT and
+    HISTORY were particularly affected. (#183)
+
+  - Looking up a card in a header by its standard FITS keyword only should
+    always return the raw value of that card.  That way cards containing
+    values that happen to valid RVKCs but were not intended to be will still
+    be treated like normal cards. (#184)
+
+  - Looking up a RVKC in a header with only part of the field-specifier (for
+    example "DP1.AXIS" instead of "DP1.AXIS.1") was implicitly treated as a
+    wildcard lookup. (#184)
+
+- Fixed a crash when diffing two FITS files where at least one contains a
+  compressed image HDU which was not recognized as an image instead of a
+  table. (#187)
+
+- Fixed bugs in the backwards compatibility layer for the ``CardList.index``
+  and ``CardList.count`` methods. (#190)
+
+- Improved ``__repr__`` and text file representation of cards with long values
+  that are split into CONTINUE cards. (#193)
+
+- Fixed a crash when trying to assign a long (> 72 character) value to blank
+  ('') keywords. This also changed how blank keywords are represented--there
+  are still exactly 8 spaces before any commentary content can begin; this
+  *may* affect the exact display of header cards that assumed there could be
+  fewer spaces in a blank keyword card before the content begins. However, the
+  current approach is more in line with the requirements of the FITS standard.
+  (#194)
+
+
 3.0.10 (2013-01-02)
 -------------------
 
