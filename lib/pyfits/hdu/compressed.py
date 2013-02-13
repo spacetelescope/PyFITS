@@ -1622,10 +1622,10 @@ class CompImageHDU(BinTableHDU):
 
         # Update TFORM for variable length columns.
         for idx in range(self.compData._nfields):
-            format = self.compData._coldefs.formats[idx]
+            format = self.compData._coldefs._recformats[idx]
             if isinstance(format, _FormatP):
-                max = self.compData.field(idx).max
-                format = _FormatP(format, repeat=format.repeat, max=max)
+                _max = self.compData.field(idx).max
+                format = _FormatP(format.dtype, repeat=format.repeat, max=_max)
                 self._header['TFORM' + str(idx + 1)] = format.tform
         # Insure that for RICE_1 that the BLOCKSIZE and BYTEPIX cards
         # are present and set to the hard coded values used by the
@@ -1700,18 +1700,18 @@ class CompImageHDU(BinTableHDU):
                     _scale = 1
                     _zero = 0
                 else:
-                    min = np.minimum.reduce(self.data.flat)
-                    max = np.maximum.reduce(self.data.flat)
+                    _min = np.minimum.reduce(self.data.flat)
+                    _max = np.maximum.reduce(self.data.flat)
                     self.data.shape = dims
 
                     if _type == np.uint8:  # uint8 case
-                        _zero = min
-                        _scale = (max - min) / (2. ** 8 - 1)
+                        _zero = _min
+                        _scale = (_max - _min) / (2. ** 8 - 1)
                     else:
-                        _zero = (max + min) / 2.
+                        _zero = (_max + _min) / 2.
 
                         # throw away -2^N
-                        _scale = (max - min) / (2. ** (8 * _type.bytes) - 2)
+                        _scale = (_max - _min) / (2. ** (8 * _type.bytes) - 2)
 
         # Do the scaling
         if _zero != 0:
