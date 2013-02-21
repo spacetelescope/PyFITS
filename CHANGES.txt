@@ -12,6 +12,9 @@ Changelog
   multi-dimensional columns (i.e. via the TDIMn keyword) and then writing it
   out to a new file. (#201)
 
+- Fixed a bug in fitsdiff that reported two header keywords containing NaN
+  as value as different. (#204)
+
 
 3.0.11 (unreleased)
 -------------------
