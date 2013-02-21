@@ -627,9 +627,13 @@ class FITS_rec(np.recarray):
                         for idx in xrange(len(dummy)):
                             val = dummy[idx]
                             dummy[idx] = val + (pad * (itemsize - len(val)))
-                    if dummy.dtype != field.dtype:
-                        dummy = dummy.astype(field.dtype)
-                    field[:] = dummy
+                    if field.shape == dummy.shape:
+                        field[:] = dummy
+                    else:
+                        # Reshaping the data is necessary in cases where the
+                        # TDIMn keyword was used to shape a column's entries
+                        # into arrays
+                        field[:] = dummy.ravel().view(field.dtype)
 
                 del dummy
 

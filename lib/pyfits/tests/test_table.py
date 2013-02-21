@@ -1693,6 +1693,38 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(t.field(1).dtype.str[-1], '5')
         assert_equal(t.field(1).shape, (3, 4, 3))
 
+    def test_string_array_round_trip(self):
+        """Regression test for #201."""
+
+        data = [['abc', 'def', 'ghi'],
+                ['jkl', 'mno', 'pqr'],
+                ['stu', 'vwx', 'yz ']]
+
+        recarr = np.rec.array([(data,), (data,)], formats=['(3,3)S3'])
+
+        t = pyfits.BinTableHDU(data=recarr)
+        t.writeto(self.temp('test.fits'))
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            assert_true('TDIM1' in h[1].header)
+            assert_equal(h[1].header['TDIM1'], '(3,3,3)')
+            assert_equal(len(h[1].data), 2)
+            assert_equal(len(h[1].data[0]), 1)
+            assert_true((h[1].data.field(0)[0] == recarr.field(0)[0]).all())
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            # Access the data; I think this is necessary to exhibit the bug
+            # reported in #201
+            h[1].data[:]
+            h.writeto(self.temp('test2.fits'))
+
+        with pyfits.open(self.temp('test2.fits')) as h:
+            assert_true('TDIM1' in h[1].header)
+            assert_equal(h[1].header['TDIM1'], '(3,3,3)')
+            assert_equal(len(h[1].data), 2)
+            assert_equal(len(h[1].data[0]), 1)
+            assert_true((h[1].data.field(0)[0] == recarr.field(0)[0]).all())
+
     def test_slicing(self):
         """Regression test for #52."""
 
