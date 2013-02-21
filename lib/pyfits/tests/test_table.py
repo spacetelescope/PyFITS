@@ -1742,7 +1742,10 @@ class TestTableFunctions(PyfitsTestCase):
             assert_equal(len(h[1].data[0]), 1)
             assert_true((h[1].data.field(0)[0] == recarr.field(0)[0]).all())
 
-        with pyfits.open(self.temp('test.fits'))as h:
+        with pyfits.open(self.temp('test.fits')) as h:
+            # Access the data; I think this is necessary to exhibit the bug
+            # reported in #201
+            h[1].data[:]
             h.writeto(self.temp('test2.fits'))
 
         with pyfits.open(self.temp('test2.fits')) as h:
