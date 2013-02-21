@@ -23,6 +23,10 @@ Changelog
   did not correctly write the TFORMn keywords for variable-length array
   columns (they ommitted the max array length parameter of the format). (#199)
 
+- Fixed a bug that could occur when opening a table containing
+  multi-dimensional columns (i.e. via the TDIMn keyword) and then writing it
+  out to a new file. (#201)
+
 
 3.0.11 (unreleased)
 -------------------
