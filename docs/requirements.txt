@@ -1,0 +1,4 @@
+numpy
+numpydoc
+stsci.sphinxext
+sphinxcontrib-programoutput
