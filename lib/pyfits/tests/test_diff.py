@@ -537,3 +537,54 @@ class TestDiff(PyfitsTestCase):
             assert_true('Data differs at [%d, 1]' % (y + 1) in report)
         assert_true('100 different pixels found (100.00% different).' in
                     report)
+
+    def test_diff_nans(self):
+        """Regression test for #204."""
+
+        # First test some arrays that should be equivalent....
+        arr = np.empty((10, 10), dtype=np.float64)
+        arr[:5] = 1.0
+        arr[5:] = np.nan
+        arr2 = arr.copy()
+
+        table = np.rec.array([(1.0, 2.0), (3.0, np.nan), (np.nan, np.nan)],
+                             names=['cola', 'colb']).view(pyfits.FITS_rec)
+        table2 = table.copy()
+
+        assert_true(ImageDataDiff(arr, arr2).identical)
+        assert_true(TableDataDiff(table, table2).identical)
+
+        # Now let's introduce some differences, where there are nans and where
+        # there are not nans
+        arr2[0][0] = 2.0
+        arr2[5][0] = 2.0
+        table2[0][0] = 2.0
+        table2[1][1] = 2.0
+
+        diff = ImageDataDiff(arr, arr2)
+        assert_false(diff.identical)
+        assert_equal(diff.diff_pixels[0], ((0, 0), (1.0, 2.0)))
+        assert_equal(diff.diff_pixels[1][0], (5, 0))
+        assert_true(np.isnan(diff.diff_pixels[1][1][0]))
+        assert_equal(diff.diff_pixels[1][1][1], 2.0)
+
+        diff = TableDataDiff(table, table2)
+        assert_false(diff.identical)
+        assert_equal(diff.diff_values[0], (('cola', 0), (1.0, 2.0)))
+        assert_equal(diff.diff_values[1][0], ('colb', 1))
+        assert_true(np.isnan(diff.diff_values[1][1][0]))
+        assert_equal(diff.diff_values[1][1][1], 2.0)
+
+        # What about in Headers?
+
+        h = pyfits.Header([('A', 1), ('B', np.nan)])
+        h2 = h.copy()
+
+        assert_true(HeaderDiff(h, h2).identical)
+
+        h2['B'] = 1.0
+
+        diff = HeaderDiff(h, h2)
+        assert_false(diff.identical)
+        assert_true(np.isnan(diff.diff_keyword_values['B'][0][0]))
+        assert_equal(diff.diff_keyword_values['B'][0][1], 1.0)
