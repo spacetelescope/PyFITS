@@ -1926,3 +1926,29 @@ class TestTableFunctions(PyfitsTestCase):
         with pyfits.open(self.temp('table.fits')) as hdul:
             assert_true((hdul[1].data['F1'] == [True, True]).all())
             assert_true((hdul[1].data['F2'] == [True, True]).all())
+
+    def test_missing_tnull(self):
+        """Regression test for #197."""
+
+        c = pyfits.Column('F1', 'A3', null='---',
+                          array=np.array(['1.0', '2.0', '---', '3.0']))
+        table = pyfits.new_table([c], tbtype='TableHDU')
+        table.writeto(self.temp('test.fits'))
+
+        # Now let's delete the TNULL1 keyword, making this essentially
+        # unreadable
+        with pyfits.open(self.temp('test.fits'), mode='update') as h:
+            h[1].header['TFORM1'] = 'E3'
+            del h[1].header['TNULL1']
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            assert_raises(ValueError, lambda: h[1].data['F1'])
+
+        try:
+            with pyfits.open(self.temp('test.fits')) as h:
+                h[1].data['F1']
+        except ValueError, e:
+            assert_equal(str(e),
+                         "could not convert string to float: ---; "
+                         "the header may be missing the necessary TNULL1 "
+                         "keyword or the table contains invalid data")

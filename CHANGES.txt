@@ -24,6 +24,10 @@ Changelog
   enabled it when GzipFile objects were passed to ``pyfits.open()`` due to
   some legacy code preventing full gzip support. (#195)
 
+- Added a more helpful error message in the case of malformatted FITS files
+  that contain non-float NULL values in an ASCII table but are missing the
+  required TNULLn keywords in the header. (#197)
+
 - Fixed an (apparently long-standing) issue where writing compressed images
   did not correctly write the TFORMn keywords for variable-length array
   columns (they ommitted the max array length parameter of the format). (#199)
