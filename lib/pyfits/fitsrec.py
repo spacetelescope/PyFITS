@@ -642,6 +642,13 @@ class FITS_rec(np.recarray):
                         for idx in xrange(len(dummy)):
                             val = dummy[idx]
                             dummy[idx] = val + (pad * (itemsize - len(val)))
+
+                        # Encode *after* handling the padding byte or else
+                        # Numpy will complain about trying to append bytes to
+                        # an array
+                        if dummy.dtype.kind == 'U':
+                            dummy = dummy.encode('ascii')
+
                     if field.shape == dummy.shape:
                         field[:] = dummy
                     else:
