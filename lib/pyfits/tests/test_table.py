@@ -1948,7 +1948,6 @@ class TestTableFunctions(PyfitsTestCase):
             with pyfits.open(self.temp('test.fits')) as h:
                 h[1].data['F1']
         except ValueError, e:
-            assert_equal(str(e),
-                         "could not convert string to float: ---; "
+            assert_true(str(e).endswith(
                          "the header may be missing the necessary TNULL1 "
-                         "keyword or the table contains invalid data")
+                         "keyword or the table contains invalid data"))
