@@ -1,21 +1,13 @@
 Changelog
 ===========
 
-3.1.2 (unreleased)
-------------------
-
-- Fixed an (apparently long-standing) issue where writing compressed images did
-  not correctly write the TFORMn keywords for variable-length array columns
-  (they ommitted the max array length parameter of the format). Backported from
-  3.1.2. (#199)
-
-- Fixed a bug that could occur when opening a table containing
-  multi-dimensional columns (i.e. via the TDIMn keyword) and then writing it
-  out to a new file. (#201)
-
-
 3.0.11 (unreleased)
 -------------------
+
+- Fixed support for opening gzipped FITS files by filename in a writeable mode
+  (PyFITS has supported writing to gzip files for some time now, but only
+  enabled it when GzipFile objects were passed to ``pyfits.open()`` due to
+  some legacy code preventing full gzip support. (#195)
 
 - Fixed an (apparently long-standing) issue where writing compressed images did
   not correctly write the TFORMn keywords for variable-length array columns

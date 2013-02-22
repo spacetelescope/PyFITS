@@ -569,6 +569,22 @@ def fileobj_closed(f):
         return True
 
 
+def fileobj_is_binary(f):
+    """
+    Returns True if the give file or file-like object has a file open in binary
+    mode.  When in doubt, returns True by default.
+    """
+
+    # TODO: In Python 3 it might be more reliable to check if the fileobj is a
+    # text reader or a binary reader
+
+    mode = fileobj_mode(f)
+    if mode:
+        return 'b' in mode
+    else:
+        return True
+
+
 def fileobj_mode(f):
     """
     Returns the 'mode' string of a file-like object if such a thing exists.
@@ -652,10 +668,7 @@ def _write_string(f, s):
 
     # Assume if the file object doesn't have a specific mode, that the mode is
     # binary
-    if hasattr(f, 'mode'):
-        binmode = 'b' in f.mode
-    else:
-        binmode = True
+    binmode = fileobj_is_binary(f)
 
     if binmode and isinstance(s, unicode):
         s = encode_ascii(s)
