@@ -411,7 +411,13 @@ class FITS_rec(np.recarray):
                                       'E'.encode('ascii'))
                 dummy = np.where(dummy.strip() == nullval, str(ASCIITNULL),
                                  dummy)
-                dummy = np.array(dummy, dtype=_type)
+                try:
+                    dummy = np.array(dummy, dtype=_type)
+                except ValueError, e:
+                    raise ValueError(
+                        '%s; the header may be missing the necessary TNULL%d '
+                        'keyword or the table contains invalid data' %
+                        (e, indx + 1))
 
                 self._convert[indx] = dummy
             else:
