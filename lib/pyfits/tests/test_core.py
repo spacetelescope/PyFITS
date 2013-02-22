@@ -11,7 +11,7 @@ import numpy as np
 import pyfits
 from pyfits.convenience import _getext
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings, BytesIO, CaptureStdout
+from pyfits.tests.util import catch_warnings, BytesIO, ignore_warnings
 
 from nose.tools import assert_equal, assert_raises, assert_true, assert_false
 
@@ -27,7 +27,8 @@ class TestCore(PyfitsTestCase):
         hdulist[1].header.update("NAXIS3", 500)
 
         assert 'NAXIS3' in hdulist[1].header
-        hdulist.verify('fix')
+        with ignore_warnings():
+            hdulist.verify('fix')
         assert 'NAXIS3' not in hdulist[1].header
 
     def test_byteswap(self):
@@ -515,7 +516,7 @@ class TestStreamingFunctions(PyfitsTestCase):
 
         assert_raises(pyfits.VerifyError, hdul.writeto, self.temp('temp.fits'),
                       output_verify='exception')
-        with CaptureStdout():
+        with ignore_warnings():
             hdul.writeto(self.temp('temp.fits'), output_verify='fix')
         with pyfits.open(self.temp('temp.fits')):
             assert_equal(hdul[1].name, '12345678')

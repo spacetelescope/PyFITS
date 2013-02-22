@@ -10,7 +10,7 @@ import numpy as np
 
 import pyfits
 from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import CaptureStdout, catch_warnings, ignore_warnings
+from pyfits.tests.util import catch_warnings, ignore_warnings
 
 from nose.tools import (assert_equal, assert_raises, assert_true, assert_false,
                         assert_not_equal)
@@ -106,7 +106,7 @@ class TestImageFunctions(PyfitsTestCase):
                          "ABC     = (1.23453774378878E+88, 6.32476736476374E-15)                          ")
 
     def test_card_image_constructed_too_long(self):
-        with CaptureStdout():
+        with ignore_warnings():
             # card image constructed from key/value/comment is too long
             # (non-string value)
             c = pyfits.Card('abc', 9, 'abcde'*20)
@@ -219,19 +219,22 @@ class TestImageFunctions(PyfitsTestCase):
     def test_verification(self):
         # verification
         c = pyfits.Card.fromstring('abc= a6')
-        with CaptureStdout() as f:
+        with catch_warnings(record=True) as w:
             c.verify()
+            assert_equal(len(w), 1)
             assert_true(
                 'Card image is not FITS standard (equal sign not at column 8).'
-                in f.getvalue())
+                in str(w[0].message))
         assert_equal(str(c),
                      "abc= a6                                                                         ")
 
     def test_fix(self):
         c = pyfits.Card.fromstring('abc= a6')
-        with CaptureStdout() as f:
+        with catch_warnings(record=True) as w:
             c.verify('fix')
-            assert_true('Fixed card to be FITS standard.: ABC' in f.getvalue())
+            assert_equal(len(w), 1)
+            assert_true('Fixed card to be FITS standard.: ABC' in
+                        str(w[0].message))
         assert_equal(str(c),
                      "ABC     = 'a6      '                                                            ")
 
@@ -497,18 +500,21 @@ class TestImageFunctions(PyfitsTestCase):
     def test_verification_on_output(self):
         # verification on output
         # make a defect HDUList first
-        with CaptureStdout() as f:
+        with catch_warnings(record=True) as w:
             x = pyfits.ImageHDU()
             hdu = pyfits.HDUList(x) # HDUList can take a list or one single HDU
             hdu.verify()
+            assert_equal(len(w), 1)
             assert_true(
-                "HDUList's 0th element is not a primary HDU." in f.getvalue())
+                "HDUList's 0th element is not a primary HDU." in
+                str(w[0].message))
 
-        with CaptureStdout() as f:
+        with catch_warnings(record=True) as w:
             hdu.writeto(self.temp('test_new2.fits'), 'fix')
+            assert_equal(len(w), 1)
             assert_true(
                 "HDUList's 0th element is not a primary HDU.  "
-                "Fixed by inserting one as 0th HDU." in f.getvalue())
+                "Fixed by inserting one as 0th HDU." in str(w[0].message))
 
     def test_section(self):
         # section testing
@@ -917,7 +923,8 @@ class TestImageFunctions(PyfitsTestCase):
 
         hdul = pyfits.open(self.data('fixed-1890.fits'))
         orig_data = hdul[0].data
-        hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        with ignore_warnings():
+            hdul.writeto(self.temp('test_new.fits'), clobber=True)
         hdul.close()
         hdul = pyfits.open(self.temp('test_new.fits'))
         assert_true((hdul[0].data == orig_data).all())
@@ -926,7 +933,8 @@ class TestImageFunctions(PyfitsTestCase):
         # Just as before, but this time don't touch hdul[0].data before writing
         # back out--this is the case that failed in #84
         hdul = pyfits.open(self.data('fixed-1890.fits'))
-        hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        with ignore_warnings():
+            hdul.writeto(self.temp('test_new.fits'), clobber=True)
         hdul.close()
         hdul = pyfits.open(self.temp('test_new.fits'))
         assert_true((hdul[0].data == orig_data).all())

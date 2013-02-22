@@ -360,7 +360,7 @@ class TestTableFunctions(PyfitsTestCase):
                                (3,'Rigil Kent',-0.1,'G2V')],
                               formats='int16,a20,float32,a10',
                               names='order,name,mag,Sp')
-        hdu=pyfits.new_table(bright,nrows=2,tbtype='TableHDU')
+        hdu = pyfits.new_table(bright, nrows=2, tbtype='TableHDU')
 
         # Verify that all ndarray objects within the HDU reference the
         # same ndarray.
@@ -433,13 +433,14 @@ class TestTableFunctions(PyfitsTestCase):
             assert_equal(hdul[1].data[1][3], 'F0Ib')
         del hdul
 
-        hdu = pyfits.new_table(bright,nrows=2)
-        tmp = np.rec.array([(1,'Serius',-1.45,'A1V'),
-                            (2,'Canopys',-0.73,'F0Ib')],
+        hdu = pyfits.new_table(bright, nrows=2)
+        tmp = np.rec.array([(1, 'Serius', -1.45,'A1V'),
+                            (2, 'Canopys', -0.73,'F0Ib')],
                             formats='int16,a20,float32,a10',
                             names='order,name,mag,Sp')
         assert_true(comparerecords(hdu.data, tmp))
-        hdu.writeto(self.temp('toto.fits'), clobber=True)
+        with ignore_warnings():
+            hdu.writeto(self.temp('toto.fits'), clobber=True)
         with pyfits.open(self.temp('toto.fits')) as hdul:
             assert_true(comparerecords(hdu.data, hdul[1].data))
 
@@ -1612,7 +1613,8 @@ class TestTableFunctions(PyfitsTestCase):
         del hdul
 
         ahdu = pyfits.new_table([acol], tbtype='TableHDU')
-        ahdu.writeto(self.temp('newtable.fits'), clobber=True)
+        with ignore_warnings():
+            ahdu.writeto(self.temp('newtable.fits'), clobber=True)
 
         with pyfits.open(self.temp('newtable.fits')) as hdul:
             assert_equal(hdul[1].data.tostring().decode('raw-unicode-escape'),
@@ -1623,7 +1625,8 @@ class TestTableFunctions(PyfitsTestCase):
 
         # Now serialize once more as a binary table; padding bytes should
         # revert to zeroes
-        ahdu.writeto(self.temp('newtable.fits'), clobber=True)
+        with ignore_warnings():
+            ahdu.writeto(self.temp('newtable.fits'), clobber=True)
         with pyfits.open(self.temp('newtable.fits')) as hdul:
             assert_equal(hdul[1].data.tostring().decode('raw-unicode-escape'),
                          s)
@@ -1644,7 +1647,6 @@ class TestTableFunctions(PyfitsTestCase):
         # Modify the TDIM fields to my own specification
         thdu.header.update('TDIM1', '(2,3)')
         thdu.header.update('TDIM2', '(4,2)')
-
         thdu.writeto(self.temp('newtable.fits'))
 
         with pyfits.open(self.temp('newtable.fits')) as hdul:
@@ -1670,7 +1672,8 @@ class TestTableFunctions(PyfitsTestCase):
         data = np.zeros(3, dtype=[('x', 'f4'), ('s', 'S5', 4)])
         data['x'] = 1, 2, 3
         data['s'] = 'ok'
-        pyfits.writeto(self.temp('newtable.fits'), data, clobber=True)
+        with ignore_warnings():
+            pyfits.writeto(self.temp('newtable.fits'), data, clobber=True)
 
         t = pyfits.getdata(self.temp('newtable.fits'))
 
