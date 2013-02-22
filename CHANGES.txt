@@ -4,6 +4,11 @@ Changelog
 3.1.2 (unreleased)
 ------------------
 
+- Fixed support for opening gzipped FITS files by filename in a writeable mode
+  (PyFITS has supported writing to gzip files for some time now, but only
+  enabled it when GzipFile objects were passed to ``pyfits.open()`` due to
+  some legacy code preventing full gzip support. (#195)
+
 - Fixed an (apparently long-standing) issue where writing compressed images
   did not correctly write the TFORMn keywords for variable-length array
   columns (they ommitted the max array length parameter of the format). (#199)
