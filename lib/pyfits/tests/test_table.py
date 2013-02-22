@@ -1710,7 +1710,8 @@ class TestTableFunctions(PyfitsTestCase):
             assert_equal(h[1].header['TDIM1'], '(3,3,3)')
             assert_equal(len(h[1].data), 2)
             assert_equal(len(h[1].data[0]), 1)
-            assert_true((h[1].data.field(0)[0] == recarr.field(0)[0]).all())
+            assert_true((h[1].data.field(0)[0] ==
+                         recarr.field(0)[0].decode('ascii')).all())
 
         with pyfits.open(self.temp('test.fits')) as h:
             # Access the data; I think this is necessary to exhibit the bug
@@ -1723,7 +1724,8 @@ class TestTableFunctions(PyfitsTestCase):
             assert_equal(h[1].header['TDIM1'], '(3,3,3)')
             assert_equal(len(h[1].data), 2)
             assert_equal(len(h[1].data[0]), 1)
-            assert_true((h[1].data.field(0)[0] == recarr.field(0)[0]).all())
+            assert_true((h[1].data.field(0)[0] ==
+                         recarr.field(0)[0].decode('ascii')).all())
 
     def test_slicing(self):
         """Regression test for #52."""
