@@ -1134,7 +1134,7 @@ class TestImageFunctions(PyfitsTestCase):
         # some of it ends up just getting gzip-compressed
         data2 = ((np.arange(1, 8, dtype=np.float32) * 10)[:, np.newaxis] +
                 np.arange(1, 7))
-        np.random.seed(0xDEADBEEF)
+        np.random.seed(1337)
         data1 = np.random.uniform(size=(6 * 4, 7 * 4))
         data1[:data2.shape[0], :data2.shape[1]] = data2
         chdu = pyfits.CompImageHDU(data1, compressionType='RICE_1',
