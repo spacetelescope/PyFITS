@@ -1009,5 +1009,5 @@ class TestImageFunctions(PyfitsTestCase):
 
         with pyfits.open(self.temp('test.fits'),
                          disable_image_compression=True) as h:
-            assert_equal(h[1].header['TFORM1'], '1PB(32)')
+            assert_equal(h[1].header['TFORM1'], '1PB(30)')
             assert_equal(h[1].header['TFORM2'], '1PB(359)')
