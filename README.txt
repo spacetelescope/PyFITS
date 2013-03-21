@@ -1,19 +1,26 @@
 Documentation
 ===============
 See the Users Guide and API documentation hosted at
-http://packages.python.org/pyfits.
+http://pythonhosted.org/pyfits.
 
 Development
 =============
-PyFITS has a Trac site used for development at:
-https://trac6.assembla.com/pyfits
+PyFITS is now on GitHub at:
+https://github.com/spacetelescope/PyFITS
 
-All issue numbers mentioned in the changelog (#n) refer to ticket numbers in
-Trac.  To report an issue in PyFITS, send an e-mail to help@stsci.edu.
+To report an issue in PyFITS, please create an account on GitHub and submit
+the issue there, or send an e-mail to help@stsci.edu.  Before submitting an
+issue please search the existing issues for similar problems.  Before asking
+for help, please check the PyFITS FAQ for answers to your questions:
+http://pythonhosted.org/pyfits/appendix/faq.html
 
-The latest source code can be checked out from SVN with::
+The latest source code can be checked out from git with::
 
- svn checkout https://svn6.assembla.com/svn/pyfits/trunk
+  git clone https://github.com/spacetelescope/PyFITS.git
+
+An SVN mirror is still maintained as well::
+
+  svn checkout https://svn6.assembla.com/svn/pyfits/trunk
 
 For Packagers
 ===============
