@@ -21,6 +21,7 @@ from ..column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, TDEF_RE,
                       _convert_format, _cmp_recformats, _get_index)
 from ..fitsrec import FITS_rec
 from ..header import Header
+from ..py3compat import ignored
 from ..util import lazyproperty, _is_int, _str_to_num, _pad_length, deprecated
 from .base import DELAYED, _ValidHDU, ExtensionHDU
 
@@ -296,7 +297,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                 self.columns = self.data._coldefs
                 self.update()
 
-                try:
+                with ignored(TypeError, AttributeError):
                    # Make the ndarrays in the Column objects of the ColDefs
                    # object of the HDU reference the same ndarray as the HDU's
                    # FITS_rec object.
@@ -306,10 +307,6 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                     # Delete the _arrays attribute so that it is recreated to
                     # point to the new data placed in the column objects above
                     del self.columns._arrays
-                except (TypeError, AttributeError):
-                    # This shouldn't happen as long as self.columns._arrays
-                    # is a lazyproperty
-                    pass
             elif data is None:
                 pass
             else:
@@ -390,7 +387,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             self.columns = self.data.columns
             self.update()
 
-            try:
+            with ignored(TypeError, AttributeError):
                # Make the ndarrays in the Column objects of the ColDefs
                # object of the HDU reference the same ndarray as the HDU's
                # FITS_rec object.
@@ -400,10 +397,6 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                 # Delete the _arrays attribute so that it is recreated to
                 # point to the new data placed in the column objects above
                 del self.columns._arrays
-            except (TypeError, AttributeError):
-                # This shouldn't happen as long as self.columns._arrays
-                # is a lazyproperty
-                pass
         elif data is None:
             pass
         else:

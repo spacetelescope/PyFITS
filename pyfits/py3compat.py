@@ -200,3 +200,30 @@ else:
     import string
     import pyfits.util
     pyfits.util.maketrans = string.maketrans
+
+
+try:
+    from contextlib import ignored
+except ImportError:
+    from contextlib import contextmanager
+    @contextmanager
+    def ignored(*exceptions):
+        """A context manager for ignoring exceptions.  Equivalent to::
+
+            try:
+                <body>
+            except exceptions:
+                pass
+
+        Example::
+
+            >>> import os
+            >>> with ignored(OSError):
+            ...     os.remove('file-that-does-not-exist')
+
+        """
+
+        try:
+            yield
+        except exceptions:
+            pass

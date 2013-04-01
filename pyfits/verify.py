@@ -8,7 +8,6 @@ class VerifyError(Exception):
     """
     Verify exception class.
     """
-    pass
 
 
 class VerifyWarning(UserWarning):

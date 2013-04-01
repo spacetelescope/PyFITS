@@ -12,6 +12,7 @@ from .extern.six import iteritems, string_types
 from .extern.six.moves import reduce
 
 from .card import Card
+from .py3compat import ignored
 from .util import (lazyproperty, pairwise, _is_int, _convert_array,
                    encode_ascii, indent, isiterable, cmp)
 from .verify import VerifyError, VerifyWarning
@@ -546,12 +547,10 @@ class Column(object):
             return format, format.recformat
 
         if format in NUMPY2FITS:
-            try:
+            with ignored(VerifyError):
                 # legit recarray format?
                 recformat = format
                 format = cls.from_recformat(format)
-            except VerifyError:
-                pass
 
         try:
             # legit FITS format?
@@ -783,10 +782,9 @@ class Column(object):
             # "optional" codes), but it is also strictly a valid ASCII
             # table format, then assume an ASCII table column was being
             # requested (the more likely case, after all).
-            try:
+            with ignored(VerifyError):
                 format = _AsciiColumnFormat(format, strict=True)
-            except VerifyError:
-                pass
+
             # A safe guess which reflects the existing behavior of previous
             # PyFITS versions
             guess_format = _ColumnFormat

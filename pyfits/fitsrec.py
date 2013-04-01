@@ -13,6 +13,7 @@ from .extern.six.moves import range, reduce
 from .column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ASCII2STR, ColDefs,
                      _AsciiColDefs, _FormatX, _FormatP, _VLF, _get_index,
                      _wrapx, _unwrapx, _makep, _convert_ascii_format, Delayed)
+from .py3compat import ignored
 from .util import encode_ascii, decode_ascii, lazyproperty
 
 
@@ -798,10 +799,8 @@ class FITS_rec(np.recarray):
         elif _bool and field.dtype != bool:
             field = np.equal(field, ord('T'))
         elif _str:
-            try:
+            with ignored(UnicodeDecodeError):
                 field = decode_ascii(field)
-            except UnicodeDecodeError:
-                pass
 
         if dim:
             # Apply the new field item dimensions

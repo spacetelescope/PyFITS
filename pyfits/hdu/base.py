@@ -14,6 +14,7 @@ from ..extern.six.moves import range
 import pyfits
 from ..file import _File
 from ..header import Header
+from ..py3compat import ignored
 from ..util import (first, lazyproperty, _is_int, _is_pseudo_unsigned,
                     _unsigned_zero, _pad_length, itersubclasses, encode_ascii,
                     decode_ascii, deprecated, _get_array_mmap, _array_to_file)
@@ -543,18 +544,14 @@ class _BaseHDU(object):
         if (self._has_data and self._standard and
                 _is_pseudo_unsigned(self.data.dtype)):
             for keyword in ('BSCALE', 'BZERO'):
-                try:
+                with ignored(KeyError):
                     del self._header[keyword]
-                except KeyError:
-                    pass
 
     def _writeheader(self, fileobj):
         offset = 0
         if not fileobj.simulateonly:
-            try:
+            with ignored(AttributeError, IOError):
                 offset = fileobj.tell()
-            except (AttributeError, IOError):
-                pass
 
             self._header.tofile(fileobj)
 
