@@ -26,10 +26,6 @@ setup(
         'zest.releaser.releaser_after': [
             'pyfits.releaser.after = pyfits._releaser:releaser.releaser_after'
         ],
-        'zest.releaser.postreleaser.before': [
-            'pyfits.postreleaser.before = '
-                'pyfits._release:releaser.postreleaser_before'
-        ],
         'zest.releaser.postreleaser.after': [
             'pyfits.postreleaser.after = '
                 'pyfits._release:releaser.postreleaser_after'

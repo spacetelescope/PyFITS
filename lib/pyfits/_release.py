@@ -54,25 +54,13 @@ class ReleaseManager(object):
         self.released_version = ''
 
     def prereleaser_before(self, data):
-        """Set tag_svn_revision to False."""
+        """Initialize the log."""
 
         if data['name'] != 'pyfits':
             return
 
         global log
         log = logging.getLogger('prerelease')
-
-        # TODO: This bit should belong to a generic release hook somewhere in
-        # the stsci namespace, or even should maybe be suggested as a built in
-        # action of zest.releaser
-        def callback(section, option, value, lineno, line):
-            if section == 'egg_info' and option == 'tag_svn_revision':
-                log.info('Disabling tag_svn_revision in setup.cfg')
-                return 'tag_svn_revision = False\n'
-            else:
-                return line
-
-        config_parser('setup.cfg', callback)
 
     def prereleaser_middle(self, data):
         """Update the Sphinx conf.py"""
@@ -107,23 +95,6 @@ class ReleaseManager(object):
             return
 
         self.released_version = data['version']
-
-    def postreleaser_before(self, data):
-        """Restore tag_svn_revision"""
-
-        if data['name'] != 'pyfits':
-            return
-
-        global log
-        log = logging.getLogger('postrelease')
-
-        def callback(section, option, value, lineno, line):
-            if section == 'egg_info' and option == 'tag_svn_revision':
-                return 'tag_svn_revision = True'
-            else:
-                return line
-
-        config_parser('setup.cfg', callback)
 
     def postreleaser_after(self, data):
         """
