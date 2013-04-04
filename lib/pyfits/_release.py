@@ -42,7 +42,8 @@ VERSION_RE = re.compile(r'(?P<MAJOR>\d+)\.(?P<MINOR>\d+)(?:\.(?P<MICRO>\d+))?')
 # NOTE: The MICRO version number is appended to the format later, since it is
 # optional if the micro format is 0
 SEARCH_VERSION_RE_FORMAT = (r'(?P<prefix>v|V|[vV]ersion\s+|pyfits-)'
-                             '%(major)s\.%(minor)s(?:\s*\((?P<date>.+)\))?')
+                             '%(major)s\.%(minor)s'
+                             '(?:\s*\((?P<date>[A-Za-z]+ \d{2} \d{4})\))?')
 
 DATE_FORMAT = '%B %d %Y'
 
