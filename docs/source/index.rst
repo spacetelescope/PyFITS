@@ -16,4 +16,4 @@ PyFITS Documentation
 
    users_guide/users_guide.rst
    api_docs/api_docs.rst
-
+   developers_guide/developers_guide.rst

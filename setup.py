@@ -9,32 +9,7 @@ except ImportError:
 
 
 setup(
-    setup_requires=['d2to1>=0.2.5', 'stsci.distutils>=0.2.1'],
-    entry_points={
-        'zest.releaser.prereleaser.before': [
-            'pyfits.prereleaser.before = '
-                'pyfits._release:releaser.prereleaser_before'
-        ],
-        'zest.releaser.prereleaser.middle': [
-            'pyfits.prereleaser.middle = '
-                'pyfits._release:releaser.prereleaser_middle'
-        ],
-        'zest.releaser.prereleaser.after': [
-            'pyfits.prereleaser.after = '
-                'pyfits._release:releaser.prereleaser_after'
-        ],
-        'zest.releaser.releaser_after': [
-            'pyfits.releaser.after = pyfits._releaser:releaser.releaser_after'
-        ],
-        'zest.releaser.postreleaser.before': [
-            'pyfits.postreleaser.before = '
-                'pyfits._release:releaser.postreleaser_before'
-        ],
-        'zest.releaser.postreleaser.after': [
-            'pyfits.postreleaser.after = '
-                'pyfits._release:releaser.postreleaser_after'
-        ]
-    },
+    setup_requires=['d2to1>=0.2.5', 'stsci.distutils>=0.3'],
     d2to1=True,
     use_2to3=True,
     zip_safe=False
