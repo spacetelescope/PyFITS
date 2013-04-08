@@ -1,3 +1,4 @@
+import operator
 import re
 import sys
 import weakref
@@ -280,6 +281,13 @@ class Column(object):
                 "for the TDIMn header keyword associated with this column, "
                 "or a tuple containing the C-order dimensions for the column")
 
+        if self._dims:
+            repeat = _parse_tformat(format)[0]
+            if reduce(operator.mul, self._dims) > repeat:
+                raise ValueError(
+                    "The repeat count of the column format %r for column %r "
+                    "is fewer than the number of elements per the TDIM "
+                    "argument %r." % (name, format, dim))
         # does not include Object array because there is no guarantee
         # the elements in the object array are consistent.
         if not isinstance(array,

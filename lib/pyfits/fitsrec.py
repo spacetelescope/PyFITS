@@ -7,7 +7,7 @@ import numpy as np
 
 from pyfits.column import (ASCIITNULL, FITS2NUMPY, Column, ColDefs, _FormatX,
                            _FormatP, _VLF, _get_index, _wrapx, _unwrapx,
-                           _convert_format, _convert_ascii_format)
+                            _convert_ascii_format)
 from pyfits.util import _array_from_file, decode_ascii, lazyproperty
 
 
@@ -462,7 +462,7 @@ class FITS_rec(np.recarray):
                         actual_nitems = dummy.itemsize
                     else:
                         actual_nitems = dummy.shape[1]
-                    if nitems != actual_nitems:
+                    if nitems > actual_nitems:
                         warnings.warn(
                         'TDIM%d value %s does not fit with the size of '
                             'the array items (%d).  TDIM%d will be ignored.'
@@ -489,8 +489,9 @@ class FITS_rec(np.recarray):
                     pass
 
             if dim:
+                nitems = reduce(operator.mul, dim)
                 if self._convert[indx] is None:
-                    self._convert[indx] = dummy
+                    self._convert[indx] = dummy[:,:nitems]
                 if _str:
                     fmt = self._convert[indx].dtype.char
                     dtype = ('|%s%d' % (fmt, dim[-1]), dim[:-1])
