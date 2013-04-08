@@ -24,6 +24,9 @@ Changelog
 - Fixed a bug in fitsdiff that reported two header keywords containing NaN
   as value as different. (#204)
 
+- Fixed a couple cases where creating a new table using TDIMn in some of the
+  columns could caused a crash. (spacetelescope/PyFITS#3)
+
 
 3.0.11 (unreleased)
 -------------------
