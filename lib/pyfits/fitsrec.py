@@ -5,9 +5,9 @@ import weakref
 
 import numpy as np
 
-from pyfits.column import ASCIITNULL, FITS2NUMPY, TDIM_RE, Column, ColDefs, \
-                          _FormatX, _FormatP, _VLF, _get_index, _wrapx, \
-                          _unwrapx, _convert_format, _convert_ascii_format
+from pyfits.column import (ASCIITNULL, FITS2NUMPY, Column, ColDefs, _FormatX,
+                           _FormatP, _VLF, _get_index, _wrapx, _unwrapx,
+                           _convert_format, _convert_ascii_format)
 from pyfits.util import _array_from_file, decode_ascii, lazyproperty
 
 
@@ -536,15 +536,8 @@ class FITS_rec(np.recarray):
             bscale = 1
         if not _zero:
             bzero = 0
-        dim = self._coldefs.dims[indx]
-        m = dim and TDIM_RE.match(dim)
-        if m:
-            dim = m.group('dims')
-            dim = tuple(int(d.strip()) for d in dim.split(','))[::-1]
-        else:
-            # Ignore any dim values that don't specify a multidimensional
-            # column
-            dim = ''
+
+        dim = self._coldefs._dims[indx]
 
         return (_str, _bool, _number, _scale, _zero, bscale, bzero, dim)
 

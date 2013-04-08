@@ -1226,7 +1226,13 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                             arr += bzero
                         hdu.data._convert[idx][:n] = arr[:n]
                 else:
-                    field[:n] = arr[:n]
+                    outarr = field[:n]
+                    inarr = arr[:n]
+                    if inarr.shape != outarr.shape:
+                        field[:n] = \
+                                inarr.view(field.dtype).reshape(outarr.shape)
+                    else:
+                        field[:n] = arr[:n]
 
         if n < nrows:
             # If there are additional rows in the new table that were not

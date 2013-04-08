@@ -1757,6 +1757,31 @@ class TestTableFunctions(PyfitsTestCase):
             assert_true((h[1].data.field(0)[0] ==
                          recarr.field(0)[0].decode('ascii')).all())
 
+    def test_new_table_with_nd_column(self):
+        """Regression test for
+        https://github.com/spacetelescope/PyFITS/issues/3
+        """
+
+        arra = np.array(['a', 'b'])
+        arrb = np.array([['a', 'bc'], ['cd', 'e']])
+        arrc = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+
+        cols = [
+            pyfits.Column(name='str', format='1A', array=arra),
+            pyfits.Column(name='strarray', format='4A', dim='(2,2)',
+                          array=arrb),
+            pyfits.Column(name='intarray', format='4I', dim='(2, 2)',
+                          array=arrc)
+        ]
+
+        hdu = pyfits.new_table(pyfits.ColDefs(cols))
+        hdu.writeto(self.temp('test.fits'))
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            assert_true((h[1].data['str'] == arra).all())
+            assert_true((h[1].data['strarray'] == arrb).all())
+            assert_true((h[1].data['intarray'] == arrc).all())
+
     def test_slicing(self):
         """Regression test for #52."""
 
