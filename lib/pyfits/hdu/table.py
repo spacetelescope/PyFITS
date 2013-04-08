@@ -1252,7 +1252,29 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                             arr += bzero
                         hdu.data._convert[idx][:n] = arr[:n]
                 else:
-                    field[:n] = arr[:n]
+                    outarr = field[:n]
+                    inarr = arr[:n]
+                    if inarr.shape != outarr.shape:
+                        if inarr.dtype != outarr.dtype:
+                            inarr = inarr.view(outarr.dtype)
+
+                        # This is a special case to handle input arrays with
+                        # non-trivial TDIMn.
+                        # By design each row of the outarray is 1-D, while each
+                        # row of the input array may be n-D
+                        if outarr.ndim > 1:
+                            # The normal case where the first dimension is the
+                            # rows
+                            inarr_rowsize = inarr[0].size
+                            inarr = inarr.reshape((n, inarr_rowsize))
+                            outarr[:,:inarr_rowsize] = inarr
+                        else:
+                            # Special case for strings where the out array only
+                            # has one dimension (the second dimension is rolled
+                            # up into the strings
+                            outarr[:n] = inarr.ravel()
+                    else:
+                        field[:n] = arr[:n]
 
         if n < nrows:
             # If there are additional rows in the new table that were not

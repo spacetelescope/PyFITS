@@ -1730,6 +1730,61 @@ class TestTableFunctions(PyfitsTestCase):
             assert_true((h[1].data.field(0)[0] ==
                          recarr.field(0)[0].decode('ascii')).all())
 
+    def test_new_table_with_nd_column(self):
+        """Regression test for
+        https://github.com/spacetelescope/PyFITS/issues/3
+        """
+
+        arra = np.array(['a', 'b'])
+        arrb = np.array([['a', 'bc'], ['cd', 'e']])
+        arrc = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+
+        cols = [
+            pyfits.Column(name='str', format='1A', array=arra),
+            pyfits.Column(name='strarray', format='4A', dim='(2,2)',
+                          array=arrb),
+            pyfits.Column(name='intarray', format='4I', dim='(2, 2)',
+                          array=arrc)
+        ]
+
+        hdu = pyfits.new_table(pyfits.ColDefs(cols))
+        hdu.writeto(self.temp('test.fits'))
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            assert_true((h[1].data['str'] == arra).all())
+            assert_true((h[1].data['strarray'] == arrb).all())
+            assert_true((h[1].data['intarray'] == arrc).all())
+
+    def test_mismatched_tform_and_tdim(self):
+        """Normally the product of the dimensions listed in a TDIMn keyword
+        must be less than or equal to the repeat count in the TFORMn keyword.
+
+        This tests that this works if less than (treating the trailing bytes
+        as unspecified fill values per the FITS standard) and fails if the
+        dimensions specified by TDIMn are greater than the repeat count.
+        """
+
+        arra = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+        arrb = np.array([[[9, 10], [11, 12]], [[13, 14], [15, 16]]])
+
+        cols = [pyfits.Column(name='a', format='20I', dim='(2,2)',
+                              array=arra),
+                pyfits.Column(name='b', format='4I', dim='(2,2)',
+                              array=arrb)]
+
+        # The first column has the mismatched repeat count
+        hdu = pyfits.new_table(pyfits.ColDefs(cols))
+        hdu.writeto(self.temp('test.fits'))
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            assert_true((h[1].data['a'] == arra).all())
+            assert_true((h[1].data['b'] == arrb).all())
+
+        # If dims is more than the repeat count in the format specifier raise
+        # an error
+        assert_raises(ValueError, pyfits.Column, name='a', format='2I',
+                      dim='(2,2)', array=arra)
+
     def test_slicing(self):
         """Regression test for #52."""
 

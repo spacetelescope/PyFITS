@@ -22,6 +22,13 @@ Changelog
   multi-dimensional columns (i.e. via the TDIMn keyword) and then writing it
   out to a new file. Backported from 3.1.2. (#201)
 
+- Fixed a bug in fitsdiff that reported two header keywords containing NaN
+  as value as different. Backported from 3.1.2. (#204)
+
+- Fixed a couple cases where creating a new table using TDIMn in some of the
+  columns could caused a crash. Backported from 3.1.2.
+  (spacetelescope/PyFITS#3)
+
 
 3.1.1 (2013-01-02)
 ------------------
