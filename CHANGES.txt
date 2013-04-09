@@ -17,6 +17,12 @@ Changelog
   did not correctly write the TFORMn keywords for variable-length array
   columns (they ommitted the max array length parameter of the format). (#199)
 
+- Slightly refactored how tables containing variable-length array columns are
+  handled to add two improvements: Fixes an issue where accessing the data
+  after a call to the `pyfits.getdata` convenience function caused an
+  exception, and allows the VLA data to be read from an existing mmap of the
+  FITS file. (#200)
+
 - Fixed a bug that could occur when opening a table containing
   multi-dimensional columns (i.e. via the TDIMn keyword) and then writing it
   out to a new file. (#201)
@@ -31,7 +37,11 @@ Changelog
 3.0.11 (unreleased)
 -------------------
 
-- Nothing changed yet.
+- Slightly refactored how tables containing variable-length array columns are
+  handled to add two improvements: Fixes an issue where accessing the data
+  after a call to the `pyfits.getdata` convenience function caused an
+  exception, and allows the VLA data to be read from an existing mmap of the
+  FITS file. Backported from 3.1.2. (#200)
 
 
 3.1.1 (2013-01-02)

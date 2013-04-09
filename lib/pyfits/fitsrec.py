@@ -174,6 +174,7 @@ class FITS_rec(np.recarray):
         self._nfields = len(self.dtype.names)
         self._convert = [None] * len(self.dtype.names)
         self._heapoffset = 0
+        self._heapsize = 0
         self._file = None
         self._buffer = None
         self._coldefs = None
@@ -189,6 +190,7 @@ class FITS_rec(np.recarray):
         if isinstance(obj, FITS_rec):
             self._convert = obj._convert
             self._heapoffset = obj._heapoffset
+            self._heapsize = obj._heapsize
             self._file = obj._file
             self._buffer = obj._buffer
             self._coldefs = obj._coldefs
@@ -203,6 +205,7 @@ class FITS_rec(np.recarray):
             self._convert = [None] * len(obj.dtype.names)
 
             self._heapoffset = getattr(obj, '_heapoffset', 0)
+            self._heapsize = getattr(obj, '_heapsize', 0)
             self._file = getattr(obj, '_file', None)
             self._buffer = getattr(obj, '_buffer', None)
 
@@ -360,30 +363,25 @@ class FITS_rec(np.recarray):
             # for P format
             if isinstance(recformat, _FormatP):
                 dummy = _VLF([None] * len(self), dtype=recformat.dtype)
+                raw_data = self._get_raw_data()
+                if raw_data is None:
+                    raise IOError(
+                        "Could not find heap data for the %r variable-length "
+                        "array column." % self.names[indx])
                 for i in range(len(self)):
-                    _offset = field[i, 1] + self._heapoffset
-
-                    if self._file is not None:
-                        self._file.seek(_offset)
-                        def get_pdata(dtype, count):
-                            return _array_from_file(self._file, dtype=dtype,
-                                                    count=count, sep='')
-                    else:  # There must be a _buffer or something is wrong
-                        buff = self._buffer[_offset:]
-                        def get_pdata(dtype, count):
-                            return np.fromstring(buff, dtype=dtype,
-                                                 count=count, sep='')
+                    offset = field[i, 1] + self._heapoffset
+                    count = field[i, 0]
 
                     if recformat.dtype == 'a':
-                        count = field[i, 0]
-                        dt = recformat.dtype + str(1)
-                        da = get_pdata(dt, count)
-                        dummy[i] = np.char.array(da, itemsize=count)
-                        dummy[i] = decode_ascii(dummy[i])
+                        dt = np.dtype(recformat.dtype + str(1))
+                        arr_len = count * dt.itemsize
+                        da = raw_data[offset:offset + arr_len].view(dt)
+                        da = np.char.array(da.view(dtype=dt), itemsize=count)
+                        dummy[i] = decode_ascii(da)
                     else:
-                        count = field[i, 0]
-                        dt = recformat.dtype
-                        dummy[i] = get_pdata(dt, count)
+                        dt = np.dtype(recformat.dtype)
+                        arr_len = count * dt.itemsize
+                        dummy[i] = raw_data[offset:offset + arr_len].view(dt)
                         dummy[i].dtype = dummy[i].dtype.newbyteorder('>')
 
                 # scale by TSCAL and TZERO
@@ -496,6 +494,30 @@ class FITS_rec(np.recarray):
         hdu = new_table(self._coldefs, nrows=shape[0])
         return hdu.data
 
+    def _get_raw_data(self):
+        """
+        Returns the base array of self that "raw data array" that is the
+        array in the format that it was first read from a file before it was
+        sliced or viewed as a different type in any way.
+
+        This is determined by walking through the bases until finding one that
+        has at least the same number of bytes as self, plus the heapsize.  This
+        may be the immediate .base but is not always.  This is used primarily
+        for variable-length array support which needs to be able to find the
+        heap (the raw data *may* be larger than nbytes + heapsize if it
+        contains a gap or padding).
+
+        May return ``None`` if no array resembling the "raw data" according to
+        the stated criteria can be found.
+        """
+
+        raw_data_bytes = self.nbytes + self._heapsize
+        base = self
+        while hasattr(base, 'base') and base.base is not None:
+            base = base.base
+            if hasattr(base, 'nbytes') and base.nbytes >= raw_data_bytes:
+                return base
+
     def _get_scale_factors(self, indx):
         """
         Get the scaling flags and factors for one field.
@@ -542,7 +564,6 @@ class FITS_rec(np.recarray):
                 widths.append(f[1])
             loc.append(loc[-1] + super(FITS_rec, self).field(idx).itemsize)
 
-        self._heapsize = 0
         for indx in range(len(self.dtype.names)):
             recformat = self._coldefs._recformats[indx]
             field = super(FITS_rec, self).field(indx)
@@ -560,10 +581,16 @@ class FITS_rec(np.recarray):
             # add the location offset of the heap area for each
             # variable length column
             if isinstance(recformat, _FormatP):
+                # Reset the heapsize and recompute it starting from the first P
+                # column
+                if indx == 0:
+                    self._heapsize = 0
+
                 field[:] = 0  # reset
                 npts = map(len, self._convert[indx])
+
+                dtype = np.array([], dtype=recformat.dtype).dtype
                 field[:len(npts), 0] = npts
-                dtype = np.array([], dtype=recformat.dtype)
                 field[1:, 1] = (np.add.accumulate(field[:-1, 0]) *
                                 dtype.itemsize)
                 field[:, 1][:] += self._heapsize
