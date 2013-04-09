@@ -97,7 +97,8 @@ class _TableLikeHDU(_ValidHDU):
         data.dtype = data.dtype.newbyteorder('>')
 
         # pass datLoc, for P format
-        data._heapoffset = self._theap + self._datLoc
+        data._heapoffset = self._theap
+        data._heapsize = self._header['PCOUNT']
         data._file = self._file
         data._buffer = self._buffer
         tbsize = self._header['NAXIS1'] * self._header['NAXIS2']
