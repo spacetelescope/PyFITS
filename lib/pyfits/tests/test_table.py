@@ -1919,3 +1919,19 @@ class TestTableFunctions(PyfitsTestCase):
             assert_true(str(e).endswith(
                          "the header may be missing the necessary TNULL1 "
                          "keyword or the table contains invalid data"))
+
+    def test_getdata_vla(self):
+        """Regression test for #200."""
+        col = pyfits.Column(name='QUAL_SPE', format='PJ()',
+                            array=[np.arange(1572)]*225)
+        tb_hdu = pyfits.new_table([col])
+        pri_hdu = pyfits.PrimaryHDU()
+        hdu_list = pyfits.HDUList([pri_hdu,tb_hdu])
+        hdu_list.writeto(self.temp('toto.fits'))
+
+        data = pyfits.getdata(self.temp('toto.fits'))
+
+        # Need to compare to the original data row by row since the FITS_rec
+        # returns an array of _VLA objects
+        for row_a, row_b in zip(data['QUAL_SPE'], col.array):
+            assert_true((row_a == row_b).all())

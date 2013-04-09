@@ -897,7 +897,7 @@ def _makep(input, desp_output, dtype, nrows=None):
     if dtype == 'a':
         _nbytes = 1
     else:
-        _nbytes = np.array([], dtype=np.typeDict[dtype]).itemsize
+        _nbytes = np.array([], dtype=dtype).itemsize
 
     for idx in range(nrows):
         if idx < len(input):
