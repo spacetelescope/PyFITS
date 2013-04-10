@@ -42,6 +42,9 @@ Changelog
   multi-dimensional columns (i.e. via the TDIMn keyword) and then writing it
   out to a new file. (#201)
 
+- Fixed a bug on Python 3 where attempting to open a non-existent file on
+  Python 3 caused a seemingly unrelated traceback. (#203)
+
 - Fixed a bug in fitsdiff that reported two header keywords containing NaN
   as value as different. (#204)
 
@@ -57,6 +60,10 @@ Changelog
   after a call to the `pyfits.getdata` convenience function caused an
   exception, and allows the VLA data to be read from an existing mmap of the
   FITS file. Backported from 3.1.2. (#200)
+
+- Fixed a bug on Python 3 where attempting to open a non-existent file on
+  Python 3 caused a seemingly unrelated traceback. Backported from 3.1.2.
+  (#203)
 
 
 3.1.1 (2013-01-02)

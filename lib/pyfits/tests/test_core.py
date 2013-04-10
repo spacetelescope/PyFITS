@@ -22,6 +22,9 @@ class TestCore(PyfitsTestCase):
         with pyfits.open(self.data('ascii.fits')) as f:
             pass
 
+    def test_missing_file(self):
+        assert_raises(IOError, pyfits.open, self.temp('does-not-exist.fits'))
+
     def test_naxisj_check(self):
         hdulist = pyfits.open(self.data('o4sp040b0_raw.fits'))
 
