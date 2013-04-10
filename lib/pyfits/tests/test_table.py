@@ -1762,8 +1762,8 @@ class TestTableFunctions(PyfitsTestCase):
         https://github.com/spacetelescope/PyFITS/issues/3
         """
 
-        arra = np.array(['a', 'b'])
-        arrb = np.array([['a', 'bc'], ['cd', 'e']])
+        arra = np.array(['a', 'b'], dtype='|S1')
+        arrb = np.array([['a', 'bc'], ['cd', 'e']], dtype='|S2')
         arrc = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
 
         cols = [
@@ -1778,8 +1778,10 @@ class TestTableFunctions(PyfitsTestCase):
         hdu.writeto(self.temp('test.fits'))
 
         with pyfits.open(self.temp('test.fits')) as h:
-            assert_true((h[1].data['str'] == arra).all())
-            assert_true((h[1].data['strarray'] == arrb).all())
+            # Need to force string arrays to byte arrays in order to compare
+            # correctly on Python 3
+            assert_true((h[1].data['str'].encode('ascii') == arra).all())
+            assert_true((h[1].data['strarray'].encode('ascii') == arrb).all())
             assert_true((h[1].data['intarray'] == arrc).all())
 
     def test_mismatched_tform_and_tdim(self):
