@@ -28,12 +28,19 @@ Changelog
   multi-dimensional columns (i.e. via the TDIMn keyword) and then writing it
   out to a new file. Backported from 3.1.2. (#201)
 
+- Fixed a bug on Python 3 where attempting to open a non-existent file on
+  Python 3 caused a seemingly unrelated traceback. (#203)
+
 - Fixed a bug in fitsdiff that reported two header keywords containing NaN
   as value as different. Backported from 3.1.2. (#204)
 
 - Fixed a couple cases where creating a new table using TDIMn in some of the
   columns could caused a crash. Backported from 3.1.2.
   (spacetelescope/PyFITS#3)
+
+- Fixed a bug on Python 3 where attempting to open a non-existent file on
+  Python 3 caused a seemingly unrelated traceback. Backported from 3.1.2.
+  (#203)
 
 
 3.1.1 (2013-01-02)
