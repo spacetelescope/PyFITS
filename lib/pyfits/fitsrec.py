@@ -460,7 +460,7 @@ class FITS_rec(np.recarray):
                                 self._convert[indx])
                 if _zero:
                     self._convert[indx] += bzero
-            elif _bool:
+            elif _bool and dummy.dtype != bool:
                 self._convert[indx] = np.equal(dummy, ord('T'))
             elif _str:
                 try:

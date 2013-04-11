@@ -35,6 +35,10 @@ Changelog
 - Fixed a bug in fitsdiff that reported two header keywords containing NaN
   as value as different. Backported from 3.1.2. (#204)
 
+- Fixed a bug where instantiating a ``BinTableHDU`` from a numpy array
+  containing boolean fields converted all the values to ``False``. Backported
+  from 3.1.2. [#215]
+
 - Fixed a couple cases where creating a new table using TDIMn in some of the
   columns could caused a crash. Backported from 3.1.2.
   (spacetelescope/PyFITS#3)

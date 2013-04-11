@@ -1881,6 +1881,18 @@ class TestTableFunctions(PyfitsTestCase):
         assert_equal(thdu.columns.formats, ['L', 'L'])
         assert_true(comparerecords(data, array))
 
+    def test_table_from_bool_fields2(self):
+        """
+        Regression test for https://trac.assembla.com/pyfits/ticket/215
+
+        Tests the case where a multi-field ndarray (not a recarray) containing
+        a bool field is used to initialize a `BinTableHDU`.
+        """
+
+        arr = np.array([(False,), (True,), (False,)], dtype=[('a', '?')])
+        hdu = pyfits.BinTableHDU(data=arr)
+        assert_true((hdu.data['a'] == arr['a']).all())
+
     def test_bool_column_update(self):
         """Regression test for #139."""
 
