@@ -2,7 +2,6 @@ from __future__ import division, with_statement  # confidence high
 
 import glob
 import os
-import shutil
 import sys
 
 import numpy as np
@@ -652,7 +651,7 @@ class TestHDUListFunctions(PyfitsTestCase):
     def test_save_backup(self):
         """Test for #121--save backup of file before flushing changes."""
 
-        shutil.copy(self.data('scale.fits'), self.temp('scale.fits'))
+        self.copy_file('scale.fits')
 
         with ignore_warnings():
             with pyfits.open(self.temp('scale.fits'), mode='update',

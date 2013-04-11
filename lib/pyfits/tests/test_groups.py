@@ -2,7 +2,6 @@ from __future__ import with_statement
 
 import os
 import time
-import shutil
 
 import numpy as np
 from numpy import char as chararray
@@ -50,8 +49,7 @@ class TestGroupsFunctions(PyfitsTestCase):
         """
 
         # Copy the original file before making any possible changes to it
-        shutil.copy(self.data('random_groups.fits'),
-                    self.temp('random_groups.fits'))
+        self.copy_file('random_groups.fits')
         mtime = os.stat(self.temp('random_groups.fits')).st_mtime
 
         time.sleep(1)
@@ -73,8 +71,7 @@ class TestGroupsFunctions(PyfitsTestCase):
         # Because this test tries to update the random_groups.fits file, let's
         # make a copy of it first (so that the file doesn't actually get
         # modified in the off chance that the test fails
-        shutil.copy(self.data('random_groups.fits'),
-                    self.temp('random_groups.fits'))
+        self.copy_file('random_groups.fits')
 
         parameters = ['UU', 'VV', 'WW', 'BASELINE', 'DATE']
         with pyfits.open(self.temp('random_groups.fits'), mode='update') as h:
