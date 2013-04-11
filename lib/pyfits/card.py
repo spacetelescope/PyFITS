@@ -1107,7 +1107,7 @@ class Card(_Verify):
             # longstring case (CONTINUE card)
             # try not to use CONTINUE if the string value can fit in one line.
             # Instead, just truncate the comment
-            if (isinstance(self.value, str) and
+            if (isinstance(self.value, basestring) and
                 len(value) > (self.length - 10)):
                 output = self._format_long_image()
             else:

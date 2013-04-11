@@ -54,6 +54,11 @@ Changelog
 - Fixed a bug where instantiating a ``BinTableHDU`` from a numpy array
   containing boolean fields converted all the values to ``False``. [#215]
 
+- Fixed inconsistent behavior in creating CONTINUE cards from byte strings
+  versus unicode strings in Python 2--CONTINUE cards can now be created
+  properly from unicode strings (so long as they are convertable to ASCII).
+  (spacetelescope/PyFITS#1)
+
 - Fixed a couple cases where creating a new table using TDIMn in some of the
   columns could caused a crash. (spacetelescope/PyFITS#3)
 
