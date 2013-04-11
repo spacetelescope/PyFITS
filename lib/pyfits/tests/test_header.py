@@ -295,7 +295,6 @@ class TestHeaderFunctions(PyfitsTestCase):
             warnings.simplefilter('error')
             assert_raises(UserWarning, pyfits.Card, 'abcdefghi', 'long')
 
-
     def test_illegal_characters_in_key(self):
         """
         Test that Card constructor allows illegal characters in the keyword,
@@ -446,6 +445,24 @@ class TestHeaderFunctions(PyfitsTestCase):
             "CONTINUE  '&' / long comment long comment long comment long comment long        "
             "CONTINUE  '&' / comment long comment long comment long comment long comment     "
             "CONTINUE  '&' / long comment                                                    ")
+
+    def test_long_unicode_string(self):
+        """Regression test for
+        https://github.com/spacetelescope/PyFITS/issues/1
+
+        So long as a unicode string can be converted to ASCII it should have no
+        different behavior in this regard from a byte string.
+        """
+
+        h1 = pyfits.Header()
+        h1['TEST'] = 'abcdefg' * 30
+
+        h2 = pyfits.Header()
+        with catch_warnings(record=True) as w:
+            h2['TEST'] = u'abcdefg' * 30
+            assert_equal(len(w), 0)
+
+        assert_equal(str(h1), str(h2))
 
     def test_long_string_repr(self):
         """Regression test for #193
