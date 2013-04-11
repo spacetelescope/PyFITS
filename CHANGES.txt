@@ -48,6 +48,9 @@ Changelog
 - Fixed a bug in fitsdiff that reported two header keywords containing NaN
   as value as different. (#204)
 
+- Fixed an issue in the tests that caused some tests to fail if pyfits is
+  installed with read-only permissions. (#208)
+
 - Fixed a bug where instantiating a ``BinTableHDU`` from a numpy array
   containing boolean fields converted all the values to ``False``. [#215]
 
@@ -67,6 +70,9 @@ Changelog
 - Fixed a bug on Python 3 where attempting to open a non-existent file on
   Python 3 caused a seemingly unrelated traceback. Backported from 3.1.2.
   (#203)
+
+- Fixed an issue in the tests that caused some tests to fail if pyfits is
+  installed with read-only permissions. Backported from 3.1.2. (#208)
 
 - Fixed a bug where instantiating a ``BinTableHDU`` from a numpy array
   containing boolean fields converted all the values to ``False``. [#215]
