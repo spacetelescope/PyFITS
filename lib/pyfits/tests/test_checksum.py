@@ -1,6 +1,5 @@
 from __future__ import division, with_statement  # confidence high
 
-import shutil
 import warnings
 
 import numpy as np
@@ -215,15 +214,15 @@ class TestChecksumFunctions(PyfitsTestCase):
         to the file.
         """
 
-        shutil.copy(self.data('checksum.fits'), self.temp('tmp.fits'))
+        self.copy_file('checksum.fits')
 
-        with pyfits.open(self.temp('tmp.fits')) as hdul:
+        with pyfits.open(self.temp('checksum.fits')) as hdul:
             data = hdul[1].data.copy()
 
-        hdul = pyfits.open(self.temp('tmp.fits'), mode='update')
+        hdul = pyfits.open(self.temp('checksum.fits'), mode='update')
         hdul.close()
 
-        with pyfits.open(self.temp('tmp.fits')) as hdul:
+        with pyfits.open(self.temp('checksum.fits')) as hdul:
             assert_true('CHECKSUM' in hdul[1].header)
             assert_true('DATASUM' in hdul[1].header)
             assert_true((data == hdul[1].data).all())

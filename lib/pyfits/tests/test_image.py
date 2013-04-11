@@ -2,7 +2,6 @@ from __future__ import division  # confidence high
 from __future__ import with_statement
 
 import os
-import shutil
 import time
 import warnings
 
@@ -859,7 +858,7 @@ class TestImageFunctions(PyfitsTestCase):
         """
 
         # Copy the original file before making any possible changes to it
-        shutil.copy(self.data('comp.fits'), self.temp('comp.fits'))
+        self.copy_file('comp.fits')
         mtime = os.stat(self.temp('comp.fits')).st_mtime
 
         time.sleep(1)
@@ -1014,14 +1013,14 @@ class TestImageFunctions(PyfitsTestCase):
         """
 
         # Copy the original file before saving to it
-        shutil.copy(self.data('test0.fits'), self.temp('test_new.fits'))
-        with pyfits.open(self.temp('test_new.fits'), mode='update') as hdul:
+        self.copy_file('test0.fits')
+        with pyfits.open(self.temp('test0.fits'), mode='update') as hdul:
             orig_data = hdul[1].data.copy()
             hdr_copy = hdul[1].header.copy()
             del hdr_copy['NAXIS*']
             hdul[1].header = hdr_copy
 
-        with pyfits.open(self.temp('test_new.fits')) as hdul:
+        with pyfits.open(self.temp('test0.fits')) as hdul:
             assert_true((orig_data == hdul[1].data).all())
 
     def test_open_scaled_in_update_mode(self):
@@ -1035,7 +1034,7 @@ class TestImageFunctions(PyfitsTestCase):
         """
 
         # Copy the original file before making any possible changes to it
-        shutil.copy(self.data('scale.fits'), self.temp('scale.fits'))
+        self.copy_file('scale.fits')
         mtime = os.stat(self.temp('scale.fits')).st_mtime
 
         time.sleep(1)
