@@ -42,6 +42,11 @@ Changelog
   multi-dimensional columns (i.e. via the TDIMn keyword) and then writing it
   out to a new file. (#201)
 
+- Added use of the console_scripts entry point to install the fitsdiff and
+  fitscheck scripts, which if nothing else provides better Windows support.
+  The generated scripts now override the ones explicitly defined in the
+  scripts/ directory (which were just trivial stubs to begin with). (#202)
+
 - Fixed a bug on Python 3 where attempting to open a non-existent file on
   Python 3 caused a seemingly unrelated traceback. (#203)
 
