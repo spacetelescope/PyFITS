@@ -67,7 +67,7 @@ def handle_options(args):
         args = ['-h']
 
     parser = optparse.OptionParser(usage=textwrap.dedent("""
-        %prog [options] <.fits files...>
+        fitscheck [options] <.fits files...>
 
         .e.g. fitscheck example.fits
 
