@@ -8,8 +8,8 @@ import numpy as np
 from numpy import char as chararray
 
 from pyfits.card import Card
-from pyfits.util import lazyproperty, pairwise, _is_int, _convert_array, \
-                        encode_ascii, deprecated
+from pyfits.util import (lazyproperty, pairwise, _is_int, _convert_array,
+                         encode_ascii, deprecated)
 
 
 __all__ = ['Column', 'ColDefs', 'Delayed']

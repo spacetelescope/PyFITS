@@ -41,6 +41,11 @@ Changelog
 - Fixed a bug where instantiating a ``BinTableHDU`` from a numpy array
   containing boolean fields converted all the values to ``False``. Backported
   from 3.1.2. [#215]
+  containing boolean fields converted all the values to ``False``. [#215]
+
+- Fixed an issue where passing an array of integers into the constructor of
+  ``Column()`` when the column type is floats of the same byte width caused the
+  column array to become garbled. Backported from 3.1.2. [#218]
 
 - Fixed a couple cases where creating a new table using TDIMn in some of the
   columns could caused a crash. Backported from 3.1.2.
