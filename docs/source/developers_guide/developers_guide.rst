@@ -75,7 +75,7 @@ reposiotry and add the git-svn metadata manually:
    for any actively maintained release branches (see the "Maintenance" section
    below for more details on release branches). Likewise add each branch to
    the ``branches =`` option under the ``[svn-remote "svn"]`` section (you
-   *may* put a ``\*`` here to get all branches. It is also possible to sync
+   *may* put a ``*`` here to get all branches. It is also possible to sync
    all SVN tags.  But as most of those branches are defunct it is probably
    not desirable to sync them all (it is a very time consuming operation).
 
@@ -95,6 +95,13 @@ reposiotry and add the git-svn metadata manually:
        $ git svn fetch
 
    to synchronize any new revisions in the SVN repository.
+
+   .. warning::
+
+       This fetch operation can still take a pretty long time, especially on
+       the branches.  It may appear to hang at some points--just be patient
+       and leave it running.  I've yet to find a way to speed it up any
+       further.
 
 Syncing new changes to SVN
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
