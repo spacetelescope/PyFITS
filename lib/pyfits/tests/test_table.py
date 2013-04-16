@@ -2038,3 +2038,10 @@ class TestTableFunctions(PyfitsTestCase):
         # returns an array of _VLA objects
         for row_a, row_b in zip(data['QUAL_SPE'], col.array):
             assert_true((row_a == row_b).all())
+
+    def test_column_array_type_mismatch(self):
+        """Regression test for #218."""
+
+        arr = [-99] * 20
+        col = pyfits.Column('mag', format='E', array=arr)
+        assert_true((arr == col.array).all())

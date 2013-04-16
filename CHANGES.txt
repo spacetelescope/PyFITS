@@ -47,6 +47,10 @@ Changelog
 - Fixed a bug where instantiating a ``BinTableHDU`` from a numpy array
   containing boolean fields converted all the values to ``False``. [#215]
 
+- Fixed an issue where passing an array of integers into the constructor of
+  ``Column()`` when the column type is floats of the same byte width caused the
+  column array to become garbled. [#218]
+
 - Fixed inconsistent behavior in creating CONTINUE cards from byte strings
   versus unicode strings in Python 2--CONTINUE cards can now be created
   properly from unicode strings (so long as they are convertable to ASCII).
