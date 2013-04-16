@@ -55,7 +55,7 @@ reposiotry and add the git-svn metadata manually:
 
 1. Clone the main spacetelescope GitHub repository::
 
-       git clone git@github.com:spacetelescope/PyFITS.git
+       $ git clone git@github.com:spacetelescope/PyFITS.git
 
 2. cd into the repository and open ``.git/config`` in an editor and add the
    following::
@@ -63,8 +63,7 @@ reposiotry and add the git-svn metadata manually:
        [svn-remote "svn"]
            url = http://svn6.assembla.com/svn/pyfits
            fetch = trunk:refs/remotes/trunk
-           branches = branches/*:refs/remotes/branches/*
-           tags = tags/*:refs/remotes/tags/*
+           branches = branches/{3.1-stable,3.0-stable}:refs/remotes/branches/*
        [branch "3.0-stable"]
            remote = .
            merge = refs/remotes/branches/3.0-stable
@@ -74,17 +73,26 @@ reposiotry and add the git-svn metadata manually:
 
    Repeat the ``[branch "X.Y-stable"]`` section following the above pattern
    for any actively maintained release branches (see the "Maintenance" section
-   below for more details on release branches).
+   below for more details on release branches). Likewise add each branch to
+   the ``branches =`` option under the ``[svn-remote "svn"]`` section (you
+   *may* put a ``\*`` here to get all branches. It is also possible to sync
+   all SVN tags.  But as most of those branches are defunct it is probably
+   not desirable to sync them all (it is a very time consuming operation).
 
 3. Put the hash of the latest revision of the upstream master branch in refs
    file for trunk, so git-svn knows where to start synchronizing with SVN's
    trunk::
 
-       git rev-parse origin/master > .git/refs/remotes/trunk
+       $ git rev-parse origin/master > .git/refs/remotes/trunk
+
+   Likewise for each stable branch do, for example::
+
+       $ mkdir .git/refs/remotes/branches/
+       $ git rev-parse origin/3.1-stable > .git/refs/remotes/branches/3.1-stable
 
 4. Finally, do::
 
-       git svn fetch
+       $ git svn fetch
 
    to synchronize any new revisions in the SVN repository.
 
