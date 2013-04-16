@@ -984,6 +984,8 @@ class TestImageFunctions(PyfitsTestCase):
         with pyfits.open(self.temp('test.fits')) as h:
             assert_true(np.abs(noise - h[1].data).max() > 0.0)
 
+        del h
+
         chdu2 = pyfits.CompImageHDU(data=noise, compressionType='GZIP_1',
                                     quantizeLevel=0.0)  # No quantization
         with ignore_warnings():
