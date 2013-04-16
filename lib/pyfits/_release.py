@@ -82,7 +82,7 @@ class ReleaseManager(object):
         cfg = ConfigParser()
         cfg.read('setup.cfg')
         authors = cfg.get('metadata', 'author')
-        authors = [a.strip() for a in authors.split(', ')]
+        authors = [a.strip() for a in authors.split(',')]
 
         update_docs_config(data['new_version'], authors)
 
