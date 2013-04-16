@@ -228,13 +228,21 @@ class FITSDiff(_BaseDiff):
         """
 
         if isinstance(a, basestring):
-            a = fitsopen(a)
+            try:
+                a = fitsopen(a)
+            except Exception, e:
+                raise IOError("error opening file a (%s): %s: %s" %
+                              (a, e.__class.__name__, e.args[0]))
             close_a = True
         else:
             close_a = False
 
         if isinstance(b, basestring):
-            b = fitsopen(b)
+            try:
+                b = fitsopen(b)
+            except Exception, e:
+                raise IOError("error opening file b (%s): %s: %s" %
+                              (b, e.__class.__name__, e.args[0]))
             close_b = True
         else:
             close_b = False
