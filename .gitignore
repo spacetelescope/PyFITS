@@ -3,6 +3,7 @@
 *.a
 *.o
 *.so
+*.pyd
 
 # Other generated files
 lib/pyfits/version.py
