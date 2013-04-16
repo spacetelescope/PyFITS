@@ -4,6 +4,9 @@ Changelog
 3.1.2 (unreleased)
 ------------------
 
+- When an error occurs opening a file in fitsdiff the exception message will
+  now at least mention which file had the error. (#168)
+
 - Fixed support for opening gzipped FITS files by filename in a writeable mode
   (PyFITS has supported writing to gzip files for some time now, but only
   enabled it when GzipFile objects were passed to ``pyfits.open()`` due to
