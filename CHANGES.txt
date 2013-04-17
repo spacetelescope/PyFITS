@@ -1,7 +1,7 @@
 Changelog
 ===========
 
-3.0.11 (unreleased)
+3.0.11 (2013-04-17)
 -------------------
 
 - Fixed support for opening gzipped FITS files by filename in a writeable mode
