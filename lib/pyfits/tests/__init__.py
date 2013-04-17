@@ -4,6 +4,7 @@ import os
 import shutil
 import stat
 import tempfile
+import time
 import warnings
 
 import pyfits
@@ -25,7 +26,16 @@ class PyfitsTestCase(object):
         warnings.simplefilter('always', UserWarning)
 
     def teardown(self):
-        shutil.rmtree(self.temp_dir)
+        tries = 3
+        while tries:
+            try:
+                shutil.rmtree(self.temp_dir)
+                break
+            except OSError:
+                # Probably couldn't delete the file because for whatever reason
+                # a handle to it is still open/hasn't been garbage-collected
+                time.sleep(0.5)
+                tries -= 1
 
     def copy_file(self, filename):
         """Copies a backup of a test data file to the temp dir and sets its
