@@ -584,6 +584,16 @@ class TestHeaderFunctions(PyfitsTestCase):
                      "HIERARCH ESO INS SLIT2 Y1FRML= "
                      "'ENC=OFFSET+RESOL*acos((WID-(MAX+MIN))/(MAX-MIN)'")
 
+    def test_hierarch_with_abbrev_value_indicator(self):
+        """Regression test for
+        https://github.com/spacetelescope/PyFITS/issues/5
+        """
+
+        c = pyfits.Card.fromstring("HIERARCH key.META_4='calFileVersion'")
+        assert_equal(c.keyword, 'key.META_4')
+        assert_equal(c.value, 'calFileVersion')
+        assert_equal(c.comment, '')
+
     def test_missing_keyword(self):
         """Test that accessing a non-existent keyword raises a KeyError."""
 

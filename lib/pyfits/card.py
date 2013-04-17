@@ -25,6 +25,9 @@ CARD_LENGTH = 80
 BLANK_CARD = ' ' * CARD_LENGTH
 KEYWORD_LENGTH = 8  # The max length for FITS-standard keywords
 
+VALUE_INDICATOR = '= '  # The standard FITS value indicator
+HIERARCH_VALUE_INDICATOR = '='  # HIERARCH cards may use a shortened indicator
+
 
 class Undefined:
     """Undefined value."""
@@ -403,6 +406,10 @@ class Card(_Verify):
 
     _commentary_keywords = ['', 'COMMENT', 'HISTORY', 'END']
 
+    # The default value indicator; may be changed if required by a convention
+    # (namely HIERARCH cards)
+    _value_indicator = VALUE_INDICATOR
+
     def __init__(self, keyword=None, value=None, comment=None, **kwargs):
         # For backwards compatibility, support the 'key' keyword argument:
         if keyword is None and 'key' in kwargs:
@@ -494,6 +501,7 @@ class Card(_Verify):
                 # the old behavior makes it possible to create HEIRARCH cards
                 # that would otherwise be recognized as RVKCs
                 self._hierarch = True
+                self._value_indicator = HIERARCH_VALUE_INDICATOR
 
                 if keyword_upper[:9] == 'HIERARCH ':
                     # The user explicitly asked for a HIERARCH card, so don't
@@ -823,7 +831,7 @@ class Card(_Verify):
 
         keyword = self._image[:KEYWORD_LENGTH].strip()
         keyword_upper = keyword.upper()
-        value_indicator = self._image.find('= ')
+        value_indicator = self._image.find(VALUE_INDICATOR)
 
         special = self._commentary_keywords + ['CONTINUE']
 
@@ -838,12 +846,14 @@ class Card(_Verify):
                 self._modified = True
             return keyword_upper
         elif (keyword_upper == 'HIERARCH' and self._image[8] == ' ' and
-              '=' in self._image):
+              HIERARCH_VALUE_INDICATOR in self._image):
             # This is valid HIERARCH card as described by the HIERARCH keyword
             # convention:
             # http://fits.gsfc.nasa.gov/registry/hierarch_keyword.html
             self._hierarch = True
-            return self._image.split('=', 1)[0][9:].rstrip()
+            self._value_indicator = HIERARCH_VALUE_INDICATOR
+            keyword = self._image.split(HIERARCH_VALUE_INDICATOR, 1)[0][9:]
+            return keyword.rstrip()
         else:
             warnings.warn('The following header keyword is invalid or follows '
                           'an unrecognized non-standard convention:\n%s' %
@@ -958,7 +968,7 @@ class Card(_Verify):
             keyword, valuecomment = image.split(' ', 1)
         else:
             try:
-                delim_index = image.index('= ')
+                delim_index = image.index(self._value_indicator)
             except ValueError:
                 delim_index = None
 
@@ -971,7 +981,7 @@ class Card(_Verify):
                 keyword = image[:8]
                 valuecomment = image[8:]
             else:
-                keyword, valuecomment = image.split('= ', 1)
+                keyword, valuecomment = image.split(self._value_indicator, 1)
         return keyword.strip(), valuecomment.strip()
 
     def _fix_keyword(self):
@@ -1080,7 +1090,9 @@ class Card(_Verify):
             comment = self._format_comment()
 
         # equal sign string
-        delimiter = '= '
+        # by default use the standard value indicator even for HIERARCH cards;
+        # later we may abbreviate it if necessary
+        delimiter = VALUE_INDICATOR
         if is_commentary:
             delimiter = ''
 
