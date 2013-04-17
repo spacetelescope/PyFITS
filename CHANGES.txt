@@ -59,6 +59,9 @@ Changelog
 - Fixed a couple cases where creating a new table using TDIMn in some of the
   columns could caused a crash. (spacetelescope/PyFITS#3)
 
+- Fixed a bug in parsing HIERARCH keywords that do not have a space after
+  the first equals sign (before the value). (spacetelescope/PyFITS#5)
+
 
 3.0.11 (unreleased)
 -------------------
