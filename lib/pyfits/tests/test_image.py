@@ -952,28 +952,10 @@ class TestImageFunctions(PyfitsTestCase):
                 hdul2[0].data[0] = 0
                 assert_true((hdul[1].data == hdul2[0].data).all())
 
-    def test_insufficient_compression_allocation(self):
-        data = np.arange(10000, dtype='int32').reshape(100, 100)
-        hdu = pyfits.CompImageHDU(data=data)
-        old_compress_hdu = pyfits.compression.compress_hdu
-
-        def hacked_compress_hdu(hdu):
-            # Long enough to hold the table, but not enough for the full heap
-            hdu.compData = np.zeros((2880,), dtype=np.uint8)
-            return old_compress_hdu(hdu)
-
-        pyfits.compression.compress_hdu = hacked_compress_hdu
-
-        try:
-            hdu.updateCompressedData()
-            assert_true((data == pyfits.compression.decompress_hdu(hdu)).all())
-        finally:
-            pyfits.compression.compress_hdu = old_compress_hdu
-
     def test_lossless_gzip_compression(self):
         """Regression test for #198."""
 
-        noise = np.random.normal(size=(100, 100))
+        noise = np.random.normal(size=(1000, 1000))
 
         chdu1 = pyfits.CompImageHDU(data=noise, compressionType='GZIP_1')
         # First make a test image with lossy compression and make sure it
