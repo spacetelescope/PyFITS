@@ -594,6 +594,27 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(c.value, 'calFileVersion')
         assert_equal(c.comment, '')
 
+    def test_hierarch_keyword_whitespace(self):
+        """
+        Regression test for
+        https://github.com/spacetelescope/PyFITS/issues/6
+
+        Make sure any leading or trailing whitespace around HIERARCH
+        keywords is stripped from the actual keyword value.
+        """
+
+        c = pyfits.Card.fromstring(
+                "HIERARCH  key.META_4    = 'calFileVersion'")
+        assert_equal(c.keyword, 'key.META_4')
+        assert_equal(c.value, 'calFileVersion')
+        assert_equal(c.comment, '')
+
+        # Test also with creation via the Card constructor
+        c = pyfits.Card('HIERARCH  key.META_4', 'calFileVersion')
+        assert_equal(c.keyword, 'key.META_4')
+        assert_equal(c.value, 'calFileVersion')
+        assert_equal(c.comment, '')
+
     def test_missing_keyword(self):
         """Test that accessing a non-existent keyword raises a KeyError."""
 
