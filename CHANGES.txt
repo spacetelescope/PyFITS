@@ -77,6 +77,9 @@ Changelog
 - Fixed a bug in parsing HIERARCH keywords that do not have a space after
   the first equals sign (before the value). (spacetelescope/PyFITS#5)
 
+- Prevented extra leading whitespace on HIERARCH keywords from being treated
+  as part of the keyword. (spacetelescope/PyFITS#6)
+
 
 3.0.11 (unreleased)
 -------------------

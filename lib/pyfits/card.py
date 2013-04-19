@@ -306,7 +306,8 @@ class Card(_Verify):
     # String for a FITS standard compliant (FSC) keyword.
     _keywd_FSC_RE = re.compile(r'^[A-Z0-9_-]{0,%d}$' % KEYWORD_LENGTH)
     # This will match any printable ASCII character excluding '='
-    _keywd_hierarch_RE = re.compile(r'^(?:HIERARCH )?(?:^[ -<>-~]+ ?)+$', re.I)
+    _keywd_hierarch_RE = re.compile(r'^(?:HIERARCH +)?(?:^[ -<>-~]+ ?)+$',
+                                    re.I)
 
     # A number sub-string, either an integer or a float in fixed or
     # scientific notation.  One for FSC and one for non-FSC (NFSC) format:
@@ -506,7 +507,7 @@ class Card(_Verify):
                 if keyword_upper[:9] == 'HIERARCH ':
                     # The user explicitly asked for a HIERARCH card, so don't
                     # bug them about it...
-                    keyword = keyword[9:]
+                    keyword = keyword[9:].strip()
                 else:
                     # We'll gladly create a HIERARCH card, but a warning is
                     # also displayed
@@ -853,7 +854,7 @@ class Card(_Verify):
             self._hierarch = True
             self._value_indicator = HIERARCH_VALUE_INDICATOR
             keyword = self._image.split(HIERARCH_VALUE_INDICATOR, 1)[0][9:]
-            return keyword.rstrip()
+            return keyword.strip()
         else:
             warnings.warn('The following header keyword is invalid or follows '
                           'an unrecognized non-standard convention:\n%s' %
