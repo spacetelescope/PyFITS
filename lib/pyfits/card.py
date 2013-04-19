@@ -1196,7 +1196,7 @@ class Card(_Verify):
 
         # verify the equal sign position
         if (self.keyword not in self._commentary_keywords and
-            (self._image and self._image[:8].upper() != 'HIERARCH' and
+            (self._image and self._image[:9].upper() != 'HIERARCH ' and
              self._image.find('=') != 8)):
             errs.append(self.run_option(
                 option,
@@ -1208,7 +1208,8 @@ class Card(_Verify):
         # verify the key, it is never fixable
         # always fix silently the case where "=" is before column 9,
         # since there is no way to communicate back to the _keys.
-        if self._image and self._image[:8].upper() == 'HIERARCH':
+        if ((self._image and self._image[:8].upper() == 'HIERARCH') or
+                self._hierarch):
             pass
         else:
             keyword = self.keyword

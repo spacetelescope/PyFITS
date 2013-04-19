@@ -1327,10 +1327,10 @@ class Header(object):
         else:
             step = 1
 
-        keyword = Card.normalize_keyword(keyword)
+        norm_keyword = Card.normalize_keyword(keyword)
 
         for idx in xrange(start, stop, step):
-            if self._cards[idx].keyword == keyword:
+            if self._cards[idx].keyword.upper() == norm_keyword:
                 return idx
         else:
             raise ValueError('The keyword %r is not in the header.' % keyword)

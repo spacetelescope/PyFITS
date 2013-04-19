@@ -615,6 +615,37 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(c.value, 'calFileVersion')
         assert_equal(c.comment, '')
 
+    def test_verify_mixed_case_hierarch(self):
+        """Regression test for
+        https://github.com/spacetelescope/PyFITS/issues/7
+
+        Assures that HIERARCH keywords with lower-case characters and other
+        normally invalid keyword characters are not considered invalid.
+        """
+
+        c = pyfits.Card('HIERARCH WeirdCard.~!@#_^$%&', 'The value',
+                        'a comment')
+        # This should not raise any exceptions
+        c.verify('exception')
+        assert_equal(c.keyword, 'WeirdCard.~!@#_^$%&')
+        assert_equal(c.value, 'The value')
+        assert_equal(c.comment, 'a comment')
+
+        # Test also the specific case from the original bug report
+        header = pyfits.Header([
+            ('simple', True),
+            ('BITPIX', 8),
+            ('NAXIS', 0),
+            ('EXTEND', True, 'May contain datasets'),
+            ('HIERARCH key.META_0', 'detRow')
+        ])
+        hdu = pyfits.PrimaryHDU(header=header)
+        hdu.writeto(self.temp('test.fits'))
+        with pyfits.open(self.temp('test.fits')) as hdul:
+            header2 = hdul[0].header
+            assert_equal(str(header.cards[header.index('key.META_0')]),
+                         str(header2.cards[header2.index('key.META_0')]))
+
     def test_missing_keyword(self):
         """Test that accessing a non-existent keyword raises a KeyError."""
 
