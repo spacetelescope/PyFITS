@@ -1,7 +1,7 @@
 Changelog
 ===========
 
-3.1.2 (unreleased)
+3.1.2 (2013-04-22)
 ------------------
 
 - When an error occurs opening a file in fitsdiff the exception message will
