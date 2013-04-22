@@ -279,9 +279,10 @@ written down first.)
        $ source pyfits-release/bin/activate
 
 2. Obtain a *clean* version of the PyFITS repository. That is, one where you
-   don’t have any intermediate build files. Either use a fresh ``git clone``
-   or do ``git clean -dfx`` to clean up any files that are not part of version
-   control.  Make sure you have changed directories into the repository.
+   don’t have any intermediate build files. It is best to use a fresh
+   ``git clone`` from the main repository on GitHub without any of the git-svn
+   configuration. This is because the git-svn support in zest.releaser does not
+   handle tagging in branches very well yet.
 
 3. Use ``git checkout`` to switch to the appropriate branch from which to do
    the release.  For a new major or minor release (such as 3.0.0 or 3.1.0)
@@ -295,60 +296,74 @@ written down first.)
 
        $ pip install zest.releaser --upgrade --force
 
-5. Ensure that any lingering changes to the code have been committed, then
+5. Install ``stsci.distutils`` which includes some additional releaser hooks
+   that are useful::
+
+       $ pip install stsci.distutils --upgrade --force
+
+6. Ensure that any lingering changes to the code have been committed, then
    start the release by running::
 
        $ fullrelease
 
-6. You will be asked to enter the version to be released.  Press enter to
+7. You will be asked to enter the version to be released.  Press enter to
    accept the default (which will normally be correct) or enter a specific
    version string.  A diff will then be shown of CHANGES.txt and setup.cfg
    showing that a release date has been added to the changelog, and that the
    version has been updated in setup.cfg.  Enter 'Y' when asked to commit these
    changes.
 
-7. You will then be shown the command that will be run to tag the release.
+8. You will then be shown the command that will be run to tag the release.
    Enter 'Y' to confirm and run the command.
 
-8. When asked "Check out the tag (for tweaks or pypi/distutils server upload)"
-   enter 'N': zest.releaser does not offer enough control yet over how the
-   register and upload are performed so we will do this manually until the
-   release scripts have been improved.
+9. When asked "Check out the tag (for tweaks or pypi/distutils server upload)"
+   enter 'Y': This feature is used when uploading the source distribution to
+   our local package index.  When asked to 'Register and upload' to PyPI enter
+   'N'.  We will do this manually later in the process once we've tested the
+   release out first.
 
-9. You will be asked to enter a new development version.  Normally the next
-   logical version will be selected--press enter to accept the default, or
-   enter a specific version string.  Do not add ".dev" to the version, as this
-   will be appended automatically (ignore the message that says ".dev0 will be
-   appended"--it will actually be ".dev" without the 0).  For example, if the
-   just-released version was "3.1.0" the default next version will be "3.1.1".
-   If we want the next version to be, say "3.2.0" then that must be entered
-   manually.
+10. You will be asked to enter a new development version.  Normally the next
+    logical version will be selected--press enter to accept the default, or
+    enter a specific version string.  Do not add ".dev" to the version, as this
+    will be appended automatically (ignore the message that says ".dev0 will be
+    appended"--it will actually be ".dev" without the 0).  For example, if the
+    just-released version was "3.1.0" the default next version will be "3.1.1".
+    If we want the next version to be, say "3.2.0" then that must be entered
+    manually.
 
-10. You will be shown a diff of CHANGES.txt showing that a new section has been
+11. You will be shown a diff of CHANGES.txt showing that a new section has been
     added for the new development version, and showing that the version has
     been updated in setup.py.  Enter 'Y' to commit these changes.
 
-11. When asked to push the changes to a remote repository, enter 'N'.  We want
+12. When asked to push the changes to a remote repository, enter 'N'.  We want
     to test the release out before pushing changes to the remote repository or
-    registering in PyPI.  This should complete the portion of the process
-    that's automated at this point (though future versions will automate these
-    steps as well, after a few needed features are added to zest.releaser).
+    registering in PyPI.
 
-12. Check out the tag of the released version.  For example::
+13. When asked to update the PyFITS homepage enter 'Y'.  The enter the name of
+    the previous version (in the same MAJOR.MINOR.x branch) and then the name
+    of the just released version.  The defaults will usually be correct.  When
+    asked, enter the username and password for your Zope login.  As of writing
+    this is not necessarily the same as your Exchange password.
+
+    This should complete the portion of the process that's automated at this point
+    (though future versions will automate these steps as well, after a few needed
+    features are added to zest.releaser).
+
+14. Check out the tag of the released version.  For example::
 
         $ git checkout v3.1.0
 
-13. Create the source distribution by doing::
+15. Create the source distribution by doing::
 
         $ python setup.py sdist
 
-14. Now, outside the repository create and activate another new virtualenv
+16. Now, outside the repository create and activate another new virtualenv
     for testing the release::
 
         $ virtualenv --system-site-packages --distribute pyfits-release-test
         $ source pyfits-release-test/bin/activate
 
-15. Use ``pip`` to install the source distribution built in step 13 into the
+17. Use ``pip`` to install the source distribution built in step 13 into the
     new test virtualenv.  This will look something like::
 
         $ pip install PyFITS/dist/pyfits-3.2.0.tar.gz
@@ -356,7 +371,7 @@ written down first.)
     where the path should be to the sole ``.tar.gz`` file in the ``dist/``
     directory under your repository clone.
 
-16. Try running the tests in the installed PyFITS::
+18. Try running the tests in the installed PyFITS::
 
         $ pip install nose --force --upgrade
         $ nosetests pyfits
@@ -373,7 +388,7 @@ written down first.)
     installed or is not included in the source distribution in the first
     place).
 
-17. Assuming the test installation worked, change directories back into the
+19. Assuming the test installation worked, change directories back into the
     repository and register the release on PyPI with::
 
         $ python setup.py register
@@ -384,7 +399,7 @@ written down first.)
 
         $ python setup.py sdist upload
 
-18. When releasing a new major or minor version, create a bugfix branch for
+20. When releasing a new major or minor version, create a bugfix branch for
     that version.  Starting from the tagged changset, just checkout a new
     branch and push it to the remote server.  For example, after releasing
     version 3.2.0, do::
@@ -405,14 +420,14 @@ written down first.)
     master branch.  Only changesets that fix bugs without making significant
     API changes should be merged to the bugfix branches.
 
-19. Log into the Read the Docs control panel for PyFITS at
+21. Log into the Read the Docs control panel for PyFITS at
     https://readthedocs.org/projects/pyfits/.  Click on "Admin" and then
     "Versions".  Find the just-released version (it might not appear for a few
     minutes) and click the check mark next to "Active" under that version.
     Leave the dropdown list on "Public", then scroll to the bottom of the page
     and click "Submit".
 
-20. We also mirror the most recent documentation at pythonhosted.org/pyfits (
+22. We also mirror the most recent documentation at pythonhosted.org/pyfits (
     formerly packages.python.org).  The easiest way to do this is to wait until
     the documentation has been built by Read the Docs (otherwise it is
     necessary to build the docs yourself) and download it as a zip file.  For
@@ -426,7 +441,7 @@ written down first.)
     (https://pypi.python.org/pypi?%3Aaction=pkg_edit&name=pyfits) locate the
     documentation upload form and upload the just-downloaded zip file.
 
-21. Build and upload the Windows installers:
+23. Build and upload the Windows installers:
 
     a. Launch a MinGW shell.
 
