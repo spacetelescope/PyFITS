@@ -264,6 +264,29 @@ Prerequisites for performing a release
    1.6.x), as well as Git.  (TODO: More detailed instructions for setting up
    a Windows development environment.)
 
+6. PyFITS also has a page on STScI's website:
+   http://www.stsci.edu/institute/software_hardware/pyfits.  This is normally
+   the first hit when Googling 'pyfits' so it's important to keep up to date.
+   At a minimum each release should update the front page to mention the most
+   recent release, the Release Notes page with an HTML rendering of the most
+   recent changelog, and the download page with links to all the current
+   versions.  See the exisint site for examples.  The STScI website has both
+   a test server and a production server.  It's difficult for content creators
+   to get direct access to the production server, but at least make sure you
+   have access to the test server on port 8072, and that IT has given you
+   permission to write to the PyFITS section of the site.
+
+   Part of the PyFITS automated release script attempts to update the PyFITS
+   website (on the test server) as part of the standard release process.  So
+   it's important to test your access to the site and ability to make edits.
+   If for any reason the automatic update fails (e.g. your authentication
+   fails) it is still possible to update the site manually.
+
+   Once the updates are made it's necessary to have IT push the updates to the
+   production server.  As of writing the best person to ask is George Smyth--
+   asking him directly is the fastest way to get it done, though if you send a
+   ticket to IT it will be handled eventually.
+
 Release procedure
 -----------------
 
@@ -343,7 +366,9 @@ written down first.)
     the previous version (in the same MAJOR.MINOR.x branch) and then the name
     of the just released version.  The defaults will usually be correct.  When
     asked, enter the username and password for your Zope login.  As of writing
-    this is not necessarily the same as your Exchange password.
+    this is not necessarily the same as your Exchange password.  If the update
+    succeeeds make sure to e-mail IT and ask them to push the updated pages
+    from the test site to the production site.
 
     This should complete the portion of the process that's automated at this point
     (though future versions will automate these steps as well, after a few needed
