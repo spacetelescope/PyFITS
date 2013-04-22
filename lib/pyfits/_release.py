@@ -105,6 +105,11 @@ class ReleaseManager(object):
 
         self.released_version = data['version']
 
+    def postreleaser_middle(self, data):
+        """Update the version string in the documentation."""
+
+        update_docs_config(data['dev_version'])
+
     def postreleaser_after(self, data):
         """
         Used to update the PyFITS website.
@@ -238,7 +243,7 @@ def check_long_description():
     return False
 
 
-def update_docs_config(new_version, authors):
+def update_docs_config(new_version=None, authors=None):
     """
     Updates the conf.py for the Sphinx documentation with the new version
     string and an up to date authors list and copyright date.
@@ -256,15 +261,17 @@ def update_docs_config(new_version, authors):
                          flags=re.M)
 
     # Update the 'authors' list
-    authors_list = ('authors = [\n    ' +
-                    ',\n    '.join(repr(a) for a in authors) + '\n]')
-    conf_py_src = re.sub(r'^authors\s*=\s*\[[^]]+\]$', authors_list,
-                         conf_py_src, flags=re.M)
+    if authors is not None:
+        authors_list = ('authors = [\n    ' +
+                        ',\n    '.join(repr(a) for a in authors) + '\n]')
+        conf_py_src = re.sub(r'^authors\s*=\s*\[[^]]+\]$', authors_list,
+                             conf_py_src, flags=re.M)
 
     # Update the version and release variables (for PyFITS we always just set
     # these to the same)
-    conf_py_src = re.sub(r"^(version|release)\s*=\s*'[^']+'",
-                         r"\1 = %r" % new_version, conf_py_src, flags=re.M)
+    if new_version is not None:
+        conf_py_src = re.sub(r"^(version|release)\s*=\s*'[^']+'",
+                             r"\1 = %r" % new_version, conf_py_src, flags=re.M)
 
     with open(conf_py, 'w') as f:
         f.write(conf_py_src)
