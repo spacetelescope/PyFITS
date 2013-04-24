@@ -195,9 +195,9 @@ class TestChecksumFunctions(PyfitsTestCase):
 
     def test_open_update_mode_preserve_checksum(self):
         """
-        Regression test for #148 where checksums are being removed from headers
-        when a file is opened in update mode, even though no changes were made
-        to the file.
+        Regression test for https://trac.assembla.com/pyfits/ticket/148 where
+        checksums are being removed from headers when a file is opened in
+        update mode, even though no changes were made to the file.
         """
 
         self.copy_file('checksum.fits')
@@ -215,9 +215,10 @@ class TestChecksumFunctions(PyfitsTestCase):
 
     def test_open_update_mode_update_checksum(self):
         """
-        Regression test for #148, part 2.  This ensures that if a file contains
-        a checksum, the checksum is updated when changes are saved to the file,
-        even if the file was opened with the default of checksum=False.
+        Regression test for https://trac.assembla.com/pyfits/ticket/148, part
+        2.  This ensures that if a file contains a checksum, the checksum is
+        updated when changes are saved to the file, even if the file was opened
+        with the default of checksum=False.
 
         An existing checksum and/or datasum are only stripped if the file is
         opened with checksum='remove'.

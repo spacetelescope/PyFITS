@@ -63,9 +63,10 @@ class TestGroupsFunctions(PyfitsTestCase):
 
     def test_parnames_round_trip(self):
         """
-        Regression test for #130.  Ensures that opening a random groups file in
-        update mode or writing it to a new file does not cause any change to
-        the parameter names.
+        Regression test for https://trac.assembla.com/pyfits/ticket/130
+
+        Ensures that opening a random groups file in update mode or writing it
+        to a new file does not cause any change to the parameter names.
         """
 
         # Because this test tries to update the random_groups.fits file, let's

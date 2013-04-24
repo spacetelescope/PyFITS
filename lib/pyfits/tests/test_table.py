@@ -93,8 +93,10 @@ def comparerecords(a, b):
 class TestTableFunctions(PyfitsTestCase):
     def test_constructor_copies_header(self):
        """
-       Regression test for #153.  Ensure that a header from one HDU is copied
-       when used to initialize new HDU.
+       Regression test for https://trac.assembla.com/pyfits/ticket/153
+
+       Ensure that a header from one HDU is copied when used to initialize new
+       HDU.
 
        This is like the test of the same name in test_image, but tests this for
        tables as well.
@@ -294,7 +296,7 @@ class TestTableFunctions(PyfitsTestCase):
         toto.close()
 
     def test_extend_variable_length_array(self):
-        """Regression test for issue #54."""
+        """Regression test for https://trac.assembla.com/pyfits/ticket/54"""
 
         arr = [[1] * 10] * 10
         col1 = fits.Column(name='TESTVLF', format='PJ()', array=arr)
@@ -329,8 +331,8 @@ class TestTableFunctions(PyfitsTestCase):
 
     def test_column_endianness(self):
         """
-        Regression test for #77 [PyFITS doesn't preserve byte order of
-        non-native order column arrays]
+        Regression test for https://trac.assembla.com/pyfits/ticket/77
+        (PyFITS doesn't preserve byte order of non-native order column arrays)
         """
 
         a = [1., 2., 3., 4.]
@@ -890,7 +892,7 @@ class TestTableFunctions(PyfitsTestCase):
         row[1:4]['counts'] = 300
         assert row[1:4]['counts'] == 300
 
-        # Test stepping for #59
+        # Test stepping for https://trac.assembla.com/pyfits/ticket/59
         row[1:4][::-1][-1] = 500
         assert row[1:4]['counts'] == 500
         row[1:4:2][0] = 300
@@ -1751,7 +1753,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert t.field(1).shape == (3, 4, 3)
 
     def test_string_array_round_trip(self):
-        """Regression test for #201."""
+        """Regression test for https://trac.assembla.com/pyfits/ticket/201"""
 
         data = [['abc', 'def', 'ghi'],
                 ['jkl', 'mno', 'pqr'],
@@ -1772,7 +1774,7 @@ class TestTableFunctions(PyfitsTestCase):
 
         with fits.open(self.temp('test.fits')) as h:
             # Access the data; I think this is necessary to exhibit the bug
-            # reported in #201
+            # reported in https://trac.assembla.com/pyfits/ticket/201
             h[1].data[:]
             h.writeto(self.temp('test2.fits'))
 
@@ -1842,7 +1844,7 @@ class TestTableFunctions(PyfitsTestCase):
                       dim='(2,2)', array=arra)
 
     def test_slicing(self):
-        """Regression test for #52."""
+        """Regression test for https://trac.assembla.com/pyfits/ticket/52"""
 
         f = fits.open(self.data('table.fits'))
         data = f[1].data
@@ -1860,7 +1862,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert (s.field('target') == targets[::-1]).all()
 
     def test_array_slicing(self):
-        """Regression test for #55."""
+        """Regression test for https://trac.assembla.com/pyfits/ticket/55"""
 
         f = fits.open(self.data('table.fits'))
         data = f[1].data
@@ -1956,7 +1958,7 @@ class TestTableFunctions(PyfitsTestCase):
 
     def test_attribute_field_shadowing(self):
         """
-        Regression test for #86.
+        Regression test for https://trac.assembla.com/pyfits/ticket/86
 
         Numpy recarray objects have a poorly-considered feature of allowing
         field access by attribute lookup.  However, if a field name conincides
@@ -1981,7 +1983,7 @@ class TestTableFunctions(PyfitsTestCase):
 
     def test_table_from_bool_fields(self):
         """
-        Regression test for #113.
+        Regression test for https://trac.assembla.com/pyfits/ticket/113
 
         Tests creating a table from a recarray containing numpy.bool columns.
         """
@@ -2010,7 +2012,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert (hdu.data['a'] == arr['a']).all()
 
     def test_bool_column_update(self):
-        """Regression test for #139."""
+        """Regression test for https://trac.assembla.com/pyfits/ticket/139"""
 
         c1 = fits.Column('F1', 'L', array=[True, False])
         c2 = fits.Column('F2', 'L', array=[False, True])
@@ -2026,7 +2028,7 @@ class TestTableFunctions(PyfitsTestCase):
             assert (hdul[1].data['F2'] == [True, True]).all()
 
     def test_missing_tnull(self):
-        """Regression test for #197."""
+        """Regression test for https://trac.assembla.com/pyfits/ticket/197"""
 
         c = fits.Column('F1', 'A3', null='---',
                           array=np.array(['1.0', '2.0', '---', '3.0']))
@@ -2051,7 +2053,7 @@ class TestTableFunctions(PyfitsTestCase):
                          "keyword or the table contains invalid data")
 
     def test_getdata_vla(self):
-        """Regression test for #200."""
+        """Regression test for https://trac.assembla.com/pyfits/ticket/200"""
         col = fits.Column(name='QUAL_SPE', format='PJ()',
                             array=[np.arange(1572)]*225)
         tb_hdu = fits.new_table([col])
@@ -2067,7 +2069,7 @@ class TestTableFunctions(PyfitsTestCase):
             assert (row_a == row_b).all()
 
     def test_column_array_type_mismatch(self):
-        """Regression test for #218."""
+        """Regression test for https://trac.assembla.com/pyfits/ticket/218"""
 
         arr = [-99] * 20
         col = fits.Column('mag', format='E', array=arr)
