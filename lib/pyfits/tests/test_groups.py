@@ -6,37 +6,37 @@ import time
 import numpy as np
 from numpy import char as chararray
 
-from nose.tools import assert_equal, assert_true, assert_raises
+from nose.tools import assert_raises
 
-import pyfits
+import pyfits as fits
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.test_table import comparerecords
 
 
 class TestGroupsFunctions(PyfitsTestCase):
     def test_open(self):
-        with pyfits.open(self.data('random_groups.fits')) as hdul:
-            assert_true(isinstance(hdul[0], pyfits.GroupsHDU))
+        with fits.open(self.data('random_groups.fits')) as hdul:
+            assert isinstance(hdul[0], fits.GroupsHDU)
             naxes = (3, 1, 128, 1, 1)
             parameters = ['UU', 'VV', 'WW', 'BASELINE', 'DATE']
-            assert_equal(hdul.info(output=False),
-                         [(0, 'PRIMARY', 'GroupsHDU', 147, naxes, 'float32',
-                           '3 Groups  5 Parameters')])
+            assert (hdul.info(output=False) ==
+                    [(0, 'PRIMARY', 'GroupsHDU', 147, naxes, 'float32',
+                      '3 Groups  5 Parameters')])
 
             ghdu = hdul[0]
-            assert_equal(ghdu.parnames, parameters)
-            assert_equal(list(ghdu.data.dtype.names), parameters + ['DATA'])
+            assert ghdu.parnames == parameters
+            assert list(ghdu.data.dtype.names) == parameters + ['DATA']
 
-            assert_true(isinstance(ghdu.data, pyfits.GroupData))
+            assert isinstance(ghdu.data, fits.GroupData)
             # The data should be equal to the number of groups
-            assert_equal(ghdu.header['GCOUNT'], len(ghdu.data))
-            assert_equal(ghdu.data.data.shape, (len(ghdu.data),) + naxes[::-1])
-            assert_equal(ghdu.data.parnames, parameters)
+            assert ghdu.header['GCOUNT'] == len(ghdu.data)
+            assert ghdu.data.data.shape == (len(ghdu.data),) + naxes[::-1]
+            assert ghdu.data.parnames == parameters
 
-            assert_true(isinstance(ghdu.data[0], pyfits.Group))
-            assert_equal(len(ghdu.data[0]), len(parameters) + 1)
-            assert_equal(ghdu.data[0].data.shape, naxes[::-1])
-            assert_equal(ghdu.data[0].parnames, parameters)
+            assert isinstance(ghdu.data[0], fits.Group)
+            assert len(ghdu.data[0]) == len(parameters) + 1
+            assert ghdu.data[0].data.shape == naxes[::-1]
+            assert ghdu.data[0].parnames == parameters
 
     def test_open_groups_in_update_mode(self):
         """
@@ -54,12 +54,12 @@ class TestGroupsFunctions(PyfitsTestCase):
 
         time.sleep(1)
 
-        pyfits.open(self.temp('random_groups.fits'), mode='update',
+        fits.open(self.temp('random_groups.fits'), mode='update',
                     memmap=False).close()
 
         # Ensure that no changes were made to the file merely by immediately
         # opening and closing it.
-        assert_equal(mtime, os.stat(self.temp('random_groups.fits')).st_mtime)
+        assert mtime == os.stat(self.temp('random_groups.fits')).st_mtime
 
     def test_parnames_round_trip(self):
         """
@@ -74,17 +74,17 @@ class TestGroupsFunctions(PyfitsTestCase):
         self.copy_file('random_groups.fits')
 
         parameters = ['UU', 'VV', 'WW', 'BASELINE', 'DATE']
-        with pyfits.open(self.temp('random_groups.fits'), mode='update') as h:
-            assert_equal(h[0].parnames, parameters)
+        with fits.open(self.temp('random_groups.fits'), mode='update') as h:
+            assert h[0].parnames == parameters
             h.flush()
         # Open again just in read-only mode to ensure the parnames didn't
         # change
-        with pyfits.open(self.temp('random_groups.fits')) as h:
-            assert_equal(h[0].parnames, parameters)
+        with fits.open(self.temp('random_groups.fits')) as h:
+            assert h[0].parnames == parameters
             h.writeto(self.temp('test.fits'))
 
-        with pyfits.open(self.temp('test.fits')) as h:
-            assert_equal(h[0].parnames, parameters)
+        with fits.open(self.temp('test.fits')) as h:
+            assert h[0].parnames == parameters
 
     def test_groupdata_slice(self):
         """
@@ -95,11 +95,11 @@ class TestGroupsFunctions(PyfitsTestCase):
         """
 
 
-        with pyfits.open(self.data('random_groups.fits')) as hdul:
+        with fits.open(self.data('random_groups.fits')) as hdul:
             s = hdul[0].data[1:]
-            assert_true(isinstance(s, pyfits.GroupData))
-            assert_equal(len(s), 2)
-            assert_equal(hdul[0].data.parnames, s.parnames)
+            assert isinstance(s, fits.GroupData)
+            assert len(s) == 2
+            assert hdul[0].data.parnames == s.parnames
 
     def test_group_slice(self):
         """
@@ -107,21 +107,21 @@ class TestGroupsFunctions(PyfitsTestCase):
         """
 
         # A very basic slice test
-        with pyfits.open(self.data('random_groups.fits')) as hdul:
+        with fits.open(self.data('random_groups.fits')) as hdul:
             g = hdul[0].data[0]
             s = g[2:4]
-            assert_equal(len(s), 2)
-            assert_equal(s[0], g[2])
-            assert_equal(s[-1], g[-3])
+            assert len(s) == 2
+            assert s[0] == g[2]
+            assert s[-1] == g[-3]
             s = g[::-1]
-            assert_equal(len(s), 6)
-            assert_true((s[0] == g[-1]).all())
-            assert_equal(s[-1], g[0])
+            assert len(s) == 6
+            assert (s[0] == g[-1]).all()
+            assert s[-1] == g[0]
             s = g[::2]
-            assert_equal(len(s), 3)
-            assert_equal(s[0], g[0])
-            assert_equal(s[1], g[2])
-            assert_equal(s[2], g[4])
+            assert len(s) == 3
+            assert s[0] == g[0]
+            assert s[1] == g[2]
+            assert s[2] == g[4]
 
     def test_create_groupdata(self):
         """
@@ -132,30 +132,30 @@ class TestGroupsFunctions(PyfitsTestCase):
         imdata.shape = (10, 1, 1, 2, 5)
         pdata1 = np.arange(10, dtype=np.float32) + 0.1
         pdata2 = 42.0
-        x = pyfits.hdu.groups.GroupData(imdata, parnames=['abc', 'xyz'],
-                                        pardata=[pdata1, pdata2], bitpix=-32)
+        x = fits.hdu.groups.GroupData(imdata, parnames=['abc', 'xyz'],
+                                      pardata=[pdata1, pdata2], bitpix=-32)
 
-        assert_equal(x.parnames, ['abc', 'xyz'])
-        assert_true((x.par('abc') == pdata1).all())
-        assert_true((x.par('xyz') == ([pdata2] * len(x))).all())
-        assert_true((x.data == imdata).all())
+        assert x.parnames == ['abc', 'xyz']
+        assert (x.par('abc') == pdata1).all()
+        assert (x.par('xyz') == ([pdata2] * len(x))).all()
+        assert (x.data == imdata).all()
 
         # Test putting the data into a GroupsHDU and round-tripping it
-        ghdu = pyfits.GroupsHDU(data=x)
+        ghdu = fits.GroupsHDU(data=x)
         ghdu.writeto(self.temp('test.fits'))
 
-        with pyfits.open(self.temp('test.fits')) as h:
+        with fits.open(self.temp('test.fits')) as h:
             hdr = h[0].header
-            assert_equal(hdr['GCOUNT'], 10)
-            assert_equal(hdr['PCOUNT'], 2)
-            assert_equal(hdr['NAXIS'], 5)
-            assert_equal(hdr['NAXIS1'], 0)
-            assert_equal(hdr['NAXIS2'], 5)
-            assert_equal(hdr['NAXIS3'], 2)
-            assert_equal(hdr['NAXIS4'], 1)
-            assert_equal(hdr['NAXIS5'], 1)
-            assert_equal(h[0].data.parnames, ['abc', 'xyz'])
-            assert_true(comparerecords(h[0].data, x))
+            assert hdr['GCOUNT'] == 10
+            assert hdr['PCOUNT'] == 2
+            assert hdr['NAXIS'] == 5
+            assert hdr['NAXIS1'] == 0
+            assert hdr['NAXIS2'] == 5
+            assert hdr['NAXIS3'] == 2
+            assert hdr['NAXIS4'] == 1
+            assert hdr['NAXIS5'] == 1
+            assert h[0].data.parnames == ['abc', 'xyz']
+            assert comparerecords(h[0].data, x)
 
     def test_duplicate_parameter(self):
         """
@@ -168,34 +168,34 @@ class TestGroupsFunctions(PyfitsTestCase):
         imdata.shape = (10, 1, 1, 2, 5)
         pdata1 = np.arange(10, dtype=np.float32) + 1
         pdata2 = 42.0
-        x = pyfits.hdu.groups.GroupData(imdata, parnames=['abc', 'xyz', 'abc'],
-                                        pardata=[pdata1, pdata2, pdata1],
-                                        bitpix=-32)
+        x = fits.hdu.groups.GroupData(imdata, parnames=['abc', 'xyz', 'abc'],
+                                      pardata=[pdata1, pdata2, pdata1],
+                                      bitpix=-32)
 
-        assert_equal(x.parnames, ['abc', 'xyz', 'abc'])
-        assert_true((x.par('abc') == pdata1 * 2).all())
-        assert_equal(x[0].par('abc'), 2)
+        assert x.parnames == ['abc', 'xyz', 'abc']
+        assert (x.par('abc') == pdata1 * 2).all()
+        assert x[0].par('abc') == 2
 
         # Test setting a parameter
         x[0].setpar(0, 2)
-        assert_equal(x[0].par('abc'), 3)
+        assert x[0].par('abc') == 3
         assert_raises(ValueError, x[0].setpar, 'abc', 2)
         x[0].setpar('abc', (2, 3))
-        assert_equal(x[0].par('abc'), 5)
-        assert_equal(x.par('abc')[0], 5)
-        assert_true((x.par('abc')[1:] == pdata1[1:] * 2).all())
+        assert x[0].par('abc') == 5
+        assert x.par('abc')[0] == 5
+        assert (x.par('abc')[1:] == pdata1[1:] * 2).all()
 
         # Test round-trip
-        ghdu = pyfits.GroupsHDU(data=x)
+        ghdu = fits.GroupsHDU(data=x)
         ghdu.writeto(self.temp('test.fits'))
 
-        with pyfits.open(self.temp('test.fits')) as h:
+        with fits.open(self.temp('test.fits')) as h:
             hdr = h[0].header
-            assert_equal(hdr['PCOUNT'], 3)
-            assert_equal(hdr['PTYPE1'], 'abc')
-            assert_equal(hdr['PTYPE2'], 'xyz')
-            assert_equal(hdr['PTYPE3'], 'abc')
-            assert_equal(x.parnames, ['abc', 'xyz', 'abc'])
-            assert_equal(x.dtype.names, ('abc', 'xyz', '_abc', 'DATA'))
-            assert_equal(x.par('abc')[0], 5)
-            assert_true((x.par('abc')[1:] == pdata1[1:] * 2).all())
+            assert hdr['PCOUNT'] == 3
+            assert hdr['PTYPE1'] == 'abc'
+            assert hdr['PTYPE2'] == 'xyz'
+            assert hdr['PTYPE3'] == 'abc'
+            assert x.parnames == ['abc', 'xyz', 'abc']
+            assert x.dtype.names == ('abc', 'xyz', '_abc', 'DATA')
+            assert x.par('abc')[0] == 5
+            assert (x.par('abc')[1:] == pdata1[1:] * 2).all()

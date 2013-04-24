@@ -7,7 +7,7 @@ import tempfile
 import time
 import warnings
 
-import pyfits
+import pyfits as fits
 
 
 class PyfitsTestCase(object):
@@ -16,8 +16,8 @@ class PyfitsTestCase(object):
         self.temp_dir = tempfile.mkdtemp(prefix='pyfits-test-')
 
         # Restore global settings to defaults
-        for name, value in pyfits.core.GLOBALS:
-            setattr(pyfits, name, value)
+        for name, value in fits.core.GLOBALS:
+            setattr(fits, name, value)
 
         # Ignore deprecation warnings--this only affects Python 2.5 and 2.6,
         # since deprecation warnings are ignored by defualt on 2.7
