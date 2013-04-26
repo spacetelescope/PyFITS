@@ -79,7 +79,7 @@ class _TableLikeHDU(_ValidHDU):
         # specifically in the BinTableHDU class, since they're a detail
         # specific to FITS binary tables
         if (_FormatP in [type(r) for r in recformats] and
-            self._datSpan > self._theap):
+                self._datSpan > self._theap):
             # We have a heap; include it in the raw_data
             raw_data = self._get_raw_data(self._datSpan, np.byte, self._datLoc)
             data = raw_data[:self._theap].view(dtype=dtype,
@@ -392,7 +392,7 @@ class TableHDU(_TableBaseHDU):
     def __init__(self, data=None, header=None, name=None):
         super(TableHDU, self).__init__(data, header, name=name)
         if (self._data_loaded and self.data is not None and
-            not isinstance(self.data._coldefs, _ASCIIColDefs)):
+                not isinstance(self.data._coldefs, _ASCIIColDefs)):
             self.data._coldefs = _ASCIIColDefs(self.data._coldefs)
 
     @classmethod
@@ -424,7 +424,7 @@ class TableHDU(_TableBaseHDU):
             if idx == len(columns) - 1:
                 # The last column is padded out to the value of NAXIS1
                 if self._header['NAXIS1'] > itemsize:
-                    data_type = 'S' + str(columns.spans[idx] + \
+                    data_type = 'S' + str(columns.spans[idx] +
                                 self._header['NAXIS1'] - itemsize)
             dtype[columns.names[idx]] = (data_type, columns.starts[idx] - 1)
 
@@ -573,7 +573,7 @@ class BinTableHDU(_TableBaseHDU):
                         for jdx, c in enumerate(coldata):
                             if (not isinstance(c, chararray.chararray) and
                                 c.itemsize > 1 and
-                                c.dtype.str[0] in swap_types):
+                                    c.dtype.str[0] in swap_types):
                                 to_swap.append(c)
 
                 while to_swap:
@@ -1218,7 +1218,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                         field[:n] = arr[:n]
                     else:
                         hdu.data._convert[idx] = \
-                                np.zeros(nrows, dtype=arr.dtype)
+                            np.zeros(nrows, dtype=arr.dtype)
                         if scale or zero:
                             arr = arr.copy()
                         if scale:
@@ -1242,7 +1242,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
                             # rows
                             inarr_rowsize = inarr[0].size
                             inarr = inarr.reshape((n, inarr_rowsize))
-                            outarr[:,:inarr_rowsize] = inarr
+                            outarr[:, :inarr_rowsize] = inarr
                         else:
                             # Special case for strings where the out array only
                             # has one dimension (the second dimension is rolled

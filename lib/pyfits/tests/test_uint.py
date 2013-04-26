@@ -10,7 +10,7 @@ from pyfits.tests import PyfitsTestCase
 
 class TestUintFunctions(PyfitsTestCase):
     def test_uint16(self):
-        hdu = fits.PrimaryHDU(np.array([-3,-2,-1,0,1,2,3]))
+        hdu = fits.PrimaryHDU(np.array([-3, -2, -1, 0, 1, 2, 3]))
         hdu.scale('int16', '', bzero=2**15)
         hdu.writeto(self.temp('tempfile.fits'))
         hdul = fits.open(self.temp('tempfile.fits'), uint=True)
@@ -45,13 +45,14 @@ class TestUintFunctions(PyfitsTestCase):
 
     def test_uint64(self):
         if platform.architecture()[0] == '64bit':
-            hdu = fits.PrimaryHDU(np.array([-3,-2,-1,0,1,2,3]))
-            hdu.scale('int64', '', bzero=2**63)
+            hdu = fits.PrimaryHDU(np.array([-3, -2, -1, 0, 1, 2, 3]))
+            hdu.scale('int64', '', bzero=2 ** 63)
             hdu.writeto(self.temp('tempfile.fits'))
             hdul = fits.open(self.temp('tempfile.fits'), uint=True)
             assert hdul[0].data.dtype == np.uint64
             assert np.all(hdul[0].data ==
-                          np.array([(2**64)-3,(2**64)-2,(2**64)-1,0,1,2,3],
+                          np.array([(2 ** 64) - 3, (2 ** 64) - 2,
+                                    (2 ** 64) - 1, 0, 1, 2, 3],
                                    dtype=np.uint64))
             hdul.writeto(self.temp('tempfile1.fits'))
             hdul1 = fits.open(self.temp('tempfile1.fits'), uint=True)
@@ -75,5 +76,5 @@ class TestUintFunctions(PyfitsTestCase):
                 assert (hdul[1].data == hdul2[1].data).all()
                 # TODO: Enable these lines if CompImageHDUs ever grow .section
                 # support
-                #assert hdul[1].section[:1].dtype.name == 'uint32'
-                #assert (hdul[1].section[:1] == hdul[1].data[:1]).all()
+                # assert hdul[1].section[:1].dtype.name == 'uint32'
+                # assert (hdul[1].section[:1] == hdul[1].data[:1]).all()

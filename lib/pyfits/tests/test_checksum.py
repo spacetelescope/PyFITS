@@ -15,7 +15,7 @@ class TestChecksumFunctions(PyfitsTestCase):
         self._oldfilters = warnings.filters[:]
         warnings.filterwarnings(
             'error',
-             message='Checksum verification failed')
+            message='Checksum verification failed')
         warnings.filterwarnings(
             'error',
             message='Datasum verification failed')
@@ -65,7 +65,7 @@ class TestChecksumFunctions(PyfitsTestCase):
         pdata1 = np.arange(10) + 0.1
         pdata2 = 42
         x = fits.hdu.groups.GroupData(imdata, parnames=['abc', 'xyz'],
-                                        pardata=[pdata1, pdata2], bitpix=-32)
+                                      pardata=[pdata1, pdata2], bitpix=-32)
         hdu = fits.GroupsHDU(x)
         hdu.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
         hdul1 = fits.open(self.temp('tmp.fits'), checksum=True)
@@ -84,7 +84,7 @@ class TestChecksumFunctions(PyfitsTestCase):
 
     def test_variable_length_table_data(self):
         c1 = fits.Column(name='var', format='PJ()',
-            array=np.array([[45.0, 56], np.array([11, 12, 13])], 'O'))
+                         array=np.array([[45.0, 56], np.array([11, 12, 13])], 'O'))
         c2 = fits.Column(name='xyz', format='2I', array=[[11, 3], [12, 4]])
         tbhdu = fits.new_table([c1, c2])
         tbhdu.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
@@ -96,7 +96,7 @@ class TestChecksumFunctions(PyfitsTestCase):
         r1 = np.array([11.0, 12.0])
         c1 = fits.Column(name='abc', format='A3', array=a1)
         c2 = fits.Column(name='def', format='E', array=r1, bscale=2.3,
-                           bzero=0.6)
+                         bzero=0.6)
         c3 = fits.Column(name='t1', format='I', array=[91, 92, 93])
         x = fits.ColDefs([c1, c2, c3], tbtype='TableHDU')
         hdu = fits.new_table(x, tbtype='TableHDU')
@@ -127,7 +127,7 @@ class TestChecksumFunctions(PyfitsTestCase):
         hdul.close()
 
     def test_open_with_no_keywords(self):
-        hdul=fits.open(self.data('arange.fits'), checksum=True)
+        hdul = fits.open(self.data('arange.fits'), checksum=True)
         hdul.close()
 
     def test_append(self):

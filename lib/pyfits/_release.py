@@ -14,9 +14,9 @@ try:
     from docutils.core import publish_parts
 except ImportError:
     print >> sys.stderr, \
-           'docutils is required to convert the PyFITS changelog to HTML ' \
-           'for updating the PyFITS homepage\n\n' \
-           'Try `pip install docutils` or `easy_install docutils`.'
+        'docutils is required to convert the PyFITS changelog to HTML ' \
+        'for updating the PyFITS homepage\n\n' \
+        'Try `pip install docutils` or `easy_install docutils`.'
     sys.exit(1)
 
 from zest.releaser.choose import version_control
@@ -27,7 +27,7 @@ log = None
 
 
 PYFITS_HOMEPAGE_BASE_URL = \
-        'http://www.stsci.edu:8072/institute/software_hardware/pyfits'
+    'http://www.stsci.edu:8072/institute/software_hardware/pyfits'
 # These are the pages to run find/replace of the version number on
 PYFITS_HOMEPAGE_SUBPAGES = ['content', 'Download']
 
@@ -69,7 +69,6 @@ class ReleaseManager(object):
                       'CHANGES.txt and README.txt through rst2html.py to '
                       'find the errors and correct them.')
             sys.exit(1)
-
 
     def prereleaser_middle(self, data):
         """Update the Sphinx conf.py"""
@@ -123,7 +122,6 @@ class ReleaseManager(object):
 
         if not ask('Update PyFITS homepage'):
             return
-
 
         previous_version = new_version = None
 
@@ -441,7 +439,7 @@ class _ZopeProxy(object):
 
         self.connect()
         if log:
-             log.info('Updating %s...' % self.masked_url)
+            log.info('Updating %s...' % self.masked_url)
         try:
             if title is None:
                 title = self.proxy.title_or_id()

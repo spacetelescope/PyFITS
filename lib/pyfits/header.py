@@ -129,7 +129,7 @@ class Header(object):
             keyword = key
         card = self._cards[self._cardindex(key)]
         if (card.field_specifier is not None and
-            keyword == card.keyword.split('.', 1)[0]):
+                keyword == card.keyword.split('.', 1)[0]):
             # This is RVKC; if only the top-level keyword was specified return
             # the raw value, not the parsed out float value
             return card.rawvalue
@@ -787,14 +787,14 @@ class Header(object):
         # only for validating RVKCs.
         if (len(keyword) <= KEYWORD_LENGTH and
             Card._keywd_FSC_RE.match(keyword) and
-            keyword not in self._keyword_indices):
+                keyword not in self._keyword_indices):
             new_card = Card(keyword, value, comment)
             new_keyword = new_card.keyword
         else:
             new_keyword = keyword
 
         if (new_keyword not in Card._commentary_keywords and
-            new_keyword in self):
+                new_keyword in self):
             if comment is None:
                 comment = self.comments[keyword]
             if value is None:
@@ -1058,10 +1058,10 @@ class Header(object):
                     card = Card(*((k,) + v))
                 else:
                     raise ValueError(
-                            'Header update value for key %r is invalid; the '
-                            'value must be either a scalar, a 1-tuple '
-                            'containing the scalar value, or a 2-tuple '
-                            'containing the value and a comment string.' % k)
+                        'Header update value for key %r is invalid; the '
+                        'value must be either a scalar, a 1-tuple '
+                        'containing the scalar value, or a 2-tuple '
+                        'containing the value and a comment string.' % k)
                 self._update(card)
 
             if other is None:
@@ -1080,10 +1080,10 @@ class Header(object):
                         self._update(Card(*card))
                     else:
                         raise ValueError(
-                                'Header update sequence item #%d is invalid; '
-                                'the item must either be a 2-tuple containing '
-                                'a keyword and value, or a 3-tuple containing '
-                                'a keyword, value, and comment string.' % idx)
+                            'Header update sequence item #%d is invalid; '
+                            'the item must either be a 2-tuple containing '
+                            'a keyword and value, or a 3-tuple containing '
+                            'a keyword, value, and comment string.' % idx)
             if kwargs:
                 self.update(kwargs)
 
@@ -1246,7 +1246,7 @@ class Header(object):
                         # XTENSION as the case may be, as was in the case in
                         # Header.fromTxtFile
                         if ((keyword == 'SIMPLE' and first == 'XTENSION') or
-                            (keyword == 'XTENSION' and first == 'SIMPLE')):
+                                (keyword == 'XTENSION' and first == 'SIMPLE')):
                             del self[0]
                             self.insert(0, card)
                         else:
@@ -1442,7 +1442,7 @@ class Header(object):
             raise ValueError('Can not rename to CONTINUE')
 
         if (newkeyword in Card._commentary_keywords or
-            oldkeyword in Card._commentary_keywords):
+                oldkeyword in Card._commentary_keywords):
             if not (newkeyword in Card._commentary_keywords and
                     oldkeyword in Card._commentary_keywords):
                 raise ValueError('Regular and commentary keys can not be '
@@ -1528,7 +1528,7 @@ class Header(object):
             keyword = keyword[9:]
 
         if (keyword not in Card._commentary_keywords and
-            keyword in self._keyword_indices):
+                keyword in self._keyword_indices):
             # Easy; just update the value/comment
             idx = self._keyword_indices[keyword][0]
             existing_card = self._cards[idx]
@@ -1573,8 +1573,8 @@ class Header(object):
             if (len(key) != 2 or not isinstance(key[0], basestring) or
                     not isinstance(key[1], int)):
                 raise ValueError(
-                        'Tuple indices must be 2-tuples consisting of a '
-                        'keyword string and an integer index.')
+                    'Tuple indices must be 2-tuples consisting of a '
+                    'keyword string and an integer index.')
             keyword, n = key
             keyword = Card.normalize_keyword(keyword)
             # Returns the index into _cards for the n-th card with the given
@@ -1591,7 +1591,7 @@ class Header(object):
                 found = 0
                 for idx, card in enumerate(self._cards):
                     if (card.field_specifier and
-                        card.keyword.startswith(keyword)):
+                            card.keyword.startswith(keyword)):
                         if found == n:
                             return idx
                         found += 1
@@ -1605,8 +1605,8 @@ class Header(object):
                                   keyword))
         else:
             raise ValueError(
-                    'Header indices must be either a string, a 2-tuple, or '
-                    'an integer.')
+                'Header indices must be either a string, a 2-tuple, or '
+                'an integer.')
 
     def _relativeinsert(self, card, before=None, after=None, replace=False):
         """
@@ -1643,7 +1643,7 @@ class Header(object):
             insertion_idx = get_insertion_idx()
 
             if (insertion_idx >= len(self._cards) and
-                old_idx == len(self._cards) - 1):
+                    old_idx == len(self._cards) - 1):
                 # The card would be appended to the end, but it's already at
                 # the end
                 return
@@ -1655,7 +1655,6 @@ class Header(object):
                 return
 
             del self[old_idx]
-
 
         # Even if replace=True, the insertion idx may have changed since the
         # old card was deleted

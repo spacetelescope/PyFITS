@@ -6,7 +6,7 @@ from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
 from pyfits.hdu.table import _TableLikeHDU
 from pyfits.util import lazyproperty, _is_int, _pad_length, \
-                        _is_pseudo_unsigned
+    _is_pseudo_unsigned
 
 
 class Group(FITS_record):
@@ -284,7 +284,6 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
         # missing, so for now just assume that won't happen
         return [self._header['PTYPE' + str(idx + 1)] for idx in range(pcount)]
 
-
     @lazyproperty
     def columns(self):
         if self._data_loaded and hasattr(self.data, '_coldefs'):
@@ -497,7 +496,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
             # Check the byte order of the data.  If it is little endian we
             # must swap it before calculating the datasum.
             byteorder = \
-                 self.data.dtype.fields[self.data.dtype.names[0]][0].str[0]
+                self.data.dtype.fields[self.data.dtype.names[0]][0].str[0]
 
             if byteorder != '>':
                 byteswapped = True

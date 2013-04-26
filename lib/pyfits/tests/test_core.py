@@ -352,7 +352,7 @@ class TestConvenienceFunctions(PyfitsTestCase):
         Test of `writeto()` with a trivial header containing a single keyword.
         """
 
-        data = np.zeros((100,100))
+        data = np.zeros((100, 100))
         header = fits.Header()
         header.update('CRPIX1', 1.)
         fits.writeto(self.temp('array.fits'), data, header=header,

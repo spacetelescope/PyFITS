@@ -251,7 +251,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         c = fits.Card('floatnum', -467374636747637647347374734737437.)
 
         if (str(c) != "FLOATNUM= -4.6737463674763E+32                                                  " and
-            str(c) != "FLOATNUM= -4.6737463674763E+032                                                 "):
+                str(c) != "FLOATNUM= -4.6737463674763E+032                                                 "):
             assert str(c) == "FLOATNUM= -4.6737463674763E+32                                                  "
 
     def test_complex_value_card(self):
@@ -261,7 +261,7 @@ class TestHeaderFunctions(PyfitsTestCase):
                       1.2345377437887837487e88+6324767364763746367e-33j)
 
         if (str(c) != "ABC     = (1.23453774378878E+88, 6.32476736476374E-15)                          " and
-            str(c) != "ABC     = (1.2345377437887E+088, 6.3247673647637E-015)                          "):
+                str(c) != "ABC     = (1.2345377437887E+088, 6.3247673647637E-015)                          "):
             assert str(c) == "ABC     = (1.23453774378878E+88, 6.32476736476374E-15)                          "
 
     def test_card_image_constructed_too_long(self):
@@ -314,7 +314,8 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_commentary_card_created_by_fromstring(self):
         # commentary card created by fromstring()
-        c = fits.Card.fromstring("COMMENT card has no comments. / text after slash is still part of the value.")
+        c = fits.Card.fromstring(
+            "COMMENT card has no comments. / text after slash is still part of the value.")
         assert c.value == 'card has no comments. / text after slash is still part of the value.'
         assert c.comment == ''
 
@@ -335,7 +336,6 @@ class TestHeaderFunctions(PyfitsTestCase):
         c = fits.Card.fromstring(str(c))
         assert c.keyword == ''
         assert c.value == '       / EXPOSURE INFORMATION'
-
 
     def test_specify_undefined_value(self):
         # this is how to specify an undefined value
@@ -358,7 +358,8 @@ class TestHeaderFunctions(PyfitsTestCase):
         # fixable non-FSC: if the card is not parsable, it's value will be
         # assumed
         # to be a string and everything after the first slash will be comment
-        c = fits.Card.fromstring("no_quote=  this card's value has no quotes / let's also try the comment")
+        c = fits.Card.fromstring(
+            "no_quote=  this card's value has no quotes / let's also try the comment")
         with CaptureStdio():
             assert str(c) == "NO_QUOTE= 'this card''s value has no quotes' / let's also try the comment       "
 
@@ -504,7 +505,6 @@ class TestHeaderFunctions(PyfitsTestCase):
             "CONTINUE  '&' / long comment long comment long comment long comment long        "
             "CONTINUE  '&' / comment long comment long comment long comment long comment     "
             "CONTINUE  '&' / long comment                                                    ")
-
 
     def test_word_in_long_string_too_long(self):
         # if a word in a long string is too long, it will be cut in the middle
@@ -774,6 +774,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_header_setitem_invalid(self):
         header = fits.Header()
+
         def test():
             header['FOO'] = ('bar', 'baz', 'qux')
         assert_raises(ValueError, test)
@@ -1713,7 +1714,6 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert h[u'FOO'] == 'BAR'
         assert repr(h) == _pad("FOO     = 'BAR     '")
         assert_raises(ValueError, assign, erikku, 'BAR')
-
 
         h['FOO'] = u'BAZ'
         assert h[u'FOO'] == 'BAZ'

@@ -6,6 +6,7 @@ from pyfits.header import Header
 from pyfits.util import (_is_pseudo_unsigned, _unsigned_zero, _is_int,
                          _pad_length, _normalize_slice, lazyproperty)
 
+
 class _ImageBaseHDU(_ValidHDU):
     """FITS image HDU base class.
 
@@ -169,7 +170,6 @@ class _ImageBaseHDU(_ValidHDU):
 
         return Section(self)
 
-
     @property
     def shape(self):
         """
@@ -289,7 +289,7 @@ class _ImageBaseHDU(_ValidHDU):
 
     def _update_header_scale_info(self, dtype=None):
         if (not self._do_not_scale_image_data and
-            not (self._orig_bzero == 0 and self._orig_bscale == 1)):
+                not (self._orig_bzero == 0 and self._orig_bscale == 1)):
             for keyword in ['BSCALE', 'BZERO']:
                 try:
                     del self._header[keyword]
@@ -518,7 +518,7 @@ class _ImageBaseHDU(_ValidHDU):
         raw_data.dtype = raw_data.dtype.newbyteorder('>')
 
         if (self._orig_bzero == 0 and self._orig_bscale == 1 and
-            self._blank is None):
+                self._blank is None):
             # No further conversion of the data is necessary
             return raw_data
 
@@ -626,7 +626,7 @@ class _ImageBaseHDU(_ValidHDU):
             # base class.  The other possibility is that there is no data at
             # all.  This can also be handled in a gereric manner.
             return super(_ImageBaseHDU, self)._calculate_datasum(
-                    blocking=blocking)
+                blocking=blocking)
 
 
 class Section(object):

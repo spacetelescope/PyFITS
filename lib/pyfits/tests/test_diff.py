@@ -247,8 +247,8 @@ class TestDiff(PyfitsTestCase):
     def test_different_pixels(self):
         ia = np.arange(100).reshape((10, 10))
         ib = np.arange(100).reshape((10, 10))
-        ib[0,0] = 10
-        ib[5,5] = 20
+        ib[0, 0] = 10
+        ib[5, 5] = 20
         diff = ImageDataDiff(ia, ib)
         assert not diff.identical
         assert diff.diff_dimensions == ()

@@ -703,6 +703,8 @@ class HeaderDiff(_BaseDiff):
 # different pixels: For example ignore if only 1% of the pixels are different
 # within some threshold.  There are lots of possibilities here, but hold off
 # for now until specific cases come up.
+
+
 class ImageDataDiff(_BaseDiff):
     """
     Diff two image data arrays (really any array from a PRIMARY HDU or an IMAGE
@@ -1067,7 +1069,7 @@ class TableDataDiff(_BaseDiff):
             arrb = self.b[col.name]
 
             if (np.issubdtype(arra.dtype, float) and
-                np.issubdtype(arrb.dtype, float)):
+                    np.issubdtype(arrb.dtype, float)):
                 diffs = where_not_allclose(arra, arrb, atol=0.0,
                                            rtol=self.tolerance)
             elif 'P' in col.format:

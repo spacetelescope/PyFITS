@@ -615,7 +615,7 @@ class TestHDUListFunctions(PyfitsTestCase):
                 assert orig_info == hdul2.info(output=False)
                 for idx in range(len(hdul)):
                     assert hdul[idx].header == hdul2[idx].header
-                    if  hdul[idx].data is None or hdul2[idx].data is None:
+                    if hdul[idx].data is None or hdul2[idx].data is None:
                         assert hdul[idx].data == hdul2[idx].data
                     elif (hdul[idx].data.dtype.fields and
                           hdul2[idx].data.dtype.fields):
@@ -648,7 +648,7 @@ class TestHDUListFunctions(PyfitsTestCase):
 
         with ignore_warnings():
             with fits.open(self.temp('scale.fits'), mode='update',
-                             save_backup=True) as hdul:
+                           save_backup=True) as hdul:
                 # Make some changes to the original file to force its header
                 # and data to be rewritten
                 hdul[0].header['TEST'] = 'TEST'

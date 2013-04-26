@@ -307,7 +307,6 @@ class Column(object):
                         raise ValueError('Data is inconsistent with the '
                                          'format `%s`.' % format)
 
-
         # scale the array back to storage values if there is bscale/bzero
         if isinstance(array, np.ndarray):
             # make a copy if scaled, so as not to corrupt the original array

@@ -548,6 +548,7 @@ def fill(text, width, *args, **kwargs):
     """
 
     paragraphs = text.split('\n\n')
+
     def maybe_fill(t):
         if all(len(l) < width for l in t.splitlines()):
             return t
@@ -783,6 +784,7 @@ if sys.version_info[:2] < (2, 6):
     # Replace the builtin property to add support for the getter/setter/deleter
     # mechanism as introduced in Python 2.6 (this can go away if we ever drop
     # 2.5 support)
+
     class property(property):
         def __init__(self, fget, *args, **kwargs):
             self.__doc__ = fget.__doc__

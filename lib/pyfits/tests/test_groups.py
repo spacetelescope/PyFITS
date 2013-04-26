@@ -55,7 +55,7 @@ class TestGroupsFunctions(PyfitsTestCase):
         time.sleep(1)
 
         fits.open(self.temp('random_groups.fits'), mode='update',
-                    memmap=False).close()
+                  memmap=False).close()
 
         # Ensure that no changes were made to the file merely by immediately
         # opening and closing it.
@@ -94,7 +94,6 @@ class TestGroupsFunctions(PyfitsTestCase):
         regression test for an as-of-yet unreported issue where slicing
         GroupData returned a single Group record.
         """
-
 
         with fits.open(self.data('random_groups.fits')) as hdul:
             s = hdul[0].data[1:]

@@ -7,7 +7,7 @@ import numpy as np
 
 from pyfits.column import (ASCIITNULL, FITS2NUMPY, Column, ColDefs, _FormatX,
                            _FormatP, _VLF, _get_index, _wrapx, _unwrapx,
-                            _convert_ascii_format)
+                           _convert_ascii_format)
 from pyfits.util import _array_from_file, decode_ascii, lazyproperty
 
 
@@ -70,7 +70,7 @@ class FITS_record(object):
                 raise KeyError("Key '%s' does not exist." % key)
         elif isinstance(key, slice):
             return type(self)(self.array, self.row, key.start, key.stop,
-                               key.step, self)
+                              key.step, self)
         else:
             indx = self._get_index(key)
 
@@ -341,7 +341,7 @@ class FITS_rec(np.recarray):
         # this can lead to a circular reference; see ticket #49
         base = self
         while isinstance(base, FITS_rec) and \
-              isinstance(base.base, np.recarray):
+                isinstance(base.base, np.recarray):
             base = base.base
         # base could still be a FITS_rec in some cases, so take care to
         # use rec.recarray.field to avoid a potential infinite
@@ -445,7 +445,7 @@ class FITS_rec(np.recarray):
                         actual_nitems = dummy.shape[1]
                     if nitems > actual_nitems:
                         warnings.warn(
-                        'TDIM%d value %s does not fit with the size of '
+                            'TDIM%d value %s does not fit with the size of '
                             'the array items (%d).  TDIM%d will be ignored.'
                             % (indx + 1, self._coldefs.dims[indx],
                                actual_nitems, indx + 1))
@@ -472,7 +472,7 @@ class FITS_rec(np.recarray):
             if dim:
                 nitems = reduce(operator.mul, dim)
                 if self._convert[indx] is None:
-                    self._convert[indx] = dummy[:,:nitems]
+                    self._convert[indx] = dummy[:, :nitems]
                 if _str:
                     fmt = self._convert[indx].dtype.char
                     dtype = ('|%s%d' % (fmt, dim[-1]), dim[:-1])

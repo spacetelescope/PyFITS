@@ -70,7 +70,7 @@ class CompImageHeader(Header):
                             'ZCMPTYPE') and
             keyword[:4] not in ('ZVAL') and
             keyword[:5] not in ('NAXIS', 'TTYPE', 'TFORM', 'ZTILE', 'ZNAME')
-            and keyword[:6] not in ('ZNAXIS')):
+                and keyword[:6] not in ('ZNAXIS')):
             self._table_header.set(keyword, value, comment, before, after)
 
     def add_history(self, value, before=None, after=None):
@@ -573,7 +573,7 @@ class CompImageHDU(BinTableHDU):
 
         if compressionType == 'HCOMPRESS_1':
             if (self._image_header['NAXIS1'] < 4 or
-                self._image_header['NAXIS2'] < 4):
+                    self._image_header['NAXIS2'] < 4):
                 raise ValueError('Hcompress minimum image dimension is '
                                  '4 pixels')
             elif tileSize:
@@ -589,7 +589,7 @@ class CompImageHDU(BinTableHDU):
                         'to 1.')
 
             if tileSize and (tileSize[0] == 0 and tileSize[1] == 0):
-                #compress the whole image as a single tile
+                # compress the whole image as a single tile
                 tileSize[0] = self._image_header['NAXIS1']
                 tileSize[1] = self._image_header['NAXIS2']
 
@@ -936,7 +936,7 @@ class CompImageHDU(BinTableHDU):
     @data.setter
     def data(self, data):
         if (data is not None) and (not isinstance(data, np.ndarray) or
-             data.dtype.fields is not None):
+           data.dtype.fields is not None):
                 raise TypeError('CompImageHDU data has incorrect type:%s; '
                                 'dtype.fields = %s' %
                                 (type(data), data.dtype.fields))
@@ -1147,7 +1147,7 @@ class CompImageHDU(BinTableHDU):
         # is the default value of COMPRESSED_IMAGE.
 
         if ('EXTNAME' in self._header and
-            self._header['EXTNAME'] == 'COMPRESSED_IMAGE'):
+                self._header['EXTNAME'] == 'COMPRESSED_IMAGE'):
             del self._image_header['EXTNAME']
 
         # Look to see if there are any blank cards in the table
@@ -1206,7 +1206,7 @@ class CompImageHDU(BinTableHDU):
             self.header.get('BITPIX', 0) != image_bitpix or
             self._header.get('ZNAXIS', 0) != len(self.data.shape) or
             self._header.get('ZBITPIX', 0) != image_bitpix or
-            self.shape != self.data.shape):
+                self.shape != self.data.shape):
             self.updateHeaderData(self.header)
 
         # put data in machine native byteorder on little endian machines
@@ -1479,7 +1479,7 @@ class CompImageHDU(BinTableHDU):
             # TODO: Ick; have to assign to __dict__ to bypass _setdata; need to
             # find a way to fix this
             self.__dict__['data'] = self.compData
-            #self.data = self.compData
+            # self.data = self.compData
             try:
                 size += self._binary_table_byte_swap(fileobj)
             finally:
@@ -1514,7 +1514,7 @@ class CompImageHDU(BinTableHDU):
 
     def _update_header_scale_info(self, dtype=None):
         if (not self._do_not_scale_image_data and
-            not (self._orig_bzero == 0 and self._orig_bscale == 1)):
+                not (self._orig_bzero == 0 and self._orig_bscale == 1)):
             for keyword in ['BSCALE', 'BZERO']:
                 # Make sure to delete from both the image header and the table
                 # header; later this will be streamlined
