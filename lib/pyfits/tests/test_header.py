@@ -170,24 +170,24 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         h = fits.Header()
         h.update('FOO', True)
         h.update('BAR', False)
-        assert h['FOO'] == True
-        assert h['BAR'] == False
+        assert h['FOO'] is True
+        assert h['BAR'] is False
         assert h.ascard['FOO'].cardimage == fooimg
         assert h.ascard['BAR'].cardimage == barimg
 
         h = fits.Header()
         h.update('FOO', np.bool_(True))
         h.update('BAR', np.bool_(False))
-        assert h['FOO'] == True
-        assert h['BAR'] == False
+        assert h['FOO'] is True
+        assert h['BAR'] is False
         assert h.ascard['FOO'].cardimage == fooimg
         assert h.ascard['BAR'].cardimage == barimg
 
         h = fits.Header()
         h.ascard.append(fits.Card.fromstring(fooimg))
         h.ascard.append(fits.Card.fromstring(barimg))
-        assert h['FOO'] == True
-        assert h['BAR'] == False
+        assert h['FOO'] is True
+        assert h['BAR'] is False
         assert h.ascard['FOO'].cardimage == fooimg
         assert h.ascard['BAR'].cardimage == barimg
 
@@ -237,7 +237,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert str(c) == "ABC     =                    T                                                  "
 
         c = fits.Card.fromstring('abc     = F')
-        assert c.value == False
+        assert c.value is False
 
     def test_long_integer_value_card(self):
         """Test Card constructor with long integer value"""
@@ -258,7 +258,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         """Test Card constructor with complex value"""
 
         c = fits.Card('abc',
-                      1.2345377437887837487e88+6324767364763746367e-33j)
+                      1.2345377437887837487e88 + 6324767364763746367e-33j)
 
         if (str(c) != "ABC     = (1.23453774378878E+88, 6.32476736476374E-15)                          " and
                 str(c) != "ABC     = (1.2345377437887E+088, 6.3247673647637E-015)                          "):
@@ -270,9 +270,9 @@ class TestHeaderFunctions(PyfitsTestCase):
         # card image constructed from key/value/comment is too long
         # (non-string value)
         with ignore_warnings():
-            c = fits.Card('abc', 9, 'abcde'*20)
+            c = fits.Card('abc', 9, 'abcde' * 20)
             assert str(c) == "ABC     =                    9 / abcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeab"
-            c = fits.Card('abc', 'a'*68, 'abcdefg')
+            c = fits.Card('abc', 'a' * 68, 'abcdefg')
             assert str(c) == "ABC     = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"
 
     def test_constructor_filter_illegal_data_structures(self):
@@ -419,7 +419,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_long_string_value(self):
         # test long string value
-        c = fits.Card('abc', 'long string value '*10, 'long comment '*10)
+        c = fits.Card('abc', 'long string value ' * 10, 'long comment ' * 10)
         assert (str(c) ==
             "ABC     = 'long string value long string value long string value long string &' "
             "CONTINUE  'value long string value long string value long string value long &'  "
@@ -490,7 +490,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert header['COMMENT'] == header['']
 
     def test_long_string_from_file(self):
-        c = fits.Card('abc', 'long string value '*10, 'long comment '*10)
+        c = fits.Card('abc', 'long string value ' * 10, 'long comment ' * 10)
         hdu = fits.PrimaryHDU()
         hdu.header.append(c)
         hdu.writeto(self.temp('test_new.fits'))
@@ -508,7 +508,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_word_in_long_string_too_long(self):
         # if a word in a long string is too long, it will be cut in the middle
-        c = fits.Card('abc', 'longstringvalue'*10, 'longcomment'*10)
+        c = fits.Card('abc', 'longstringvalue' * 10, 'longcomment' * 10)
         assert (str(c) ==
             "ABC     = 'longstringvaluelongstringvaluelongstringvaluelongstringvaluelongstr&'"
             "CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'"
@@ -1573,24 +1573,24 @@ class TestHeaderFunctions(PyfitsTestCase):
         h = fits.Header()
         h['FOO'] = True
         h['BAR'] = False
-        assert h['FOO'] == True
-        assert h['BAR'] == False
+        assert h['FOO'] is True
+        assert h['BAR'] is False
         assert str(h.cards['FOO']) == fooimg
         assert str(h.cards['BAR']) == barimg
 
         h = fits.Header()
         h['FOO'] = np.bool_(True)
         h['BAR'] = np.bool_(False)
-        assert h['FOO'] == True
-        assert h['BAR'] == False
+        assert h['FOO'] is True
+        assert h['BAR'] is False
         assert str(h.cards['FOO']) == fooimg
         assert str(h.cards['BAR']) == barimg
 
         h = fits.Header()
         h.append(fits.Card.fromstring(fooimg))
         h.append(fits.Card.fromstring(barimg))
-        assert h['FOO'] == True
-        assert h['BAR'] == False
+        assert h['FOO'] is True
+        assert h['BAR'] is False
         assert str(h.cards['FOO']) == fooimg
         assert str(h.cards['BAR']) == barimg
 
@@ -1901,7 +1901,7 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         c = fits.Card.fromstring("DP1     = 'NAXIS: a'")
         assert c.keyword == 'DP1'
         assert c.value == 'NAXIS: a'
-        assert c.field_specifier == None
+        assert c.field_specifier is None
 
         c = fits.Card('DP1', 'NAXIS: 2')
         assert c.keyword == 'DP1.NAXIS'
@@ -1916,7 +1916,7 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         c = fits.Card('DP1', 'NAXIS: a')
         assert c.keyword == 'DP1'
         assert c.value == 'NAXIS: a'
-        assert c.field_specifier == None
+        assert c.field_specifier is None
 
         c = fits.Card('DP1.NAXIS', 2)
         assert c.keyword == 'DP1.NAXIS'
@@ -1932,7 +1932,7 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
             c = fits.Card('DP1.NAXIS', 'a')
         assert c.keyword == 'DP1.NAXIS'
         assert c.value == 'a'
-        assert c.field_specifier == None
+        assert c.field_specifier is None
 
     def test_parse_field_specifier(self):
         """
@@ -2182,7 +2182,7 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
             "        'Date: 2012-09-19T13:58:53.756061'")
         assert c.keyword == ''
         assert c.value == "'Date: 2012-09-19T13:58:53.756061'"
-        assert c.field_specifier == None
+        assert c.field_specifier is None
 
         h = fits.Header()
         h['FOO'] = 'Date: 2012-09-19T13:58:53.756061'

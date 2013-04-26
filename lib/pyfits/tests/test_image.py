@@ -279,7 +279,7 @@ class TestImageFunctions(PyfitsTestCase):
         # section testing
         fs = fits.open(self.data('arange.fits'))
         assert (fs[0].section[3, 2, 5] == np.array([357])).all()
-        assert (fs[0].section[3, 2,:] ==
+        assert (fs[0].section[3, 2, :] ==
                 np.array([352, 353, 354, 355, 356, 357, 358, 359, 360, 361,
                           362])).all()
         assert (fs[0].section[3, 2, 4:] ==
@@ -288,7 +288,7 @@ class TestImageFunctions(PyfitsTestCase):
                 np.array([352, 353, 354, 355, 356, 357, 358, 359])).all()
         assert (fs[0].section[3, 2, -8:8] ==
                 np.array([355, 356, 357, 358, 359])).all()
-        assert (fs[0].section[3, 2:5,:] ==
+        assert (fs[0].section[3, 2:5, :] ==
                 np.array([[352, 353, 354, 355, 356, 357, 358, 359, 360, 361,
                            362],
                           [363, 364, 365, 366, 367, 368, 369, 370, 371, 372,
@@ -296,7 +296,7 @@ class TestImageFunctions(PyfitsTestCase):
                           [374, 375, 376, 377, 378, 379, 380, 381, 382, 383,
                            384]])).all()
 
-        assert (fs[0].section[3,:,:][:3, :3] ==
+        assert (fs[0].section[3, :, :][:3, :3] ==
                 np.array([[330, 331, 332],
                           [341, 342, 343],
                           [352, 353, 354]])).all()
@@ -305,7 +305,7 @@ class TestImageFunctions(PyfitsTestCase):
         assert (fs[0].section[3, 2:5, :8] == dat[3, 2:5, :8]).all()
         assert (fs[0].section[3, 2:5, 3] == dat[3, 2:5, 3]).all()
 
-        assert (fs[0].section[3:6,:,:][:3, :3, :3] ==
+        assert (fs[0].section[3:6, :, :][:3, :3, :3] ==
                 np.array([[[330, 331, 332],
                            [341, 342, 343],
                            [352, 353, 354]],
@@ -316,7 +316,7 @@ class TestImageFunctions(PyfitsTestCase):
                            [561, 562, 563],
                            [572, 573, 574]]])).all()
 
-        assert (fs[0].section[:,:,:][:3, :2, :2] ==
+        assert (fs[0].section[:, :, :][:3, :2, :2] ==
                 np.array([[[0,   1],
                            [11,  12]],
                           [[110, 111],
@@ -324,10 +324,10 @@ class TestImageFunctions(PyfitsTestCase):
                           [[220, 221],
                            [231, 232]]])).all()
 
-        assert (fs[0].section[:, 2,:] == dat[:, 2,:]).all()
-        assert (fs[0].section[:, 2:5,:] == dat[:, 2:5,:]).all()
-        assert (fs[0].section[3:6, 3,:] == dat[3:6, 3,:]).all()
-        assert (fs[0].section[3:6, 3:7,:] == dat[3:6, 3:7,:]).all()
+        assert (fs[0].section[:, 2, :] == dat[:, 2, :]).all()
+        assert (fs[0].section[:, 2:5, :] == dat[:, 2:5, :]).all()
+        assert (fs[0].section[3:6, 3, :] == dat[3:6, 3, :]).all()
+        assert (fs[0].section[3:6, 3:7, :] == dat[3:6, 3:7, :]).all()
 
     def test_section_data_square(self):
         a = np.arange(4).reshape((2, 2))
@@ -337,9 +337,9 @@ class TestImageFunctions(PyfitsTestCase):
         hdul = fits.open(self.temp('test_new.fits'))
         d = hdul[0]
         dat = hdul[0].data
-        assert (d.section[:,:] == dat[:,:]).all()
-        assert (d.section[0,:] == dat[0,:]).all()
-        assert (d.section[1,:] == dat[1,:]).all()
+        assert (d.section[:, :] == dat[:, :]).all()
+        assert (d.section[0, :] == dat[0, :]).all()
+        assert (d.section[1, :] == dat[1, :]).all()
         assert (d.section[:, 0] == dat[:, 0]).all()
         assert (d.section[:, 1] == dat[:, 1]).all()
         assert (d.section[0, 0] == dat[0, 0]).all()
@@ -359,17 +359,17 @@ class TestImageFunctions(PyfitsTestCase):
         hdul = fits.open(self.temp('test_new.fits'))
         d = hdul[0]
         dat = hdul[0].data
-        assert (d.section[:,:,:] == dat[:,:,:]).all()
-        assert (d.section[:,:] == dat[:,:]).all()
+        assert (d.section[:, :, :] == dat[:, :, :]).all()
+        assert (d.section[:, :] == dat[:, :]).all()
         assert (d.section[:] == dat[:]).all()
-        assert (d.section[0,:,:] == dat[0,:,:]).all()
-        assert (d.section[1,:,:] == dat[1,:,:]).all()
-        assert (d.section[0, 0,:] == dat[0, 0,:]).all()
-        assert (d.section[0, 1,:] == dat[0, 1,:]).all()
-        assert (d.section[0, 2,:] == dat[0, 2,:]).all()
-        assert (d.section[1, 0,:] == dat[1, 0,:]).all()
-        assert (d.section[1, 1,:] == dat[1, 1,:]).all()
-        assert (d.section[1, 2,:] == dat[1, 2,:]).all()
+        assert (d.section[0, :, :] == dat[0, :, :]).all()
+        assert (d.section[1, :, :] == dat[1, :, :]).all()
+        assert (d.section[0, 0, :] == dat[0, 0, :]).all()
+        assert (d.section[0, 1, :] == dat[0, 1, :]).all()
+        assert (d.section[0, 2, :] == dat[0, 2, :]).all()
+        assert (d.section[1, 0, :] == dat[1, 0, :]).all()
+        assert (d.section[1, 1, :] == dat[1, 1, :]).all()
+        assert (d.section[1, 2, :] == dat[1, 2, :]).all()
         assert (d.section[0, 0, 0] == dat[0, 0, 0]).all()
         assert (d.section[0, 0, 1] == dat[0, 0, 1]).all()
         assert (d.section[0, 0, 2] == dat[0, 0, 2]).all()
@@ -397,25 +397,25 @@ class TestImageFunctions(PyfitsTestCase):
         assert (d.section[:, 2, 0] == dat[:, 2, 0]).all()
         assert (d.section[:, 2, 1] == dat[:, 2, 1]).all()
         assert (d.section[:, 2, 2] == dat[:, 2, 2]).all()
-        assert (d.section[0,:, 0] == dat[0,:, 0]).all()
-        assert (d.section[0,:, 1] == dat[0,:, 1]).all()
-        assert (d.section[0,:, 2] == dat[0,:, 2]).all()
-        assert (d.section[1,:, 0] == dat[1,:, 0]).all()
-        assert (d.section[1,:, 1] == dat[1,:, 1]).all()
-        assert (d.section[1,:, 2] == dat[1,:, 2]).all()
-        assert (d.section[:,:, 0] == dat[:,:, 0]).all()
-        assert (d.section[:,:, 1] == dat[:,:, 1]).all()
-        assert (d.section[:,:, 2] == dat[:,:, 2]).all()
-        assert (d.section[:, 0,:] == dat[:, 0,:]).all()
-        assert (d.section[:, 1,:] == dat[:, 1,:]).all()
-        assert (d.section[:, 2,:] == dat[:, 2,:]).all()
+        assert (d.section[0, :, 0] == dat[0, :, 0]).all()
+        assert (d.section[0, :, 1] == dat[0, :, 1]).all()
+        assert (d.section[0, :, 2] == dat[0, :, 2]).all()
+        assert (d.section[1, :, 0] == dat[1, :, 0]).all()
+        assert (d.section[1, :, 1] == dat[1, :, 1]).all()
+        assert (d.section[1, :, 2] == dat[1, :, 2]).all()
+        assert (d.section[:, :, 0] == dat[:, :, 0]).all()
+        assert (d.section[:, :, 1] == dat[:, :, 1]).all()
+        assert (d.section[:, :, 2] == dat[:, :, 2]).all()
+        assert (d.section[:, 0, :] == dat[:, 0, :]).all()
+        assert (d.section[:, 1, :] == dat[:, 1, :]).all()
+        assert (d.section[:, 2, :] == dat[:, 2, :]).all()
 
-        assert (d.section[:,:, 0:1] == dat[:,:, 0:1]).all()
-        assert (d.section[:,:, 0:2] == dat[:,:, 0:2]).all()
-        assert (d.section[:,:, 0:3] == dat[:,:, 0:3]).all()
-        assert (d.section[:,:, 1:2] == dat[:,:, 1:2]).all()
-        assert (d.section[:,:, 1:3] == dat[:,:, 1:3]).all()
-        assert (d.section[:,:, 2:3] == dat[:,:, 2:3]).all()
+        assert (d.section[:, :, 0:1] == dat[:, :, 0:1]).all()
+        assert (d.section[:, :, 0:2] == dat[:, :, 0:2]).all()
+        assert (d.section[:, :, 0:3] == dat[:, :, 0:3]).all()
+        assert (d.section[:, :, 1:2] == dat[:, :, 1:2]).all()
+        assert (d.section[:, :, 1:3] == dat[:, :, 1:3]).all()
+        assert (d.section[:, :, 2:3] == dat[:, :, 2:3]).all()
         assert (d.section[0:1, 0:1, 0:1] == dat[0:1, 0:1, 0:1]).all()
         assert (d.section[0:1, 0:1, 0:2] == dat[0:1, 0:1, 0:2]).all()
         assert (d.section[0:1, 0:1, 0:3] == dat[0:1, 0:1, 0:3]).all()
@@ -485,15 +485,15 @@ class TestImageFunctions(PyfitsTestCase):
         hdul = fits.open(self.temp('test_new.fits'))
         d = hdul[0]
         dat = hdul[0].data
-        assert (d.section[:,:,:,:] == dat[:,:,:,:]).all()
-        assert (d.section[:,:,:] == dat[:,:,:]).all()
-        assert (d.section[:,:] == dat[:,:]).all()
+        assert (d.section[:, :, :, :] == dat[:, :, :, :]).all()
+        assert (d.section[:, :, :] == dat[:, :, :]).all()
+        assert (d.section[:, :] == dat[:, :]).all()
         assert (d.section[:] == dat[:]).all()
-        assert (d.section[0,:,:,:] == dat[0,:,:,:]).all()
-        assert (d.section[0,:, 0,:] == dat[0,:, 0,:]).all()
-        assert (d.section[:,:, 0,:] == dat[:,:, 0,:]).all()
-        assert (d.section[:, 1, 0,:] == dat[:, 1, 0,:]).all()
-        assert (d.section[:,:,:, 1] == dat[:,:,:, 1]).all()
+        assert (d.section[0, :, :, :] == dat[0, :, :, :]).all()
+        assert (d.section[0, :, 0, :] == dat[0, :, 0, :]).all()
+        assert (d.section[:, :, 0, :] == dat[:, :, 0, :]).all()
+        assert (d.section[:, 1, 0, :] == dat[:, 1, 0, :]).all()
+        assert (d.section[:, :, :, 1] == dat[:, :, :, 1]).all()
 
     def test_section_data_scaled(self):
         """
@@ -506,9 +506,9 @@ class TestImageFunctions(PyfitsTestCase):
         hdul = fits.open(self.data('scale.fits'))
         d = hdul[0]
         dat = hdul[0].data
-        assert (d.section[:,:] == dat[:,:]).all()
-        assert (d.section[0,:] == dat[0,:]).all()
-        assert (d.section[1,:] == dat[1,:]).all()
+        assert (d.section[:, :] == dat[:, :]).all()
+        assert (d.section[0, :] == dat[0, :]).all()
+        assert (d.section[1, :] == dat[1, :]).all()
         assert (d.section[:, 0] == dat[:, 0]).all()
         assert (d.section[:, 1] == dat[:, 1]).all()
         assert (d.section[0, 0] == dat[0, 0]).all()
@@ -523,9 +523,9 @@ class TestImageFunctions(PyfitsTestCase):
         # Test without having accessed the full data first
         hdul = fits.open(self.data('scale.fits'))
         d = hdul[0]
-        assert (d.section[:,:] == dat[:,:]).all()
-        assert (d.section[0,:] == dat[0,:]).all()
-        assert (d.section[1,:] == dat[1,:]).all()
+        assert (d.section[:, :] == dat[:, :]).all()
+        assert (d.section[0, :] == dat[0, :]).all()
+        assert (d.section[1, :] == dat[1, :]).all()
         assert (d.section[:, 0] == dat[:, 0]).all()
         assert (d.section[:, 1] == dat[:, 1]).all()
         assert (d.section[0, 0] == dat[0, 0]).all()
@@ -730,7 +730,7 @@ class TestImageFunctions(PyfitsTestCase):
         with fits.open(self.data('fixed-1890.fits'),
                        do_not_scale_image_data=True) as hdul:
             chdu = fits.CompImageHDU(data=hdul[0].data,
-                                       header=hdul[0].header)
+                                     header=hdul[0].header)
             chdu.writeto(self.temp('fixed-1890-z.fits'))
 
         hdul = fits.open(self.temp('fixed-1890-z.fits'))
@@ -990,7 +990,7 @@ class TestImageFunctions(PyfitsTestCase):
         # Some interestingly tiled data so that some of it is quantized and
         # some of it ends up just getting gzip-compressed
         data2 = ((np.arange(1, 8, dtype=np.float32) * 10)[:, np.newaxis] +
-                np.arange(1, 7))
+                 np.arange(1, 7))
         np.random.seed(1337)
         data1 = np.random.uniform(size=(6 * 4, 7 * 4))
         data1[:data2.shape[0], :data2.shape[1]] = data2
