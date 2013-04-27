@@ -243,14 +243,6 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         size = self._header['NAXIS1'] * self._header['NAXIS2']
         return self._header.get('THEAP', size)
 
-    @deprecated('3.0', alternative='the `.columns` attribute')
-    def get_coldefs(self):
-        """
-        Returns the table's column definitions.
-        """
-
-        return self.columns
-
     # TODO: Need to either rename this to update_header, for symmetry with the
     # Image HDUs, or just at some point deprecate it and remove it altogether,
     # since header updates should occur automatically when necessary...

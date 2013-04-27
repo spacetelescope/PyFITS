@@ -14,8 +14,7 @@ from numpy import memmap as Memmap
 
 from pyfits.util import (isreadable, iswritable, isfile, fileobj_open,
                          fileobj_name, fileobj_closed, fileobj_mode,
-                         _array_from_file, _array_to_file, _write_string,
-                         deprecated)
+                         _array_from_file, _array_to_file, _write_string)
 
 
 # File object open modes
@@ -139,12 +138,6 @@ class _File(object):
 
     def __exit__(self, type, value, traceback):
         self.close()
-
-    @deprecated('3.0', message='This method should not be treated as public.')
-    def getfile(self):
-        """Will be going away as soon as I figure out how."""
-
-        return self.__file
 
     def readable(self):
         if self.writeonly:

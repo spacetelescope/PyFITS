@@ -55,7 +55,6 @@ from pyfits.hdu.hdulist import fitsopen as open
 from pyfits.hdu.image import Section
 from pyfits.hdu.table import new_table
 from pyfits.header import Header
-from pyfits.util import deprecated
 
 
 # Additional imports used by the documentation (some of which should be
@@ -85,29 +84,14 @@ __all__ = (pyfits.card.__all__ + pyfits.column.__all__ +
            pyfits.convenience.__all__ + pyfits.diff.__all__ +
            pyfits.hdu.__all__ +
            ['FITS_record', 'FITS_rec', 'open', 'Section', 'new_table',
-            'Header', 'VerifyError', 'TRUE', 'FALSE',
-            'setExtensionNameCaseSensitive'] + [g[0] for g in GLOBALS])
+            'Header', 'VerifyError', 'TRUE', 'FALSE'] +
+           [g[0] for g in GLOBALS])
 
 
 # These are of course deprecated, but a handful of external code still uses
 # them
 TRUE = True
 FALSE = False
-
-# The following variable and function are used to support case sensitive
-# values for the value of a EXTNAME card in an extension header.  By default,
-# pyfits converts the value of EXTNAME cards to upper case when reading from
-# a file.  By calling setExtensionNameCaseSensitive() the user may circumvent
-# this process so that the EXTNAME value remains in the same case as it is
-# in the file. (Note: The EXTENSION_NAME_CASE_SENSITIVE is now defined above
-# along with the other module variables)
-
-
-@deprecated('3.0',
-            alternative='the `pyfits.EXTENSION_NAME_CASE_SENSITIVE` variable')
-def setExtensionNameCaseSensitive(value=True):
-    global EXTENSION_NAME_CASE_SENSITIVE
-    EXTENSION_NAME_CASE_SENSITIVE = value
 
 
 # Warnings routines

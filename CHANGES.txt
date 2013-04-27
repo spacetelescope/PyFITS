@@ -4,12 +4,57 @@ Changelog
 3.2 (unreleased)
 ----------------
 
+Highlights
+^^^^^^^^^^
+
 - Rewrote CFITSIO-based backend for handling tile compression of FITS files.
   It now uses a standard CFITSIO instead of heavily modified pieces of CFITSIO
   as before.  PyFITS ships with its own copy of CFITSIO v3.30, but system
   packagers may choose instead to strip this out in favor of a
   system-installed version of CFITSIO.  Earlier versions may work, but nothing
   earlier than 3.28 has been tested yet. (#169)
+
+
+API Changes
+^^^^^^^^^^^
+
+- The ``updateHeader``, ``updateHeaderData``, and ``updateCompressedData``
+  methods of the ``CompDataHDU`` class are pending deprecation and moved to
+  internal methods.  The operation of these methods depended too much on
+  internal state to be used safely by users; instead they are invoked
+  automatically in the appropriate places when reading/writing compressed image
+  HDUs.
+
+- The ``CompDataHDU.compData`` attribute is pending deprecation in favor of
+  the clearer and more PEP-8 compatible ``CompDataHDU.compressed_data``.
+
+- The constructor for ``CompDataHDU`` has been changed to accept new keyword
+  arguments.  The new keyword arguments are essentially the same, but are in
+  underscore_separated format rather than camelCase format.  The old arguments
+  are still pending deprecation.
+
+- The internal attributes of HDU classes ``_hdrLoc``, ``_datLoc``, and
+  ``_datSpan`` have been replaced with ``_header_offset``, ``_data_offset``,
+  and ``_data_size` respectively.  The old attribute names are still pending
+  deprecation.  This should only be of interest to advanced users who have
+  created their own HDU subclasses.
+
+- The following previously deprecated functions and methods have been removed
+  entirely: ``createCard``, ``createCardFromString``, ``upperKey``,
+  ``ColDefs.data``, ``setExtensionNameCaseSensitive``, ``_File.getfile``,
+  ``_TableBaseHDU.get_coldefs``, ``Header.has_key``, ``Header.ascardlist``.
+
+  If you run your code with a previous version of PyFITS (>= 3.0, < 3.2) with
+  the ``python -Wd`` argument, warnings for all deprecated interfaces still in
+  use will be displayed.
+
+- Interfaces that were pending deprecation are now fully deprecated.  These
+  include: ``create_card``, ``create_card_from_string``, ``upper_key``,
+  ``Header.get_history``, and ``Header.get_comment``.
+
+
+New Features
+^^^^^^^^^^^^
 
 - The new compression code also adds support for the ZQUANTIZ keyword added in
   more recent versions of this FITS Tile Compression spec. This includes

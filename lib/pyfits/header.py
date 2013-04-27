@@ -812,12 +812,6 @@ class Header(object):
         else:
             self[keyword] = (value, comment)
 
-    @deprecated('3.0', alternative='``key in header`` syntax')
-    def has_key(self, key):
-        """Like :meth:`dict.has_key`."""
-
-        return key in self
-
     def items(self):
         """Like :meth:`dict.items`."""
 
@@ -1836,19 +1830,11 @@ class Header(object):
 
         return CardList(self)
 
-    @deprecated('3.0', alternative='the `.ascard` attribute')
-    def ascardlist(self):
-        """
-        Returns a `CardList` object.
-        """
-
-        return self.ascard
-
     @deprecated('3.1', alternative=':meth:`Header.rename_keyword`')
     def rename_key(self, oldkey, newkey, force=False):
         self.rename_keyword(oldkey, newkey, force)
 
-    @deprecated('3.1', alternative="``header['HISTORY']``", pending=True)
+    @deprecated('3.1', alternative="``header['HISTORY']``")
     def get_history(self):
         """
         Get all history cards as a list of string texts.
@@ -1859,7 +1845,7 @@ class Header(object):
         else:
             return []
 
-    @deprecated('3.1', alternative="``header['COMMENT']``", pending=True)
+    @deprecated('3.1', alternative="``header['COMMENT']``")
     def get_comment(self):
         """
         Get all comment cards as a list of string texts.

@@ -8,7 +8,7 @@ from numpy import char as chararray
 
 from pyfits.card import Card
 from pyfits.util import (lazyproperty, pairwise, _is_int, _convert_array,
-                         encode_ascii, deprecated)
+                         encode_ascii)
 from pyfits.verify import VerifyError
 
 
@@ -533,18 +533,6 @@ class ColDefs(object):
             self.__dict__[name] = attr
             return self.__dict__[name]
         raise AttributeError(name)
-
-    @property
-    @deprecated('3.0', message='The %(func)s attribute is deprecated; use the '
-                               '%(alternative)s attribute instead.',
-                alternative='`ColDefs.columns`')
-    def data(self):
-        """
-        What was originally self.columns is now self.data; this provides some
-        backwards compatibility.
-        """
-
-        return self.columns
 
     @lazyproperty
     def _arrays(self):

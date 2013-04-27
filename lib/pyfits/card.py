@@ -285,11 +285,6 @@ class CardList(list):
 
         return CardList(self._header[key])
 
-    # For API backwards-compatibility
-    @deprecated('3.0', alternative=':meth:`filter_list`', pending=False)
-    def filterList(self, key):
-        return self.filter_list(key)
-
     @deprecated('3.1', pending=False)
     def count_blanks(self):
         """
@@ -1279,34 +1274,27 @@ def create_card(key='', value='', comment=''):
     return Card(key, value, comment)
 create_card.__doc__ = Card.__init__.__doc__
 # For API backwards-compatibility
-createCard = deprecated('3.0', name='createCard',
-                        alternative=':meth:`Card.__init__`')(create_card)
 create_card = deprecated('3.1', name='create_card',
                          alternative=':meth:`Card.__init__`',
-                         pending=True)(create_card)
+                         pending=False)(create_card)
 
 
 def create_card_from_string(input):
     return Card.fromstring(input)
 create_card_from_string.__doc__ = Card.fromstring.__doc__
 # For API backwards-compat
-createCardFromString = \
-    deprecated('3.0', name='createCardFromString',
-               alternative=':meth:`Card.fromstring`')(create_card_from_string)
 create_card_from_string = deprecated('3.1', name='create_card_from_string',
                                      alternative=':meth:`Card.fromstring`',
-                                     pending=True)(create_card_from_string)
+                                     pending=False)(create_card_from_string)
 
 
 def upper_key(key):
     return Card.normalize_keyword(key)
 upper_key.__doc__ = Card.normalize_keyword.__doc__
 # For API backwards-compat
-upperKey = deprecated('3.0', name='upperKey',
-                      alternative=':meth:`Card.normalize_keyword`')(upper_key)
 upper_key = deprecated('3.1', name='upper_key',
                        alternative=':meth:`Card.normalize_keyword`',
-                       pending=True)(upper_key)
+                       pending=False)(upper_key)
 
 
 def _int_or_float(s):
