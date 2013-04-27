@@ -170,24 +170,24 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         h = fits.Header()
         h.update('FOO', True)
         h.update('BAR', False)
-        assert h['FOO'] is True
-        assert h['BAR'] is False
+        assert h['FOO'] == True
+        assert h['BAR'] == False
         assert h.ascard['FOO'].cardimage == fooimg
         assert h.ascard['BAR'].cardimage == barimg
 
         h = fits.Header()
         h.update('FOO', np.bool_(True))
         h.update('BAR', np.bool_(False))
-        assert h['FOO'] is True
-        assert h['BAR'] is False
+        assert h['FOO'] == True
+        assert h['BAR'] == False
         assert h.ascard['FOO'].cardimage == fooimg
         assert h.ascard['BAR'].cardimage == barimg
 
         h = fits.Header()
         h.ascard.append(fits.Card.fromstring(fooimg))
         h.ascard.append(fits.Card.fromstring(barimg))
-        assert h['FOO'] is True
-        assert h['BAR'] is False
+        assert h['FOO'] == True
+        assert h['BAR'] == False
         assert h.ascard['FOO'].cardimage == fooimg
         assert h.ascard['BAR'].cardimage == barimg
 
@@ -237,7 +237,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert str(c) == "ABC     =                    T                                                  "
 
         c = fits.Card.fromstring('abc     = F')
-        assert c.value is False
+        assert c.value == False
 
     def test_long_integer_value_card(self):
         """Test Card constructor with long integer value"""
@@ -1573,24 +1573,24 @@ class TestHeaderFunctions(PyfitsTestCase):
         h = fits.Header()
         h['FOO'] = True
         h['BAR'] = False
-        assert h['FOO'] is True
-        assert h['BAR'] is False
+        assert h['FOO'] == True
+        assert h['BAR'] == False
         assert str(h.cards['FOO']) == fooimg
         assert str(h.cards['BAR']) == barimg
 
         h = fits.Header()
         h['FOO'] = np.bool_(True)
         h['BAR'] = np.bool_(False)
-        assert h['FOO'] is True
-        assert h['BAR'] is False
+        assert h['FOO'] == True
+        assert h['BAR'] == False
         assert str(h.cards['FOO']) == fooimg
         assert str(h.cards['BAR']) == barimg
 
         h = fits.Header()
         h.append(fits.Card.fromstring(fooimg))
         h.append(fits.Card.fromstring(barimg))
-        assert h['FOO'] is True
-        assert h['BAR'] is False
+        assert h['FOO'] == True
+        assert h['BAR'] == False
         assert str(h.cards['FOO']) == fooimg
         assert str(h.cards['BAR']) == barimg
 

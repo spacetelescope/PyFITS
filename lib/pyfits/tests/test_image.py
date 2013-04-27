@@ -227,7 +227,7 @@ class TestImageFunctions(PyfitsTestCase):
         # still operate on the data.
         with fits.open(self.data('test0.fits')) as r:
             r.readall()
-            assert r[1].data[1, 1] == 315
+            assert r[1].data[1, 1] == 325
 
         # create an HDU with data only
         data = np.ones((3, 5), dtype=np.float32)

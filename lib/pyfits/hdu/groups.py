@@ -482,7 +482,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
 
         self.req_cards('GCOUNT', pos, _is_int, 1, option, errs)
         self.req_cards('PCOUNT', pos, _is_int, 0, option, errs)
-        self.req_cards('GROUPS', pos, lambda v: (v is True), True, option,
+        self.req_cards('GROUPS', pos, lambda v: (v == True), True, option,
                        errs)
         return errs
 
