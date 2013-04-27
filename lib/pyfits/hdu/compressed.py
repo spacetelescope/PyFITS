@@ -987,7 +987,7 @@ class CompImageHDU(BinTableHDU):
             # This will actually set self.compressed_data with the
             # pre-allocated space for the compression data; this is something I
             # might do away with in the future
-            self.updateCompressedData()
+            self._update_compressed_data()
 
         return self.compressed_data
 
@@ -1234,7 +1234,7 @@ class CompImageHDU(BinTableHDU):
         return (self.name, class_name, len(self.header), _shape,
                 _format)
 
-    def updateCompressedData(self):
+    def _update_compressed_data(self):
         """
         Compress the image data so that it may be written to a file.
         """
@@ -1325,6 +1325,10 @@ class CompImageHDU(BinTableHDU):
 
         # Update the table header cards to match the compressed data.
         self._update_header()
+
+    @deprecated('3.2', alternative='(refactor your code)', pending=True)
+    def updateCompressedData(self):
+        self._update_compressed_data()
 
     def _update_header(self):
         """
@@ -1496,7 +1500,7 @@ class CompImageHDU(BinTableHDU):
         if self._scale_back:
             self.scale(_ImageBaseHDU.NumCode[self._orig_bitpix])
         if self._data_loaded and self.data is not None:
-            self.updateCompressedData()
+            self._update_compressed_data()
         # Doesn't call the super's _prewriteto, since it calls
         # self.data._scale_back(), which is meaningless here.
         return ExtensionHDU._prewriteto(self, checksum=checksum,
