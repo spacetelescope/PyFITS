@@ -21,7 +21,7 @@ class FitsHDU(NonstandardExtHDU):
 
     @lazyproperty
     def hdulist(self):
-        self._file.seek(self._datLoc)
+        self._file.seek(self._data_offset)
         fileobj = BytesIO()
         # Read the data into a BytesIO--reading directly from the file
         # won't work (at least for gzipped files) due to problems deep
@@ -87,7 +87,7 @@ class FitsHDU(NonstandardExtHDU):
         # these at the moment
         if len(hdulist) > 1:
             for idx, hdu in enumerate(hdulist[1:]):
-                cards.append(('XIND' + str(idx + 1), hdu._hdrLoc,
+                cards.append(('XIND' + str(idx + 1), hdu._header_offset,
                               'byte offset of extension %d' % (idx + 1)))
 
         cards.append(('COMPRESS',  compress, 'Uses gzip compression'))

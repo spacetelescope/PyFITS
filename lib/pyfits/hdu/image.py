@@ -17,12 +17,6 @@ class _ImageBaseHDU(_ValidHDU):
 
     data
         image data
-
-    _file
-        file associated with array
-
-    _datLoc
-        starting byte location of data block in file
     """
 
     # mappings between FITS and numpy typecodes
@@ -194,7 +188,7 @@ class _ImageBaseHDU(_ValidHDU):
         if len(self._axes) < 1:
             return
 
-        data = self._get_scaled_image_data(self._datLoc, self.shape)
+        data = self._get_scaled_image_data(self._data_offset, self.shape)
         self._update_header_scale_info(data.dtype)
 
         return data
@@ -693,7 +687,7 @@ class Section(object):
 
             dims = tuple(dims)
             bitpix = self.hdu._orig_bitpix
-            offset = self.hdu._datLoc + (offset * abs(bitpix) // 8)
+            offset = self.hdu._data_offset + (offset * abs(bitpix) // 8)
             data = self.hdu._get_scaled_image_data(offset, dims)
         else:
             data = self._getdata(key)

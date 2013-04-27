@@ -79,13 +79,14 @@ class _TableLikeHDU(_ValidHDU):
         # specifically in the BinTableHDU class, since they're a detail
         # specific to FITS binary tables
         if (_FormatP in [type(r) for r in recformats] and
-                self._datSpan > self._theap):
+                self._data_size > self._theap):
             # We have a heap; include it in the raw_data
-            raw_data = self._get_raw_data(self._datSpan, np.byte, self._datLoc)
+            raw_data = self._get_raw_data(self._data_size, np.byte,
+                                          self._data_offset)
             data = raw_data[:self._theap].view(dtype=dtype,
                                                type=np.rec.recarray)
         else:
-            raw_data = self._get_raw_data(columns._shape, dtype, self._datLoc)
+            raw_data = self._get_raw_data(columns._shape, dtype, self._data_offset)
             data = raw_data.view(np.rec.recarray)
 
         self._init_tbdata(data)
@@ -428,7 +429,7 @@ class TableHDU(_TableBaseHDU):
                                 self._header['NAXIS1'] - itemsize)
             dtype[columns.names[idx]] = (data_type, columns.starts[idx] - 1)
 
-        raw_data = self._get_raw_data(columns._shape, dtype, self._datLoc)
+        raw_data = self._get_raw_data(columns._shape, dtype, self._data_offset)
         data = raw_data.view(np.rec.recarray)
         self._init_tbdata(data)
         return data.view(self._data_type)

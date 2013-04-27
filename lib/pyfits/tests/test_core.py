@@ -283,7 +283,7 @@ class TestCore(PyfitsTestCase):
 
         offset = 0
         with fits.open(self.data('test0.fits')) as hdul:
-            hdulen = hdul[0]._datLoc + hdul[0]._datSpan
+            hdulen = hdul[0]._data_offset + hdul[0]._data_size
             hdu = fits.PrimaryHDU.fromstring(dat[:hdulen])
             assert isinstance(hdu, fits.PrimaryHDU)
             assert hdul[0].header == hdu.header
@@ -300,7 +300,7 @@ class TestCore(PyfitsTestCase):
         with fits.open(self.data('test0.fits'))as hdul:
             for ext_hdu in hdul[1:]:
                 offset += hdulen
-                hdulen = len(str(ext_hdu.header)) + ext_hdu._datSpan
+                hdulen = len(str(ext_hdu.header)) + ext_hdu._data_size
                 hdu = fits.ImageHDU.fromstring(dat[offset:offset + hdulen])
                 assert isinstance(hdu, fits.ImageHDU)
                 assert ext_hdu.header == hdu.header

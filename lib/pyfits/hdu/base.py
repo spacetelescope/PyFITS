@@ -98,9 +98,9 @@ class _BaseHDU(object):
         self._header = header
         self._file = None
         self._buffer = None
-        self._hdrLoc = None
-        self._datLoc = None
-        self._datSpan = None
+        self._header_offset = None
+        self._data_offset = None
+        self._data_size = None
         self._new = True
         self._output_checksum = False
 
@@ -143,6 +143,54 @@ class _BaseHDU(object):
     def _data_loaded(self):
         return ('data' in self.__dict__ and self.data is not None and
                 self.data is not DELAYED)
+
+    @property
+    @deprecated('3.2', alternative='the `._header_offset` attribute',
+                pending=True)
+    def _hdrLoc(self):
+        """The byte offset of this HDU's header in the file it came from;
+        available for backwards compatibility--use ._header_offset instead.
+        """
+
+        return self._header_offset
+
+    @_hdrLoc.setter
+    @deprecated('3.2', alternative='the `._header_offset` attribute',
+                pending=True)
+    def _hdrLoc(self, value):
+        self._header_offset = value
+
+    @property
+    @deprecated('3.2', alternative='the `._data_offset` attribute',
+                pending=True)
+    def _datLoc(self):
+        """The byte offset of this HDU's data portion in the file it came from;
+        available for backwards compatibility--use ._data_offset instead.
+        """
+
+        return self._data_offset
+
+    @_datLoc.setter
+    @deprecated('3.2', alternative='the `._data_offset` attribute',
+                pending=True)
+    def _datLoc(self, value):
+        self._data_offset = value
+
+    @property
+    @deprecated('3.2', alternative='the `._data_size` attribute',
+                pending=True)
+    def _datSpan(self):
+        """The byte size of this HDU's data portion in the file it came from;
+        available for backwards compatibility--use ._data_size instead.
+        """
+
+        return self._data_size
+
+    @_datSpan.setter
+    @deprecated('3.2', alternative='the `._data_size` attribute',
+                pending=True)
+    def _datSpan(self, value):
+        self._data_size = value
 
     @classmethod
     def register_hdu(cls, hducls):
@@ -260,15 +308,15 @@ class _BaseHDU(object):
             # Provide an underlying buffer to read the data from
             hdu._buffer = data
 
-        hdu._hdrLoc = offset                 # beginning of the header area
+        hdu._header_offset = offset            # beginning of the header area
         if fileobj:
-            hdu._datLoc = fileobj.tell()     # beginning of the data area
+            hdu._data_offset = fileobj.tell()  # beginning of the data area
         else:
-            hdu._datLoc = hdrlen
+            hdu._data_offset = hdrlen
 
         # data area size, including padding
         size = hdu.size
-        hdu._datSpan = size + _pad_length(size)
+        hdu._data_size = size + _pad_length(size)
 
         # Checksums are not checked on invalid HDU types
         if checksum and checksum != 'remove' and isinstance(hdu, _ValidHDU):
@@ -314,7 +362,7 @@ class _BaseHDU(object):
 
         # If the checksum had to be checked the data may have already been read
         # from the file, in which case we don't want to see relative
-        fileobj.seek(hdu._datLoc + hdu._datSpan, os.SEEK_SET)
+        fileobj.seek(hdu._data_offset + hdu._data_size, os.SEEK_SET)
         return hdu
 
     def writeto(self, name, output_verify='exception', clobber=False,
@@ -432,7 +480,7 @@ class _BaseHDU(object):
             size = len(str(self._header))
 
         # Update hdrLoc with the new offset
-        self._hdrLoc = offset
+        self._header_offset = offset
 
         return offset, size
 
@@ -465,8 +513,8 @@ class _BaseHDU(object):
             fileobj.flush()
 
         # Update datLoc with the new offset
-        self._datLoc = offset
-        self._datSpan = size = size + _pad_length(size)
+        self._data_offset = offset
+        self._data_size = size = size + _pad_length(size)
 
         # return both the location and the size of the data area
         return offset, size
@@ -495,10 +543,10 @@ class _BaseHDU(object):
             self._writedata(fileobj)
             return
 
-        hdrloc = self._hdrLoc
-        hdrsize = self._datLoc - self._hdrLoc
-        datloc = self._datLoc
-        datsize = self._datSpan
+        hdrloc = self._header_offset
+        hdrsize = self._data_offset - self._header_offset
+        datloc = self._data_offset
+        datsize = self._data_size
 
         if self._header._modified:
             # Seek to the original header location in the file
@@ -536,16 +584,16 @@ class _BaseHDU(object):
                 if array_mmap is not None:
                     array_mmap.flush()
                 else:
-                    self._file.seek(self._datLoc)
+                    self._file.seek(self._data_offset)
                     datloc, datsize = self._writedata(fileobj)
         elif copy:
             # Seek to the data location in the original file
-            self._file.seek(self._datLoc)
+            self._file.seek(self._data_offset)
             fileobj.write(self._file.read(datsize))
 
-        self._hdrLoc = hdrloc
-        self._datLoc = datloc
-        self._datSpan = datsize + _pad_length(datsize)
+        self._header_offset = hdrloc
+        self._data_offset = datloc
+        self._data_size = datsize + _pad_length(datsize)
 
 _AllHDU = _BaseHDU  # For backwards-compatibility, though nobody should have
                     # been using this directly
@@ -584,9 +632,9 @@ class _CorruptedHDU(_BaseHDU):
         # Note: On compressed files this might report a negative size; but the
         # file is corrupt anyways so I'm not too worried about it.
         if self._buffer is not None:
-            return len(self._buffer) - self._datLoc
+            return len(self._buffer) - self._data_offset
 
-        return self._file.size - self._datLoc
+        return self._file.size - self._data_offset
 
     def _summary(self):
         return (self.name, 'CorruptedHDU')
@@ -639,9 +687,9 @@ class _NonstandardHDU(_BaseHDU, _Verify):
         """
 
         if self._buffer is not None:
-            return len(self._buffer) - self._datLoc
+            return len(self._buffer) - self._data_offset
 
-        return self._file.size - self._datLoc
+        return self._file.size - self._data_offset
 
     def _writedata(self, fileobj):
         """
@@ -679,7 +727,7 @@ class _NonstandardHDU(_BaseHDU, _Verify):
         Return the file data.
         """
 
-        return self._get_raw_data(self.size, 'ubyte', self._datLoc)
+        return self._get_raw_data(self.size, 'ubyte', self._data_offset)
 
     def _verify(self, option='warn'):
         errs = _ErrList([], unit='Card')
@@ -808,8 +856,8 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         if hasattr(self, '_file') and self._file:
             return {'file': self._file, 'filemode': self._file.mode,
-                    'hdrLoc': self._hdrLoc, 'datLoc': self._datLoc,
-                    'datSpan': self._datSpan}
+                    'hdrLoc': self._header_offset, 'datLoc': self._data_offset,
+                    'datSpan': self._data_size}
         else:
             return None
 
@@ -1260,8 +1308,8 @@ class _ValidHDU(_BaseHDU, _Verify):
             # yet.  We find the data in the file, read it, and calculate the
             # datasum.
             if self.size > 0:
-                raw_data = self._get_raw_data(self._datSpan, 'ubyte',
-                                              self._datLoc)
+                raw_data = self._get_raw_data(self._data_size, 'ubyte',
+                                              self._data_offset)
                 return self._compute_checksum(raw_data, blocking=blocking)
             else:
                 return 0
@@ -1534,7 +1582,7 @@ class NonstandardExtHDU(ExtensionHDU):
         Return the file data.
         """
 
-        return self._get_raw_data(self.size, 'ubyte', self._datLoc)
+        return self._get_raw_data(self.size, 'ubyte', self._data_offset)
 
 # TODO: Mark this as deprecated
 _NonstandardExtHDU = NonstandardExtHDU
