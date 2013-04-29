@@ -70,12 +70,6 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert header.cards[1].value == 0
         assert header[''] == [0, 1, 2, 3, '', '', 4]
 
-    def test_has_key(self):
-        header = fits.Header([('A', 'B', 'C'), ('D', 'E', 'F')])
-        assert header.has_key('A')
-        assert header.has_key('D')
-        assert not header.has_key('C')
-
     def test_totxtfile(self):
         hdul = fits.open(self.data('test0.fits'))
         hdul[0].header.toTxtFile(self.temp('header.txt'))
@@ -83,9 +77,9 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         hdu.header.update('MYKEY', 'FOO', 'BAR')
         hdu.header.fromTxtFile(self.temp('header.txt'), replace=True)
         assert len(hdul[0].header.ascard) == len(hdu.header.ascard)
-        assert not hdu.header.has_key('MYKEY')
-        assert not hdu.header.has_key('EXTENSION')
-        assert hdu.header.has_key('SIMPLE')
+        assert 'MYKEY' not in hdu.header
+        assert 'EXTENSION' not in hdu.header
+        assert 'SIMPLE' in hdu.header
 
         # Write the hdu out and read it back in again--it should be recognized
         # as a PrimaryHDU
@@ -99,16 +93,16 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         # hdu.header should have MYKEY keyword, and also adds PCOUNT and
         # GCOUNT, giving it 3 more keywords in total than the original
         assert len(hdul[0].header.ascard) == len(hdu.header.ascard) - 3
-        assert hdu.header.has_key('MYKEY')
-        assert not hdu.header.has_key('EXTENSION')
-        assert hdu.header.has_key('SIMPLE')
+        assert 'MYKEY' in hdu.header
+        assert 'EXTENSION' not in hdu.header
+        assert 'SIMPLE' in hdu.header
 
         with ignore_warnings():
             hdu.writeto(self.temp('test.fits'), output_verify='ignore',
                         clobber=True)
         hdul2 = fits.open(self.temp('test.fits'))
         assert len(hdul2), 2
-        assert hdul2[1].header.has_key('MYKEY')
+        assert 'MYKEY' in hdul2[1].header
 
     def test_update_comment(self):
         hdul = fits.open(self.data('arange.fits'))
@@ -200,17 +194,17 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         # The old header.update method won't let you append a duplicate keyword
         header.append(('D', 'G', 'H'))
 
-        assert header.ascardlist().index(header.cards['A']) == 0
-        assert header.ascardlist().index(header.cards['D']) == 1
-        assert header.ascardlist().index(header.cards[('D', 1)]) == 2
+        assert header.ascard.index(header.cards['A']) == 0
+        assert header.ascard.index(header.cards['D']) == 1
+        assert header.ascard.index(header.cards[('D', 1)]) == 2
 
         # Since the original CardList class really only works on card objects
         # the count method is mostly useless since cards didn't used to compare
         # equal sensibly
-        assert header.ascardlist().count(header.cards['A']) == 1
-        assert header.ascardlist().count(header.cards['D']) == 1
-        assert header.ascardlist().count(header.cards[('D', 1)]) == 1
-        assert header.ascardlist().count(fits.Card('A', 'B', 'C')) == 0
+        assert header.ascard.count(header.cards['A']) == 1
+        assert header.ascard.count(header.cards['D']) == 1
+        assert header.ascard.count(header.cards[('D', 1)]) == 1
+        assert header.ascard.count(fits.Card('A', 'B', 'C')) == 0
 
 
 class TestHeaderFunctions(PyfitsTestCase):

@@ -13,8 +13,7 @@ from pyfits.verify import _Verify, _ErrList, VerifyError, VerifyWarning
 
 
 __all__ = ['Card', 'CardList', 'create_card', 'create_card_from_string',
-           'upper_key', 'createCard', 'createCardFromString', 'upperKey',
-           'Undefined']
+           'upper_key', 'Undefined']
 
 
 FIX_FP_TABLE = maketrans('de', 'DE')
