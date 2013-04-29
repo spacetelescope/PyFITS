@@ -60,6 +60,8 @@ reposiotry and add the git-svn metadata manually:
 2. cd into the repository and open ``.git/config`` in an editor and add the
    following::
 
+       [svn]
+           authorsfile = .authors
        [svn-remote "svn"]
            url = http://svn6.assembla.com/svn/pyfits
            fetch = trunk:refs/remotes/trunk
@@ -75,6 +77,15 @@ reposiotry and add the git-svn metadata manually:
    Repeat the ``[branch "X.Y-stable"]`` section following the above pattern
    for any actively maintained release branches (see the "Maintenance" section
    below for more details on release branches).
+
+   .. warning::
+
+       Do not forget to set the `[svn]/authorsfile = .authors` option, or
+       the repository will get severely confused when trying to sync SVN
+       changes with the git repository.  The .authors file maps SVN usernames
+       to developers' name/e-mail address to use in git commits.  If you intend
+       to synchronize changes you make with SVN, make sure to add yourself to
+       the .authors file.  The format should be self-explanatory.
 
 3. Put the hash of the latest revision of the upstream master branch in refs
    file for trunk, so git-svn knows where to start synchronizing with SVN's
