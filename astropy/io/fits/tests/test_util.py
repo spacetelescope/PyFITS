@@ -6,7 +6,7 @@ import signal
 import sys
 
 import nose
-from nose.tools import assert_equal, assert_raises
+from nose.tools import assert_raises
 
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings
@@ -26,9 +26,9 @@ class TestUtils(PyfitsTestCase):
                 os.kill(pid, signal.SIGINT)
                 # One more time, for good measure
                 os.kill(pid, signal.SIGINT)
-                assert_equal(len(w), 2)
-                assert_equal(str(w[0].message),
-                             'KeyboardInterrupt ignored until test is '
-                             'complete!')
+                assert len(w) == 2
+                assert (str(w[0].message) ==
+                        'KeyboardInterrupt ignored until test is '
+                        'complete!')
 
         assert_raises(KeyboardInterrupt, test)

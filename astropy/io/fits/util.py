@@ -548,6 +548,7 @@ def fill(text, width, *args, **kwargs):
     """
 
     paragraphs = text.split('\n\n')
+
     def maybe_fill(t):
         if all(len(l) < width for l in t.splitlines()):
             return t
@@ -601,13 +602,17 @@ def _write_string(f, s):
 def _convert_array(array, dtype):
     """
     Converts an array to a new dtype--if the itemsize of the new dtype is
-    the same as the old dtype, a view is returned.  Otherwise a new array must
-    be created.
+    the same as the old dtype and both types are not numeric, a view is
+    returned.  Otherwise a new array must be created.
     """
 
     if array.dtype == dtype:
         return array
-    elif array.dtype.itemsize == dtype.itemsize:
+    elif (array.dtype.itemsize == dtype.itemsize and not
+            (np.issubdtype(array.dtype, np.number) and
+             np.issubdtype(dtype, np.number))):
+        # Includes a special case when both dtypes are at least numeric to
+        # account for ticket #218: https://trac.assembla.com/pyfits/ticket/218
         return array.view(dtype)
     else:
         return array.astype(dtype)
@@ -779,6 +784,7 @@ if sys.version_info[:2] < (2, 6):
     # Replace the builtin property to add support for the getter/setter/deleter
     # mechanism as introduced in Python 2.6 (this can go away if we ever drop
     # 2.5 support)
+
     class property(property):
         def __init__(self, fget, *args, **kwargs):
             self.__doc__ = fget.__doc__

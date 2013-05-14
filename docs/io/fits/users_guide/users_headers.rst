@@ -196,6 +196,48 @@ commentary card by using the :meth:`Header.insert` method.
     Ironically, there is no comment in a commentary card, only a string
     value.
 
+Keyword Wildcards
+-----------------
+
+Some operations on header keywords also work on keyword wildcard patterns
+similar to those used to match files in a command shell--the character ``'?'``
+may be used to match a single unknown character, and ``'*'`` may be used to
+match zero or more characters.  For example::
+
+    >>> header = pyfits.Header([('SIMPLE', True), ('NAXIS', 2),
+    ...                         ('NAXIS1', 1000), ('NAXIS2', 2000)])
+    >>> header
+    SIMPLE  =                    T
+    NAXIS   =                    2
+    NAXIS1  =                 1000
+    NAXIS2  =                 2000
+    >>> header['NAXIS*']
+    NAXIS   =                    2
+    NAXIS1  =                 1000
+    NAXIS2  =                 2000
+
+The object from the above example is a new `Header` object containing only the
+cards that match the wildcard pattern.  It can be thought of like slicing a
+list, only the slice is non-linear.  To return only the cards with ``NAXISn``
+keywords (that is, "NAXIS" followed by one or more characters)::
+
+    >>> header['NAXIS?*']
+    NAXIS1  =                 1000
+    NAXIS2  =                 2000
+
+Wildcards also work for assignment and deletion::
+
+    >>> header['NAXIS?*'] = 3000
+    >>> header
+    SIMPLE  =                    T
+    NAXIS   =                    2
+    NAXIS1  =                 3000
+    NAXIS2  =                 3000
+    >>> del header['NAXIS?*']
+    >>> header
+    SIMPLE  =                    T
+    NAXIS   =                    2
+
 
 Card Images
 ===========

@@ -21,7 +21,7 @@ For detailed examples of usage, see the `PyFITS User's Manual
 # The existing unit tests, anyways, only require this in pyfits.hdu.table,
 # but we should still leave new division here too in order to avoid any nasty
 # surprises
-from __future__ import division # confidence high
+from __future__ import division  # confidence high
 
 
 """
@@ -66,7 +66,7 @@ from pyfits.verify import VerifyError
 # Set module-global boolean variables--these variables can also get their
 # values from environment variables
 GLOBALS = [
-     # Variable name                       # Default
+    # Variable name                       # Default
     ('ENABLE_RECORD_VALUED_KEYWORD_CARDS', True),
     ('EXTENSION_NAME_CASE_SENSITIVE',      False),
     ('STRIP_HEADER_WHITESPACE',            True),
@@ -101,6 +101,8 @@ FALSE = False
 # this process so that the EXTNAME value remains in the same case as it is
 # in the file. (Note: The EXTENSION_NAME_CASE_SENSITIVE is now defined above
 # along with the other module variables)
+
+
 @deprecated('3.0',
             alternative='the `pyfits.EXTENSION_NAME_CASE_SENSITIVE` variable')
 def setExtensionNameCaseSensitive(value=True):
@@ -110,6 +112,7 @@ def setExtensionNameCaseSensitive(value=True):
 
 # Warnings routines
 _formatwarning = warnings.formatwarning
+
 
 def formatwarning(message, category, filename, lineno, line=None):
     if issubclass(category, UserWarning):
@@ -134,14 +137,13 @@ class ErrorURLopener(urllib.FancyURLopener):
     def http_error_default(self, url, fp, errcode, errmsg, headers):
         raise IOError((errcode, errmsg, url))
 
-urllib._urlopener = ErrorURLopener() # Assign the locally subclassed opener
+urllib._urlopener = ErrorURLopener()  # Assign the locally subclassed opener
                                      # class to the urllibrary
-urllib._urlopener.tempcache = {} # Initialize tempcache with an empty
+urllib._urlopener.tempcache = {}  # Initialize tempcache with an empty
                                  # dictionary to enable file cacheing
 
 
-
-__credits__="""
+__credits__ = """
 
 Copyright (C) 2004 Association of Universities for Research in Astronomy (AURA)
 

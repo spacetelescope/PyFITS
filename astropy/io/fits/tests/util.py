@@ -42,7 +42,7 @@ else:
                             "file", "line")
 
         def __init__(self, message, category, filename, lineno, file=None,
-                        line=None):
+                     line=None):
             local_values = locals()
             for attr in self._WARNING_DETAILS:
                 setattr(self, attr, local_values[attr])
@@ -52,6 +52,7 @@ else:
             return ("{message : %r, category : %r, filename : %r, lineno : %s,"
                     " line : %r}" % (self.message, self._category_name,
                                      self.filename, self.lineno, self.line))
+
     class catch_warnings(object):
 
         """A context manager that copies and restores the warnings filter upon
@@ -100,8 +101,10 @@ else:
             self._showwarning = self._module.showwarning
             if self._record:
                 log = []
+
                 def showwarning(*args, **kwargs):
                     log.append(WarningMessage(*args, **kwargs))
+
                 self._module.showwarning = showwarning
                 return log
             else:

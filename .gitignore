@@ -3,6 +3,7 @@
 *.a
 *.o
 *.so
+*.pyd
 
 # Other generated files
 astropy/version.py

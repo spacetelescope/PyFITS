@@ -2,6 +2,7 @@ import getpass
 import logging
 import os
 import re
+import subprocess
 import sys
 import textwrap
 import xmlrpclib
@@ -13,9 +14,9 @@ try:
     from docutils.core import publish_parts
 except ImportError:
     print >> sys.stderr, \
-           'docutils is required to convert the PyFITS changelog to HTML ' \
-           'for updating the PyFITS homepage\n\n' \
-           'Try `pip install docutils` or `easy_install docutils`.'
+        'docutils is required to convert the PyFITS changelog to HTML ' \
+        'for updating the PyFITS homepage\n\n' \
+        'Try `pip install docutils` or `easy_install docutils`.'
     sys.exit(1)
 
 from zest.releaser.choose import version_control
@@ -26,7 +27,7 @@ log = None
 
 
 PYFITS_HOMEPAGE_BASE_URL = \
-        'http://www.stsci.edu:8072/institute/software_hardware/pyfits'
+    'http://www.stsci.edu:8072/institute/software_hardware/pyfits'
 # These are the pages to run find/replace of the version number on
 PYFITS_HOMEPAGE_SUBPAGES = ['content', 'Download']
 
@@ -41,7 +42,8 @@ VERSION_RE = re.compile(r'(?P<MAJOR>\d+)\.(?P<MINOR>\d+)(?:\.(?P<MICRO>\d+))?')
 # NOTE: The MICRO version number is appended to the format later, since it is
 # optional if the micro format is 0
 SEARCH_VERSION_RE_FORMAT = (r'(?P<prefix>v|V|[vV]ersion\s+|pyfits-)'
-                             '%(major)s\.%(minor)s(?:\s*\((?P<date>.+)\))?')
+                             '%(major)s\.%(minor)s'
+                             '(?:\s*\((?P<date>[A-Za-z]+ \d{2} \d{4})\))?')
 
 DATE_FORMAT = '%B %d %Y'
 
@@ -54,7 +56,7 @@ class ReleaseManager(object):
         self.released_version = ''
 
     def prereleaser_before(self, data):
-        """Set tag_svn_revision to False."""
+        """Check the long-description."""
 
         if data['name'] != 'pyfits':
             return
@@ -62,17 +64,11 @@ class ReleaseManager(object):
         global log
         log = logging.getLogger('prerelease')
 
-        # TODO: This bit should belong to a generic release hook somewhere in
-        # the stsci namespace, or even should maybe be suggested as a built in
-        # action of zest.releaser
-        def callback(section, option, value, lineno, line):
-            if section == 'egg_info' and option == 'tag_svn_revision':
-                log.info('Disabling tag_svn_revision in setup.cfg')
-                return 'tag_svn_revision = False\n'
-            else:
-                return line
-
-        config_parser('setup.cfg', callback)
+        if not check_long_description():
+            log.error('Errors rendering the long description rst. Run '
+                      'CHANGES.txt and README.txt through rst2html.py to '
+                      'find the errors and correct them.')
+            sys.exit(1)
 
     def prereleaser_middle(self, data):
         """Update the Sphinx conf.py"""
@@ -108,22 +104,10 @@ class ReleaseManager(object):
 
         self.released_version = data['version']
 
-    def postreleaser_before(self, data):
-        """Restore tag_svn_revision"""
+    def postreleaser_middle(self, data):
+        """Update the version string in the documentation."""
 
-        if data['name'] != 'pyfits':
-            return
-
-        global log
-        log = logging.getLogger('postrelease')
-
-        def callback(section, option, value, lineno, line):
-            if section == 'egg_info' and option == 'tag_svn_revision':
-                return 'tag_svn_revision = True'
-            else:
-                return line
-
-        config_parser('setup.cfg', callback)
+        update_docs_config(data['dev_version'])
 
     def postreleaser_after(self, data):
         """
@@ -138,7 +122,6 @@ class ReleaseManager(object):
 
         if not ask('Update PyFITS homepage'):
             return
-
 
         previous_version = new_version = None
 
@@ -167,7 +150,7 @@ class ReleaseManager(object):
         if not match:
             log.error('Previous version (%s) is invalid: Version must be in '
                       'the MAJOR.MINOR[.MICRO] format.' % previous_version)
-            sys.exit()
+            sys.exit(1)
 
         micro = int(match.group('MICRO')) if match.group('MICRO') else 0
 
@@ -178,7 +161,7 @@ class ReleaseManager(object):
         if not match:
             log.error('New version (%s) is invalid: Version must be in '
                       'the MAJOR.MINOR[.MICRO] format.' % new_version)
-            sys.exit()
+            sys.exit(1)
 
         micro = int(match.group('MICRO')) if match.group('MICRO') else 0
 
@@ -226,7 +209,39 @@ class ReleaseManager(object):
             pass
 
 
-def update_docs_config(new_version, authors):
+def check_long_description():
+    """The long-description metadata is created by combining the README.txt
+    and CHANGES.txt files which should be a valid rst document.
+
+    Try running this through rst2html to make sure the markup at least
+    renders, because this will also be used to render the description
+    on PyPI.
+    """
+
+    setup_py = subprocess.Popen([sys.executable, 'setup.py',
+                                 '--long-description'],
+                                 stdout=subprocess.PIPE)
+    stdout, _ = setup_py.communicate()
+
+    if setup_py.returncode == 0:
+        try:
+            rst2html = subprocess.Popen(['rst2html.py', '--halt=2'],
+                                        stdout=subprocess.PIPE,
+                                        stdin=subprocess.PIPE,
+                                        stderr=subprocess.PIPE)
+            rst2html.communicate(stdout)
+        except OSError, e:
+            log.error('Error running rst2html.py: %s\n'
+                      'Make sure you have docutils correctly installed.' % e)
+            sys.exit(1)
+
+        if rst2html.returncode == 0:
+            return True
+
+    return False
+
+
+def update_docs_config(new_version=None, authors=None):
     """
     Updates the conf.py for the Sphinx documentation with the new version
     string and an up to date authors list and copyright date.
@@ -244,15 +259,17 @@ def update_docs_config(new_version, authors):
                          flags=re.M)
 
     # Update the 'authors' list
-    authors_list = ('authors = [\n    ' +
-                    ',\n    '.join(repr(a) for a in authors) + '\n]')
-    conf_py_src = re.sub(r'^authors\s*=\s*\[[^]]+\]$', authors_list,
-                         conf_py_src, flags=re.M)
+    if authors is not None:
+        authors_list = ('authors = [\n    ' +
+                        ',\n    '.join(repr(a) for a in authors) + '\n]')
+        conf_py_src = re.sub(r'^authors\s*=\s*\[[^]]+\]$', authors_list,
+                             conf_py_src, flags=re.M)
 
     # Update the version and release variables (for PyFITS we always just set
     # these to the same)
-    conf_py_src = re.sub(r"^(version|release)\s*=\s*'[^']+'",
-                         r"\1 = %r" % new_version, conf_py_src, flags=re.M)
+    if new_version is not None:
+        conf_py_src = re.sub(r"^(version|release)\s*=\s*'[^']+'",
+                             r"\1 = %r" % new_version, conf_py_src, flags=re.M)
 
     with open(conf_py, 'w') as f:
         f.write(conf_py_src)
@@ -422,7 +439,7 @@ class _ZopeProxy(object):
 
         self.connect()
         if log:
-             log.info('Updating %s...' % self.masked_url)
+            log.info('Updating %s...' % self.masked_url)
         try:
             if title is None:
                 title = self.proxy.title_or_id()
