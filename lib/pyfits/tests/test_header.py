@@ -101,7 +101,7 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
             hdu.writeto(self.temp('test.fits'), output_verify='ignore',
                         clobber=True)
         hdul2 = fits.open(self.temp('test.fits'))
-        assert len(hdul2), 2
+        assert len(hdul2) == 2
         assert 'MYKEY' in hdul2[1].header
 
     def test_update_comment(self):

@@ -1977,7 +1977,7 @@ class TestTableFunctions(PyfitsTestCase):
         c3 = fits.Column(name='other', format='I', array=[3])
 
         t = fits.new_table([c1, c2, c3])
-        assert t.data.names, ['names', 'formats' == 'other']
+        assert t.data.names == ['names', 'formats', 'other']
         assert t.data.formats == ['I'] * 3
         assert (t.data['names'] == [1]).all()
         assert (t.data['formats'] == [2]).all()
