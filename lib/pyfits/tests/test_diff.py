@@ -574,17 +574,3 @@ class TestDiff(PyfitsTestCase):
         assert_equal(diff.diff_values[1][0], ('colb', 1))
         assert_true(np.isnan(diff.diff_values[1][1][0]))
         assert_equal(diff.diff_values[1][1][1], 2.0)
-
-        # What about in Headers?
-
-        h = pyfits.Header([('A', 1), ('B', np.nan)])
-        h2 = h.copy()
-
-        assert_true(HeaderDiff(h, h2).identical)
-
-        h2['B'] = 1.0
-
-        diff = HeaderDiff(h, h2)
-        assert_false(diff.identical)
-        assert_true(np.isnan(diff.diff_keyword_values['B'][0][0]))
-        assert_equal(diff.diff_keyword_values['B'][0][1], 1.0)
