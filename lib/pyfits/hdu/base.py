@@ -77,6 +77,8 @@ class _BaseHDU(object):
     # Byte to use for padding out blocks
     _padding_byte = '\x00'
 
+    _default_name = ''
+
     def __new__(cls, data=None, header=None, *args, **kwargs):
         """
         Iterates through the subclasses of _BaseHDU and uses that class's
@@ -95,6 +97,8 @@ class _BaseHDU(object):
         return super(_BaseHDU, cls).__new__(klass)
 
     def __init__(self, data=None, header=None, *args, **kwargs):
+        if header is None:
+            header = Header()
         self._header = header
         self._file = None
         self._buffer = None
@@ -104,13 +108,10 @@ class _BaseHDU(object):
         self._new = True
         self._output_checksum = False
 
-        if self._header:
-            if 'DATASUM' in self._header and 'CHECKSUM' not in self._header:
-                self._output_checksum = 'datasum'
-            elif 'CHECKSUM' in self._header:
-                self._output_checksum = True
-
-        self._name = ''
+        if 'DATASUM' in self._header and 'CHECKSUM' not in self._header:
+            self._output_checksum = 'datasum'
+        elif 'CHECKSUM' in self._header:
+            self._output_checksum = True
 
     @property
     def header(self):
@@ -122,13 +123,46 @@ class _BaseHDU(object):
 
     @property
     def name(self):
-        return self._name
+        # Convert the value to a string to be flexible in some pathological
+        # cases (see ticket #96)
+        return str(self._header.get('EXTNAME', self._default_name))
 
     @name.setter
     def name(self, value):
         if not isinstance(value, basestring):
             raise TypeError("'name' attribute must be a string")
-        self._name = value
+        if not pyfits.EXTENSION_NAME_CASE_SENSITIVE:
+            value = value.upper()
+        if 'EXTNAME' in self._header:
+            self._header['EXTNAME'] = value
+        else:
+            self._header['EXTNAME'] = (value, 'extension name')
+
+    @property
+    def ver(self):
+        return self._header.get('EXTVER', 1)
+
+    @ver.setter
+    def ver(self, value):
+        if not _is_int(value):
+            raise TypeError("'ver' attribute must be an integer")
+        if 'EXTVER' in self._header:
+            self._header['EXTVER'] = value
+        else:
+            self._header['EXTVER'] = (value, 'extension value')
+
+    @property
+    def level(self):
+        return self._header.get('EXTLEVEL', 1)
+
+    @level.setter
+    def level(self, value):
+        if not _is_int(value):
+            raise TypeError("'level' attribute must be an integer")
+        if 'EXTLEVEL' in self._header:
+            self._header['EXTLEVEL'] = value
+        else:
+            self._header['EXTLEVEL'] = (value, 'extension level')
 
     @property
     def is_image(self):
@@ -749,29 +783,6 @@ class _ValidHDU(_BaseHDU, _Verify):
         if name is not None:
             self.name = name
 
-        if header and not hasattr(self, '_extver'):
-            self._extver = header.get('EXTVER', 1)
-
-    @property
-    def name(self):
-        # Convert the value to a string to be flexible in some pathological
-        # cases (see ticket #96)
-        if self._header and 'EXTNAME' in self._header:
-            self._name = str(self._header['EXTNAME'])
-        return self._name
-
-    @name.setter
-    def name(self, value):
-        if not isinstance(value, basestring):
-            raise TypeError("'name' attribute must be a string")
-        if not pyfits.EXTENSION_NAME_CASE_SENSITIVE:
-            value = value.upper()
-        if self._header:
-            if 'EXTNAME' in self._header:
-                self._header['EXTNAME'] = value
-            else:
-                self._header.append(('EXTNAME', value, 'extension name'))
-
     @classmethod
     def match_header(cls, header):
         """
@@ -872,10 +883,8 @@ class _ValidHDU(_BaseHDU, _Verify):
             data = None
         return self.__class__(data=data, header=self._header.copy())
 
-    # TODO: self.name should be a property that updates the EXTNAME keyword
-    # automatically; likewise for self.version.  Likewise it should
-    # automatically get its value from the Header keyword.  This method should
-    # just be deprecated, as should update_ext_version
+    @deprecated('3.2', alternative='the `.name` attribute or `Header.set`',
+                pending=True)
     def update_ext_name(self, value, comment=None, before=None,
                         after=None, savecomment=False):
         """
@@ -912,12 +921,19 @@ class _ValidHDU(_BaseHDU, _Verify):
             preserved.
         """
 
-        if 'extname' in self._header and savecomment:
+        if 'EXTNAME' in self._header and savecomment:
             comment = None
 
         self._header.set('EXTNAME', value, comment, before, after)
+        # This may seem redundant, but the previous header.set call just
+        # handles anyone who might use the before/after keywords to set the
+        # position of the EXTNAME keyword.  Setting self.name = name does some
+        # additional processing on the value such as handling
+        # EXTENSION_NAME_CASE_SENSITIVE
         self.name = value
 
+    @deprecated('3.2', alternative='the `.ver` attribute or `Header.set`',
+                pending=True)
     def update_ext_version(self, value, comment=None, before=None,
                            after=None, savecomment=False):
         """
@@ -954,11 +970,10 @@ class _ValidHDU(_BaseHDU, _Verify):
             preserved.
         """
 
-        if 'extver' in self._header and savecomment:
+        if 'EXTVER' in self._header and savecomment:
             comment = None
 
-        self._header.set('extver', value, comment, before, after)
-        self._extver = value
+        self._header.set('EXTVER', value, comment, before, after)
 
     def _verify(self, option='warn'):
         errs = _ErrList([], unit='Card')
@@ -1268,7 +1283,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             self._checksum_comment = self._header.comments['CHECKSUM']
             if not self.verify_checksum(blocking):
                 warnings.warn('Checksum verification failed for HDU %s.\n' %
-                              ((self.name, self._extver),))
+                              ((self.name, self.ver),))
             del self._header['CHECKSUM']
         else:
             self._checksum = None
@@ -1280,7 +1295,7 @@ class _ValidHDU(_BaseHDU, _Verify):
 
             if not self.verify_datasum(blocking):
                 warnings.warn('Datasum verification failed for HDU %s.\n' %
-                              ((self.name, self._extver),))
+                              ((self.name, self.ver),))
             del self._header['DATASUM']
         else:
             self._checksum = None

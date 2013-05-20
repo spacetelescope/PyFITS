@@ -329,6 +329,72 @@ class TestCore(PyfitsTestCase):
             assert (hdul[0].data[:100] == data).all()
             assert (hdul[0].data[100:] == 0).all()
 
+    def test_extname(self):
+        """Test getting/setting the EXTNAME of an HDU."""
+
+        h1 = fits.PrimaryHDU()
+        assert h1.name == 'PRIMARY'
+        # Normally a PRIMARY HDU should not have an EXTNAME, though it should
+        # have a default .name attribute
+        assert 'EXTNAME' not in h1.header
+
+        # The current version of the FITS standard does allow PRIMARY HDUs to
+        # have an EXTNAME, however.
+        h1.name = 'NOTREAL'
+        assert h1.name == 'NOTREAL'
+        assert h1.header.get('EXTNAME') == 'NOTREAL'
+
+        # Updating the EXTNAME in the header should update the .name
+        h1.header['EXTNAME'] = 'TOOREAL'
+        assert h1.name == 'TOOREAL'
+
+        # If we delete an EXTNAME keyword from a PRIMARY HDU it should go back
+        # to the default
+        del h1.header['EXTNAME']
+        assert h1.name == 'PRIMARY'
+
+        # For extension HDUs the situation is a bit simpler:
+        h2 = fits.ImageHDU()
+        assert h2.name == ''
+        assert 'EXTNAME' not in h2.header
+        h2.name = 'HELLO'
+        assert h2.name == 'HELLO'
+        assert h2.header.get('EXTNAME') == 'HELLO'
+        h2.header['EXTNAME'] = 'GOODBYE'
+        assert h2.name == 'GOODBYE'
+
+    def test_extver_extlevel(self):
+        """Test getting/setting the EXTVER and EXTLEVEL of and HDU."""
+
+        # EXTVER and EXTNAME work exactly the same; their semantics are, for
+        # now, to be inferred by the user.  Although they should never be less
+        # than 1, the standard does not explicitly forbid any value so long as
+        # it's an integer
+        h1 = fits.PrimaryHDU()
+        assert h1.ver == 1
+        assert h1.level == 1
+        assert 'EXTVER' not in h1.header
+        assert 'EXTLEVEL' not in h1.header
+
+        h1.ver = 2
+        assert h1.header.get('EXTVER') == 2
+        h1.header['EXTVER'] = 3
+        assert h1.ver == 3
+        del h1.header['EXTVER']
+        h1.ver == 1
+
+        h1.level = 2
+        assert h1.header.get('EXTLEVEL') == 2
+        h1.header['EXTLEVEL'] = 3
+        assert h1.level == 3
+        del h1.header['EXTLEVEL']
+        assert h1.level == 1
+
+        assert_raises(TypeError, setattr, h1, 'ver', 'FOO')
+        assert_raises(TypeError, setattr, h1, 'level', 'BAR')
+
+
+
 
 class TestConvenienceFunctions(PyfitsTestCase):
     def test_writeto(self):

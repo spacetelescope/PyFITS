@@ -355,6 +355,9 @@ class HDUDiff(_BaseDiff):
     - `diff_extvers`: If the two HDUS have different EXTVER values, this
       contains a 2-tuple of the different extension versions.
 
+    - `diff_extlevels`: If the two HDUs have different EXTLEVEL values, this
+      contains a 2-tuple of the different extension levels.
+
     - `diff_extension_types`: If the two HDUs have different XTENSION values,
       this contains a 2-tuple of the different extension types.
 
@@ -385,6 +388,7 @@ class HDUDiff(_BaseDiff):
 
         self.diff_extnames = ()
         self.diff_extvers = ()
+        self.diff_extlevels = ()
         self.diff_extension_types = ()
         self.diff_headers = None
         self.diff_data = None
@@ -395,12 +399,11 @@ class HDUDiff(_BaseDiff):
         if self.a.name != self.b.name:
             self.diff_extnames = (self.a.name, self.b.name)
 
-        # TODO: All extension headers should have a .extver attribute;
-        # currently they have a hidden ._extver attribute, but there's no
-        # reason it should be hidden
-        if self.a.header.get('EXTVER') != self.b.header.get('EXTVER'):
-            self.diff_extvers = (self.a.header.get('EXTVER'),
-                                 self.b.header.get('EXTVER'))
+        if self.a.ver != self.b.ver:
+            self.diff_extvers = (self.a.ver, self.b.ver)
+
+        if self.a.level != self.b.level:
+            self.diff_extlevels = (self.a.level, self.b.level)
 
         if self.a.header.get('XTENSION') != self.b.header.get('XTENSION'):
             self.diff_extension_types = (self.a.header.get('XTENSION'),
@@ -438,6 +441,10 @@ class HDUDiff(_BaseDiff):
         if self.diff_extvers:
             self._writeln(" Extension versions differ:\n  a: %s\n  b: %s" %
                           self.diff_extvers)
+
+        if self.diff_extlevels:
+            self._writeln(" Extension levels differ:\n  a: %s\n  b: %s" %
+                          self.diff_extlevels)
 
         if not self.diff_headers.identical:
             self._fileobj.write('\n')

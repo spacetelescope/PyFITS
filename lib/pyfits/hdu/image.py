@@ -752,6 +752,8 @@ class PrimaryHDU(_ImageBaseHDU):
     FITS primary HDU class.
     """
 
+    _default_name = 'PRIMARY'
+
     def __init__(self, data=None, header=None, do_not_scale_image_data=False,
                  uint=False, scale_back=False):
         """
@@ -788,9 +790,6 @@ class PrimaryHDU(_ImageBaseHDU):
             data=data, header=header,
             do_not_scale_image_data=do_not_scale_image_data, uint=uint,
             scale_back=scale_back)
-
-        self._name = 'PRIMARY'
-        self._extver = 1
 
         # insert the keywords EXTEND
         if header is None:
