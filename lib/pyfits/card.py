@@ -226,6 +226,12 @@ class Card(_Verify):
                             np.bool_)):
             if isinstance(val, str):
                 self._check_text(val)
+
+            if (isinstance(val, float) and
+                    (np.isnan(val) or np.isinf(val))):
+                raise ValueError(
+                    "Floating point %r values are not allowed in FITS "
+                    "headers." % val)
             if not hasattr(self, '_value') or self._value != val:
                 self._modified = True
             self._value_modified = True

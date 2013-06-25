@@ -251,6 +251,21 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_equal(header.setdefault('G', 'H'), 'H')
         assert_equal(len(header), 4)
 
+    def test_assign_inf_nan(self):
+        """
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/11
+
+        For the time being it should not be possible to assign the floating
+        point values inf or nan to a header value, since this is not defined by
+        the FITS standard.
+        """
+
+        h = pyfits.Header()
+        assert_raises(ValueError, h.update, 'TEST', float('nan'))
+        assert_raises(ValueError, h.update, 'TEST', np.nan)
+        assert_raises(ValueError, h.update, 'TEST', float('inf'))
+        assert_raises(ValueError, h.update, 'TEST', np.inf)
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """Tests for handling of record-valued keyword cards as used by the FITS
