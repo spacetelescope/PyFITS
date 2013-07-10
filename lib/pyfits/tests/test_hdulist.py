@@ -602,3 +602,83 @@ class TestHDUListFunctions(PyfitsTestCase):
             assert_equal(hdul[1].header, hdu.header)
             assert_true((hdul[1].data == data2).all())
             assert_true((hdul[2].data == data2).all())
+
+    def test_replace_mmap_data(self):
+        """Regression test for
+        https://github.com/spacetelescope/PyFITS/issues/25
+
+        Replacing the mmap'd data of one file with mmap'd data from a
+        different file should work.
+        """
+
+        arr_a = np.arange(10)
+        arr_b = arr_a * 2
+
+        def test(mmap_a, mmap_b):
+            hdu_a = pyfits.PrimaryHDU(data=arr_a)
+            hdu_a.writeto(self.temp('test_a.fits'), clobber=True)
+            hdu_b = pyfits.PrimaryHDU(data=arr_b)
+            hdu_b.writeto(self.temp('test_b.fits'), clobber=True)
+
+            hdul_a = pyfits.open(self.temp('test_a.fits'), mode='update',
+                                 memmap=mmap_a)
+            hdul_b = pyfits.open(self.temp('test_b.fits'), memmap=mmap_b)
+            hdul_a[0].data = hdul_b[0].data
+            hdul_a.close()
+            hdul_b.close()
+
+            hdul_a = pyfits.open(self.temp('test_a.fits'))
+
+            assert_true(np.all(hdul_a[0].data == arr_b))
+
+        with ignore_warnings():
+            test(True, True)
+
+            # Repeat the same test but this time don't mmap A
+            test(False, True)
+
+            # Finally, without mmaping B
+            test(True, False)
+
+
+    def test_replace_mmap_data_2(self):
+        """Regression test for
+        https://github.com/spacetelescope/PyFITS/issues/25
+
+        Replacing the mmap'd data of one file with mmap'd data from a
+        different file should work.  Like test_replace_mmap_data but with
+        table data instead of image data.
+        """
+
+        arr_a = np.arange(10)
+        arr_b = arr_a * 2
+
+        def test(mmap_a, mmap_b):
+            col_a = pyfits.Column(name='a', format='J', array=arr_a)
+            col_b = pyfits.Column(name='b', format='J', array=arr_b)
+            hdu_a = pyfits.new_table([col_a])
+            hdu_a.writeto(self.temp('test_a.fits'), clobber=True)
+            hdu_b = pyfits.new_table([col_b])
+            hdu_b.writeto(self.temp('test_b.fits'), clobber=True)
+
+            hdul_a = pyfits.open(self.temp('test_a.fits'), mode='update',
+                                 memmap=mmap_a)
+            hdul_b = pyfits.open(self.temp('test_b.fits'), memmap=mmap_b)
+            hdul_a[1].data = hdul_b[1].data
+            hdul_a.close()
+            hdul_b.close()
+
+            hdul_a = pyfits.open(self.temp('test_a.fits'))
+
+            assert_true('b' in hdul_a[1].columns.names)
+            assert_true('a' not in hdul_a[1].columns.names)
+            assert_true(np.all(hdul_a[1].data['b'] == arr_b))
+
+        with ignore_warnings():
+            test(True, True)
+
+            # Repeat the same test but this time don't mmap A
+            test(False, True)
+
+            # Finally, without mmaping B
+            test(True, False)
