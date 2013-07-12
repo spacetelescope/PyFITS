@@ -1147,3 +1147,19 @@ class TestImageFunctions(PyfitsTestCase):
 
         with pyfits.open(self.temp('test.fits')) as h:
             assert_allclose(h[1].data, data1, rtol=0.1, atol=0.1)
+
+    def test_image_none(self):
+        """Regression test
+        for https://github.com/spacetelescope/PyFITS/issues/27
+        """
+
+        with pyfits.open(self.data('test0.fits')) as h:
+            h[1].data
+            h[1].data = None
+            h[1].writeto(self.temp('test.fits'))
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            assert_true(h[1].data is None)
+            assert_equal(h[1].header['NAXIS'], 0)
+            assert_true('NAXIS1' not in h[1].header)
+            assert_true('NAXIS2' not in h[1].header)
