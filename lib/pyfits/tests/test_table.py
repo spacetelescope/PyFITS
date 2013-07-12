@@ -2045,3 +2045,22 @@ class TestTableFunctions(PyfitsTestCase):
         arr = [-99] * 20
         col = pyfits.Column('mag', format='E', array=arr)
         assert_true((arr == col.array).all())
+
+    def test_image_none(self):
+        """Regression test
+        for https://github.com/spacetelescope/PyFITS/issues/27
+        """
+
+        with pyfits.open(self.data('tb.fits')) as h:
+            h[1].data
+            h[1].data = None
+            assert_true(isinstance(h[1].data, pyfits.FITS_rec))
+            assert_equal(len(h[1].data), 0)
+            h[1].writeto(self.temp('test.fits'))
+
+        with pyfits.open(self.temp('test.fits')) as h:
+            assert_equal(h[1].header['NAXIS'], 2)
+            assert_equal(h[1].header['NAXIS1'], 12)
+            assert_equal(h[1].header['NAXIS2'], 0)
+            assert_true(isinstance(h[1].data, pyfits.FITS_rec))
+            assert_equal(len(h[1].data), 0)
