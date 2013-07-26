@@ -81,6 +81,9 @@ Other Changes and Additions
   this is undefined, the previous behavior did not make sense and produced
   invalid FITS files. (spacetelescope/PyFITS#11)
 
+- Added a workaround for a bug in 64-bit OSX that could cause truncation when
+  writing files greater than 2^32 bytes in size. (spacetelescope/PyFITS#28)
+
 
 3.0.12 (unreleased)
 -------------------
