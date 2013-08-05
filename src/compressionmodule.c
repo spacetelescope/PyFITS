@@ -640,13 +640,27 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
                 (0 == strcmp(tmp, "NONE"))) {
             Fptr->quantize_level = NO_QUANTIZE;
         } else if (0 == strcmp(tmp, "SUBTRACTIVE_DITHER_1")) {
-            Fptr->quantize_dither = SUBTRACTIVE_DITHER_1;
+#ifdef CFITSIO_SUPPORTS_SUBTRACTIVE_DITHER_2
+            // Added in CFITSIO 3.35, this also changed the name of the
+            // quantize_dither struct member to quantize_method
+            Fptr->quantize_method = SUBTRACTIVE_DITHER_1;
+        } else if (0 == strcmp(tmp, "SUBTRACTIVE_DITHER_2")) {
+            Fptr->quantize_method = SUBTRACTIVE_DITHER_2;
         } else {
-            Fptr->quantize_dither = 0;
+            Fptr->quantize_method = NO_DITHER;
         }
     } else {
-        Fptr->quantize_dither = 0;
+        Fptr->quantize_method = NO_DITHER;
     }
+#else
+            Fptr->quantize_dither = SUBTRACTIVE_DITHER_1;
+        } else {
+            Fptr->quantize_dither = NO_DITHER;
+        }
+    } else {
+        Fptr->quantize_dither = NO_DITHER;
+    }
+#endif
 
     Fptr->compressimg = 1;
     Fptr->maxelem = imcomp_calc_max_elem(Fptr->compress_type,
