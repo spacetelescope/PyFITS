@@ -1,0 +1,12 @@
+language: python
+python:
+#  - "3.3"  # disabled pending better support for Numpy on 3.3
+  - "3.2"
+  - "2.7"
+  - "2.6"
+  - "2.5"
+before_install:
+  - "sudo apt-get update -qq"
+  - "if [[ ${TRAVIS_PYTHON_VERSION:0:1} == '2' ]]; then sudo apt-get install -qq python-numpy; fi"
+  - "if [[ ${TRAVIS_PYTHON_VERSION:0:1} == '3' ]]; then sudo apt-get install -qq python3-numpy; ln -s /usr/lib/python3/dist-packages/numpy{,-*.egg-info} ~/virtualenv/python${TRAVIS_PYTHON_VERSION}/lib/python${TRAVIS_PYTHON_VERSION}/site-packages/; fi"
+script: python setup.py nosetests
