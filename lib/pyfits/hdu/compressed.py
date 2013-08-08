@@ -1288,10 +1288,8 @@ class CompImageHDU(BinTableHDU):
                 self.data.byteswap(True)
             self.data = old_data
 
-        dtype = np.rec.format_parser(','.join(self.columns._recformats),
-                                     self.columns.names, None).dtype
         # CFITSIO will write the compressed data in big-endian order
-        dtype = dtype.newbyteorder('>')
+        dtype = self.columns.dtype.newbyteorder('>')
         buf = self.compressed_data
         compressed_data = buf[:self._theap].view(dtype=dtype,
                                                  type=np.rec.recarray)

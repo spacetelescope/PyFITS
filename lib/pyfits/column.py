@@ -363,6 +363,10 @@ class Column(object):
 
         return hash((self.name.lower(), self.format))
 
+    @lazyproperty
+    def dtype(self):
+        return np.dtype(_convert_format(self.format))
+
     def copy(self):
         """
         Return a copy of this `Column`.
@@ -553,6 +557,15 @@ class ColDefs(object):
         raise AttributeError(name)
 
     @lazyproperty
+    def dtype(self):
+        recformats = [f for idx, f in enumerate(self._recformats)
+                      if not self[idx]._phantom]
+        formats = ','.join(recformats)
+        names = [n for idx, n in enumerate(self.names)
+                 if not self[idx]._phantom]
+        return np.rec.format_parser(formats, names, None).dtype
+
+    @lazyproperty
     def _arrays(self):
         return [col.array for col in self.columns]
 
@@ -640,7 +653,9 @@ class ColDefs(object):
 
         self._arrays.append(column.array)
         # Obliterate caches of certain things
+        del self.dtype
         del self._recformats
+        del self._dims
 
         self.columns.append(column)
 
@@ -665,7 +680,9 @@ class ColDefs(object):
 
         del self._arrays[indx]
         # Obliterate caches of certain things
+        del self.dtype
         del self._recformats
+        del self._dims
 
         del self.columns[indx]
 

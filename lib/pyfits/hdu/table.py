@@ -68,25 +68,20 @@ class _TableLikeHDU(_ValidHDU):
         # TODO: Need to find a way to eliminate the check for phantom columns;
         # this detail really needn't be worried about outside the ColDefs class
         columns = self.columns
-        recformats = [f for idx, f in enumerate(columns._recformats)
-                      if not columns[idx]._phantom]
-        formats = ','.join(recformats)
-        names = [n for idx, n in enumerate(columns.names)
-                 if not columns[idx]._phantom]
-        dtype = np.rec.format_parser(formats, names, None).dtype
 
         # TODO: Details related to variable length arrays need to be dealt with
         # specifically in the BinTableHDU class, since they're a detail
         # specific to FITS binary tables
-        if (any([type(r) in (_FormatP, _FormatQ) for r in recformats]) and
+        if (any(type(r) in (_FormatP, _FormatQ)
+                for r in columns._recformats) and
                 self._data_size > self._theap):
             # We have a heap; include it in the raw_data
             raw_data = self._get_raw_data(self._data_size, np.byte,
                                           self._data_offset)
-            data = raw_data[:self._theap].view(dtype=dtype,
+            data = raw_data[:self._theap].view(dtype=columns.dtype,
                                                type=np.rec.recarray)
         else:
-            raw_data = self._get_raw_data(columns._shape, dtype,
+            raw_data = self._get_raw_data(columns._shape, columns.dtype,
                                           self._data_offset)
             data = raw_data.view(np.rec.recarray)
 
