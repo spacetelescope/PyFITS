@@ -675,7 +675,7 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
 void init_output_buffer(PyObject* hdu, void** buf, size_t* bufsize) {
     // Determines a good size for the output data buffer and allocates
     // memory for it, returning the address and size of the allocated
-    // membory in to **buf and *bufsize respectively.
+    // memory into **buf and *bufsize respectively.
 
     PyObject* header = NULL;
     char keyword[9];

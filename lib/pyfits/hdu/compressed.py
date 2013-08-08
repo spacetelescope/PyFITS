@@ -401,6 +401,17 @@ class CompImageHDU(BinTableHDU):
         self._axes = image_hdu._axes
         del image_hdu
 
+        # Determine based on the size of the input data whether to use the Q
+        # column format to store compressed data or the P format.
+        # The Q format is used only if the uncompressed data is larger than
+        # 4 GB.  This is not a perfect heuristic, as one can contrive an input
+        # array which, when compressed, the entire binary table representing
+        # the compressed data is larger than 4GB.  That said, this is the same
+        # heuristic used by CFITSIO, so this should give consistent results.
+        # And the cases where this heuristic is insufficient are extreme and
+        # almost entirely contrived corner cases, so it will do for now
+        huge_hdu = self.data.nbytes > 2 ** 32
+
         # Update the extension name in the table header
         if not name and not 'EXTNAME' in self._header:
             name = 'COMPRESSED_IMAGE'
@@ -458,9 +469,9 @@ class CompImageHDU(BinTableHDU):
         # on the requested compression type.
 
         if compression_type == 'PLIO_1':
-            tform1 = '1PI'
+            tform1 = '1QI' if huge_hdu else '1PI'
         else:
-            tform1 = '1PB'
+            tform1 = '1QB' if huge_hdu else '1PB'
 
         self._header.set('TFORM1', tform1,
                          'data format of field: variable length array',
@@ -490,13 +501,21 @@ class CompImageHDU(BinTableHDU):
                 # The required format for the GZIP_COMPRESSED_DATA is actually
                 # missing from the standard docs, but CFITSIO suggests it
                 # should be 1PB, which is logical.
-                tform2 = '1PB'
+                tform2 = '1QB' if huge_hdu else '1PB'
             else:
+                # Q format is not supported for UNCOMPRESSED_DATA columns.
                 ttype2 = 'UNCOMPRESSED_DATA'
-                if self._image_header['BITPIX'] == -32:
-                    tform2 = '1PE'
+                bitpix = self._image_header['BITPIX']
+                if bitpix == 8:
+                    tform = '1QB' if huge_hdu else '1PB'
+                elif bitpix == 16:
+                    tform = '1QI' if huge_hdu else '1PI'
+                elif bitpix == 32:
+                    tform = '1QJ' if huge_hdu else '1PJ'
+                elif bitpix == -32:
+                    tform = '1QE' if huge_hdu else '1PE'
                 else:
-                    tform2 = '1PD'
+                    tform = '1QD' if huge_hdu else '1PD'
 
             # Set up the second column for the table that will hold any
             # uncompressable data.
@@ -555,7 +574,8 @@ class CompImageHDU(BinTableHDU):
         # number of fields in the table, the indicator for a compressed
         # image HDU, the data type of the image data and the number of
         # dimensions in the image data array.
-        self._header.set('NAXIS1', ncols * 8, 'width of table in bytes')
+        self._header.set('NAXIS1', cols.dtype.itemsize,
+                         'width of table in bytes')
         self._header.set('TFIELDS', ncols, 'number of fields in each row')
         self._header.set('ZIMAGE', True, 'extension contains compressed image',
                          after=after)
