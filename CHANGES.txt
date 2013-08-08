@@ -9,10 +9,16 @@ Highlights
 
 - Rewrote CFITSIO-based backend for handling tile compression of FITS files.
   It now uses a standard CFITSIO instead of heavily modified pieces of CFITSIO
-  as before.  PyFITS ships with its own copy of CFITSIO v3.30, but system
+  as before.  PyFITS ships with its own copy of CFITSIO v3.35 which supports
+  the latest version of the Tiled Image Convention (v2.3), but system
   packagers may choose instead to strip this out in favor of a
   system-installed version of CFITSIO.  Earlier versions may work, but nothing
   earlier than 3.28 has been tested yet. (#169)
+
+- Added support for reading and writing tables using the Q format for columns.
+  The Q format is identical to the P format (variable-length arrays) except
+  that it uses 64-bit integers for the data descriptors, allowing more than
+  4 GB of variable-length array data in a single table. (#160)
 
 
 API Changes
@@ -56,16 +62,15 @@ API Changes
   that if ``.header['EXTNAME']`` changes so does ``.name`` and vice-versa.
 
 
-New Features
-^^^^^^^^^^^^
+Other Changes and Additions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - The new compression code also adds support for the ZQUANTIZ keyword added in
   more recent versions of this FITS Tile Compression spec. This includes
   support for lossless compression with GZIP. (#198)
 
-
-Other Changes and Additions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- Images compressed with the Tile Compression standard can now be larger than
+  4 GB through support of the Q format. (#159)
 
 - All HDUs now have a ``.ver`` ``.level`` attribute that returns the value of
   the EXTVAL and EXTLEVEL keywords from that HDU's header, if the exist.  This
@@ -75,6 +80,14 @@ Other Changes and Additions
 - Then ``Column`` and ``ColDefs`` classes have new ``.dtype`` attributes
   which give the Numpy dtype for the column data in the first case, and the
   full Numpy compound dtype for each table row in the latter case.
+
+
+Bug Fixes
+^^^^^^^^^
+
+- Binary tables containing compressed images may, optionally, contain other
+  columns unrelated to the tile compression convention. Although this is an
+  uncommon use case, it is permitted by the standard. (#159)
 
 
 3.1.3 (unreleased)
