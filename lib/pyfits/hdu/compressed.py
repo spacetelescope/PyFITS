@@ -34,10 +34,12 @@ DEFAULT_BYTE_PIX = 4
 if COMPRESSION_SUPPORTED:
     try:
         CFITSIO_SUPPORTS_GZIPDATA = compression.CFITSIO_VERSION >= 3.28
+        CFITSIO_SUPPORTS_Q_FORMAT = compression.CFITSIO_VERSION >= 3.35
     except AttributeError:
         # This generally shouldn't happen unless running setup.py in an
         # environment where an old build of pyfits exists
         CFITSIO_SUPPORTS_GZIPDATA = True
+        CFITSIO_SUPPORTS_Q_FORMAT = True
 
 
 class CompImageHeader(Header):
@@ -411,6 +413,12 @@ class CompImageHDU(BinTableHDU):
         # And the cases where this heuristic is insufficient are extreme and
         # almost entirely contrived corner cases, so it will do for now
         huge_hdu = self.data.nbytes > 2 ** 32
+
+        if huge_hdu and not CFITSIO_SUPPORTS_Q_FORMAT:
+            raise IOError(
+                "PyFITS cannot compress images greater than 4 GB in size "
+                "(%s is %s bytes) without CFITSIO >= 3.35" %
+                ((self.name, self.ver), self.data.nbytes))
 
         # Update the extension name in the table header
         if not name and not 'EXTNAME' in self._header:
