@@ -285,34 +285,44 @@ class TestTableFunctions(PyfitsTestCase):
         a.close()
 
     def test_variable_length_columns(self):
-        col = fits.Column(name='QUAL_SPE', format='PJ()',
-                          array=[[0] * 1571] * 225)
-        tb_hdu = fits.new_table([col])
-        pri_hdu = fits.PrimaryHDU()
-        hdu_list = fits.HDUList([pri_hdu, tb_hdu])
-        hdu_list.writeto(self.temp('toto.fits'), clobber=True)
-        toto = fits.open(self.temp('toto.fits'))
-        q = toto[1].data.field('QUAL_SPE')
-        assert (q[0][4:8] == np.array([0, 0, 0, 0], dtype=np.uint8)).all()
-        toto.close()
+        def test(format_code):
+            col = fits.Column(name='QUAL_SPE', format=format_code,
+                              array=[[0] * 1571] * 225)
+            tb_hdu = fits.new_table([col])
+            pri_hdu = fits.PrimaryHDU()
+            hdu_list = fits.HDUList([pri_hdu, tb_hdu])
+            with ignore_warnings():
+                hdu_list.writeto(self.temp('toto.fits'), clobber=True)
+
+            with fits.open(self.temp('toto.fits')) as toto:
+                q = toto[1].data.field('QUAL_SPE')
+                assert (q[0][4:8] ==
+                        np.array([0, 0, 0, 0], dtype=np.uint8)).all()
+
+        for code in ('PJ()', 'QJ()'):
+            test(code)
 
     def test_extend_variable_length_array(self):
         """Regression test for https://trac.assembla.com/pyfits/ticket/54"""
 
-        arr = [[1] * 10] * 10
-        col1 = fits.Column(name='TESTVLF', format='PJ()', array=arr)
-        col2 = fits.Column(name='TESTSCA', format='J', array=[1] * 10)
-        tb_hdu = fits.new_table([col1, col2], nrows=15)
-        # This asserts that the normal 'scalar' column's length was extended
-        assert len(tb_hdu.data['TESTSCA']) == 15
-        # And this asserts that the VLF column was extended in the same manner
-        assert len(tb_hdu.data['TESTVLF']) == 15
-        # We can't compare the whole array since the _VLF is an array of
-        # objects, but comparing just the edge case rows should suffice
-        assert (tb_hdu.data['TESTVLF'][0] == arr[0]).all()
-        assert (tb_hdu.data['TESTVLF'][9] == arr[9]).all()
-        assert (tb_hdu.data['TESTVLF'][10] == ([0] * 10)).all()
-        assert (tb_hdu.data['TESTVLF'][-1] == ([0] * 10)).all()
+        def test(format_code):
+            arr = [[1] * 10] * 10
+            col1 = fits.Column(name='TESTVLF', format=format_code, array=arr)
+            col2 = fits.Column(name='TESTSCA', format='J', array=[1] * 10)
+            tb_hdu = fits.new_table([col1, col2], nrows=15)
+            # This asserts that the normal 'scalar' column's length was extended
+            assert len(tb_hdu.data['TESTSCA']) == 15
+            # And this asserts that the VLF column was extended in the same manner
+            assert len(tb_hdu.data['TESTVLF']) == 15
+            # We can't compare the whole array since the _VLF is an array of
+            # objects, but comparing just the edge case rows should suffice
+            assert (tb_hdu.data['TESTVLF'][0] == arr[0]).all()
+            assert (tb_hdu.data['TESTVLF'][9] == arr[9]).all()
+            assert (tb_hdu.data['TESTVLF'][10] == ([0] * 10)).all()
+            assert (tb_hdu.data['TESTVLF'][-1] == ([0] * 10)).all()
+
+        for code in ('PJ()', 'QJ()'):
+            test(code)
 
     def test_endianness(self):
         x = np.ndarray((1,), dtype=object)
@@ -1549,58 +1559,70 @@ class TestTableFunctions(PyfitsTestCase):
                 np.array([False, True], dtype=np.bool)).all()
 
     def test_variable_length_table_format_pd_from_object_array(self):
-        a = np.array([np.array([7.2e-20, 7.3e-20]), np.array([0.0]),
-                      np.array([0.0])], 'O')
-        acol = fits.Column(name='testa', format='PD()', array=a)
-        tbhdu = fits.new_table([acol])
-        tbhdu.writeto(self.temp('newtable.fits'))
-        tbhdu1 = fits.open(self.temp('newtable.fits'))
+        def test(format_code):
+            a = np.array([np.array([7.2e-20, 7.3e-20]), np.array([0.0]),
+                          np.array([0.0])], 'O')
+            acol = fits.Column(name='testa', format=format_code, array=a)
+            tbhdu = fits.new_table([acol])
+            with ignore_warnings():
+                tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
+            with fits.open(self.temp('newtable.fits')) as tbhdu1:
+                for j in range(3):
+                    for i in range(len(a[j])):
+                        assert tbhdu1[1].data.field(0)[j][i] == a[j][i]
 
-        for j in range(3):
-            for i in range(len(a[j])):
-                assert tbhdu1[1].data.field(0)[j][i] == a[j][i]
-
-        tbhdu1.close()
+        for code in ('PD()', 'QD()'):
+            test(code)
 
     def test_variable_length_table_format_pd_from_list(self):
-        a = [np.array([7.2e-20, 7.3e-20]), np.array([0.0]), np.array([0.0])]
-        acol = fits.Column(name='testa', format='PD()', array=a)
-        tbhdu = fits.new_table([acol])
-        tbhdu.writeto(self.temp('newtable.fits'))
-        tbhdu1 = fits.open(self.temp('newtable.fits'))
+        def test(format_code):
+            a = [np.array([7.2e-20, 7.3e-20]), np.array([0.0]),
+                 np.array([0.0])]
+            acol = fits.Column(name='testa', format=format_code, array=a)
+            tbhdu = fits.new_table([acol])
+            with ignore_warnings():
+                tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
 
-        for j in range(3):
-            for i in range(len(a[j])):
-                assert tbhdu1[1].data.field(0)[j][i] == a[j][i]
+            with fits.open(self.temp('newtable.fits')) as tbhdu1:
+                for j in range(3):
+                    for i in range(len(a[j])):
+                        assert tbhdu1[1].data.field(0)[j][i] == a[j][i]
 
-        tbhdu1.close()
+        for code in ('PD()', 'QD()'):
+            test(code)
 
     def test_variable_length_table_format_pa_from_object_array(self):
-        a = np.array([np.array(['a', 'b', 'c']), np.array(['d', 'e']),
-                      np.array(['f'])], 'O')
-        acol = fits.Column(name='testa', format='PA()', array=a)
-        tbhdu = fits.new_table([acol])
-        tbhdu.writeto(self.temp('newtable.fits'))
-        hdul = fits.open(self.temp('newtable.fits'))
+        def test(format_code):
+            a = np.array([np.array(['a', 'b', 'c']), np.array(['d', 'e']),
+                          np.array(['f'])], 'O')
+            acol = fits.Column(name='testa', format=format_code, array=a)
+            tbhdu = fits.new_table([acol])
+            with ignore_warnings():
+                tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
 
-        for j in range(3):
-            for i in range(len(a[j])):
-                assert hdul[1].data.field(0)[j][i] == a[j][i]
+            with fits.open(self.temp('newtable.fits')) as hdul:
+                for j in range(3):
+                    for i in range(len(a[j])):
+                        assert hdul[1].data.field(0)[j][i] == a[j][i]
 
-        hdul.close()
+        for code in ('PA()', 'QA()'):
+            test(code)
 
     def test_variable_length_table_format_pa_from_list(self):
-        a = ['a', 'ab', 'abc']
-        acol = fits.Column(name='testa', format='PA()', array=a)
-        tbhdu = fits.new_table([acol])
-        tbhdu.writeto(self.temp('newtable.fits'))
-        hdul = fits.open(self.temp('newtable.fits'))
+        def test(format_code):
+            a = ['a', 'ab', 'abc']
+            acol = fits.Column(name='testa', format=format_code, array=a)
+            tbhdu = fits.new_table([acol])
+            with ignore_warnings():
+                tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
 
-        for j in range(3):
-            for i in range(len(a[j])):
-                assert hdul[1].data.field(0)[j][i] == a[j][i]
+            with fits.open(self.temp('newtable.fits')) as hdul:
+                for j in range(3):
+                    for i in range(len(a[j])):
+                        assert hdul[1].data.field(0)[j][i] == a[j][i]
 
-        hdul.close()
+        for code in ('PA()', 'QA()'):
+            test(code)
 
     def test_fits_rec_column_access(self):
         t = fits.open(self.data('table.fits'))
@@ -2056,19 +2078,25 @@ class TestTableFunctions(PyfitsTestCase):
 
     def test_getdata_vla(self):
         """Regression test for https://trac.assembla.com/pyfits/ticket/200"""
-        col = fits.Column(name='QUAL_SPE', format='PJ()',
-                          array=[np.arange(1572)] * 225)
-        tb_hdu = fits.new_table([col])
-        pri_hdu = fits.PrimaryHDU()
-        hdu_list = fits.HDUList([pri_hdu, tb_hdu])
-        hdu_list.writeto(self.temp('toto.fits'))
 
-        data = fits.getdata(self.temp('toto.fits'))
+        def test(format_code):
+            col = fits.Column(name='QUAL_SPE', format=format_code,
+                              array=[np.arange(1572)] * 225)
+            tb_hdu = fits.new_table([col])
+            pri_hdu = fits.PrimaryHDU()
+            hdu_list = fits.HDUList([pri_hdu, tb_hdu])
+            with ignore_warnings():
+                hdu_list.writeto(self.temp('toto.fits'), clobber=True)
 
-        # Need to compare to the original data row by row since the FITS_rec
-        # returns an array of _VLA objects
-        for row_a, row_b in zip(data['QUAL_SPE'], col.array):
-            assert (row_a == row_b).all()
+            data = fits.getdata(self.temp('toto.fits'))
+
+            # Need to compare to the original data row by row since the FITS_rec
+            # returns an array of _VLA objects
+            for row_a, row_b in zip(data['QUAL_SPE'], col.array):
+                assert (row_a == row_b).all()
+
+        for code in ('PJ()', 'QJ()'):
+            test(code)
 
     def test_column_array_type_mismatch(self):
         """Regression test for https://trac.assembla.com/pyfits/ticket/218"""

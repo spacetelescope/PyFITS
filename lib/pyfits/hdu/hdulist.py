@@ -9,7 +9,6 @@ from numpy import memmap as Memmap
 
 import pyfits
 from pyfits.card import Card
-from pyfits.column import _FormatP
 from pyfits.file import PYTHON_MODES, _File
 from pyfits.hdu import compressed
 from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU, ExtensionHDU

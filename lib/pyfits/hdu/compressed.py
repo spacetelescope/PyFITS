@@ -1348,7 +1348,9 @@ class CompImageHDU(BinTableHDU):
             format = self.compressed_data._coldefs._recformats[idx]
             if isinstance(format, _FormatP):
                 _max = self.compressed_data.field(idx).max
-                format = _FormatP(format.dtype, repeat=format.repeat, max=_max)
+                format_cls = format.__class__
+                format = format_cls(format.dtype, repeat=format.repeat,
+                                    max=_max)
                 self._header['TFORM' + str(idx + 1)] = format.tform
         # Insure that for RICE_1 that the BLOCKSIZE and BYTEPIX cards
         # are present and set to the hard coded values used by the

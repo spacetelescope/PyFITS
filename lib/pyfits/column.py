@@ -154,11 +154,14 @@ class _FormatX(str):
 class _FormatP(str):
     """For P format in variable length table."""
 
-    _formatp_re = re.compile(r'(?P<repeat>\d+)?P(?P<dtype>[A-Z])'
-                              '(?:\((?P<max>\d*)\))?')
+    _format_re_template = (r'(?P<repeat>\d+)?{0}(?P<dtype>[A-Z])'
+                            '(?:\((?P<max>\d*)\))?')
+    _format_code = 'P'
+    _format_re = re.compile(_format_re_template.format(_format_code))
+    _descriptor_format = '2i4'
 
     def __new__(cls, dtype, repeat=None, max=None):
-        obj = super(_FormatP, cls).__new__(cls, '2i4')
+        obj = super(_FormatP, cls).__new__(cls, cls._descriptor_format)
         obj.dtype = dtype
         obj.repeat = repeat
         obj.max = max
@@ -166,7 +169,7 @@ class _FormatP(str):
 
     @classmethod
     def from_tform(cls, format):
-        m = cls._formatp_re.match(format)
+        m = cls._format_re.match(format)
         if not m or m.group('dtype') not in FITS2NUMPY:
             raise VerifyError('Invalid column format: %s' % format)
         repeat = m.group('repeat')
@@ -180,7 +183,20 @@ class _FormatP(str):
     def tform(self):
         repeat = '' if self.repeat is None else self.repeat
         max = '' if self.max is None else self.max
-        return '%sP%s(%s)' % (repeat, NUMPY2FITS[self.dtype], max)
+        return '{0}{1}{2}({3})'.format(repeat, self._format_code,
+                                       NUMPY2FITS[self.dtype], max)
+
+
+class _FormatQ(_FormatP):
+    """Carries type description of the Q format for variable length arrays.
+
+    The Q format is like the P format but uses 64-bit integers in the array
+    descriptors, allowing for heaps stored beyond 2GB into a file.
+    """
+
+    _format_code = 'Q'
+    _format_re = re.compile(_FormatP._format_re_template.format(_format_code))
+    _descriptor_format = '2l4'
 
 
 class Column(object):
@@ -301,6 +317,7 @@ class Column(object):
                     array = chararray.array(array, itemsize=itemsize)
                 except ValueError:
                     # then try variable length array
+                    # Note: This includes _FormatQ by inheritance
                     if isinstance(recformat, _FormatP):
                         array = _VLF(array, dtype=recformat.dtype)
                     else:
@@ -363,7 +380,7 @@ class Column(object):
         else:
             format = self.format
             dims = self._dims
-            if 'A' in format and 'P' not in format:
+            if 'A' in format and 'P' not in format and 'Q' not in format:
                 if array.dtype.char in 'SU':
                     if dims:
                         # The 'last' dimension (first in the order given
@@ -382,7 +399,8 @@ class Column(object):
                     return np.where(array == False, ord('F'), ord('T'))
                 else:
                     return np.where(array == 0, ord('F'), ord('T'))
-            elif 'X' not in format and 'P' not in format:
+            elif ('X' not in format and 'P' not in format and
+                    'Q' not in format):
                 (repeat, fmt, option) = _parse_tformat(format)
                 # Preserve byte order of the original array for now; see #77
                 numpy_format = array.dtype.byteorder + _convert_format(fmt)
@@ -978,7 +996,7 @@ def _wrapx(input, output, nx):
 
 def _makep(input, desp_output, format, nrows=None):
     """
-    Construct the P format column array, both the data descriptors and
+    Construct the P (or Q) format column array, both the data descriptors and
     the data.  It returns the output "data" array of data type `dtype`.
 
     The descriptor location will have a zero offset for all columns
@@ -1148,6 +1166,8 @@ def _convert_fits2record(format):
 
     elif dtype == 'P':
         output_format = _FormatP.from_tform(format)
+    elif dtype == 'Q':
+        output_format = _FormatQ.from_tform(format)
     elif dtype == 'F':
         output_format = 'f8'
     else:

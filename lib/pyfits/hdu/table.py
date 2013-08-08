@@ -15,7 +15,7 @@ from numpy import char as chararray
 # utilities in pyfits.column
 from pyfits.column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES,
                            TDEF_RE, Delayed, Column, ColDefs, _ASCIIColDefs,
-                           _FormatX, _FormatP, _wrapx, _makep, _VLF,
+                           _FormatX, _FormatP, _FormatQ, _wrapx, _makep, _VLF,
                            _parse_tformat, _scalar_to_format, _convert_format,
                            _cmp_recformats)
 from pyfits.fitsrec import FITS_rec
@@ -78,7 +78,7 @@ class _TableLikeHDU(_ValidHDU):
         # TODO: Details related to variable length arrays need to be dealt with
         # specifically in the BinTableHDU class, since they're a detail
         # specific to FITS binary tables
-        if (_FormatP in [type(r) for r in recformats] and
+        if (any([type(r) in (_FormatP, _FormatQ) for r in recformats]) and
                 self._data_size > self._theap):
             # We have a heap; include it in the raw_data
             raw_data = self._get_raw_data(self._data_size, np.byte,
@@ -86,7 +86,8 @@ class _TableLikeHDU(_ValidHDU):
             data = raw_data[:self._theap].view(dtype=dtype,
                                                type=np.rec.recarray)
         else:
-            raw_data = self._get_raw_data(columns._shape, dtype, self._data_offset)
+            raw_data = self._get_raw_data(columns._shape, dtype,
+                                          self._data_offset)
             data = raw_data.view(np.rec.recarray)
 
         self._init_tbdata(data)
@@ -309,8 +310,10 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                 format = self.data._coldefs.formats[idx]
                 if isinstance(format, _FormatP):
                     _max = self.data.field(idx).max
-                    format = _FormatP(format.dtype, repeat=format.repeat,
-                                      max=_max)
+                    # May be either _FormatP or _FormatQ
+                    format_cls = format.__class__
+                    format = format_cls(format.dtype, repeat=format.repeat,
+                                        max=_max)
                     self._header['TFORM' + str(idx + 1)] = format.tform
         return super(_TableBaseHDU, self)._prewriteto(checksum, inplace)
 
@@ -665,6 +668,13 @@ class BinTableHDU(_TableBaseHDU):
           integer length of the array for that row, left-justified in a
           21-character field, followed by a blank.
 
+          .. note::
+
+              This format does *not* support variable length arrays using the
+              ('Q' format) due difficult to overcome ambiguities. What
+              this means is that this file format cannot support VLA columns
+              in tables stored in files that are over 2 GB in size.
+
           For column data representing a bit field ('X' format), each bit
           value in the field is output right-justified in a 21-character field
           as 1 (for true) or 0 (for false).
@@ -1014,6 +1024,11 @@ class BinTableHDU(_TableBaseHDU):
             if length is not None:
                 arr = data.columns._arrays[idx]
                 dt = recformats[idx][len(str(length)):]
+
+                # NOTE: FormatQ not supported here; it's hard to determine
+                # whether or not it will be necessary to use a wider descriptor
+                # type. The function documentation will have to serve as a
+                # warning that this is not supported.
                 recformats[idx] = _FormatP(dt, max=length)
                 data.columns._recformats[idx] = recformats[idx]
                 data._convert[idx] = _makep(arr, arr, recformats[idx])
