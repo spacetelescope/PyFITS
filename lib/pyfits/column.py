@@ -154,10 +154,10 @@ class _FormatX(str):
 class _FormatP(str):
     """For P format in variable length table."""
 
-    _format_re_template = (r'(?P<repeat>\d+)?{0}(?P<dtype>[A-Z])'
+    _format_re_template = (r'(?P<repeat>\d+)?%s(?P<dtype>[A-Z])'
                             '(?:\((?P<max>\d*)\))?')
     _format_code = 'P'
-    _format_re = re.compile(_format_re_template.format(_format_code))
+    _format_re = re.compile(_format_re_template % _format_code)
     _descriptor_format = '2i4'
 
     def __new__(cls, dtype, repeat=None, max=None):
@@ -183,8 +183,8 @@ class _FormatP(str):
     def tform(self):
         repeat = '' if self.repeat is None else self.repeat
         max = '' if self.max is None else self.max
-        return '{0}{1}{2}({3})'.format(repeat, self._format_code,
-                                       NUMPY2FITS[self.dtype], max)
+        return '%s%s%s(%s)' % (repeat, self._format_code,
+                               NUMPY2FITS[self.dtype], max)
 
 
 class _FormatQ(_FormatP):
@@ -195,7 +195,7 @@ class _FormatQ(_FormatP):
     """
 
     _format_code = 'Q'
-    _format_re = re.compile(_FormatP._format_re_template.format(_format_code))
+    _format_re = re.compile(_FormatP._format_re_template % _format_code)
     _descriptor_format = '2l4'
 
 
