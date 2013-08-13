@@ -65,9 +65,16 @@ API Changes
 Other Changes and Additions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- The new compression code also adds support for the ZQUANTIZ keyword added in
-  more recent versions of this FITS Tile Compression spec. This includes
-  support for lossless compression with GZIP. (#198)
+- The new compression code also adds support for the ZQUANTIZ and ZDITHER0
+  keywords added in more recent versions of this FITS Tile Compression spec.
+  This includes support for lossless compression with GZIP. (#198) By default
+  no dithering is used, but the ``SUBTRACTIVE_DITHER_1`` and
+  ``SUBTRACTIVE_DITHER_2`` methods can be enabled by passing the correct
+  constants to the ``quantize_method`` argument to the ``CompImageHDU``
+  constuctor.  A seed can be manually specified, or automatically generated
+  using either the system clock or checksum-based methods via the
+  ``dither_seed`` argument.  See the documentation for ``CompImageHDU`` for
+  more details. (#198) (spacetelescope/PYFITS#32)
 
 - Images compressed with the Tile Compression standard can now be larger than
   4 GB through support of the Q format. (#159)

@@ -1,5 +1,8 @@
+import ctypes
+import math
 import operator
 import sys
+import time
 import warnings
 
 import numpy as np
@@ -11,7 +14,8 @@ from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
 from pyfits.header import Header
 from pyfits.util import (lazyproperty, _pad_length, _is_pseudo_unsigned,
-                         _unsigned_zero, BLOCK_SIZE, reduce, deprecated)
+                         _unsigned_zero, BLOCK_SIZE, reduce, deprecated,
+                         _is_int)
 
 try:
     from pyfits import compression
@@ -20,10 +24,24 @@ except ImportError:
     COMPRESSION_SUPPORTED = COMPRESSION_ENABLED = False
 
 
-# Default compression parameter values
+# Quantization dithering method constants; these are right out of fitsio.h
+NO_DITHER = -1
+SUBTRACTIVE_DITHER_1 = 1
+SUBTRACTIVE_DITHER_2 = 2
+QUANTIZE_METHOD_NAMES = {
+    NO_DITHER: 'NO_DITHER',
+    SUBTRACTIVE_DITHER_1: 'SUBTRACTIVE_DITHER_1',
+    SUBTRACTIVE_DITHER_2: 'SUBTRACTIVE_DITHER_2'
+}
+DITHER_SEED_CLOCK = 0
+DITHER_SEED_CHECKSUM = -1
 
+
+# Default compression parameter values
 DEFAULT_COMPRESSION_TYPE = 'RICE_1'
 DEFAULT_QUANTIZE_LEVEL = 16.
+DEFAULT_QUANTIZE_METHOD = NO_DITHER
+DEFAULT_DITHER_SEED = DITHER_SEED_CLOCK
 DEFAULT_HCOMP_SCALE = 0
 DEFAULT_HCOMP_SMOOTH = 0
 DEFAULT_BLOCK_SIZE = 32
@@ -106,6 +124,8 @@ class CompImageHDU(BinTableHDU):
                  hcomp_scale=DEFAULT_HCOMP_SCALE,
                  hcomp_smooth=DEFAULT_HCOMP_SMOOTH,
                  quantize_level=DEFAULT_QUANTIZE_LEVEL,
+                 quantize_method=DEFAULT_QUANTIZE_METHOD,
+                 dither_seed=DEFAULT_DITHER_SEED,
                  do_not_scale_image_data=False,
                  uint=False, scale_back=False, **kwargs):
         """
@@ -139,6 +159,16 @@ class CompImageHDU(BinTableHDU):
 
         quantize_level : float, optional
             floating point quantization level; see note below
+
+        quantize_method : int, optional
+            floating point quantization dithering method; can be either
+            NO_DITHER (-1), SUBTRACTIVE_DITHER_1 (1; default), or
+            SUBTRACTIVE_DITHER_2 (2); see note below
+
+        dither_seed : int, optional
+            random seed to use for dithering; can be either an integer in the
+            range 1 to 1000 (inclusive), DITHER_SEED_CLOCK (0; default), or
+            DITHER_SEED_CHECKSUM (-1); see note below
 
         Notes
         -----
@@ -259,6 +289,43 @@ class CompImageHDU(BinTableHDU):
         by 2.0.  Larger negative values for ``quantize_level`` means that the
         levels are more coarsely-spaced, and will produce higher compression
         factors.
+
+        The quantization algorithm can also apply one of two random dithering
+        methods in order to reduce bias in the measured intensity of background
+        regions.  The default method, specified with the constant
+        ``SUBTRACTIVE_DITHER_1`` adds dithering to the zero-point of the
+        quantization array itself rather than adding noise to the actual image.
+        The random noise is added on a pixel-by-pixel basis, so in order
+        restore each pixel from its integer value to its floating point value
+        it is necessary to replay the same sequence of random numbers for each
+        pixel (see below).  The other method, ``SUBTRACTIVE_DITHER_2``, is
+        exactly like the first except that before dithering any pixel with a
+        floating point value of ``0.0`` is replaced with the special integer
+        value ``-2147483647``.  When the image is uncompressed, pixels with
+        this value are restored back to ``0.0`` exactly.  Finally, a value of
+        ``NO_DITHER`` disables dithering entirely.
+
+        As mentioned above, when using the subtractive dithering algorithm it
+        is necessary to be able to generate a (pseudo-)random sequence of noise
+        for each pixel, and replay that same sequence upon decompressing.  To
+        facilitate this, a random seed between 1 and 10000 (inclusive) is used
+        to seed a random number generator, and that seed is stored in the
+        ``ZDITHER0`` keyword in the header of the compressed HDU.  In order to
+        use that seed to generate the same sequence of random numbers the same
+        random number generator must be used at compression and decompression
+        time; for that reason the tiled image convention provides an
+        implementation of a very simple pseudo-random number generator.  The
+        seed itself can be provided in one of three ways, controllable by the
+        ``dither_seed`` argument:  It may be specified manually, or it may be
+        generated arbitrarily based on the system's clock
+        (``DITHER_SEED_CLOCK``) or based on a checksum of the pixels in the
+        image's first tile (``DITHER_SEED_CHECKSUM``).  The clock-based method
+        is the default, and is sufficient to ensure that the value is
+        reasonably "arbitrary" and that the same seed is unlikely to be
+        generated sequentially.  The checksum method, on the other hand,
+        ensures that the same seed is used every time for a specific image.
+        This is particularly useful for software testing as it ensures that the
+        same image will always use the same seed.
         """
 
         if not COMPRESSION_SUPPORTED:
@@ -277,6 +344,10 @@ class CompImageHDU(BinTableHDU):
                 del kwargs[oldarg]
             else:
                 compression_opts[newarg] = locals()[newarg]
+        # Include newer compression options that don't required backwards
+        # compatibility with deprecated spellings
+        compression_opts['quantize_method'] = quantize_method
+        compression_opts['dither_seed'] = dither_seed
 
         if data is DELAYED:
             # Reading the HDU from a file
@@ -352,7 +423,9 @@ class CompImageHDU(BinTableHDU):
                             tile_size=None,
                             hcomp_scale=None,
                             hcomp_smooth=None,
-                            quantize_level=None):
+                            quantize_level=None,
+                            quantize_method=None,
+                            dither_seed=None):
         """
         Update the table header (`_header`) to the compressed
         image format and to match the input data (if any).  Create
@@ -396,6 +469,16 @@ class CompImageHDU(BinTableHDU):
         quantize_level : float, optional
             floating point quantization level; if this value is `None`, use the
             value already in the header; if no value already in header, use 16
+
+        quantize_method : int, optional
+            floating point quantization dithering method; can be either
+            NO_DITHER (-1), SUBTRACTIVE_DITHER_1 (1; default), or
+            SUBTRACTIVE_DITHER_2 (2)
+
+        dither_seed : int, optional
+            random seed to use for dithering; can be either an integer in the
+            range 1 to 1000 (inclusive), DITHER_SEED_CLOCK (0; default), or
+            DITHER_SEED_CHECKSUM (-1)
         """
 
         image_hdu = ImageHDU(data=self.data, header=self._header)
@@ -433,7 +516,6 @@ class CompImageHDU(BinTableHDU):
             self.name = self._header['EXTNAME']
 
         # Set the compression type in the table header.
-
         if compression_type:
             if compression_type not in ['RICE_1', 'GZIP_1', 'PLIO_1',
                                         'HCOMPRESS_1']:
@@ -493,7 +575,8 @@ class CompImageHDU(BinTableHDU):
         # Create the additional columns required for floating point
         # data and calculate the width of the output table.
 
-        if self._image_header['BITPIX'] < 0 and quantize_level != 0.0:
+        zbitpix = self._image_header['BITPIX']
+        if zbitpix < 0 and quantize_level != 0.0:
             # floating point image has 'COMPRESSED_DATA',
             # 'UNCOMPRESSED_DATA', 'ZSCALE', and 'ZZERO' columns (unless using
             # lossless compression, per CFITSIO)
@@ -514,14 +597,13 @@ class CompImageHDU(BinTableHDU):
             else:
                 # Q format is not supported for UNCOMPRESSED_DATA columns.
                 ttype2 = 'UNCOMPRESSED_DATA'
-                bitpix = self._image_header['BITPIX']
-                if bitpix == 8:
+                if zbitpix == 8:
                     tform = '1QB' if huge_hdu else '1PB'
-                elif bitpix == 16:
+                elif zbitpix == 16:
                     tform = '1QI' if huge_hdu else '1PI'
-                elif bitpix == 32:
+                elif zbitpix == 32:
                     tform = '1QJ' if huge_hdu else '1PJ'
-                elif bitpix == -32:
+                elif zbitpix == -32:
                     tform = '1QE' if huge_hdu else '1PE'
                 else:
                     tform = '1QD' if huge_hdu else '1PD'
@@ -588,7 +670,7 @@ class CompImageHDU(BinTableHDU):
         self._header.set('TFIELDS', ncols, 'number of fields in each row')
         self._header.set('ZIMAGE', True, 'extension contains compressed image',
                          after=after)
-        self._header.set('ZBITPIX', self._image_header['BITPIX'],
+        self._header.set('ZBITPIX', zbitpix,
                          bitpix_comment, after='ZIMAGE')
         self._header.set('ZNAXIS', self._image_header['NAXIS'], naxis_comment,
                          after='ZBITPIX')
@@ -845,6 +927,55 @@ class CompImageHDU(BinTableHDU):
             self._header.set('ZVAL' + str(idx), quantize_level,
                              'floating point quantization level',
                              after='ZNAME' + str(idx))
+
+            # Add the dither method and seed
+            if quantize_method:
+                if quantize_method not in [NO_DITHER, SUBTRACTIVE_DITHER_1,
+                                           SUBTRACTIVE_DITHER_2]:
+                    name = QUANTIZE_METHOD_NAMES[DEFAULT_QUANTIZE_METHOD]
+                    warnings.warn('Unknown quantization method provided.  '
+                                  'Default method (%s) used.' % name)
+                    quantize_method = DEFAULT_QUANTIZE_METHOD
+
+                if quantize_method == NO_DITHER:
+                    zquantiz_comment = 'No dithering during quantization'
+                else:
+                    zquantiz_comment = 'Pixel Quantization Algorithm'
+
+                self._header.set('ZQUANTIZ',
+                                 QUANTIZE_METHOD_NAMES[quantize_method],
+                                 zquantiz_comment,
+                                 after='ZVAL' + str(idx))
+            else:
+                # If the ZQUANTIZ keyword is missing the default is to assume
+                # no dithering, rather than whatever DEFAULT_QUANTIZE_METHOD
+                # is set to
+                quantize_method = self._header.get('ZQUANTIZ', NO_DITHER)
+                if isinstance(quantize_method, basestring):
+                    for k, v in QUANTIZE_METHOD_NAMES:
+                        if v.upper() == quantize_method:
+                            quantize_method = k
+                            break
+                    else:
+                        quantize_method = NO_DITHER
+
+            if quantize_method == NO_DITHER:
+                if 'ZDITHER0' in self._header:
+                    # If dithering isn't being used then there's no reason to
+                    # keep the ZDITHER0 keyword
+                    del self._header['ZDITHER0']
+            else:
+                if dither_seed:
+                    dither_seed = self._generate_dither_seed(dither_seed)
+                elif 'ZDITHER0' in self._header:
+                    dither_seed = self._header['ZDITHER0']
+                else:
+                    dither_seed = self._generate_dither_seed(
+                            DEFAULT_DITHER_SEED)
+
+                self._header.set('ZDITHER0', dither_seed,
+                                 'dithering offset when quantizing floats',
+                                 after='ZQUANTIZ')
 
         if image_header:
             # Move SIMPLE card from the image header to the
@@ -1611,3 +1742,46 @@ class CompImageHDU(BinTableHDU):
             # is no data at all.  This can also be handled in a generic
             # manner.
             return super(CompImageHDU, self)._calculate_datasum(blocking)
+
+    def _generate_dither_seed(self, seed):
+        if not _is_int(seed):
+            raise TypeError("Seed must be an integer")
+
+        if not -1 <= seed <= 10000:
+            raise ValueError(
+                "Seed for random dithering must be either between 1 and "
+                "10000 inclusive, 0 for autogeneration from the system "
+                "clock, or -1 for autogeneration from a checksum of the first "
+                "image tile (got %s)" % seed)
+
+        if seed == DITHER_SEED_CHECKSUM:
+            # Determine the tile dimensions from the ZTILEn keywords
+            naxis = self._header['ZNAXIS']
+            tile_dims = [self._header['ZTILE%d' % (idx + 1)]
+                         for idx in range(naxis)]
+            tile_dims.reverse()
+
+            # Get the first tile by using the tile dimensions as the end
+            # indices of slices (starting from 0)
+            first_tile = self.data[tuple(slice(d) for d in tile_dims)]
+
+            # The checksum agorithm used is literally just the sum of the bytes
+            # of the tile data (not its actual floating point values).  Integer
+            # overflow is irrelevant.
+            csum = first_tile.view(dtype='uint8').sum()
+
+            # Since CFITSIO uses an unsigned long (which may be different on
+            # different platforms) go ahead and truncate the sum to its
+            # unsigned long value and take the result modulo 10000
+            return (ctypes.c_ulong(csum).value % 10000) + 1
+        elif seed == DITHER_SEED_CLOCK:
+            # This isn't exactly the same algorithm as CFITSIO, but that's okay
+            # since the result is meant to be arbitrary. The primary difference
+            # is that CFITSIO incorporates the HDU number into the result in
+            # the hopes of heading off the possibility of the same seed being
+            # generated for two HDUs at the same time.  Here instead we just
+            # add in the HDU object's id
+            return ((sum(int(x) for x in math.modf(time.time())) + id(self)) %
+                    10000) + 1
+        else:
+            return seed

@@ -652,6 +652,14 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
     } else {
         Fptr->quantize_method = NO_DITHER;
     }
+
+    if (Fptr->quantize_method != NO_DITHER) {
+        if (0 != get_header_int(header, "ZDITHER0", &(Fptr->dither_seed), 0)) {
+            // ZDITHER0 keyword no found
+            Fptr->dither_seed = 0;
+            Fptr->request_dither_seed = 0;
+        }
+    }
 #else
             Fptr->quantize_dither = SUBTRACTIVE_DITHER_1;
         } else {
@@ -659,6 +667,15 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
         }
     } else {
         Fptr->quantize_dither = NO_DITHER;
+    }
+
+    if (Fptr->quantize_dither != NO_DITHER) {
+        if (0 != get_header_int(header, "ZDITHER0", &(Fptr->dither_offset),
+                                0)) {
+            // ZDITHER0 keyword no found
+            Fptr->dither_offset = 0;
+            Fptr->request_dither_offset = 0;
+        }
     }
 #endif
 
