@@ -76,7 +76,7 @@ class _TableLikeHDU(_ValidHDU):
                 for r in columns._recformats) and
                 self._data_size > self._theap):
             # We have a heap; include it in the raw_data
-            raw_data = self._get_raw_data(self._data_size, np.byte,
+            raw_data = self._get_raw_data(self._data_size, np.uint8,
                                           self._data_offset)
             data = raw_data[:self._theap].view(dtype=columns.dtype,
                                                type=np.rec.recarray)
@@ -604,12 +604,11 @@ class BinTableHDU(_TableBaseHDU):
             for idx in range(self.data._nfields):
                 if isinstance(self.data.columns._recformats[idx], _FormatP):
                     field = self.data.field(idx)
-                    for jdx in range(len(field)):
-                        coldata = field[jdx]
-                        if len(coldata) > 0:
-                            nbytes = nbytes + coldata.nbytes
+                    for row in field:
+                        if len(row) > 0:
+                            nbytes += row.nbytes
                             if not fileobj.simulateonly:
-                                fileobj.writearray(coldata)
+                                fileobj.writearray(row)
 
             self.data._heapsize = nbytes - self.data._gap
         finally:

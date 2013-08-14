@@ -655,7 +655,7 @@ void configure_compression(fitsfile* fileptr, PyObject* header) {
 
     if (Fptr->quantize_method != NO_DITHER) {
         if (0 != get_header_int(header, "ZDITHER0", &(Fptr->dither_seed), 0)) {
-            // ZDITHER0 keyword no found
+            // ZDITHER0 keyword not found
             Fptr->dither_seed = 0;
             Fptr->request_dither_seed = 0;
         }

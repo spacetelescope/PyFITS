@@ -1640,6 +1640,22 @@ class CompImageHDU(BinTableHDU):
             self.scale(_ImageBaseHDU.NumCode[self._orig_bitpix])
         if self._data_loaded and self.data is not None:
             self._update_compressed_data()
+
+            # Use methods in the superclass to update the header with
+            # scale/checksum keywords based on the data type of the image data
+            self._update_uint_scale_keywords()
+            self._update_checksum(checksum, checksum_keyword='ZHECKSUM',
+                                  datasum_keyword='ZDATASUM')
+
+            # Store a temporary backup of self.data in a different attribute;
+            # see below
+            self._imagedata = self.data
+
+        # Now we need to perform an ugly hack to set the compressed data as
+        # the .data attribute on the HDU so that the call to _writedata
+        # handles it propertly
+        self.__dict__['data'] = self.compressed_data
+
         # Doesn't call the super's _prewriteto, since it calls
         # self.data._scale_back(), which is meaningless here.
         return ExtensionHDU._prewriteto(self, checksum=checksum,
@@ -1654,28 +1670,21 @@ class CompImageHDU(BinTableHDU):
 
         return ExtensionHDU._writeheader(self, fileobj)
 
-    def _writedata_internal(self, fileobj):
+    def _writedata(self, fileobj):
         """
-        Like the normal `BinTableHDU._writedata_internal`(), but we need to
-        make sure the byte swap is done on the compressed data and not the
-        image data, which requires a little messing with attributes.
+        Wrap the basic ``_writedata`` method to restore the ``.data``
+        attribute to the uncompressed image data in the case of an exception.
         """
 
-        size = 0
-
-        if self.data is not None:
-            imagedata = self.data
-            # TODO: Ick; have to assign to __dict__ to bypass _setdata; need to
-            # find a way to fix this
-            self.__dict__['data'] = self.compressed_data
-            # self.data = self.compressed_data
-            try:
-                size += self._binary_table_byte_swap(fileobj)
-            finally:
-                self.data = imagedata
-            size += self.compressed_data.size * self.compressed_data.itemsize
-
-        return size
+        try:
+            return super(CompImageHDU, self)._writedata(fileobj)
+        finally:
+            # Restore the .data attribute to its rightful value (if any)
+            if hasattr(self, '_imagedata'):
+                self.__dict__['data'] = self._imagedata
+                del self._imagedata
+            else:
+                del self.data
 
     # TODO: This was copied right out of _ImageBaseHDU; get rid of it once we
     # find a way to rewrite this class as either a subclass or wrapper for an

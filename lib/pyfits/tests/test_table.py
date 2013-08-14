@@ -80,7 +80,7 @@ def comparerecords(a, b):
                 if np.any(fielda[row] != fieldb[row]):
                     print 'fielda[%d]: %s' % (row, fielda[row])
                     print 'fieldb[%d]: %s' % (row, fieldb[row])
-                    print 'field %d differs in row %d' (i, row)
+                    print 'field %d differs in row %d' % (i, row)
         else:
             if np.any(fielda != fieldb):
                 print "fielda: ", fielda

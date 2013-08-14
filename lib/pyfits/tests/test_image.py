@@ -10,6 +10,7 @@ import numpy as np
 import pyfits as fits
 from pyfits.hdu.compressed import SUBTRACTIVE_DITHER_1, DITHER_SEED_CHECKSUM
 from pyfits.tests import PyfitsTestCase
+from pyfits.tests.test_table import comparerecords
 from pyfits.tests.util import catch_warnings, ignore_warnings, CaptureStdio
 
 from nose.tools import assert_raises
@@ -654,6 +655,16 @@ class TestImageFunctions(PyfitsTestCase):
         # Ensure that no changes were made to the file merely by immediately
         # opening and closing it.
         assert mtime == os.stat(self.temp('comp.fits')).st_mtime
+
+    def test_write_comp_hdu_direct_from_existing(self):
+        with fits.open(self.data('comp.fits')) as hdul:
+            hdul[1].writeto(self.temp('test.fits'))
+
+        with fits.open(self.data('comp.fits')) as hdul1:
+            with fits.open(self.temp('test.fits')) as hdul2:
+                assert np.all(hdul1[1].data == hdul2[1].data)
+                assert comparerecords(hdul1[1].compressed_data,
+                                      hdul2[1].compressed_data)
 
     def test_do_not_scale_image_data(self):
         hdul = fits.open(self.data('scale.fits'), do_not_scale_image_data=True)

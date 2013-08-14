@@ -455,10 +455,20 @@ class _BaseHDU(object):
     # TODO: Rework checksum handling so that it's not necessary to add a
     # checksum argument here
     def _prewriteto(self, checksum=False, inplace=False):
-        # If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO
-        # cards to header
-        if self._data_loaded and self.data is not None and \
-           self._standard and _is_pseudo_unsigned(self.data.dtype):
+        self._update_uint_scale_keywords()
+
+        # Handle checksum
+        self._update_checksum(checksum)
+
+
+    def _update_uint_scale_keywords(self):
+        """
+        If the data is unsigned int 16, 32, or 64 add BSCALE/BZERO cards to
+        header.
+        """
+
+        if (self._data_loaded and self.data is not None and
+               self._standard and _is_pseudo_unsigned(self.data.dtype)):
             if 'GCOUNT' in self._header:
                 self._header.set('BSCALE', 1, after='GCOUNT')
             else:
@@ -466,30 +476,44 @@ class _BaseHDU(object):
             self._header.set('BZERO', _unsigned_zero(self.data.dtype),
                              after='BSCALE')
 
-        # Handle checksum
+    def _update_checksum(self, checksum, checksum_keyword='CHECKSUM',
+                         datasum_keyword='DATASUM'):
+        """Update the 'CHECKSUM' and 'DATASUM' keywords in the header (or
+        keywords with equivalent semantics given by the ``checksum_keyword``
+        and ``datasum_keyword`` arguments--see for example ``CompImageHDU``
+        for an example of why this might need to be overridden).
+        """
 
         # If the data is loaded it isn't necessarily 'modified', but we have no
         # way of knowing for sure
         modified = self._header._modified or self._data_loaded
 
         if checksum == 'remove':
-            if 'CHECKSUM' in self._header:
-                del self._header['CHECKSUM']
+            if checksum_keyword in self._header:
+                del self._header[checksum_keyword]
 
-            if 'DATASUM' in self._header:
-                del self._header['DATASUM']
+            if datasum_keyword in self._header:
+                del self._header[datasum_keyword]
         elif modified or self._new:
             if checksum == 'datasum':
-                self.add_datasum()
+                self.add_datasum(datasum_keyword=datasum_keyword)
             elif checksum == 'nonstandard_datasum':
-                self.add_datasum(blocking='nonstandard')
+                self.add_datasum(blocking='nonstandard',
+                                 datasum_keyword=datasum_keyword)
             elif checksum == 'test':
-                self.add_datasum(self._datasum_comment)
-                self.add_checksum(self._checksum_comment, True)
+                self.add_datasum(self._datasum_comment,
+                                 datasum_keyword=datasum_keyword)
+                self.add_checksum(self._checksum_comment, True,
+                                  checksum_keyword=checksum_keyword,
+                                  datasum_keyword=datasum_keyword)
             elif checksum == 'nonstandard':
-                self.add_checksum(blocking='nonstandard')
+                self.add_checksum(blocking='nonstandard',
+                                  checksum_keyword=checksum_keyword,
+                                  datasum_keyword=datasum_keyword)
             elif checksum:
-                self.add_checksum(blocking='standard')
+                self.add_checksum(blocking='standard',
+                                  checksum_keyword=checksum_keyword,
+                                  datasum_keyword=datasum_keyword)
 
     def _postwriteto(self):
         # If data is unsigned integer 16, 32 or 64, remove the
@@ -1127,7 +1151,8 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         return errs
 
-    def add_datasum(self, when=None, blocking='standard'):
+    def add_datasum(self, when=None, blocking='standard',
+                    datasum_keyword='DATASUM'):
         """
         Add the ``DATASUM`` card to this HDU with the value set to the
         checksum calculated for the data.
@@ -1141,6 +1166,11 @@ class _ValidHDU(_BaseHDU, _Verify):
         blocking: str, optional
             "standard" or "nonstandard", compute sum 2880 bytes at a time, or
             not
+
+        datasum_keyword: str, optional
+            The name of the header keyword to store the datasum value in;
+            this is typically 'DATASUM' per convention, but there exist
+            use cases in which a different keyword should be used
 
         Returns
         -------
@@ -1160,11 +1190,12 @@ class _ValidHDU(_BaseHDU, _Verify):
         if when is None:
             when = 'data unit checksum updated %s' % self._get_timestamp()
 
-        self._header['DATASUM'] = (str(cs), when)
+        self._header[datasum_keyword] = (str(cs), when)
         return cs
 
     def add_checksum(self, when=None, override_datasum=False,
-                     blocking='standard'):
+                     blocking='standard', checksum_keyword='CHECKSUM',
+                     datasum_keyword='DATASUM'):
         """
         Add the ``CHECKSUM`` and ``DATASUM`` cards to this HDU with
         the values set to the checksum calculated for the HDU and the
@@ -1184,6 +1215,14 @@ class _ValidHDU(_BaseHDU, _Verify):
             "standard" or "nonstandard", compute sum 2880 bytes at a time, or
             not
 
+        checksum_keyword: str, optional
+            The name of the header keyword to store the checksum value in; this
+            is typically 'CHECKSUM' per convention, but there exist use cases
+            in which a different keyword should be used
+
+        datasum_keyword: str, optional
+            See ``checksum_keyword``
+
         Notes
         -----
         For testing purposes, first call `add_datasum` with a `when`
@@ -1195,7 +1234,8 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         if not override_datasum:
             # Calculate and add the data checksum to the header.
-            data_cs = self.add_datasum(when, blocking)
+            data_cs = self.add_datasum(when, blocking,
+                                       datasum_keyword=datasum_keyword)
         else:
             # Just calculate the data checksum
             data_cs = self._calculate_datasum(blocking)
@@ -1204,12 +1244,15 @@ class _ValidHDU(_BaseHDU, _Verify):
             when = 'HDU checksum updated %s' % self._get_timestamp()
 
         # Add the CHECKSUM card to the header with a value of all zeros.
-        if 'DATASUM' in self._header:
-            self._header.set('CHECKSUM', '0' * 16, when, before='DATASUM')
+        if datasum_keyword in self._header:
+            self._header.set(checksum_keyword, '0' * 16, when,
+                             before=datasum_keyword)
         else:
-            self._header.set('CHECKSUM', '0' * 16, when)
+            self._header.set(checksum_keyword, '0' * 16, when)
 
-        self._header['CHECKSUM'] = self._calculate_checksum(data_cs, blocking)
+        csum = self._calculate_checksum(data_cs, blocking,
+                                        checksum_keyword=checksum_keyword)
+        self._header[checksum_keyword] = csum
 
     def verify_datasum(self, blocking='standard'):
         """
@@ -1341,13 +1384,14 @@ class _ValidHDU(_BaseHDU, _Verify):
         else:
             return 0
 
-    def _calculate_checksum(self, datasum, blocking):
+    def _calculate_checksum(self, datasum, blocking,
+                            checksum_keyword='CHECKSUM'):
         """
         Calculate the value of the ``CHECKSUM`` card in the HDU.
         """
 
-        oldChecksum = self._header['CHECKSUM']
-        self._header['CHECKSUM'] = '0' * 16
+        oldChecksum = self._header[checksum_keyword]
+        self._header[checksum_keyword] = '0' * 16
 
         # Convert the header to a string.
         s = str(self._header)
@@ -1360,7 +1404,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         s = self._char_encode(~cs)
 
         # Return the header card value.
-        self._header['CHECKSUM'] = oldChecksum
+        self._header[checksum_keyword] = oldChecksum
 
         return s
 
