@@ -4,7 +4,7 @@ from pyfits.file import _File
 from pyfits.hdu.base import NonstandardExtHDU
 from pyfits.hdu.hdulist import HDUList
 from pyfits.header import Header
-from pyfits.util import lazyproperty, BytesIO, fileobj_name
+from pyfits.util import lazyproperty, BytesIO, fileobj_name, _pad_length
 
 
 class FitsHDU(NonstandardExtHDU):
@@ -69,9 +69,16 @@ class FitsHDU(NonstandardExtHDU):
             else:
                 name = None
             fileobj = gzip.GzipFile(name, mode='wb', fileobj=bs)
+
         hdulist.writeto(fileobj)
+
         if compress:
             fileobj.close()
+
+        # A proper HDUList should still be padded out to a multiple of 2880
+        # technically speaking
+        bs.write(_pad_length(bs.tell()) * cls._padding_byte)
+
         bs.seek(0)
 
         cards = [

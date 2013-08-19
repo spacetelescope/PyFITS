@@ -2123,3 +2123,24 @@ class TestTableFunctions(PyfitsTestCase):
             assert h[1].header['NAXIS2'] == 0
             assert isinstance(h[1].data, fits.FITS_rec)
             assert len(h[1].data) == 0
+
+    def test_unncessary_table_load(self):
+        """Test unnecessary parsing and processing of FITS tables when writing
+        direclty from one FITS file to a new file without first reading the
+        data for user manipulation.
+
+        In other words, it should be possible to do a direct copy of the raw
+        data without unecessary processing of the data.
+        """
+
+        with fits.open(self.data('table.fits')) as h:
+            h[1].writeto(self.temp('test.fits'))
+
+        # Since this was a direct copy the h[1].data attribute should not have
+        # even been accessed (since this means the data was read and parsed)
+        assert 'data' not in h[1].__dict__
+
+        with fits.open(self.data('table.fits')) as h1:
+            with fits.open(self.temp('test.fits')) as h2:
+                assert str(h1[1].header) == str(h2[1].header)
+                assert comparerecords(h1[1].data, h2[1].data)

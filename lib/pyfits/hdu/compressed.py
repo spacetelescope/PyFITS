@@ -1652,10 +1652,10 @@ class CompImageHDU(BinTableHDU):
             # see below
             self._imagedata = self.data
 
-        # Now we need to perform an ugly hack to set the compressed data as
-        # the .data attribute on the HDU so that the call to _writedata
-        # handles it propertly
-        self.__dict__['data'] = self.compressed_data
+            # Now we need to perform an ugly hack to set the compressed data as
+            # the .data attribute on the HDU so that the call to _writedata
+            # handles it propertly
+            self.__dict__['data'] = self.compressed_data
 
         # Doesn't call the super's _prewriteto, since it calls
         # self.data._scale_back(), which is meaningless here.

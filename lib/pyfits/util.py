@@ -589,9 +589,10 @@ def _array_to_file(arr, outfile):
         def write(a, f):
             a.tofile(f)
     else:
-        # treat as file-like object with "write" method
+        # treat as file-like object with "write" method and write the array
+        # via its buffer interface
         def write(a, f):
-            _write_string(f, a.tostring())
+            f.write(a.data[:a.nbytes])
 
     # Implements a workaround for a bug deep in OSX's stdlib file writing
     # functions; on 64-bit OSX it is not possible to correctly write a number

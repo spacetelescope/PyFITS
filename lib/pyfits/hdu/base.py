@@ -16,7 +16,7 @@ from pyfits.header import Header, HEADER_END_RE
 from pyfits.util import (lazyproperty, _is_int, _is_pseudo_unsigned,
                          _unsigned_zero, _pad_length, itersubclasses,
                          encode_ascii, decode_ascii, BLOCK_SIZE, deprecated,
-                         _get_array_mmap)
+                         _get_array_mmap, _array_to_file)
 from pyfits.verify import _Verify, _ErrList
 
 
@@ -111,6 +111,7 @@ class _BaseHDU(object):
         # created (this does not track whether the data is actually the same
         # content-wise)
         self._data_replaced = False
+        self._data_needs_rescale = False
         self._new = True
         self._output_checksum = False
 
@@ -452,8 +453,10 @@ class _BaseHDU(object):
         if self._buffer:
             return np.ndarray(shape, dtype=code, buffer=self._buffer,
                               offset=offset)
-        else:
+        elif self._file:
             return self._file.readarray(offset=offset, dtype=code, shape=shape)
+        else:
+            return None
 
     # TODO: Rework checksum handling so that it's not necessary to add a
     # checksum argument here
@@ -564,16 +567,24 @@ class _BaseHDU(object):
             except IOError:
                 offset = 0
 
-        if self.data is not None:
-            size += self._writedata_internal(fileobj)
+        if self._data_loaded or self._data_needs_rescale:
+            if self.data is not None:
+                size += self._writedata_internal(fileobj)
             # pad the FITS data block
-            if size > 0 and not fileobj.simulateonly:
+            if size > 0:
                 padding = _pad_length(size) * self._padding_byte
                 # TODO: Not that this is ever likely, but if for some odd
                 # reason _padding_byte is > 0x80 this will fail; but really if
                 # somebody's custom fits format is doing that, they're doing it
                 # wrong and should be reprimanded harshly.
                 fileobj.write(padding.encode('ascii'))
+                size += len(padding)
+        else:
+            # The data has not been modified or does not need need to be
+            # rescaled, so it can be copied, unmodified, directly from an
+            # existing file or buffer
+            size += self._writedata_direct_copy(fileobj)
+
 
         # flush, to make sure the content is written
         if not fileobj.simulateonly:
@@ -581,7 +592,7 @@ class _BaseHDU(object):
 
         # Update datLoc with the new offset
         self._data_offset = offset
-        self._data_size = size = size + _pad_length(size)
+        self._data_size = size
 
         # return both the location and the size of the data area
         return offset, size
@@ -598,6 +609,24 @@ class _BaseHDU(object):
         if not fileobj.simulateonly:
             fileobj.writearray(self.data)
         return self.data.size * self.data.itemsize
+
+    def _writedata_direct_copy(self, fileobj):
+        """Copies the data directly from one file/buffer to the new file.
+
+        For now this is handled by loading the raw data from the existing data
+        (including any padding) via a memory map or from an already in-memory
+        buffer and using Numpy's existing file-writing facilities to write to
+        the new file.
+
+        If this proves too slow a more direct approach may be used.
+        """
+
+        raw = self._get_raw_data(self._data_size, 'ubyte', self._data_offset)
+        if raw is not None:
+            _array_to_file(raw, fileobj)
+            return raw.nbytes
+        else:
+            return 0
 
     # TODO: This is the start of moving HDU writing out of the _File class;
     # Though right now this is an internal private method (though still used by
@@ -635,6 +664,7 @@ class _BaseHDU(object):
             # The header size is unchanged, but the data location may be
             # different from before depending on if previous HDUs were resized
             datloc = fileobj.tell()
+
         if self._data_loaded:
             if self.data is not None:
                 # Seek through the array's bases for an memmap'd array; we
@@ -654,13 +684,11 @@ class _BaseHDU(object):
                     self._file.seek(self._data_offset)
                     datloc, datsize = self._writedata(fileobj)
         elif copy:
-            # Seek to the data location in the original file
-            self._file.seek(self._data_offset)
-            fileobj.write(self._file.read(datsize))
+            datsize = self._writedata_direct_copy(fileobj)
 
         self._header_offset = hdrloc
         self._data_offset = datloc
-        self._data_size = datsize + _pad_length(datsize)
+        self._data_size = datsize
         self._data_replaced = False
 
 _AllHDU = _BaseHDU  # For backwards-compatibility, though nobody should have

@@ -129,6 +129,11 @@ class _ImageBaseHDU(_ValidHDU):
         self._modified = False
 
         if data is DELAYED:
+            if (not do_not_scale_image_data and
+                    (self._bscale != 1 or self._bzero != 0)):
+                # This indicates that when the data is accessed or written out
+                # to a new file it will need to be rescaled
+                self._data_needs_rescale = True
             return
         else:
             self.data = data
