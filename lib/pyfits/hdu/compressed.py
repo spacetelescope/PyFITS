@@ -1638,7 +1638,8 @@ class CompImageHDU(BinTableHDU):
     def _prewriteto(self, checksum=False, inplace=False):
         if self._scale_back:
             self.scale(_ImageBaseHDU.NumCode[self._orig_bitpix])
-        if self._data_loaded and self.data is not None:
+
+        if self._has_data:
             self._update_compressed_data()
 
             # Use methods in the superclass to update the header with
@@ -1740,7 +1741,7 @@ class CompImageHDU(BinTableHDU):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        if self._data_loaded and self.data is not None:
+        if self._has_data:
             # We have the data to be used.
             return self._calculate_datasum_from_data(self.compressed_data,
                                                      blocking)

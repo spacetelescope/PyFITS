@@ -547,7 +547,7 @@ class TestTableFunctions(PyfitsTestCase):
 
         hdu.writeto(self.temp('newtable.fits'))
 
-        info = [(0, 'PRIMARY', 'PrimaryHDU', 4, (), 'uint8', ''),
+        info = [(0, 'PRIMARY', 'PrimaryHDU', 4, (), '', ''),
                 (1, '', 'BinTableHDU', 19, '8R x 5C', '[10A, J, 10A, 5E, L]',
                  '')]
 
@@ -775,7 +775,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert hdu.columns.columns[1].array[0] == 80
         assert hdu.data[0][1] == 80
 
-        info = [(0, 'PRIMARY', 'PrimaryHDU', 4, (), 'uint8', ''),
+        info = [(0, 'PRIMARY', 'PrimaryHDU', 4, (), '', ''),
                 (1, '', 'BinTableHDU', 30, '4R x 10C',
                  '[10A, J, 10A, 5E, L, 10A, J, 10A, 5E, L]', '')]
 

@@ -75,7 +75,7 @@ class TestImageFunctions(PyfitsTestCase):
     def test_open_2(self):
         r = fits.open(self.data('test0.fits'))
 
-        info = ([(0, 'PRIMARY', 'PrimaryHDU', 138, (), 'int16', '')] +
+        info = ([(0, 'PRIMARY', 'PrimaryHDU', 138, (), '', '')] +
                 [(x, 'SCI', 'ImageHDU', 61, (40, 40), 'int16', '')
                  for x in range(1, 5)])
 
@@ -99,7 +99,7 @@ class TestImageFunctions(PyfitsTestCase):
         assert hdul[0].name == 'XPRIMARY'
         assert hdul[0].name == hdul[0].header['EXTNAME']
 
-        info = [(0, 'XPRIMARY', 'PrimaryHDU', 5, (), 'uint8', '')]
+        info = [(0, 'XPRIMARY', 'PrimaryHDU', 5, (), '', '')]
         assert hdul.info(output=False) == info
 
         assert hdul['PRIMARY'] is hdul['XPRIMARY']
@@ -1040,8 +1040,8 @@ class TestImageFunctions(PyfitsTestCase):
             assert h[1].header['TFORM2'] == '1PB(359)'
 
     def test_image_none(self):
-        """Regression test
-        for https://github.com/spacetelescope/PyFITS/issues/27
+        """
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/27
         """
 
         with fits.open(self.data('test0.fits')) as h:

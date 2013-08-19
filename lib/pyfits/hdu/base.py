@@ -181,8 +181,11 @@ class _BaseHDU(object):
 
     @property
     def _data_loaded(self):
-        return ('data' in self.__dict__ and self.data is not None and
-                self.data is not DELAYED)
+        return ('data' in self.__dict__ and self.data is not DELAYED)
+
+    @property
+    def _has_data(self):
+        return self._data_loaded and self.data is not None
 
     @property
     @deprecated('3.2', alternative='the `._header_offset` attribute',
@@ -467,8 +470,8 @@ class _BaseHDU(object):
         header.
         """
 
-        if (self._data_loaded and self.data is not None and
-               self._standard and _is_pseudo_unsigned(self.data.dtype)):
+        if (self._has_data and self._standard and
+                _is_pseudo_unsigned(self.data.dtype)):
             if 'GCOUNT' in self._header:
                 self._header.set('BSCALE', 1, after='GCOUNT')
             else:
@@ -518,8 +521,8 @@ class _BaseHDU(object):
     def _postwriteto(self):
         # If data is unsigned integer 16, 32 or 64, remove the
         # BSCALE/BZERO cards
-        if (self._data_loaded and self.data is not None and
-                self._standard and _is_pseudo_unsigned(self.data.dtype)):
+        if (self._has_data and self._standard and
+                _is_pseudo_unsigned(self.data.dtype)):
             for keyword in ('BSCALE', 'BZERO'):
                 try:
                     del self._header[keyword]

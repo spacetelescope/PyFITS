@@ -947,7 +947,7 @@ class HDUList(list, _Verify):
                 # Collect a list of open mmaps to the data; this well be used
                 # later.  See below.
                 mmaps = [(idx, _get_array_mmap(hdu.data), hdu.data)
-                         for idx, hdu in enumerate(self) if hdu._data_loaded]
+                         for idx, hdu in enumerate(self) if hdu._has_data]
 
             hdulist.__file.close()
             self.__file.close()
@@ -978,8 +978,7 @@ class HDUList(list, _Verify):
             for hdu in self:
                 # Need to update the _file attribute and close any open mmaps
                 # on each HDU
-                if (hdu._data_loaded and
-                    _get_array_mmap(hdu.data) is not None):
+                if hdu._has_data and _get_array_mmap(hdu.data) is not None:
                     del hdu.data
                 hdu._file = ffo
 
@@ -1050,7 +1049,7 @@ class HDUList(list, _Verify):
                     break
 
                 # Data:
-                if not hdu._data_loaded or hdu.data is None:
+                if not hdu._has_data:
                     continue
 
                 nbytes = hdu.size

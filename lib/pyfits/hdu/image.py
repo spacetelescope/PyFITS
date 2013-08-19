@@ -239,7 +239,7 @@ class _ImageBaseHDU(_ValidHDU):
         """
 
         if not (self._modified or self._header._modified or
-                (self._data_loaded and self.shape != self.data.shape)):
+                (self._has_data and self.shape != self.data.shape)):
             # Not likely that anything needs updating
             return
 
@@ -257,7 +257,7 @@ class _ImageBaseHDU(_ValidHDU):
         # If the data's shape has changed (this may have happened without our
         # noticing either via a direct update to the data.shape attribute) we
         # need to update the internal self._axes
-        if self._data_loaded and self.shape != self.data.shape:
+        if self._has_data and self.shape != self.data.shape:
             self._axes = list(self.data.shape)
             self._axes.reverse()
 
@@ -428,7 +428,7 @@ class _ImageBaseHDU(_ValidHDU):
             self.scale(self.NumCode[self._orig_bitpix])
 
         self.update_header()
-        if not inplace and not self._data_loaded:
+        if not inplace and not self._has_data:
             self._update_header_scale_info()
         return super(_ImageBaseHDU, self)._prewriteto(checksum, inplace)
 
@@ -585,8 +585,12 @@ class _ImageBaseHDU(_ValidHDU):
                 format = self.data.dtype.name
                 format = format[format.rfind('.')+1:]
         else:
-            # if data is not touched yet, use header info.
-            format = self.NumCode[self._bitpix]
+            if self.shape and all(self.shape):
+                # Only show the format if all the dimensions are non-zero
+                # if data is not touched yet, use header info.
+                format = self.NumCode[self._bitpix]
+            else:
+                format = ''
 
         # Display shape in FITS-order
         shape = tuple(reversed(self.shape))
@@ -598,7 +602,7 @@ class _ImageBaseHDU(_ValidHDU):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        if self._data_loaded and self.data is not None:
+        if self._has_data:
             # We have the data to be used.
             d = self.data
 

@@ -5,8 +5,8 @@ from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
 from pyfits.hdu.table import _TableLikeHDU
-from pyfits.util import lazyproperty, _is_int, _pad_length, \
-    _is_pseudo_unsigned
+from pyfits.util import (lazyproperty, _is_int, _pad_length,
+                         _is_pseudo_unsigned)
 
 
 class Group(FITS_record):
@@ -286,7 +286,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
 
     @lazyproperty
     def columns(self):
-        if self._data_loaded and hasattr(self.data, '_coldefs'):
+        if self._has_data and hasattr(self.data, '_coldefs'):
             return self.data._coldefs
 
         format = self._width2format[self._header['BITPIX']]
@@ -352,29 +352,29 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
 
         if self._data_loaded:
             if isinstance(self.data, GroupData):
-                field0 = self.data.dtype.names[0]
-                field0_code = self.data.dtype.fields[field0][0].name
-                self._header['BITPIX'] = _ImageBaseHDU.ImgCode[field0_code]
                 self._axes = list(self.data.data.shape)[1:]
                 self._axes.reverse()
                 self._axes = [0] + self._axes
+                field0 = self.data.dtype.names[0]
+                field0_code = self.data.dtype.fields[field0][0].name
             elif self.data is None:
-                self._axes = []
+                self._axes = [0]
+                field0_code = 'uint8'  # For lack of a better default
             else:
                 raise ValueError('incorrect array type')
+
+            self._header['BITPIX'] = _ImageBaseHDU.ImgCode[field0_code]
 
         self._header['NAXIS'] = len(self._axes)
 
         # add NAXISi if it does not exist
         for idx, axis in enumerate(self._axes):
-            try:
-                self._header['NAXIS' + str(idx + 1)] = axis
-            except KeyError:
-                if (idx == 0):
-                    after = 'NAXIS'
-                else:
-                    after = 'NAXIS' + str(idx)
-                self._header.set('NAXIS' + str(idx + 1), axis, after=after)
+            if (idx == 0):
+                after = 'NAXIS'
+            else:
+                after = 'NAXIS' + str(idx)
+
+            self._header.set('NAXIS' + str(idx + 1), axis, after=after)
 
         # delete extra NAXISi's
         for idx in range(len(self._axes) + 1, old_naxis + 1):
@@ -383,7 +383,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
             except KeyError:
                 pass
 
-        if self._data_loaded and isinstance(self.data, GroupData):
+        if self._has_data and isinstance(self.data, GroupData):
             self._header.set('GROUPS', True,
                              after='NAXIS' + str(len(self._axes)))
             self._header.set('PCOUNT', len(self.data.parnames), after='GROUPS')
@@ -491,7 +491,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        if self._data_loaded and self.data is not None:
+        if self._has_data:
             # We have the data to be used.
             # Check the byte order of the data.  If it is little endian we
             # must swap it before calculating the datasum.
@@ -531,10 +531,9 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
         if shape:
             shape = shape[1:]
 
-        if self._data_loaded:
-            # Update the format
-            format = self.data.dtype.fields[self.data.dtype.names[0]][0].name
-            format = format[format.rfind('.') + 1:]
+            if shape and all(shape):
+                # Update the format
+                format = self.columns[0].dtype.name
 
         # Update the GCOUNT report
         gcount = '%d Groups  %d Parameters' % (self._gcount, self._pcount)

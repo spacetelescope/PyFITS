@@ -190,7 +190,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
     @lazyproperty
     def columns(self):
-        if self._data_loaded and hasattr(self.data, '_coldefs'):
+        if self._has_data and hasattr(self.data, '_coldefs'):
             return self.data._coldefs
         return ColDefs(self)
 
@@ -286,7 +286,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                          tbtype=self.columns._tbtype)
 
     def _prewriteto(self, checksum=False, inplace=False):
-        if self._data_loaded and self.data is not None:
+        if self._has_data:
             self.data._scale_back()
             # check TFIELDS and NAXIS2
             self._header['TFIELDS'] = len(self.data._coldefs)
@@ -402,7 +402,7 @@ class TableHDU(_TableBaseHDU):
 
     def __init__(self, data=None, header=None, name=None):
         super(TableHDU, self).__init__(data, header, name=name)
-        if (self._data_loaded and self.data is not None and
+        if (self._has_data and
                 not isinstance(self.data._coldefs, _ASCIIColDefs)):
             self.data._coldefs = _ASCIIColDefs(self.data._coldefs)
 
@@ -449,7 +449,7 @@ class TableHDU(_TableBaseHDU):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        if self._data_loaded and self.data is not None:
+        if self._has_data:
             # We have the data to be used.
             # We need to pad the data to a block length before calculating
             # the datasum.
@@ -541,7 +541,7 @@ class BinTableHDU(_TableBaseHDU):
         Calculate the value for the ``DATASUM`` card in the HDU.
         """
 
-        if self._data_loaded and self.data is not None:
+        if self._has_data:
             # We have the data to be used.
             return self._calculate_datasum_from_data(self.data, blocking)
         else:
