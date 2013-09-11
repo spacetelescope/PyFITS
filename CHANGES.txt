@@ -101,6 +101,14 @@ Bug Fixes
   columns unrelated to the tile compression convention. Although this is an
   uncommon use case, it is permitted by the standard. (#159)
 
+- Reworked some of the file I/O routines to allow simpler, more consistent
+  mapping between OS-level file modes ('rb', 'wb', 'ab', etc.) and the more
+  "PyFITS-specific" modes used by PyFITS like "readonly" and "update".
+  That is, if reading a FITS file from an open file object, it doesn't matter
+  as much what "mode" it was opened in so long as it has the right
+  capabilities (read/write/etc.)  Also works around bugs in the Python io
+  module in 2.6+ with regard to file modes. (spacetelescope/PyFITS#33)
+
 
 3.1.3 (unreleased)
 ------------------

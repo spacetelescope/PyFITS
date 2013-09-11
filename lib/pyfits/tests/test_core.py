@@ -465,6 +465,23 @@ class TestFileFunctions(PyfitsTestCase):
         with ignore_warnings():
             assert len(fits.open(self._make_gzip_file('test0.fz'))) == 5
 
+    def test_writeto_append_mode_gzip(self):
+        """Regression test for
+        https://github.com/spacetelescope/PyFITS/issues/33
+
+        Check that a new GzipFile opened in append mode can be used to write
+        out a new FITS file.
+        """
+
+        # Note: when opening a GzipFile the 'b+' is superfluous, but this was
+        # still how the original test case looked
+        with gzip.GzipFile(self.temp('test.fits.gz'), 'ab+') as fileobj:
+            h = fits.PrimaryHDU()
+            h.writeto(fileobj)
+
+        with fits.open(self.temp('test.fits.gz')) as hdul:
+            assert hdul[0].header == h.header
+
     def test_open_zipped(self):
         zf = self._make_zip_file()
 
