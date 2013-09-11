@@ -394,8 +394,6 @@ class TestCore(PyfitsTestCase):
         assert_raises(TypeError, setattr, h1, 'level', 'BAR')
 
 
-
-
 class TestConvenienceFunctions(PyfitsTestCase):
     def test_writeto(self):
         """
@@ -435,6 +433,27 @@ class TestFileFunctions(PyfitsTestCase):
     Tests various basic I/O operations, specifically in the pyfits.file._File
     class.
     """
+
+    def test_open_nonexistent(self):
+        """Test that trying to open a non-existent file results in an
+        IOError (and not some other arbitrary exception).
+        """
+
+        try:
+            fits.open(self.temp('foobar.fits'))
+        except IOError, e:
+            assert 'File does not exist' in str(e)
+        except:
+            raise
+
+        # But opening in ostream or append mode should be okay, since they
+        # allow writing new files
+        for mode in ('ostream', 'append'):
+            with fits.open(self.temp('foobar.fits'), mode=mode) as h:
+                pass
+
+            assert os.path.exists(self.temp('foobar.fits'))
+            os.remove(self.temp('foobar.fits'))
 
     def test_open_gzipped(self):
         with ignore_warnings():
