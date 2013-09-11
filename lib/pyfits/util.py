@@ -514,9 +514,13 @@ def fileobj_is_binary(f):
     mode.  When in doubt, returns True by default.
     """
 
+    # This is kind of a hack for this to work correctly with _File objects,
+    # which, for the time being, are *always* binary
+    if hasattr(f, 'binary'):
+        return f.binary
+
     # TODO: In Python 3 it might be more reliable to check if the fileobj is a
     # text reader or a binary reader
-
     mode = fileobj_mode(f)
     if mode:
         return 'b' in mode

@@ -70,6 +70,7 @@ class _File(object):
         if fileobj is None:
             self.__file = None
             self.closed = False
+            self.binary = True
             self.mode = mode
             self.memmap = memmap
             self.compression = None
@@ -101,6 +102,7 @@ class _File(object):
             self.name = fileobj_name(fileobj)
 
         self.closed = False
+        self.binary = True
         self.mode = mode
         self.memmap = memmap
 
