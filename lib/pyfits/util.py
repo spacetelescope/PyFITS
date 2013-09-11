@@ -462,7 +462,7 @@ def fileobj_closed(f):
         return f.closed
     elif hasattr(f, 'fileobj') and hasattr(f.fileobj, 'closed'):
         return f.fileobj.closed
-    elif hasattr(f, 'fp') and hasattr(f.fp.closed):
+    elif hasattr(f, 'fp') and hasattr(f.fp, 'closed'):
         return f.fp.closed
     else:
         return True
