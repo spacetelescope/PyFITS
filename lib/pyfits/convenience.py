@@ -544,7 +544,7 @@ def info(filename, output=None, **kwargs):
         *Note:* This function sets ``ignore_missing_end=True`` by default.
     """
 
-    mode, closed = _get_file_mode(filename, default='copyonwrite')
+    mode, closed = _get_file_mode(filename, default='readonly')
     # Set the default value for the ignore_missing_end parameter
     if not 'ignore_missing_end' in kwargs:
         kwargs['ignore_missing_end'] = True
@@ -602,7 +602,7 @@ def tabledump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
     # and leave the file in the same state (opened or closed) as when
     # the function was called
 
-    mode, closed = _get_file_mode(filename, default='copyonwrite')
+    mode, closed = _get_file_mode(filename, default='readonly')
     f = fitsopen(filename, mode=mode)
 
     # Create the default data file name if one was not provided
@@ -774,8 +774,7 @@ def _stat_filename_or_fileobj(filename):
     return name, closed, noexist_or_empty
 
 
-# TODO: Replace this with fileobj_mode
-def _get_file_mode(filename, default='copyonwrite'):
+def _get_file_mode(filename, default='readonly'):
     """
     Allow file object to already be opened in any of the valid modes and
     and leave the file in the same state (opened or closed) as when

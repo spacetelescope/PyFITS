@@ -35,9 +35,8 @@ def fitsopen(name, mode='readonly', memmap=None, save_backup=False, **kwargs):
         'ostream'.
 
         If `name` is a file object that is already opened, `mode` must
-        match the mode the file was opened with, copyonwrite (rb),
-        readonly (rb), update (rb+), append (ab+), ostream (w),
-        denywrite (rb)).
+        match the mode the file was opened with, readonly (rb), update (rb+),
+        append (ab+), ostream (w), denywrite (rb)).
 
     memmap : bool
         Is memory mapping to be used?
@@ -306,7 +305,7 @@ class HDUList(list, _Verify):
             file       File object associated with the HDU
             filename   Name of associated file object
             filemode   Mode in which the file was opened (readonly,
-                       copyonwrite, update, append, denywrite, ostream)
+                       update, append, denywrite, ostream)
             resized    Flag that when `True` indicates that the data has been
                        resized since the last read/write so the returned values
                        may not be valid.
@@ -612,8 +611,8 @@ class HDUList(list, _Verify):
         Parameters
         ----------
         fileobj : file path, file object or file-like object
-            File to write to.  If a file object, must be opened for
-            append (ab+).
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
 
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,

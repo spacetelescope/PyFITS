@@ -419,8 +419,8 @@ class _BaseHDU(object):
         Parameters
         ----------
         name : file path, file object or file-like object
-            Output FITS file.  If opened, must be opened for append
-            ("ab+")).
+            Output FITS file.  If the file object is already opened, it must
+            be opened in a writeable mode.
 
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
