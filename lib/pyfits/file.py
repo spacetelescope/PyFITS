@@ -66,7 +66,7 @@ class _File(object):
     Represents a FITS file on disk (or in some other file-like object).
     """
 
-    def __init__(self, fileobj=None, mode='readonly', memmap=False):
+    def __init__(self, fileobj=None, mode=None, memmap=False, clobber=False):
         if fileobj is None:
             self.__file = None
             self.closed = False
@@ -81,12 +81,22 @@ class _File(object):
         else:
             self.simulateonly = False
 
+        if mode is None:
+            if _is_random_access_file_backed(fileobj):
+                fmode = fileobj_mode(fileobj)
+                # If the mode is unsupported just leave it as None; we'll
+                # catch this case below
+                mode = FILE_MODES.get(fmode)
+            else:
+                mode = 'readonly'  # The default
+
         if mode not in PYFITS_MODES:
             raise ValueError("Mode '%s' not recognized" % mode)
 
-        if (isinstance(fileobj, basestring) and mode != 'append' and
-            not os.path.exists(fileobj) and
-            not os.path.splitdrive(fileobj)[0]):
+        if (isinstance(fileobj, basestring) and
+                mode not in ('append', 'ostream') and
+                not os.path.exists(fileobj) and
+                not os.path.splitdrive(fileobj)[0]):
                 #
                 # Not writing file and file does not exist on local machine and
                 # name does not begin with a drive letter (Windows), try to
@@ -115,12 +125,12 @@ class _File(object):
         self.writeonly = False
 
         # Initialize the internal self.__file object
-        if isfile(fileobj) or isinstance(fileobj, gzip.GzipFile):
-            self._open_fileobj(fileobj, mode)
+        if _is_random_access_file_backed(fileobj):
+            self._open_fileobj(fileobj, mode, clobber)
         elif isinstance(fileobj, basestring):
-            self._open_filename(fileobj, mode)
+            self._open_filename(fileobj, mode, clobber)
         else:
-            self._open_filelike(fileobj, mode)
+            self._open_filelike(fileobj, mode, clobber)
 
         if isinstance(fileobj, gzip.GzipFile):
             self.compression = 'gzip'
@@ -289,18 +299,49 @@ class _File(object):
 
         self.closed = True
 
-    def _open_fileobj(self, fileobj, mode):
+    def _overwrite_existing(self, clobber, fileobj, closed):
+        """Overwrite an existing file if ``clobber`` is ``True``, otherwise
+        raise an IOError.  The exact behavior of this method depends on the
+        _File object state and is only meant for use within the ``_open_*``
+        internal methods.
+        """
+
+        # The file will be overwritten...
+        if ((self.file_like and
+                (hasattr(fileobj, 'len') and fileobj.len > 0)) or
+                (os.path.exists(self.name) and
+                 os.path.getsize(self.name) != 0)):
+            if clobber:
+                warnings.warn("Overwriting existing file %r." % self.name)
+                if self.file_like and hasattr(fileobj, 'truncate'):
+                    fileobj.truncate(0)
+                else:
+                    if not closed:
+                        fileobj.close()
+                    os.remove(self.name)
+            else:
+                raise IOError("File %r already exists." % self.name)
+
+    def _open_fileobj(self, fileobj, mode, clobber):
         """Open a FITS file from a file object or a GzipFile object."""
 
         closed = fileobj_closed(fileobj)
         fmode = fileobj_mode(fileobj) or PYFITS_MODES[mode]
 
+        if mode == 'ostream':
+            self._overwrite_existing(clobber, fileobj, closed)
+
         if not closed:
-            # In some cases (like on Python 3) a file opened for appending
-            # still shows a mode of 'r+', hence the extra check for the append
-            # case
-            if ((mode == 'append' and fmode not in ('ab+', 'rb+')) or
-                (mode != 'append' and PYTHON_MODES[mode] != fmode)):
+            # Although we have a specific mapping in PYFITS_MODES from our
+            # custom file modes to raw file object modes, many of the latter
+            # can be used appropriately for the former.  So determine whether
+            # the modes match up appropriately
+            if ((mode in ('readonly', 'denywrite', 'copyonwrite') and
+                    not ('r' in fmode or '+' in fmode)) or
+                    (mode == 'append' and fmode not in ('ab+', 'rb+')) or
+                    (mode == 'ostream' and
+                     not ('w' in fmode or 'a' in fmode or '+' in fmode)) or
+                    (mode == 'update' and fmode not in ('rb+', 'wb+'))):
                 raise ValueError(
                     "Mode argument '%s' does not match mode of the input "
                     "file (%s)." % (mode, fmode))
@@ -313,7 +354,7 @@ class _File(object):
         else:
             self.__file = gzip.open(self.name, PYFITS_MODES[mode])
 
-    def _open_filelike(self, fileobj, mode):
+    def _open_filelike(self, fileobj, mode, clobber):
         """Open a FITS file from a file-like object, i.e. one that has
         read and/or write methods.
         """
@@ -321,53 +362,102 @@ class _File(object):
         self.file_like = True
         self.__file = fileobj
 
+        if fileobj_closed(fileobj):
+            raise IOError("Cannot read from/write to a closed file-like "
+                          "object (%r)." % fileobj)
+
+        if isinstance(fileobj, zipfile.ZipFile):
+            self._open_zipfile(fileobj, mode)
+            self.__file.seek(0)
+            # We can bypass any additional checks at this point since now
+            # self.__file points to the temp file extracted from the zip
+            return
+
         # If there is not seek or tell methods then set the mode to
         # output streaming.
         if (not hasattr(self.__file, 'seek') or
             not hasattr(self.__file, 'tell')):
             self.mode = mode = 'ostream'
 
-        if (self.mode in ('copyonwrite', 'update', 'append') and
+        if mode == 'ostream':
+            self._overwrite_existing(clobber, fileobj, False)
+
+        # Any "writeable" mode requires a write() method on the file object
+        if (self.mode in ('update', 'append', 'ostream') and
             not hasattr(self.__file, 'write')):
             raise IOError("File-like object does not have a 'write' "
                           "method, required for mode '%s'."
                           % self.mode)
 
-        if (self.mode in ('readonly', 'denywrite') and
-            not hasattr(self.__file, 'read')):
+        # Any mode except for 'ostream' requires readability
+        if self.mode != 'ostream' and not hasattr(self.__file, 'read'):
             raise IOError("File-like object does not have a 'read' "
                           "method, required for mode %r."
                           % self.mode)
 
-    def _open_filename(self, filename, mode):
+    def _open_filename(self, filename, mode, clobber):
         """Open a FITS file from a filename string."""
+
+        if mode == 'ostream':
+            self._overwrite_existing(clobber, None, True)
 
         if os.path.exists(self.name):
             with fileobj_open(self.name, 'rb') as f:
                 magic = f.read(4)
         else:
             magic = ''.encode('raw-unicode-escape')
+
         ext = os.path.splitext(self.name)[1]
+
         if ext == '.gz' or magic.startswith(GZIP_MAGIC):
             # Handle gzip files
             self.__file = gzip.open(self.name, PYFITS_MODES[mode])
             self.compression = 'gzip'
         elif ext == '.zip' or magic.startswith(PKZIP_MAGIC):
             # Handle zip files
-            if mode in ['update', 'append']:
-                raise IOError(
-                      "Writing to zipped fits files is not currently "
-                      "supported")
-            zfile = zipfile.ZipFile(self.name)
-            namelist = zfile.namelist()
-            if len(namelist) != 1:
-                raise IOError(
-                  "Zip files with multiple members are not supported.")
-            self.__file = tempfile.NamedTemporaryFile(suffix='.fits')
-            self.__file.write(zfile.read(namelist[0]))
-            zfile.close()
-            self.compression = 'zip'
+            self._open_zipfile(self.name, mode)
         else:
             self.__file = fileobj_open(self.name, PYFITS_MODES[mode])
             # Make certain we're back at the beginning of the file
         self.__file.seek(0)
+
+    def _open_zipfile(self, fileobj, mode):
+        """Limited support for zipfile.ZipFile objects containing a single
+        a file.  Allows reading only for now by extracting the file to a
+        tempfile.
+        """
+
+        if mode in ('update', 'append'):
+            raise IOError(
+                  "Writing to zipped fits files is not currently "
+                  "supported")
+
+        if not isinstance(fileobj, zipfile.ZipFile):
+            zfile = zipfile.ZipFile(fileobj)
+            close = True
+        else:
+            zfile = fileobj
+            close = False
+
+        namelist = zfile.namelist()
+        if len(namelist) != 1:
+            raise IOError(
+              "Zip files with multiple members are not supported.")
+        self.__file = tempfile.NamedTemporaryFile(suffix='.fits')
+        self.__file.write(zfile.read(namelist[0]))
+
+        if close:
+            zfile.close()
+        self.compression = 'zip'
+
+
+def _is_random_access_file_backed(fileobj):
+    """Returns `True` if fileobj is a `file` or `io.FileIO` object or a
+    `gzip.GzipFile` object.
+
+    Although reading from a zip file is supported, this does not include
+    support for random access, and we do not yet support reading directly
+    from an already opened `zipfile.ZipFile` object.
+    """
+
+    return isfile(fileobj) or isinstance(fileobj, gzip.GzipFile)

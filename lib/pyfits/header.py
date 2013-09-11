@@ -11,9 +11,9 @@ import warnings
 from collections import defaultdict
 
 from pyfits.card import Card, CardList, BLANK_CARD, KEYWORD_LENGTH, _pad
-from pyfits.file import _File, PYFITS_MODES
+from pyfits.file import _File
 from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, encode_ascii,
-                         decode_ascii, fileobj_mode, fileobj_is_binary,
+                         decode_ascii, fileobj_is_binary, fileobj_closed,
                          _pad_length)
 
 
@@ -574,34 +574,10 @@ class Header(object):
             If `True`, overwrites the output file if it already exists
         """
 
-        close_file = False
-
-        # check if the output file already exists
-        # TODO: Perhaps this sort of thing could be handled by the _File
-        # initializer...
-        if isinstance(fileobj, basestring):
-            if os.path.exists(fileobj) and os.path.getsize(fileobj) != 0:
-                if clobber:
-                    warnings.warn("Overwriting existing file '%s'." % fileobj)
-                    os.remove(fileobj)
-                else:
-                    raise IOError("File '%s' already exists." % fileobj)
-
-            fileobj = open(fileobj, 'wb')
-            close_file = True
+        close_file = fileobj_closed(fileobj)
 
         if not isinstance(fileobj, _File):
-            # TODO: There needs to be a way of handling this built into the
-            # _File class.  I think maybe there used to be, but I took it out;
-            # now the design is such that it would be better for it to go back
-            # in
-            mode = 'append'
-            fmode = fileobj_mode(fileobj) or 'ab+'
-            for key, val in PYFITS_MODES.iteritems():
-                if val == fmode:
-                    mode = key
-                    break
-            fileobj = _File(fileobj, mode=mode)
+            fileobj = _File(fileobj, mode='ostream', clobber=clobber)
 
         try:
             blocks = self.tostring(sep=sep, endcard=endcard, padding=padding)

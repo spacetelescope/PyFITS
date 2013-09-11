@@ -9,16 +9,16 @@ from numpy import memmap as Memmap
 
 import pyfits
 from pyfits.card import Card
-from pyfits.file import PYFITS_MODES, _File
+from pyfits.file import _File
 from pyfits.hdu import compressed
 from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU, ExtensionHDU
 from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import _TableBaseHDU
-from pyfits.util import (_is_int, _tmp_name, _pad_length, BLOCK_SIZE, isfile,
-                         fileobj_name, fileobj_closed, fileobj_mode,
-                         ignore_sigint, _get_array_mmap, indent)
+from pyfits.util import (_is_int, _tmp_name, _pad_length, BLOCK_SIZE,
+                         ignore_sigint, _get_array_mmap, indent,
+                         fileobj_closed)
 from pyfits.verify import _Verify, _ErrList, VerifyError, VerifyWarning
 
 
@@ -234,7 +234,7 @@ class HDUList(list, _Verify):
         self.close()
 
     @classmethod
-    def fromfile(cls, fileobj, mode='readonly', memmap=False,
+    def fromfile(cls, fileobj, mode=None, memmap=False,
                  save_backup=False, **kwargs):
         """
         Creates an HDUList instance from a file-like object.
@@ -633,39 +633,20 @@ class HDUList(list, _Verify):
 
         self.verify(option=output_verify)
 
-        # check if the file object is closed
-        closed = fileobj_closed(fileobj)
-        fmode = fileobj_mode(fileobj) or 'ab+'
-        filename = fileobj_name(fileobj)
-
-        # check if the output file already exists
-        if (isfile(fileobj) or
-            isinstance(fileobj, (basestring, gzip.GzipFile))):
-            if (os.path.exists(filename) and os.path.getsize(filename) != 0):
-                if clobber:
-                    warnings.warn("Overwriting existing file '%s'." % filename)
-                    if not closed:
-                        fileobj.close()
-                    os.remove(filename)
-                else:
-                    raise IOError("File '%s' already exists." % filename)
-        elif (hasattr(fileobj, 'len') and fileobj.len > 0):
-            if clobber:
-                warnings.warn("Overwriting existing file '%s'." % filename)
-                name.truncate(0)
-            else:
-                raise IOError("File '%s' already exists." % filename)
-
         # make sure the EXTEND keyword is there if there is extension
         self.update_extend()
 
-        mode = 'copyonwrite'
-        for key, val in PYFITS_MODES.iteritems():
-            if val == fmode:
-                mode = key
-                break
+        # make note of whether the input file object is already open, in which
+        # case we should not close it after writing (that should be the job
+        # of the caller)
+        closed = fileobj_closed(fileobj)
 
-        hdulist = fitsopen(fileobj, mode=mode)
+        # writeto is only for writing a new file from scratch, so the most
+        # sensible mode to require is 'ostream'.  This can accept an open
+        # file object that's open to write only, or in append/update modes
+        # but only if the file doesn't exist.
+        fileobj = _File(fileobj, mode='ostream', clobber=clobber)
+        hdulist = self.fromfile(fileobj)
 
         for hdu in self:
             hdu._prewriteto(checksum=checksum)
@@ -673,6 +654,7 @@ class HDUList(list, _Verify):
                 hdu._writeto(hdulist.__file)
             finally:
                 hdu._postwriteto()
+
         hdulist.close(output_verify=output_verify, closed=closed)
 
     def close(self, output_verify='exception', verbose=False, closed=True):
@@ -762,7 +744,7 @@ class HDUList(list, _Verify):
         return None
 
     @classmethod
-    def _readfrom(cls, fileobj=None, data=None, mode='readonly',
+    def _readfrom(cls, fileobj=None, data=None, mode=None,
                   memmap=False, save_backup=False, **kwargs):
         """
         Provides the implementations from HDUList.fromfile and
@@ -771,10 +753,20 @@ class HDUList(list, _Verify):
         """
 
         if fileobj is not None:
-            # instantiate a FITS file object (ffo)
-            ffo = _File(fileobj, mode=mode, memmap=memmap)
+            if not isinstance(fileobj, _File):
+                # instantiate a FITS file object (ffo)
+                ffo = _File(fileobj, mode=mode, memmap=memmap)
+            else:
+                ffo = fileobj
+            # The pyfits mode is determined by the _File initializer if the
+            # supplied mode was None
+            mode = ffo.mode
             hdulist = cls(file=ffo)
         else:
+            if mode is None:
+                # The default mode
+                mode = 'readonly'
+
             hdulist = cls()
             # This method is currently only called from HDUList.fromstring and
             # HDUList.fromfile.  If fileobj is None then this must be the
@@ -790,15 +782,15 @@ class HDUList(list, _Verify):
                 kwargs['disable_image_compression']):
                 compressed.COMPRESSION_ENABLED = False
 
-            if mode == 'ostream':
-                # Output stream--not interested in reading/parsing the
-                # HDUs--just writing to the output file
-                return hdulist
-
             # read all HDUs
             while True:
                 try:
                     if fileobj is not None:
+                        if ffo.writeonly:
+                            # Output stream--not interested in reading/parsing
+                            # the HDUs--just writing to the output file
+                            return hdulist
+
                         try:
                             hdu = _BaseHDU.readfrom(ffo, **kwargs)
                         except EOFError:
