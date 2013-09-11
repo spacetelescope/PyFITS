@@ -57,14 +57,14 @@ import os
 
 import numpy as np
 
-from pyfits.file import PYTHON_MODES, _File
+from pyfits.file import FILE_MODES, _File
 from pyfits.hdu.base import _BaseHDU, _ValidHDU
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
 from pyfits.header import Header
-from pyfits.util import (deprecated, fileobj_closed, fileobj_name, isfile,
-                         _is_int)
+from pyfits.util import (deprecated, fileobj_closed, fileobj_name,
+                         fileobj_mode, fileobj_closed, _is_int)
 
 
 __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
@@ -783,23 +783,14 @@ def _get_file_mode(filename, default='copyonwrite'):
     """
 
     mode = default
-    closed = True
+    closed = fileobj_closed(filename)
 
-    if hasattr(filename, 'closed'):
-        closed = filename.closed
-    elif hasattr(filename, 'fileobj') and filename.fileobj is not None:
-        closed = filename.fileobj.closed
-
-    if (isfile(filename) or
-        isinstance(filename, gzip.GzipFile) and not closed):
-        if isinstance(filename, gzip.GzipFile):
-            file_mode = filename.fileobj.mode
-        else:
-            file_mode = filename.mode
-
-        for key, val in PYTHON_MODES.iteritems():
-            if val == file_mode:
-                mode = key
-                break
+    fmode = fileobj_mode(filename)
+    if fmode is not None:
+        mode = FILE_MODES.get(fmode)
+        if mode is None:
+            raise IOError(
+                "File mode of the input file object (%r) cannot be used to "
+                "read/write FITS files." % fmode)
 
     return mode, closed

@@ -9,7 +9,7 @@ from numpy import memmap as Memmap
 
 import pyfits
 from pyfits.card import Card
-from pyfits.file import PYTHON_MODES, _File
+from pyfits.file import PYFITS_MODES, _File
 from pyfits.hdu import compressed
 from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU, ExtensionHDU
 from pyfits.hdu.compressed import CompImageHDU
@@ -661,7 +661,7 @@ class HDUList(list, _Verify):
         self.update_extend()
 
         mode = 'copyonwrite'
-        for key, val in PYTHON_MODES.iteritems():
+        for key, val in PYFITS_MODES.iteritems():
             if val == fmode:
                 mode = key
                 break

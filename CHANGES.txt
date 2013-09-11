@@ -61,6 +61,11 @@ API Changes
 - The ``.name`` attribute on HDUs is now directly tied to the HDU's header, so
   that if ``.header['EXTNAME']`` changes so does ``.name`` and vice-versa.
 
+- The ``pyfits.file.PYTHON_MODES`` constant dict was renamed to
+  ``pyfits.file.PYFITS_MODES`` which better reflects its purpose.  This is
+  rarely used by client code, however.  Support for the old name will be
+  removed by PyFITS 3.4.
+
 
 Other Changes and Additions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

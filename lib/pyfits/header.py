@@ -11,7 +11,7 @@ import warnings
 from collections import defaultdict
 
 from pyfits.card import Card, CardList, BLANK_CARD, KEYWORD_LENGTH, _pad
-from pyfits.file import _File, PYTHON_MODES
+from pyfits.file import _File, PYFITS_MODES
 from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, encode_ascii,
                          decode_ascii, fileobj_mode, fileobj_is_binary,
                          _pad_length)
@@ -597,7 +597,7 @@ class Header(object):
             # in
             mode = 'append'
             fmode = fileobj_mode(fileobj) or 'ab+'
-            for key, val in PYTHON_MODES.iteritems():
+            for key, val in PYFITS_MODES.iteritems():
                 if val == fmode:
                     mode = key
                     break
