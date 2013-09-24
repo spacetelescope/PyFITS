@@ -185,7 +185,15 @@ class _File(object):
     def read(self, size=None):
         if not hasattr(self.__file, 'read'):
             raise EOFError
-        return self.__file.read(size)
+        try:
+            return self.__file.read(size)
+        except IOError:
+            # On some versions of Python, it appears, GzipFile will raise an
+            # IOError if you try to read past its end (as opposed to just
+            # returning '')
+            if self.compression == 'gzip':
+                return ''
+            raise
 
     def readarray(self, size=None, offset=0, dtype=np.uint8, shape=None):
         """

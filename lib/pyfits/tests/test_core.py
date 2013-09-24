@@ -475,9 +475,14 @@ class TestFileFunctions(PyfitsTestCase):
 
         # Note: when opening a GzipFile the 'b+' is superfluous, but this was
         # still how the original test case looked
-        with gzip.GzipFile(self.temp('test.fits.gz'), 'ab+') as fileobj:
-            h = fits.PrimaryHDU()
+        # Note: with statement not supported on GzipFile in older Python
+        # versions
+        fileobj =  gzip.GzipFile(self.temp('test.fits.gz'), 'ab+')
+        h = fits.PrimaryHDU()
+        try:
             h.writeto(fileobj)
+        finally:
+            fileobj.close()
 
         with fits.open(self.temp('test.fits.gz')) as hdul:
             assert hdul[0].header == h.header
