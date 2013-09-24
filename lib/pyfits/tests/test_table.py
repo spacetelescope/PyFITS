@@ -298,6 +298,7 @@ class TestTableFunctions(PyfitsTestCase):
                 q = toto[1].data.field('QUAL_SPE')
                 assert (q[0][4:8] ==
                         np.array([0, 0, 0, 0], dtype=np.uint8)).all()
+                assert toto[1].columns[0].format.endswith('J(1571)')
 
         for code in ('PJ()', 'QJ()'):
             test(code)
@@ -1567,6 +1568,7 @@ class TestTableFunctions(PyfitsTestCase):
             with ignore_warnings():
                 tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
             with fits.open(self.temp('newtable.fits')) as tbhdu1:
+                assert tbhdu1[1].columns[0].format.endswith('D(2)')
                 for j in range(3):
                     for i in range(len(a[j])):
                         assert tbhdu1[1].data.field(0)[j][i] == a[j][i]
@@ -1584,6 +1586,7 @@ class TestTableFunctions(PyfitsTestCase):
                 tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
 
             with fits.open(self.temp('newtable.fits')) as tbhdu1:
+                assert tbhdu1[1].columns[0].format.endswith('D(2)')
                 for j in range(3):
                     for i in range(len(a[j])):
                         assert tbhdu1[1].data.field(0)[j][i] == a[j][i]
@@ -1601,6 +1604,7 @@ class TestTableFunctions(PyfitsTestCase):
                 tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
 
             with fits.open(self.temp('newtable.fits')) as hdul:
+                assert hdul[1].columns[0].format.endswith('A(3)')
                 for j in range(3):
                     for i in range(len(a[j])):
                         assert hdul[1].data.field(0)[j][i] == a[j][i]
@@ -1617,6 +1621,7 @@ class TestTableFunctions(PyfitsTestCase):
                 tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
 
             with fits.open(self.temp('newtable.fits')) as hdul:
+                assert hdul[1].columns[0].format.endswith('A(3)')
                 for j in range(3):
                     for i in range(len(a[j])):
                         assert hdul[1].data.field(0)[j][i] == a[j][i]
