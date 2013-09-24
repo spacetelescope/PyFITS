@@ -302,7 +302,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
             # update TFORM for variable length columns
             for idx in range(self.data._nfields):
-                if isinstance(self.data._coldefs.formats[idx], _FormatP):
+                if isinstance(self.data._coldefs._recformats[idx], _FormatP):
                     key = 'TFORM' + str(idx + 1)
                     val = self._header[key]
                     val = val[:val.find('(') + 1] + \

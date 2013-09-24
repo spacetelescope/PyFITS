@@ -265,6 +265,7 @@ class TestTableFunctions(PyfitsTestCase):
         toto = pyfits.open(self.temp('toto.fits'))
         q = toto[1].data.field('QUAL_SPE')
         assert_true((q[0][4:8] == np.array([0, 0, 0, 0],dtype=np.uint8)).all())
+        assert toto[1].columns[0].format.endswith('J(1571)')
         toto.close()
 
     def test_extend_variable_length_array(self):
@@ -1496,6 +1497,8 @@ class TestTableFunctions(PyfitsTestCase):
         tbhdu.writeto(self.temp('newtable.fits'))
         tbhdu1 = pyfits.open(self.temp('newtable.fits'))
 
+        assert tbhdu1[1].columns[0].format.endswith('D(2)')
+
         for j in range(0,3):
             for i in range(0,len(a[j])):
                 assert_equal(tbhdu1[1].data.field(0)[j][i], a[j][i])
@@ -1508,6 +1511,8 @@ class TestTableFunctions(PyfitsTestCase):
         tbhdu = pyfits.new_table([acol])
         tbhdu.writeto(self.temp('newtable.fits'))
         tbhdu1 = pyfits.open(self.temp('newtable.fits'))
+
+        assert tbhdu1[1].columns[0].format.endswith('D(2)')
 
         for j in range(0,3):
             for i in range(0,len(a[j])):
@@ -1523,6 +1528,8 @@ class TestTableFunctions(PyfitsTestCase):
         tbhdu.writeto(self.temp('newtable.fits'))
         hdul = pyfits.open(self.temp('newtable.fits'))
 
+        assert hdul[1].columns[0].format.endswith('A(3)')
+
         for j in range(0,3):
             for i in range(0,len(a[j])):
                 assert_equal(hdul[1].data.field(0)[j][i], a[j][i])
@@ -1535,6 +1542,8 @@ class TestTableFunctions(PyfitsTestCase):
         tbhdu = pyfits.new_table([acol])
         tbhdu.writeto(self.temp('newtable.fits'))
         hdul = pyfits.open(self.temp('newtable.fits'))
+
+        assert hdul[1].columns[0].format.endswith('A(3)')
 
         for j in range(0,3):
             for i in range(0,len(a[j])):
