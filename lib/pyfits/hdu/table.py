@@ -313,7 +313,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
             # update TFORM for variable length columns
             for idx in range(self.data._nfields):
-                format = self.data._coldefs.formats[idx]
+                format = self.data._coldefs._recformats[idx]
                 if isinstance(format, _FormatP):
                     _max = self.data.field(idx).max
                     format = _FormatP(format.dtype, repeat=format.repeat,
