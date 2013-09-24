@@ -361,11 +361,13 @@ class _File(object):
             self.__file = fileobj
         elif isfile(fileobj):
             self.__file = fileobj_open(self.name, PYFITS_MODES[mode])
+        else:
+            self.__file = gzip.open(self.name, PYFITS_MODES[mode])
+
+        if 'a' in fmode:
             # Return to the beginning of the file--in Python 3 when opening in
             # append mode the file pointer is at the end of the file
             self.__file.seek(0)
-        else:
-            self.__file = gzip.open(self.name, PYFITS_MODES[mode])
 
     def _open_filelike(self, fileobj, mode, clobber):
         """Open a FITS file from a file-like object, i.e. one that has

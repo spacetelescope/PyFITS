@@ -77,7 +77,8 @@ class FitsHDU(NonstandardExtHDU):
 
         # A proper HDUList should still be padded out to a multiple of 2880
         # technically speaking
-        bs.write(_pad_length(bs.tell()) * cls._padding_byte)
+        padding = (_pad_length(bs.tell()) * cls._padding_byte).encode('ascii')
+        bs.write(padding)
 
         bs.seek(0)
 
