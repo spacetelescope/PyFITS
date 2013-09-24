@@ -364,7 +364,7 @@ class _File(object):
         else:
             self.__file = gzip.open(self.name, PYFITS_MODES[mode])
 
-        if 'a' in fmode:
+        if fmode == 'ab+':
             # Return to the beginning of the file--in Python 3 when opening in
             # append mode the file pointer is at the end of the file
             self.__file.seek(0)
