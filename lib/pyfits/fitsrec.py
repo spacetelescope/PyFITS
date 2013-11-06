@@ -597,13 +597,7 @@ class FITS_rec(np.recarray):
         # TODO: Ick--fix this _tbtype usage eventually...
         if self._coldefs._tbtype == 'TableHDU':
             loc = self._coldefs.starts
-            widths = []
-
-            idx = 0
-            for idx in range(len(self.dtype.names)):
-                f = _convert_ascii_format(self._coldefs.formats[idx])
-                widths.append(f[1])
-            loc.append(loc[-1] + super(FITS_rec, self).field(idx).itemsize)
+            loc.append(loc[-1] + super(FITS_rec, self).field(-1).itemsize)
 
         for indx in range(len(self.dtype.names)):
             recformat = self._coldefs._recformats[indx]
@@ -658,13 +652,14 @@ class FITS_rec(np.recarray):
 
                 # ASCII table, convert numbers to strings
                 if self._coldefs._tbtype == 'TableHDU':
+                    spans = self._coldefs.spans
                     format = self._coldefs.formats[indx].strip()
                     lead = self._coldefs.starts[indx] - loc[indx]
                     if lead < 0:
                         raise ValueError(
                             'Column `%s` starting point overlaps to the '
                             'previous column.' % indx + 1)
-                    trail = (loc[indx + 1] - widths[indx] -
+                    trail = (loc[indx + 1] - spans[indx] -
                              self._coldefs.starts[indx])
                     if trail < 0:
                         raise ValueError(
@@ -685,7 +680,7 @@ class FITS_rec(np.recarray):
                         if len(x) > (loc[indx + 1] - loc[indx]):
                             raise ValueError(
                                 "Number `%s` does not fit into the output's "
-                                "itemsize of %s." % (x, widths[indx]))
+                                "itemsize of %s." % (x, spans[indx]))
                         else:
                             field[jdx] = x
                     # Replace exponent separator in floating point numbers
