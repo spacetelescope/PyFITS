@@ -1,3 +1,4 @@
+import copy
 import operator
 import re
 import sys
@@ -38,6 +39,19 @@ NUMPY2FITS['b1'] = 'L'
 # This is the order in which values are converted to FITS types
 # Note that only double precision floating point/complex are supported
 FORMATORDER = ['L', 'B', 'I', 'J', 'K', 'D', 'M', 'A']
+
+# mapping from ASCII table TFORM data type to numpy data type
+# TODO: Currently the integer type is fixed at 32-bits; in the future this
+# should be flexible enough to support the maximum integer allowable by the
+# field width
+# A: Character
+# I: Integer (32-bit)
+# J: Integer (64-bit; non-standard)
+# F: Float (32-bit; fixed decimal notation)
+# E: Float (32-bit; exponential notation)
+# D: Float (64-bit; exponential notation)
+ASCII2NUMPY = {'A': 'a', 'I': 'i4', 'J': 'i8', 'F': 'f4', 'E': 'f4',
+               'D': 'f8'}
 
 # lists of column/field definition common names and keyword names, make
 # sure to preserve the one-to-one correspondence when updating the list(s).
@@ -546,6 +560,13 @@ class ColDefs(object):
             raise TypeError('Input to ColDefs must be a table HDU or a list '
                             'of Columns.')
 
+    def __copy__(self):
+        return self.__class__(self, self._tbtype)
+
+    def __deepcopy__(self, memo):
+        return self.__class__([copy.deepcopy(c, memo) for c in self.columns],
+                              tbtype=self._tbtype)
+
     def __getattr__(self, name):
         """
         Automatically returns the values for the given keyword attribute for
@@ -890,7 +911,7 @@ class _VLF(np.ndarray):
                 raise ValueError('Inconsistent input data array: %s' % input)
 
         a = np.array(input, dtype=np.object)
-        self = np.ndarray.__new__(cls, shape=(len(input)), buffer=a,
+        self = np.ndarray.__new__(cls, shape=(len(input),), buffer=a,
                                   dtype=np.object)
         self.max = 0
         self.element_dtype = dtype
@@ -1258,14 +1279,12 @@ def _convert_format(format, reverse=False):
 def _convert_ascii_format(input_format):
     """Convert ASCII table format spec to record format spec."""
 
-    ascii2rec = {'A': 'a', 'I': 'i4', 'J': 'i8', 'F': 'f4', 'E': 'f4',
-                 'D': 'f8'}
     _re = re.compile(r'(?P<dtype>[AIJFED])(?P<width>[0-9]*)')
 
     # Parse the TFORM value into data type and width.
     try:
         (dtype, width) = _re.match(input_format.strip()).groups()
-        dtype = ascii2rec[dtype]
+        dtype = ASCII2NUMPY[dtype]
         if width == '':
             width = None
         else:

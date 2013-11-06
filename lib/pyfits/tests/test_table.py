@@ -91,7 +91,6 @@ def comparerecords(a, b):
 
 
 class TestTableFunctions(PyfitsTestCase):
-
     def test_constructor_copies_header(self):
         """
         Regression test for https://trac.assembla.com/pyfits/ticket/153
