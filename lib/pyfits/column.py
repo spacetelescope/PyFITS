@@ -264,7 +264,9 @@ class _FormatX(str):
 class _FormatP(str):
     """For P format in variable length table."""
 
-    _format_re_template = (r'(?P<repeat>\d+)?%s(?P<dtype>[A-Z])'
+    # As far as I can tell from my reading of the FITS standard, a type code is
+    # *required* for P and Q formats; there is no default
+    _format_re_template = (r'(?P<repeat>\d+)?%s(?P<dtype>[LXBIJKAEDCM])'
                             '(?:\((?P<max>\d*)\))?')
     _format_code = 'P'
     _format_re = re.compile(_format_re_template % _format_code)
@@ -272,6 +274,7 @@ class _FormatP(str):
 
     def __new__(cls, dtype, repeat=None, max=None):
         obj = super(_FormatP, cls).__new__(cls, cls._descriptor_format)
+        obj.format = NUMPY2FITS[dtype]
         obj.dtype = dtype
         obj.repeat = repeat
         obj.max = max
@@ -293,8 +296,7 @@ class _FormatP(str):
     def tform(self):
         repeat = '' if self.repeat is None else self.repeat
         max = '' if self.max is None else self.max
-        return '%s%s%s(%s)' % (repeat, self._format_code,
-                               NUMPY2FITS[self.dtype], max)
+        return '%s%s%s(%s)' % (repeat, self._format_code, self.format, max)
 
 
 class _FormatQ(_FormatP):
