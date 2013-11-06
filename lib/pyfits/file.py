@@ -2,7 +2,6 @@ from __future__ import division, with_statement
 
 import gzip
 import os
-import sys
 import tempfile
 import urllib
 import warnings

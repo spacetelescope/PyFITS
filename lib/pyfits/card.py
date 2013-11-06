@@ -1,14 +1,12 @@
 import copy
 import re
-import string
-import sys
 import warnings
 
 import numpy as np
 
 import pyfits
 from pyfits.util import (_str_to_num, _is_int, deprecated, maketrans,
-                         translate, _words_group, lazyproperty)
+                         translate, _words_group)
 from pyfits.verify import _Verify, _ErrList, VerifyError, VerifyWarning
 
 

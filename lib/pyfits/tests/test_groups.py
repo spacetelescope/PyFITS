@@ -4,7 +4,6 @@ import os
 import time
 
 import numpy as np
-from numpy import char as chararray
 
 from nose.tools import assert_raises
 

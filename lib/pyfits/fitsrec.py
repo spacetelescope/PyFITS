@@ -1,14 +1,13 @@
 import operator
-import sys
 import warnings
 import weakref
 
 import numpy as np
 
-from pyfits.column import (ASCIITNULL, FITS2NUMPY, Column, ColDefs, _FormatX,
+from pyfits.column import (ASCIITNULL, FITS2NUMPY, ColDefs, _FormatX,
                            _FormatP, _VLF, _get_index, _wrapx, _unwrapx,
                            _convert_ascii_format)
-from pyfits.util import _array_from_file, decode_ascii, lazyproperty
+from pyfits.util import decode_ascii, lazyproperty
 
 
 class FITS_record(object):

@@ -3,7 +3,6 @@ from __future__ import division
 import copy
 import inspect
 import itertools
-import os
 import re
 import sys
 import warnings

@@ -11,28 +11,19 @@ import fnmatch
 import functools
 import glob
 import inspect
-import os
 import textwrap
 
 from collections import defaultdict
 from itertools import islice, izip
 
-try:
-    from functools import reduce
-except ImportError:
-    # Python versions (i.e. 2.5) that don't have functools.reduce will have the
-    # reduce() builtin
-    pass
-
 import numpy as np
-from numpy import char
 
 import pyfits
 from pyfits.card import Card, BLANK_CARD
 from pyfits.header import Header
 from pyfits.hdu.hdulist import fitsopen
 from pyfits.hdu.table import _TableLikeHDU
-from pyfits.util import StringIO, indent
+from pyfits.util import StringIO, indent, reduce
 
 
 __all__ = ['FITSDiff', 'HDUDiff', 'HeaderDiff', 'ImageDataDiff', 'RawDataDiff',

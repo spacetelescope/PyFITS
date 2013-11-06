@@ -4,8 +4,6 @@ import pyfits as fits
 
 from pyfits.tests import PyfitsTestCase
 
-from nose.tools import assert_equal, assert_true
-
 
 class TestNonstandardHdus(PyfitsTestCase):
     def test_create_fitshdu(self):

@@ -52,7 +52,6 @@ explanation of all the different formats.
 """
 
 
-import gzip
 import os
 
 import numpy as np

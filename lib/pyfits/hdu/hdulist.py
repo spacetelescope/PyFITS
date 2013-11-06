@@ -4,21 +4,13 @@ import shutil
 import sys
 import warnings
 
-import numpy as np
-from numpy import memmap as Memmap
-
-import pyfits
-from pyfits.card import Card
 from pyfits.file import _File
 from pyfits.hdu import compressed
 from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU, ExtensionHDU
-from pyfits.hdu.compressed import CompImageHDU
 from pyfits.hdu.groups import GroupsHDU
 from pyfits.hdu.image import PrimaryHDU, ImageHDU
-from pyfits.hdu.table import _TableBaseHDU
-from pyfits.util import (_is_int, _tmp_name, _pad_length, BLOCK_SIZE,
-                         ignore_sigint, _get_array_mmap, indent,
-                         fileobj_closed)
+from pyfits.util import (_is_int, _tmp_name, _pad_length, ignore_sigint,
+                         _get_array_mmap, indent, fileobj_closed)
 from pyfits.verify import _Verify, _ErrList, VerifyError, VerifyWarning
 
 
