@@ -210,7 +210,7 @@ class Header(object):
                     raise KeyError("Keyword '%s' not found." % key)
                 # Warn everyone else.
                 # TODO: Remove this warning and make KeyError the default after
-                # a couple versions (by 3.2 or 3.3, say)
+                # a couple versions (by 3.3, say)
                 warnings.warn(
                     'Deletion of non-existent keyword %r: '
                     'In a future PyFITS version Header.__delitem__ may be '
