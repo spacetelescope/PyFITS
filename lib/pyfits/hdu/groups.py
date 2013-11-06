@@ -5,7 +5,8 @@ from pyfits.column import Column, ColDefs, FITS2NUMPY
 from pyfits.fitsrec import FITS_rec, FITS_record
 from pyfits.hdu.image import _ImageBaseHDU, PrimaryHDU
 from pyfits.hdu.table import _TableLikeHDU
-from pyfits.util import lazyproperty, _is_int, _is_pseudo_unsigned
+from pyfits.util import (lazyproperty, _is_int, _is_pseudo_unsigned,
+                         _unsigned_zero)
 
 
 class Group(FITS_record):
@@ -89,7 +90,7 @@ class GroupData(FITS_rec):
 
     _record_type = Group
 
-    def __new__(subtype, input=None, bitpix=None, pardata=None, parnames=[],
+    def __new__(cls, input=None, bitpix=None, pardata=None, parnames=[],
                 bscale=None, bzero=None, parbscales=None, parbzeros=None):
         """
         Parameters
@@ -160,7 +161,7 @@ class GroupData(FITS_rec):
 
             coldefs = ColDefs(cols)
 
-            self = FITS_rec.__new__(subtype,
+            self = FITS_rec.__new__(cls,
                                     np.rec.array(None,
                                                  formats=formats,
                                                  names=coldefs.names,
@@ -181,7 +182,7 @@ class GroupData(FITS_rec):
             else:
                 np.rec.recarray.field(self, npars)[:] = input
         else:
-            self = FITS_rec.__new__(subtype, input)
+            self = FITS_rec.__new__(cls, input)
             self.parnames = None
         return self
 
@@ -236,7 +237,7 @@ class GroupsHDU(PrimaryHDU, _TableLikeHDU):
     _width2format = {8: 'B', 16: 'I', 32: 'J', 64: 'K', -32: 'E', -64: 'D'}
     _data_type = GroupData
 
-    def __init__(self, data=None, header=None, name=None):
+    def __init__(self, data=None, header=None):
         """
         TODO: Write me
         """

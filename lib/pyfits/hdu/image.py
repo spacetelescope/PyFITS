@@ -718,15 +718,14 @@ class Section(object):
 
     def _getdata(self, keys):
         out = []
-        naxis = len(self.hdu.shape)
 
         # Determine the number of slices in the set of input keys.
         # If there is only one slice then the result is a one dimensional
         # array, otherwise the result will be a multidimensional array.
-        numSlices = 0
+        n_slices = 0
         for idx, key in enumerate(keys):
             if isinstance(key, slice):
-                numSlices = numSlices + 1
+                n_slices = n_slices + 1
 
         for idx, key in enumerate(keys):
             if isinstance(key, slice):
@@ -740,7 +739,7 @@ class Section(object):
                     key1[idx] = k
                     key1 = tuple(key1)
 
-                    if numSlices > 1:
+                    if n_slices > 1:
                         # This is not the only slice in the list of keys so
                         # we simply get the data for this section and append
                         # it to the list that is output.  The out variable will

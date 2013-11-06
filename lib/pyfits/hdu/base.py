@@ -1420,7 +1420,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         Calculate the value of the ``CHECKSUM`` card in the HDU.
         """
 
-        oldChecksum = self._header[checksum_keyword]
+        old_checksum = self._header[checksum_keyword]
         self._header[checksum_keyword] = '0' * 16
 
         # Convert the header to a string.
@@ -1434,7 +1434,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         s = self._char_encode(~cs)
 
         # Return the header card value.
-        self._header[checksum_keyword] = oldChecksum
+        self._header[checksum_keyword] = old_checksum
 
         return s
 

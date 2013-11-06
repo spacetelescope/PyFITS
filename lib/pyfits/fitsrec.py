@@ -360,7 +360,6 @@ class FITS_rec(np.recarray):
                 self._get_scale_factors(indx)
 
             # for P format
-            buff = None
             if isinstance(recformat, _FormatP):
                 dummy = _VLF([None] * len(self), dtype=recformat.dtype)
                 raw_data = self._get_raw_data()
@@ -575,7 +574,7 @@ class FITS_rec(np.recarray):
                 _wrapx(self._convert[indx], field, recformat.repeat)
                 continue
 
-            (_str, _bool, _number, _scale, _zero, bscale, bzero, dim) = \
+            _str, _bool, _number, _scale, _zero, bscale, bzero, _ = \
                 self._get_scale_factors(indx)
 
             # add the location offset of the heap area for each
@@ -587,7 +586,7 @@ class FITS_rec(np.recarray):
                     self._heapsize = 0
 
                 field[:] = 0  # reset
-                npts = map(len, self._convert[indx])
+                npts = [len(arr) for arr in self._convert[indx]]
 
                 # Irritatingly, this can return a different dtype than just
                 # doing np.dtype(recformat.dtype); but this returns the results

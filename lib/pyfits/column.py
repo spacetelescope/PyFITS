@@ -367,7 +367,8 @@ class Column(object):
     def __hash__(self):
         """
         Like __eq__, the hash of a column should be based on the unique column
-        name and format, and be case-insensitive with respect to the column name.
+        name and format, and be case-insensitive with respect to the column
+        name.
         """
 
         return hash((self.name.lower(), self.format))
@@ -800,7 +801,7 @@ class ColDefs(object):
                 if attr not in KEYWORD_ATTRIBUTES:
                     output.write("'%s' is not an attribute of the column "
                                  "definitions.\n" % attr)
-                continue
+                    continue
                 output.write("%s:\n" % attr)
                 output.write('    %s\n' % getattr(self, attr + 's'))
             else:
@@ -824,7 +825,7 @@ class _ASCIIColDefs(ColDefs):
         # if the format of an ASCII column has no width, add one
         if not isinstance(input, _ASCIIColDefs):
             for col in self.columns:
-                (type, width) = _convert_ascii_format(col.format)
+                _, width = _convert_ascii_format(col.format)
                 if width is None:
                     col.format = self._ascii_fmt[col.format]
 
@@ -835,7 +836,7 @@ class _ASCIIColDefs(ColDefs):
         end = 0
         spans = [0] * len(self)
         for idx in range(len(self)):
-            format, width = _convert_ascii_format(self.formats[idx])
+            _, width = _convert_ascii_format(self.formats[idx])
             if not self.starts[idx]:
                 self.starts[idx] = end + 1
             end = self.starts[idx] + width - 1
@@ -853,6 +854,8 @@ class _ASCIIColDefs(ColDefs):
         # instantiated with a _TableHDU object; make sure that's the only
         # context in which this is used, for now...
         # Touch spans to make sure self.starts is set
+        # TODO: Refactor so that this isn't necessary, as it clearly should not
+        # be...
         self.spans
         widths.append(self._width - self.starts[-1] + 1)
         return ['a' + str(w) for w in widths]
@@ -883,7 +886,7 @@ class _VLF(np.ndarray):
             try:
                 # this handles ['abc'] and [['a','b','c']]
                 # equally, beautiful!
-                input = map(lambda x: chararray.array(x, itemsize=1), input)
+                input = [chararray.array(x, itemsize=1) for x in input]
             except:
                 raise ValueError('Inconsistent input data array: %s' % input)
 

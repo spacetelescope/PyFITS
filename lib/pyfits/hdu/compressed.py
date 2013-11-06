@@ -12,7 +12,7 @@ from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
 from pyfits.header import Header
 from pyfits.util import (lazyproperty, _is_pseudo_unsigned, _unsigned_zero,
-                         BLOCK_SIZE, deprecated, _is_int)
+                         deprecated, _is_int)
 
 try:
     from pyfits import compression
@@ -533,14 +533,14 @@ class CompImageHDU(BinTableHDU):
         if image_header:
             bzero = image_header.get('BZERO', 0.0)
             bscale = image_header.get('BSCALE', 1.0)
-            afterCard = 'EXTNAME'
+            after_keyword = 'EXTNAME'
 
             if bscale != 1.0:
-                self._header.set('BSCALE', bscale, after=afterCard)
-                afterCard = 'BSCALE'
+                self._header.set('BSCALE', bscale, after=after_keyword)
+                after_keyword = 'BSCALE'
 
             if bzero != 0.0:
-                self._header.set('BZERO', bzero, after=afterCard)
+                self._header.set('BZERO', bzero, after=after_keyword)
 
             bitpix_comment = image_header.comments['BITPIX']
             naxis_comment = image_header.comments['NAXIS']
@@ -595,15 +595,15 @@ class CompImageHDU(BinTableHDU):
                 # Q format is not supported for UNCOMPRESSED_DATA columns.
                 ttype2 = 'UNCOMPRESSED_DATA'
                 if zbitpix == 8:
-                    tform = '1QB' if huge_hdu else '1PB'
+                    tform2 = '1QB' if huge_hdu else '1PB'
                 elif zbitpix == 16:
-                    tform = '1QI' if huge_hdu else '1PI'
+                    tform2 = '1QI' if huge_hdu else '1PI'
                 elif zbitpix == 32:
-                    tform = '1QJ' if huge_hdu else '1PJ'
+                    tform2 = '1QJ' if huge_hdu else '1PJ'
                 elif zbitpix == -32:
-                    tform = '1QE' if huge_hdu else '1PE'
+                    tform2 = '1QE' if huge_hdu else '1PE'
                 else:
-                    tform = '1QD' if huge_hdu else '1PD'
+                    tform2 = '1QD' if huge_hdu else '1PD'
 
             # Set up the second column for the table that will hold any
             # uncompressable data.
@@ -646,10 +646,10 @@ class CompImageHDU(BinTableHDU):
 
             # remove any header cards for the additional columns that
             # may be left over from the previous data
-            keyList = ['TTYPE2', 'TFORM2', 'TTYPE3', 'TFORM3', 'TTYPE4',
-                       'TFORM4']
+            to_remove = ['TTYPE2', 'TFORM2', 'TTYPE3', 'TFORM3', 'TTYPE4',
+                         'TFORM4']
 
-            for k in keyList:
+            for k in to_remove:
                 try:
                     del self._header[k]
                 except KeyError:
@@ -881,12 +881,12 @@ class CompImageHDU(BinTableHDU):
         # Finally, put the appropriate keywords back based on the
         # compression type.
 
-        afterCard = 'ZCMPTYPE'
+        after_keyword = 'ZCMPTYPE'
         idx = 1
 
         if compression_type == 'RICE_1':
             self._header.set('ZNAME1', 'BLOCKSIZE', 'compression block size',
-                             after=afterCard)
+                             after=after_keyword)
             self._header.set('ZVAL1', DEFAULT_BLOCK_SIZE, 'pixels per block',
                              after='ZNAME1')
 
@@ -903,24 +903,24 @@ class CompImageHDU(BinTableHDU):
             self._header.set('ZVAL2', bytepix,
                              'bytes per pixel (1, 2, 4, or 8)',
                              after='ZNAME2')
-            afterCard = 'ZVAL2'
+            after_keyword = 'ZVAL2'
             idx = 3
         elif compression_type == 'HCOMPRESS_1':
             self._header.set('ZNAME1', 'SCALE', 'HCOMPRESS scale factor',
-                             after=afterCard)
+                             after=after_keyword)
             self._header.set('ZVAL1', hcomp_scale, 'HCOMPRESS scale factor',
                              after='ZNAME1')
             self._header.set('ZNAME2', 'SMOOTH', 'HCOMPRESS smooth option',
                              after='ZVAL1')
             self._header.set('ZVAL2', hcomp_smooth, 'HCOMPRESS smooth option',
                              after='ZNAME2')
-            afterCard = 'ZVAL2'
+            after_keyword = 'ZVAL2'
             idx = 3
 
         if self._image_header['BITPIX'] < 0:   # floating point image
             self._header.set('ZNAME' + str(idx), 'NOISEBIT',
                              'floating point quantization level',
-                             after=afterCard)
+                             after=after_keyword)
             self._header.set('ZVAL' + str(idx), quantize_level,
                              'floating point quantization level',
                              after='ZNAME' + str(idx))
@@ -1127,10 +1127,10 @@ class CompImageHDU(BinTableHDU):
     @data.setter
     def data(self, data):
         if (data is not None) and (not isinstance(data, np.ndarray) or
-           data.dtype.fields is not None):
-                raise TypeError('CompImageHDU data has incorrect type:%s; '
-                                'dtype.fields = %s' %
-                                (type(data), data.dtype.fields))
+                data.dtype.fields is not None):
+            raise TypeError('CompImageHDU data has incorrect type:%s; '
+                            'dtype.fields = %s' %
+                            (type(data), data.dtype.fields))
 
     @lazyproperty
     def compressed_data(self):
@@ -1574,7 +1574,6 @@ class CompImageHDU(BinTableHDU):
                 else:
                     _min = np.minimum.reduce(self.data.flat)
                     _max = np.maximum.reduce(self.data.flat)
-                    self.data.shape = dims
 
                     if _type == np.uint8:  # uint8 case
                         _zero = _min

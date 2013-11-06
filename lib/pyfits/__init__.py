@@ -36,7 +36,7 @@ __all__ = pyfits.core.__all__
 try:
     import stsci.tools.tester
 
-    def test(*args,**kwds):
+    def test(*args, **kwds):
         stsci.tools.tester.test(modname=__name__, *args, **kwds)
 except ImportError:
     pass

@@ -607,6 +607,8 @@ def tabledump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
     # Create the default data file name if one was not provided
 
     if not datafile:
+        # TODO: Really need to provide a better way to access the name of any
+        # files underlying an HDU
         root, tail = os.path.splitext(f._HDUList__file.name)
         datafile = root + '_' + repr(ext) + '.txt'
 
@@ -711,12 +713,12 @@ def _getext(filename, mode, *args, **kwargs):
         raise TypeError('Too many positional arguments.')
 
     if (ext is not None and
-        not (_is_int(ext) or
-             (isinstance(ext, tuple) and len(ext) == 2 and
-              isinstance(ext[0], basestring) and _is_int(ext[1])))):
-            raise ValueError(
-                'The ext keyword must be either an extension number '
-                '(zero-indexed) or a (extname, extver) tuple.')
+            not (_is_int(ext) or
+                 (isinstance(ext, tuple) and len(ext) == 2 and
+                  isinstance(ext[0], basestring) and _is_int(ext[1])))):
+        raise ValueError(
+            'The ext keyword must be either an extension number '
+            '(zero-indexed) or a (extname, extver) tuple.')
     if extname is not None and not isinstance(extname, basestring):
         raise ValueError('The extname argument must be a string.')
     if extver is not None and not _is_int(extver):

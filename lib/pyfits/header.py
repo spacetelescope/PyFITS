@@ -1905,7 +1905,7 @@ class Header(object):
                         not (card.keyword == '' and card.value == '')):
                     # Don't add duplicate commentary cards (though completely
                     # blank cards are allowed to be duplicated)
-                    for idx, c in enumerate(self.cards):
+                    for c in self.cards:
                         if c.keyword == card.keyword and c.value == card.value:
                             break
                     else:

@@ -379,7 +379,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         cols = self.columns
         append = self._header.append
 
-        for idx, col in enumerate(cols):
+        for idx in range(len(cols)):
             for attr, keyword in zip(KEYWORD_ATTRIBUTES, KEYWORD_NAMES):
                 val = getattr(cols, attr + 's')[idx]
                 if val:
@@ -581,7 +581,7 @@ class BinTableHDU(_TableBaseHDU):
                     # deal with var length table
                     if isinstance(recformat, _FormatP):
                         coldata = self.data.field(idx)
-                        for jdx, c in enumerate(coldata):
+                        for c in coldata:
                             if (not isinstance(c, chararray.chararray) and
                                 c.itemsize > 1 and
                                     c.dtype.str[0] in swap_types):
@@ -623,7 +623,7 @@ class BinTableHDU(_TableBaseHDU):
         cols = self.columns
         append = self._header.append
 
-        for idx, col in enumerate(cols):
+        for idx in range(len(cols)):
             for attr, keyword in zip(KEYWORD_ATTRIBUTES, KEYWORD_NAMES):
                 val = getattr(cols, attr + 's')[idx]
                 if val:
@@ -852,7 +852,7 @@ class BinTableHDU(_TableBaseHDU):
         """
 
         if not fileobj and self._file:
-            root, ext = os.path.splitext(self._file.name)
+            root = os.path.splitext(self._file.name)[0]
             fileobj = root + '.txt'
 
         close_file = False
@@ -892,7 +892,7 @@ class BinTableHDU(_TableBaseHDU):
                     # for the VLA data
                     line.append('VLA_Length=')
                     line.append('%-21d' % len(row[column.name]))
-                    repeat, dtype, option = _parse_tformat(column.format)
+                    _, dtype, option = _parse_tformat(column.format)
                     vla_format = FITS2NUMPY[option[0]][0]
 
                 if vla_format:
