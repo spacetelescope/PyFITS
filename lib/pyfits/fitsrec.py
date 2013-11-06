@@ -350,7 +350,7 @@ class FITS_rec(np.recarray):
         if self._convert[indx] is None:
             # for X format
             if isinstance(recformat, _FormatX):
-                _nx = recformat._nx
+                _nx = recformat.repeat
                 dummy = np.zeros(self.shape + (_nx,), dtype=np.bool_)
                 _unwrapx(field, dummy, _nx)
                 self._convert[indx] = dummy
@@ -572,7 +572,7 @@ class FITS_rec(np.recarray):
                 continue
 
             if isinstance(recformat, _FormatX):
-                _wrapx(self._convert[indx], field, recformat._nx)
+                _wrapx(self._convert[indx], field, recformat.repeat)
                 continue
 
             (_str, _bool, _number, _scale, _zero, bscale, bzero, dim) = \

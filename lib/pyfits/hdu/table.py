@@ -630,9 +630,7 @@ class BinTableHDU(_TableBaseHDU):
                     keyword = keyword + str(idx + 1)
                     if attr == 'format':
                         val = cols._recformats[idx]
-                        if isinstance(val, _FormatX):
-                            val = repr(val._nx) + 'X'
-                        elif isinstance(val, _FormatP):
+                        if isinstance(val, (_FormatX, _FormatP)):
                             val = val.tform
                         else:
                             val = _convert_format(val, reverse=True)
@@ -1226,8 +1224,8 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
             # column to the new FITS_rec data array for this column.
             if isinstance(recformat, _FormatX):
                 # Data is a bit array
-                if arr[:n].shape[-1] == recformat._nx:
-                    _wrapx(arr[:n], field[:n], recformat._nx)
+                if arr[:n].shape[-1] == recformat.repeat:
+                    _wrapx(arr[:n], field[:n], recformat.repeat)
                 else:
                     # from a table parent data, just pass it
                     field[:n] = arr[:n]

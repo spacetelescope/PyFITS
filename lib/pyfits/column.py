@@ -145,7 +145,16 @@ class _ColumnFormat(str):
 class _FormatX(str):
     """For X format in binary tables."""
 
-    pass
+    def __new__(cls, repeat=1):
+        nbytes = ((repeat - 1) // 8) + 1
+        # use an array, even if it is only ONE u1 (i.e. use tuple always)
+        obj = super(_FormatX, cls).__new__(cls, repr((nbytes,)) + 'u1')
+        obj.repeat = repeat
+        return obj
+
+    @property
+    def tform(self):
+        return '%sX' % self.repeat
 
 
 # TODO: Table column formats need to be verified upon first reading the file;
@@ -955,7 +964,7 @@ def _get_index(names, key):
     return indx
 
 
-def _unwrapx(input, output, nx):
+def _unwrapx(input, output, repeat):
     """
     Unwrap the X format column into a Boolean array.
 
@@ -965,43 +974,43 @@ def _unwrapx(input, output, nx):
         input ``Uint8`` array of shape (`s`, `nbytes`)
 
     output
-        output Boolean array of shape (`s`, `nx`)
+        output Boolean array of shape (`s`, `repeat`)
 
-    nx
+    repeat
         number of bits
     """
 
     pow2 = np.array([128, 64, 32, 16, 8, 4, 2, 1], dtype='uint8')
-    nbytes = ((nx - 1) // 8) + 1
+    nbytes = ((repeat - 1) // 8) + 1
     for i in range(nbytes):
         _min = i * 8
-        _max = min((i + 1) * 8, nx)
+        _max = min((i + 1) * 8, repeat)
         for j in range(_min, _max):
             output[..., j] = np.bitwise_and(input[..., i], pow2[j - i * 8])
 
 
-def _wrapx(input, output, nx):
+def _wrapx(input, output, repeat):
     """
     Wrap the X format column Boolean array into an ``UInt8`` array.
 
     Parameters
     ----------
     input
-        input Boolean array of shape (`s`, `nx`)
+        input Boolean array of shape (`s`, `repeat`)
 
     output
         output ``Uint8`` array of shape (`s`, `nbytes`)
 
-    nx
+    repeat
         number of bits
     """
 
     output[...] = 0  # reset the output
-    nbytes = ((nx - 1) // 8) + 1
-    unused = nbytes * 8 - nx
+    nbytes = ((repeat - 1) // 8) + 1
+    unused = nbytes * 8 - repeat
     for i in range(nbytes):
         _min = i * 8
-        _max = min((i + 1) * 8, nx)
+        _max = min((i + 1) * 8, repeat)
         for j in range(_min, _max):
             if j != _min:
                 np.left_shift(output[..., i], 1, output[..., i])
@@ -1176,11 +1185,7 @@ def _convert_fits2record(format):
             output_format = repeat_str + FITS2NUMPY[dtype]
 
     elif dtype == 'X':
-        nbytes = ((repeat - 1) // 8) + 1
-        # use an array, even if it is only ONE u1 (i.e. use tuple always)
-        output_format = _FormatX(repr((nbytes,)) + 'u1')
-        output_format._nx = repeat
-
+        output_format = _FormatX(repeat)
     elif dtype == 'P':
         output_format = _FormatP.from_tform(format)
     elif dtype == 'Q':
