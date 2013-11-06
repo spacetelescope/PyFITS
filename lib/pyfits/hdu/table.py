@@ -14,7 +14,7 @@ from numpy import char as chararray
 # has fewer dependencies overall, so it's easier to keep table/column-related
 # utilities in pyfits.column
 from pyfits.column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES,
-                           TDEF_RE, Column, ColDefs, _ASCIIColDefs,
+                           TDEF_RE, Column, ColDefs, _AsciiColDefs,
                            _FormatX, _FormatP, _FormatQ, _wrapx, _makep, _VLF,
                            _parse_tformat, _scalar_to_format, _convert_format,
                            _cmp_recformats)
@@ -417,8 +417,8 @@ class TableHDU(_TableBaseHDU):
     def __init__(self, data=None, header=None, name=None):
         super(TableHDU, self).__init__(data, header, name=name)
         if (self._has_data and
-                not isinstance(self.data._coldefs, _ASCIIColDefs)):
-            self.data._coldefs = _ASCIIColDefs(self.data._coldefs)
+                not isinstance(self.data._coldefs, _AsciiColDefs)):
+            self.data._coldefs = _AsciiColDefs(self.data._coldefs)
             self.columns = self.data._coldefs
             self.update()
 

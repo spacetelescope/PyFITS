@@ -580,12 +580,12 @@ class ColDefs(object):
         if tbtype == 'BinTableHDU':
             klass = cls
         elif tbtype == 'TableHDU':
-            klass = _ASCIIColDefs
+            klass = _AsciiColDefs
         else:
             raise ValueError('Invalid table type: %s.' % tbtype)
 
         if isinstance(input, TableHDU):
-            klass = _ASCIIColDefs
+            klass = _AsciiColDefs
 
         return object.__new__(klass)
 
@@ -985,17 +985,17 @@ class ColDefs(object):
             return ret
 
 
-class _ASCIIColDefs(ColDefs):
+class _AsciiColDefs(ColDefs):
     """ColDefs implementation for ASCII tables."""
 
     _padding_byte = ' '
     _col_format_cls = _AsciiColumnFormat
 
     def __init__(self, input, tbtype='TableHDU'):
-        super(_ASCIIColDefs, self).__init__(input, tbtype)
+        super(_AsciiColDefs, self).__init__(input, tbtype)
 
         # if the format of an ASCII column has no width, add one
-        if not isinstance(input, _ASCIIColDefs):
+        if not isinstance(input, _AsciiColDefs):
             self._update_field_metrics()
         else:
             self.starts[:] = input.starts
@@ -1033,11 +1033,11 @@ class _ASCIIColDefs(ColDefs):
         return ['a' + str(w) for w in widths]
 
     def add_col(self, column):
-        super(_ASCIIColDefs, self).add_col(column)
+        super(_AsciiColDefs, self).add_col(column)
         self._update_field_metrics()
 
     def del_col(self, col_name):
-        super(_ASCIIColDefs, self).del_col(col_name)
+        super(_AsciiColDefs, self).del_col(col_name)
         self._update_field_metrics()
 
     def _update_field_metrics(self):
