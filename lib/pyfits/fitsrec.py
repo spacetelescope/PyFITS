@@ -671,7 +671,13 @@ class FITS_rec(np.recarray):
                     dim = None
 
         # further conversion for both ASCII and binary tables
-        if _number and (_scale or _zero):
+        # For now we've made columns responsible for *knowing* whether their
+        # data has been scaled, but we make the FITS_rec class responsible for
+        # actually doing the scaling
+        # TODO: This also needs to be fixed in the effort to make Columns
+        # responsible for scaling their arrays to/from FITS native values
+        column = self._coldefs[indx]
+        if (_number and (_scale or _zero) and not column._physical_values):
             field = np.array(field, dtype=np.float64)
             if _scale:
                 np.multiply(field, bscale, field)
@@ -807,12 +813,17 @@ class FITS_rec(np.recarray):
 
             # conversion for both ASCII and binary tables
             if _number or _str:
-                if _number and (_scale or _zero):
+                column = self._coldefs[indx]
+                if _number and (_scale or _zero) and column._physical_values:
                     dummy = self._convert[indx].copy()
                     if _zero:
                         dummy -= bzero
                     if _scale:
                         dummy /= bscale
+                    # This will set the raw values in the recarray back to
+                    # their non-physical storage values, so the column should
+                    # be mark is not scaled
+                    column._physical_values = False
                 elif _str:
                     dummy = self._convert[indx]
                 elif isinstance(self._coldefs, _AsciiColDefs):

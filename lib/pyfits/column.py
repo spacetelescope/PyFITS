@@ -548,15 +548,16 @@ class Column(object):
                         raise ValueError('Data is inconsistent with the '
                                          'format `%s`.' % format)
 
-        # scale the array back to storage values if there is bscale/bzero
-        if isinstance(array, np.ndarray):
-            # make a copy if scaled, so as not to corrupt the original array
-            if bzero not in ('', None, 0):
-                array = array - bzero
-            if bscale not in ('', None, 1):
-                array = array / bscale
-
         array = self._convert_to_valid_data_type(array)
+
+        # We have required (through documentation) that arrays passed in to
+        # this constructor are already in their physical values, so we make
+        # note of that here
+        if isinstance(array, np.ndarray):
+            self._physical_values = True
+        else:
+            self._physical_values = False
+
         self.array = array
 
     def __repr__(self):
