@@ -7,7 +7,7 @@ import numpy as np
 
 from pyfits.column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ASCII2STR,
                            ColDefs, _FormatX, _FormatP, _VLF, _get_index,
-                           _wrapx, _unwrapx, _convert_ascii_format)
+                           _wrapx, _unwrapx, _convert_ascii_format, Delayed)
 from pyfits.util import decode_ascii, lazyproperty
 
 
@@ -227,6 +227,69 @@ class FITS_rec(np.recarray):
             if self._coldefs is None:
                 self._coldefs = ColDefs(self)
             self.formats = self._coldefs.formats
+
+    @classmethod
+    def _from_columns(cls, columns, nrows=0, fill=False):
+        """
+        Given a ColDefs object of unknown origin, initialize a new FITS_rec
+        object.
+
+        This was originally part of the new_table function in the table module
+        but was moved into a class method since most of its functionality
+        always had more to do with initializing a FITS_rec object than anything
+        else, and much of it also overlapped with FITS_rec._scale_back.
+
+        Parameters
+        ----------
+        columns : sequence of Columns or a ColDefs
+            The columns from which to create the table data.  If these
+            columns have data arrays attached that data may be used in
+            initializing the new table.  Otherwise the input columns
+            will be used as a template for a new table with the requested
+            number of rows.
+
+        nrows : int
+            Number of rows in the new table.  If the input columns have data
+            associated with them, the size of the largest input column is used.
+            Otherwise the default is 0.
+
+        fill : bool
+            If `True`, will fill all cells with zeros or blanks.  If
+            `False`, copy the data from input, undefined cells will still
+            be filled with zeros/blanks.
+        """
+
+        # read the delayed data
+        for idx in range(len(columns)):
+            arr = columns._arrays[idx]
+            if isinstance(arr, Delayed):
+                if arr.hdu.data is None:
+                    columns._arrays[idx] = None
+                else:
+                    columns._arrays[idx] = np.rec.recarray.field(arr.hdu.data,
+                                                                 arr.field)
+
+        # use the largest column shape as the shape of the record
+        if nrows == 0:
+            for arr in columns._arrays:
+                if arr is not None:
+                    dim = arr.shape[0]
+                else:
+                    dim = 0
+                if dim > nrows:
+                    nrows = dim
+
+        data = cls._init_recarray_template(columns, nrows)
+
+        # Previously this assignment was made from hdu.columns, but that's a
+        # bug since if a _TableBaseHDU has a FITS_rec in its .data attribute
+        # the _TableBaseHDU.columns property is actually returned from
+        # .data._coldefs, so this assignment was circular!  Don't make that
+        # mistake again.
+        # All of this is an artifact of the fragility of the FITS_rec class,
+        # and that it can't just be initialized by columns...
+        data._coldefs = columns
+        data.formats = columns.formats
 
     def __repr__(self):
         return np.recarray.__repr__(self)
@@ -687,7 +750,7 @@ class FITS_rec(np.recarray):
                     # result is not allowed to expand (as C/Python does).
                     for jdx in range(len(dummy)):
                         x = fmt % dummy[jdx]
-                        if len(x) > (starts[indx + 1] - starts[indx]):
+                        if len(x) > spans[indx]:
                             raise ValueError(
                                 "Value %r does not fit into the output's "
                                 "itemsize of %s." % (x, spans[indx]))

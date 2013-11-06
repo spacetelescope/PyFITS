@@ -14,7 +14,7 @@ from numpy import char as chararray
 # has fewer dependencies overall, so it's easier to keep table/column-related
 # utilities in pyfits.column
 from pyfits.column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES,
-                           TDEF_RE, Delayed, Column, ColDefs, _ASCIIColDefs,
+                           TDEF_RE, Column, ColDefs, _ASCIIColDefs,
                            _FormatX, _FormatP, _FormatQ, _wrapx, _makep, _VLF,
                            _parse_tformat, _scalar_to_format, _convert_format,
                            _cmp_recformats)
@@ -65,8 +65,6 @@ class _TableLikeHDU(_ValidHDU):
     def _get_tbdata(self):
         """Get the table data from an input HDU object."""
 
-        # TODO: Need to find a way to eliminate the check for phantom columns;
-        # this detail really needn't be worried about outside the ColDefs class
         columns = self.columns
 
         # TODO: Details related to variable length arrays need to be dealt with
@@ -112,6 +110,20 @@ class _TableLikeHDU(_ValidHDU):
         # delete the _arrays attribute so that it is recreated to point to the
         # new data placed in the column object above
         del columns._arrays
+
+    @classmethod
+    def _init_recarray_template(cls, columns, nrows):
+        """Given an input ColDefs, create an empty np.recarray that meets the
+        template required for those columns.
+
+        This can be overridden by subclasses to support special column types
+        or fill modes.
+        """
+
+        formats = ','.join(columns._recformats)
+        return np.rec.array(None, formats=formats,
+                            names=columns.names,
+                            shape=nrows).view(FITS_rec)
 
 
 class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
@@ -223,8 +235,10 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                                 shape=0)
 
         if isinstance(data, np.ndarray) and data.dtype.fields is not None:
-            if not isinstance(data, self._data_type):
-                data = data.view(self._data_type)
+            # Go ahead and always make a view, even if the data is already the
+            # correct class (self._data_type) so we can update things like the
+            # column defs, if necessary
+            data = data.view(self._data_type)
 
             self.__dict__['data'] = data
 
@@ -344,7 +358,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             else:
                 nrows = len(self.data)
 
-            ncols = len(self.columns.formats)
+            ncols = len(self.columns)
             format = self.columns.formats
 
         # if data is not touched yet, use header info.
@@ -405,6 +419,8 @@ class TableHDU(_TableBaseHDU):
         if (self._has_data and
                 not isinstance(self.data._coldefs, _ASCIIColDefs)):
             self.data._coldefs = _ASCIIColDefs(self.data._coldefs)
+            self.columns = self.data._coldefs
+            self.update()
 
     @classmethod
     def match_header(cls, header):
@@ -426,6 +442,9 @@ class TableHDU(_TableBaseHDU):
         if dup:
             raise ValueError("Duplicate field names: %s" % dup)
 
+        # TODO: Determine if this extra logic is necessary--I feel like the
+        # _AsciiColDefs class should be responsible for telling the table what
+        # its dtype should be...
         itemsize = columns.spans[-1] + columns.starts[-1] - 1
         dtype = {}
 
@@ -443,6 +462,25 @@ class TableHDU(_TableBaseHDU):
         data = raw_data.view(np.rec.recarray)
         self._init_tbdata(data)
         return data.view(self._data_type)
+
+    @classmethod
+    def _init_recarray_template(cls, columns, nrows):
+        """Creates an all string recarray to serve as the underlying raw
+        data structure for an ASCII table.  All empty space is filled with
+        spaces by default.
+        """
+
+        _itemsize = columns.spans[-1] + columns.starts[-1] - 1
+        dtype = {}
+
+        for j in range(len(columns)):
+            data_type = 'S' + str(columns.spans[j])
+            dtype[columns.names[j]] = (data_type, columns.starts[j] - 1)
+
+        data = np.rec.array((' ' * _itemsize * nrows).encode('ascii'),
+                            dtype=dtype, shape=nrows).view(FITS_rec)
+        data.setflags(write=True)
+        return data
 
     def _calculate_datasum(self, blocking):
         """
@@ -1133,10 +1171,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     hdu = eval(tbtype)(header=header)
 
     if isinstance(input, ColDefs):
-        # NOTE: This previously raised an error if the tbtype didn't match the
-        # tbtype of the input ColDefs. This should no longer be necessary, but
-        # just beware.
-        columns = hdu.columns = ColDefs(input)
+        columns = hdu.columns = ColDefs(input, tbtype)
     elif isinstance(input, FITS_rec):  # input is a FITS_rec
         # Create a new ColDefs object from the input FITS_rec's ColDefs
         # object and assign it to the ColDefs attribute of the new hdu.
@@ -1146,50 +1181,11 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
         # assign it to the ColDefs attribute of the new hdu.
         columns = hdu.columns = ColDefs(input, tbtype)
 
-    # read the delayed data
-    for idx in range(len(columns)):
-        arr = columns._arrays[idx]
-        if isinstance(arr, Delayed):
-            if arr.hdu.data is None:
-                columns._arrays[idx] = None
-            else:
-                columns._arrays[idx] = np.rec.recarray.field(arr.hdu.data,
-                                                             arr.field)
-
-    # use the largest column shape as the shape of the record
-    if nrows == 0:
-        for arr in columns._arrays:
-            if arr is not None:
-                dim = arr.shape[0]
-            else:
-                dim = 0
-            if dim > nrows:
-                nrows = dim
-
-    if tbtype == 'TableHDU':
-        columns = hdu.columns = _ASCIIColDefs(hdu.columns)
-        _itemsize = columns.spans[-1] + columns.starts[-1] - 1
-        dtype = {}
-
-        for j in range(len(columns)):
-            data_type = 'S' + str(columns.spans[j])
-            dtype[columns.names[j]] = (data_type, columns.starts[j] - 1)
-
-        data = np.rec.array((' ' * _itemsize * nrows).encode('ascii'),
-                            dtype=dtype, shape=nrows).view(FITS_rec)
-        data.setflags(write=True)
-    else:
-        formats = ','.join(columns._recformats)
-        data = np.rec.array(None, formats=formats,
-                            names=columns.names,
-                            shape=nrows).view(FITS_rec)
-
-    # Previously this assignment was made from hdu.columns, but that's a bug
-    # since if a _TableBaseHDU has a FITS_rec in its .data attribute the
-    # _TableBaseHDU.columns property is actually returned from .data._coldefs,
-    # so this assignment was circular!  Don't make that mistake again
-    data._coldefs = columns
-    data.formats = columns.formats
+    # Delete the HDU's default columns; it will use the newly created data's
+    # coldefs instead
+    del hdu.columns
+    hdu.data = hdu._tbdata_from_columns(columns)
+    return hdu
 
     # Populate data to the new table from the ndarrays in the input ColDefs
     # object.

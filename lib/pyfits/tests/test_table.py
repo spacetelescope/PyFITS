@@ -2172,3 +2172,14 @@ class TestTableFunctions(PyfitsTestCase):
 
         with fits.open(self.temp('test.fits')) as hdul2:
             assert comparerecords(hdul[1].data, hdul2[1].data)
+
+    def test_bintable_to_asciitable(self):
+        """Tests initializing a TableHDU with the data from a BinTableHDU."""
+
+        for filename in ('table.fits', 'tb.fits'):
+            with fits.open(self.data(filename)) as hdul:
+                tbdata = hdul[1].data
+                tbhdu = fits.TableHDU(data=tbdata)
+                tbhdu.writeto(self.temp('test.fits'), clobber=True)
+                with fits.open(self.temp('test.fits')) as hdul2:
+                    assert comparerecords(tbdata, hdul2[1].data)

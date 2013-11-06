@@ -41,21 +41,23 @@ NUMPY2FITS['b1'] = 'L'
 FORMATORDER = ['L', 'B', 'I', 'J', 'K', 'D', 'M', 'A']
 
 # mapping from ASCII table TFORM data type to numpy data type
-# TODO: Currently the integer type is fixed at 32-bits; in the future this
-# should be flexible enough to support the maximum integer allowable by the
-# field width
 # A: Character
 # I: Integer (32-bit)
 # J: Integer (64-bit; non-standard)
 # F: Float (32-bit; fixed decimal notation)
 # E: Float (32-bit; exponential notation)
-# D: Float (64-bit; exponential notation)
+# D: Float (64-bit; exponential notation, always 64-bit by convention)
 ASCII2NUMPY = {'A': 'a', 'I': 'i4', 'J': 'i8', 'F': 'f4', 'E': 'f4',
                'D': 'f8'}
 
 # Maps FITS ASCII column format codes to the appropriate Python string
 # formatting codes for that type.
 ASCII2STR = {'A': 's', 'I': 'd', 'J': 'd', 'F': 'f', 'E': 'E', 'D': 'E'}
+
+# For each ASCII table format code, provides a default width (and decimal
+# precision) for when one isn't given explicity in the column format
+ASCII_DEFAULT_WIDTHS= {'A': (1, 0), 'I': (10, 0), 'J': (15, 0),
+                       'E': (15, 7), 'F': (16, 7), 'D': (25, 17)}
 
 
 
@@ -69,9 +71,17 @@ KEYWORD_NAMES = ['TTYPE', 'TFORM', 'TUNIT', 'TNULL', 'TSCAL', 'TZERO',
 KEYWORD_ATTRIBUTES = ['name', 'format', 'unit', 'null', 'bscale', 'bzero',
                       'disp', 'start', 'dim']
 
-# TFORM regular expression
-TFORMAT_RE = re.compile(r'(?P<repeat>^[0-9]*)(?P<dtype>[A-Za-z])'
-                        r'(?P<option>[!-~]*)')
+# TFORMn regular expression
+TFORMAT_RE = re.compile(r'(?P<repeat>^[0-9]*)(?P<format>[LXBIJKAEDCMPQ])'
+                        r'(?P<option>[!-~]*)', re.I)
+
+# TFORMn for ASCII tables; two different versions depending on whether
+# the format is floating-point or not; allows empty values for width
+# in which case defaults are used
+TFORMAT_ASCII_RE = re.compile(r'(?:(?P<format>[AIJ])(?P<width>[0-9]*))|'
+                              r'(?:(?P<formatf>[FED])'
+                              r'(?:(?P<widthf>[0-9]+)\.'
+                              r'(?P<precision>[0-9]+))?)')
 
 # table definition keyword regular expression
 TDEF_RE = re.compile(r'(?P<label>^T[A-Z]*)(?P<num>[1-9][0-9 ]*$)')
@@ -98,9 +108,45 @@ class Delayed(object):
         return self.hdu.data[key][self.field]
 
 
-class _ColumnFormat(str):
+class _BaseColumnFormat(str):
     """
-    Represents a FITS column format.
+    Base class for binary table column formats (just called _ColumnFormat)
+    and ASCII table column formats (_AsciiColumnFormat).
+    """
+
+    def __eq__(self, other):
+        if not other:
+            return False
+
+        if isinstance(other, str):
+            if not isinstance(other, self.__class__):
+                try:
+                    other = self.__class__(other)
+                except ValueError:
+                    return False
+        else:
+            return False
+
+        return self.canonical == other.canonical
+
+    def __hash__(self):
+        return hash(self.canonical)
+
+    @classmethod
+    def from_column_format(cls, format):
+        """Creates a column format object from another column format object
+        regardless of their type.
+
+        That is, this can convert a _ColumnFormat to an _AsciiColumnFormat
+        or vice versa at least in cases where a direct translation is possible.
+        """
+
+        return cls.from_recformat(format.recformat)
+
+
+class _ColumnFormat(_BaseColumnFormat):
+    """
+    Represents a FITS binary table column format.
 
     This is an enhancement over using a normal string for the format, since the
     repeat count, format code, and option are available as separate attributes,
@@ -112,26 +158,6 @@ class _ColumnFormat(str):
         self.repeat, self.format, self.option = _parse_tformat(format)
         self.format = self.format.upper()
         return self
-
-    def __eq__(self, other):
-        if not other:
-            return False
-
-        if isinstance(other, str):
-            if not isinstance(other, _ColumnFormat):
-                try:
-                    other = _ColumnFormat(other)
-                except ValueError:
-                    return False
-        else:
-            return False
-
-        a = (self.repeat, self.format, self.option)
-        b = (other.repeat, other.format, other.option)
-        return a == b
-
-    def __hash__(self):
-        return hash(self.canonical)
 
     @classmethod
     def from_recformat(cls, recformat):
@@ -161,6 +187,60 @@ class _ColumnFormat(str):
             repeat = str(self.repeat)
 
         return '%s%s%s' % (repeat, self.format, self.option)
+
+
+class _AsciiColumnFormat(_BaseColumnFormat):
+    """Similar to _ColumnFormat but specifically for columns in ASCII tables.
+
+    The formats of ASCII table columns and binary table columns are inherently
+    incompatible in FITS.  They don't support the same ranges and types of
+    values, and even reuse format codes in subtly different ways.  For example
+    the format code 'Iw' in ASCII columns refers to any integer whose string
+    representation is at most w characters wide, so 'I' can represent
+    effectively any integer that will fit in a FITS columns.  Whereas for
+    binary tables 'I' very explicitly refers to a 16-bit signed integer.
+
+    Conversions between the two column formats can be performed using the
+    ``to/from_binary`` methods on this class, or the ``to/from_ascii``
+    methods on the `_ColumnFormat` class.  But again, not all conversions are
+    possible and may result in a `ValueError`.
+    """
+
+    def __new__(cls, format):
+        self = super(_AsciiColumnFormat, cls).__new__(cls, format)
+        self.format, self.width, self.precision = _parse_ascii_tformat(format)
+        return self
+
+    def __hash__(self):
+        return hash(self.canonical)
+
+    @classmethod
+    def from_recformat(cls, recformat):
+        """Creates a column format from a Numpy record dtype format."""
+
+        return cls(_convert_ascii_format(recformat, reverse=True))
+
+    @lazyproperty
+    def recformat(self):
+        """Returns the equivalent Numpy record format string."""
+
+        return _convert_ascii_format(self)
+
+    @lazyproperty
+    def canonical(self):
+        """
+        Returns a 'canonical' string representation of this format.
+
+        This is in the proper form of Tw.d where T is the single character data
+        type code, w is the width in characters for this field, and d is the
+        number of digits after the decimal place (for format codes 'E', 'F',
+        and 'D' only).
+        """
+
+        if self.format in ('E', 'F', 'D'):
+            return '%s%s.%s' % (self.format, self.width, self.precision)
+
+        return '%s%s' % (self.format, self.width)
 
 
 class _FormatX(str):
@@ -237,8 +317,8 @@ class Column(object):
     """
 
     def __init__(self, name=None, format=None, unit=None, null=None,
-                       bscale=None, bzero=None, disp=None, start=None,
-                       dim=None, array=None):
+                 bscale=None, bzero=None, disp=None, start=None, dim=None,
+                 array=None, ascii=None):
         """
         Construct a `Column` by specifying attributes.  All attributes
         except `format` can be optional.
@@ -282,6 +362,10 @@ class Column(object):
             be the *physical* values--that is, the values of column as if the
             scaling has already been applied (the array stored on the column
             object will then be converted back to its storage values).
+
+        ascii : bool, optional
+            set `True` if this describes a column for an ASCII table; this
+            may be required to disambiguate the column format
         """
 
         if format is None:
@@ -301,18 +385,17 @@ class Column(object):
         # input arrays can be just list or tuple, not required to be ndarray
 
         # check format
-        if not isinstance(format, _ColumnFormat):
-            try:
-                # legit FITS format?
-                format = _ColumnFormat(format)
-                recformat = format.recformat
-            except ValueError:
-                try:
-                    # legit recarray format?
-                    recformat = format
-                    format = _ColumnFormat.from_recformat(format)
-                except ValueError:
-                    raise ValueError('Illegal format `%s`.' % format)
+        if ascii is None and not isinstance(format, _BaseColumnFormat):
+            # If the format is already a _BaseColumnFormat of some type
+            # then leave it be; otherwise assume a binary table column by
+            # default--the choice of this default is just to reflect the
+            # existing behavior of PyFITS
+            format, recformat = self._convert_format(format, _ColumnFormat)
+        elif not ascii and not isinstance(format, _BaseColumnFormat):
+            format, recformat = self._convert_format(format, _ColumnFormat)
+        elif ascii and not isinstance(format, _AsciiColumnFormat):
+            format, recformat = self._convert_format(format,
+                                                     _AsciiColumnFormat)
 
         self.format = format
         # Zero-length formats are legal in the FITS format, but since they
@@ -338,8 +421,7 @@ class Column(object):
                 "or a tuple containing the C-order dimensions for the column")
 
         if self._dims:
-            repeat = _parse_tformat(format)[0]
-            if reduce(operator.mul, self._dims) > repeat:
+            if reduce(operator.mul, self._dims) > self.format.repeat:
                 raise ValueError(
                     "The repeat count of the column format %r for column %r "
                     "is fewer than the number of elements per the TDIM "
@@ -415,6 +497,29 @@ class Column(object):
         tmp.__dict__ = self.__dict__.copy()
         return tmp
 
+    @staticmethod
+    def _convert_format(format, cls):
+        """The format argument to this class's initializer may come in many
+        forms.  This uses the given column format class ``cls`` to convert
+        to a format of that type.
+
+        TODO: There should be an abc base class for column format classes
+        """
+
+        try:
+            # legit FITS format?
+            format = cls(format)
+            recformat = format.recformat
+        except ValueError:
+            try:
+                # legit recarray format?
+                recformat = format
+                format = cls.from_recformat(format)
+            except ValueError:
+                raise ValueError('Illegal format `%s`.' % format)
+
+        return format, recformat
+
     def _convert_to_valid_data_type(self, array):
         # Convert the format to a type we understand
         if isinstance(array, Delayed):
@@ -434,11 +539,10 @@ class Column(object):
                         # characters in each string
                         fsize = dims[-1]
                     else:
-                        fsize = int(_convert_format(format)[1:])
+                        fsize = np.dtype(format.recformat).itemsize
                     return chararray.array(array, itemsize=fsize)
                 else:
-                    numpy_format = _convert_format(format)
-                    return _convert_array(array, np.dtype(numpy_format))
+                    return _convert_array(array, np.dtype(format.recformat))
             elif 'L' in format:
                 # boolean needs to be scaled back to storage values ('T', 'F')
                 if array.dtype == np.dtype('bool'):
@@ -448,9 +552,12 @@ class Column(object):
             elif 'X' in format:
                 return _convert_array(array, np.dtype('uint8'))
             else:
-                (repeat, fmt, option) = _parse_tformat(format)
                 # Preserve byte order of the original array for now; see #77
-                numpy_format = array.dtype.byteorder + _convert_format(fmt)
+                # TODO: For some reason we drop the format repeat here; need
+                # to investigate why that was and if it's something we can
+                # avoid doing...
+                new_format = _convert_format(format.format)
+                numpy_format = array.dtype.byteorder + new_format
                 return _convert_array(array, np.dtype(numpy_format))
 
 
@@ -465,6 +572,7 @@ class ColDefs(object):
     """
 
     _padding_byte = '\x00'
+    _col_format_cls = _ColumnFormat
 
     def __new__(cls, input, tbtype='BinTableHDU'):
         from pyfits.hdu.table import TableHDU
@@ -502,79 +610,108 @@ class ColDefs(object):
         self._tbtype = tbtype
 
         if isinstance(input, ColDefs):
-            self.columns = [col.copy() for col in input.columns]
-            # Prevent duplicating any additional work in the __init__
-            return
-
-        # if the input is a list of Columns
+            self._init_from_coldefs(input)
         elif isinstance(input, (list, tuple)):
-            for col in input:
-                if not isinstance(col, Column):
-                    raise TypeError(
-                           'Element %d in the ColDefs input is not a Column.'
-                           % input.index(col))
-            self.columns = [col.copy() for col in input]
-
-        # Construct columns from the fields of a record array
+            # if the input is a list of Columns
+            # TODO: Expand this to accept any iterable
+            self._init_from_sequence(input)
         elif isinstance(input, np.ndarray) and input.dtype.fields is not None:
-            self.columns = []
-            for idx in range(len(input.dtype)):
-                cname = input.dtype.names[idx]
-                ftype = input.dtype.fields[cname][0]
-                # String formats should have 'A' first
-                if ftype.type == np.string_:
-                    format = 'A' + str(ftype.itemsize)
-                else:
-                    format = _convert_format(ftype, reverse=True)
-                # Determine the appropriate dimensions for items in the column
-                # (typically just 1D)
-                dim = input.dtype[idx].shape[::-1]
-                if dim and (len(dim) > 1 or 'A' in format):
-                    if 'A' in format:
-                        # n x m string arrays must include the max string
-                        # length in their dimensions (e.g. l x n x m)
-                        dim = (input.dtype[idx].base.itemsize,) + dim
-                    dim = repr(dim).replace(' ', '')
-                else:
-                    dim = None
-
-                c = Column(name=cname, format=format,
-                           array=input.view(np.ndarray)[cname], dim=dim)
-                self.columns.append(c)
-
+            # Construct columns from the fields of a record array
+            self._init_from_array(input)
         # Construct columns from fields in an HDU header
         elif isinstance(input, _TableBaseHDU):
-            hdr = input._header
-            nfields = hdr['TFIELDS']
-            self._width = hdr['NAXIS1']
-            self._shape = hdr['NAXIS2']
-
-            # go through header keywords to pick out column definition keywords
-            # definition dictionaries for each field
-            col_attributes = [{} for i in range(nfields)]
-            for keyword, value in hdr.iteritems():
-                key = TDEF_RE.match(keyword)
-                try:
-                    keyword = key.group('label')
-                except:
-                    continue               # skip if there is no match
-                if (keyword in KEYWORD_NAMES):
-                    col = int(key.group('num'))
-                    if col <= nfields and col > 0:
-                        idx = KEYWORD_NAMES.index(keyword)
-                        attr = KEYWORD_ATTRIBUTES[idx]
-                        col_attributes[col - 1][attr] = value
-
-            # data reading will be delayed
-            for col in range(nfields):
-                col_attributes[col]['array'] = Delayed(input, col)
-
-            # now build the columns
-            self.columns = [Column(**attrs) for attrs in col_attributes]
-            self._listener = weakref.proxy(input)
+            self._init_from_table(input)
         else:
-            raise TypeError('Input to ColDefs must be a table HDU or a list '
-                            'of Columns.')
+            raise TypeError('Input to ColDefs must be a table HDU, a list '
+                            'of Columns, or a record/field array.')
+
+    def _init_from_coldefs(self, coldefs):
+        """Initialize from an existing ColDefs object (just copy the
+        columns and convert their formats if necessary).
+        """
+
+        self.columns = []
+        for column in coldefs:
+            if isinstance(column.format, self._col_format_cls):
+                # This column has a FITS format compatible with this column
+                # definitions class (that is ascii or binary)
+                self.columns.append(column.copy())
+            else:
+                new_column = column.copy()
+                # Try to use the Numpy recformat as the equivalency between the
+                # two formats; if that conversion can't be made then these
+                # columns can't be transferred
+                # TODO: Catch exceptions here and raise an explicit error about
+                # column format conversion
+                new_column.format = self._col_format_cls.from_column_format(
+                        column.format)
+                self.columns.append(new_column)
+
+    def _init_from_sequence(self, columns):
+        for col in columns:
+            if not isinstance(col, Column):
+                raise TypeError(
+                       'Element %d in the ColDefs input is not a Column.'
+                       % input.index(col))
+
+        self._init_from_coldefs(columns)
+
+    def _init_from_array(self, array):
+        self.columns = []
+        for idx in range(len(array.dtype)):
+            cname = array.dtype.names[idx]
+            ftype = array.dtype.fields[cname][0]
+            format = self._col_format_cls.from_recformat(ftype)
+
+            # Determine the appropriate dimensions for items in the column
+            # (typically just 1D)
+            dim = array.dtype[idx].shape[::-1]
+            if dim and (len(dim) > 1 or 'A' in format):
+                if 'A' in format:
+                    # n x m string arrays must include the max string
+                    # length in their dimensions (e.g. l x n x m)
+                    dim = (array.dtype[idx].base.itemsize,) + dim
+                dim = repr(dim).replace(' ', '')
+            else:
+                dim = None
+
+            c = Column(name=cname, format=format,
+                       array=array.view(np.ndarray)[cname], dim=dim)
+            self.columns.append(c)
+
+    def _init_from_table(self, table):
+        hdr = table._header
+        nfields = hdr['TFIELDS']
+        self._width = hdr['NAXIS1']
+        self._shape = hdr['NAXIS2']
+
+        # go through header keywords to pick out column definition keywords
+        # definition dictionaries for each field
+        col_attributes = [{} for i in range(nfields)]
+        for keyword, value in hdr.iteritems():
+            key = TDEF_RE.match(keyword)
+            try:
+                keyword = key.group('label')
+            except:
+                continue  # skip if there is no match
+            if keyword in KEYWORD_NAMES:
+                col = int(key.group('num'))
+                if col <= nfields and col > 0:
+                    idx = KEYWORD_NAMES.index(keyword)
+                    attr = KEYWORD_ATTRIBUTES[idx]
+                    if attr == 'format':
+                        # Go ahead and convert the format value to the
+                        # appropriate ColumnFormat container now
+                        value = self._col_format_cls(value)
+                    col_attributes[col - 1][attr] = value
+
+        # data reading will be delayed
+        for col in range(nfields):
+            col_attributes[col]['array'] = Delayed(table, col)
+
+        # now build the columns
+        self.columns = [Column(**attrs) for attrs in col_attributes]
+        self._listener = weakref.proxy(table)
 
     def __copy__(self):
         return self.__class__(self, self._tbtype)
@@ -636,6 +773,7 @@ class ColDefs(object):
         return len(self.columns)
 
     def __repr__(self):
+        return ''
         rep = 'ColDefs('
         if self.columns:
             rep += '\n    '
@@ -850,12 +988,8 @@ class ColDefs(object):
 class _ASCIIColDefs(ColDefs):
     """ColDefs implementation for ASCII tables."""
 
-    # For each ASCII table format code, provides a default width for when
-    # one isn't given explicitly
-    _default_widths = {'A': 'A1', 'I': 'I10', 'J': 'I15', 'E': 'E15.7',
-                       'F': 'F16.7', 'D': 'D25.17'}
-
     _padding_byte = ' '
+    _col_format_cls = _AsciiColumnFormat
 
     def __init__(self, input, tbtype='TableHDU'):
         super(_ASCIIColDefs, self).__init__(input, tbtype)
@@ -868,6 +1002,16 @@ class _ASCIIColDefs(ColDefs):
             self._spans = input.spans
             self._width = input._width
 
+    @lazyproperty
+    def dtype(self):
+        _itemsize = columns.spans[-1] + columns.starts[-1] - 1
+        dtype = {}
+
+        for j in range(len(columns)):
+            data_type = 'S' + str(columns.spans[j])
+            dtype[columns.names[j]] = (data_type, columns.starts[j] - 1)
+
+        return np.dtype(dtype)
 
     @property
     def spans(self):
@@ -906,10 +1050,15 @@ class _ASCIIColDefs(ColDefs):
         spans = [0] * len(self.columns)
         end_col = 0  # Refers to the ASCII text column, not the table col
         for idx, col in enumerate(self.columns):
-            _, width = _convert_ascii_format(col.format)
-            if width is None:
-                col.format = self._default_widths[col.format]
-                _, width = _convert_ascii_format(col.format)
+            # TODO: Remove the following block of code--the column format
+            # should automatically use the 'canonical' format which includes
+            # the width (default or not)
+            #_, width = _convert_ascii_format(col.format)
+            #if width is None:
+            #    col.format += ASCII_DEFAULT_WIDTHS[col.format]
+            #    _, width = _convert_ascii_format(col.format)
+            width = col.format.width
+
             # Update the start columns and column span widths taking into
             # account the case that the starting column of a field may not
             # be the column immediately after the previous field
@@ -1135,22 +1284,77 @@ def _makep(input, desp_output, format, nrows=None):
 
 
 def _parse_tformat(tform):
-    """Parse the ``TFORM`` value into `repeat`, `dtype`, and `option`."""
+    """Parse ``TFORMn`` keyword for a binary table into a
+    ``(repeat, format, option)`` tuple.
+    """
 
     try:
-        (repeat, dtype, option) = TFORMAT_RE.match(tform.strip()).groups()
+        (repeat, format, option) = TFORMAT_RE.match(tform.strip()).groups()
     except:
         # TODO: Maybe catch this error use a default type (bytes, maybe?) for
         # unrecognized column types.  As long as we can determine the correct
         # byte width somehow..
-        raise VerifyError('Format "%s" is not recognized.' % tform)
+        raise VerifyError('Format %r is not recognized.' % tform)
 
     if repeat == '':
         repeat = 1
     else:
         repeat = int(repeat)
 
-    return (repeat, dtype, option)
+    return (repeat, format.upper(), option)
+
+
+def _parse_ascii_tformat(tform):
+    """Parse the ``TFORMn`` keywords for ASCII tables into a
+    ``(format, width, precision)`` tuple (the latter is zero unless
+    width is one of 'E', 'F', or 'D').
+    """
+
+    match = TFORMAT_ASCII_RE.match(tform.strip())
+    if not match:
+        raise VerifyError('Format %r is not recognized.' % tform)
+
+    # Be flexible on case
+    format = match.group('format')
+    if format is None:
+        # Floating point format
+        format = match.group('formatf').upper()
+        width = match.group('widthf') or 0
+        precision = match.group('precision') or 1
+    else:
+        format = format.upper()
+        width = match.group('width') or 0
+        precision = 0
+
+    def convert_int(val):
+        msg = ('Format %r is not valid--field width and decimal precision '
+               'must be positive integers.')
+        try:
+            val = int(val)
+        except (ValueError, TypeError):
+            raise VerifyError(msg % tform)
+
+        if val <= 0:
+            raise VerifyError(msg % tform)
+
+        return val
+
+    if width and precision:
+        # This should only be the case for floating-point formats
+        width, precision = convert_int(width), convert_int(precision)
+    elif width:
+        # Just for integer/string formats; ignore precision
+        width = convert_int(width)
+    else:
+        # For any format, if width was unspecified use the set defaults
+        width, precision = ASCII_DEFAULT_WIDTHS[format]
+
+    if precision >= width:
+        raise VerifyError("Format %r not valid--the number of decimal digits "
+                          "must be less than the format's total width %s." &
+                          (tform, width))
+
+    return format, width, precision
 
 
 def _parse_tdim(tdim):
@@ -1257,22 +1461,22 @@ def _convert_record2fits(format):
     Convert record format spec to FITS format spec.
     """
 
-    if isinstance(format, np.dtype):
-        shape = format.shape
-        kind = format.base.kind
-        option = str(format.base.itemsize)
-        if kind in ('U', 'S'):
-            kind = 'a'
-        dtype = kind
+    if not isinstance(format, np.dtype):
+        format = np.dtype(format)
 
-        ndims = len(shape)
-        repeat = 1
-        if ndims > 0:
-            nel = np.array(shape, dtype='i8').prod()
-            if nel > 1:
-                repeat = nel
-    else:
-        repeat, dtype, option = _parse_tformat(format)
+    shape = format.shape
+    kind = format.base.kind
+    option = str(format.base.itemsize)
+    if kind in ('U', 'S'):
+        kind = 'a'
+    dtype = kind
+
+    ndims = len(shape)
+    repeat = 1
+    if ndims > 0:
+        nel = np.array(shape, dtype='i8').prod()
+        if nel > 1:
+            repeat = nel
 
     if dtype == 'a':
         # This is a kludge that will place string arrays into a
@@ -1307,21 +1511,60 @@ def _convert_format(format, reverse=False):
         return _convert_fits2record(format)
 
 
-def _convert_ascii_format(input_format):
+def _convert_ascii_format(format, reverse=False):
     """Convert ASCII table format spec to record format spec."""
 
-    _re = re.compile(r'(?P<dtype>[AIJFED])(?P<width>[0-9]*)')
+    if reverse:
+        if not isinstance(format, np.dtype):
+            format = np.dtype(format)
 
-    # Parse the TFORM value into data type and width.
-    try:
-        (dtype, width) = _re.match(input_format.strip()).groups()
-        dtype = ASCII2NUMPY[dtype]
-        if width == '':
-            width = None
-        else:
-            width = int(width)
-    except KeyError:
-        raise ValueError('Illegal format `%s` for ASCII table.'
-                         % input_format)
+        kind = format.base.kind
+        itemsize = format.base.itemsize
+        if kind in ('U', 'S'):
+            kind = 'a'
+        if kind == 'a':
+            return 'A' + str(itemsize)
+        elif kind == 'i':
+            # Use for the width the maximum required to represent integers
+            # of that byte size plus 1 for signs, but use a minumum of the
+            # default width (to keep with existing behavior)
+            width = 1 + len(str(2 ** (itemsize * 8)))
+            width = max(width, ASCII_DEFAULT_WIDTHS['I'][0])
+            return 'I' + str(width)
+        elif kind == 'f':
+            # This is tricky, but go ahead and use D if float-64, and E
+            # if float-32 with their default widths
+            if itemsize >= 8:
+                format = 'D'
+            else:
+                format = 'E'
+            width = '.'.join(str(w) for w in ASCII_DEFAULT_WIDTHS[format])
+            return format + width
+        # TODO: There may be reasonable ways to represent other Numpy types so
+        # let's see what other possibilities there are besides just 'a', 'i',
+        # and 'f'.  If it doesn't have a reasonable ASCII representation then
+        # raise an exception
+    else:
+        format, width, precision = _parse_ascii_tformat(format)
 
-    return (dtype, width)
+        # This gives a sensible "default" dtype for a given ASCII
+        # format code
+        recformat = ASCII2NUMPY[format]
+
+        # The following logic is taken from CFITSIO:
+        # For integers, if the width <= 4 we can safely use 16-bit ints for all
+        # values [for the non-standard J format code just always force 64-bit]
+        if format == 'I' and width <= 4:
+            recformat = 'i2'
+        elif format == 'F' and width > 7:
+            # 32-bit floats (the default) may not be accurate enough to support
+            # all values that can fit in this field, so upgrade to 64-bit
+            recformat = 'f8'
+        elif format == 'E' and precision > 6:
+            # Again upgrade to a 64-bit int if we require greater decimal
+            # precision
+            recformat = 'f8'
+        elif format == 'A':
+            recformat += str(width)
+
+        return recformat
