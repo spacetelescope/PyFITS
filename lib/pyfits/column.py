@@ -774,7 +774,9 @@ class ColDefs(object):
 
     def __repr__(self):
         rep = 'ColDefs('
-        if self.columns:
+        if hasattr(self, 'columns') and self.columns:
+            # The hasattr check is mostly just useful in debugging sessions
+            # where self.columns may not be defined yet
             rep += '\n    '
             rep += '\n    '.join([repr(c) for c in self.columns])
             rep += '\n'
