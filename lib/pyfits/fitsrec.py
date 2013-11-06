@@ -598,14 +598,17 @@ class FITS_rec(np.recarray):
         representation.
         """
 
-        format = ASCII2NUMPY[self._coldefs.formats[indx][0]]
+        format = self._coldefs.formats[indx]
+        recformat = ASCII2NUMPY[format[0]]
         # if the string = TNULL, return ASCIITNULL
-        nullval = self._coldefs.nulls[indx].strip().encode('ascii')
+        nullval = str(self._coldefs.nulls[indx]).strip().encode('ascii')
+        if len(nullval) > format.width:
+            nullval = nullval[:format.width]
         dummy = field.replace('D'.encode('ascii'), 'E'.encode('ascii'))
         dummy = np.where(dummy.strip() == nullval, str(ASCIITNULL), dummy)
 
         try:
-            dummy = np.array(dummy, dtype=format)
+            dummy = np.array(dummy, dtype=recformat)
         except ValueError, e:
             raise ValueError(
                 '%s; the header may be missing the necessary TNULL%d '

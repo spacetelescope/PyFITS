@@ -2,6 +2,7 @@ import copy
 import operator
 import re
 import sys
+import warnings
 import weakref
 
 import numpy as np
@@ -92,6 +93,10 @@ TDIM_RE = re.compile(r'\(\s*(?P<dims>(?:\d+,\s*)+\s*\d+)\s*\)\s*')
 ASCIITNULL = 0          # value for ASCII table cell with value = TNULL
                         # this can be reset by user.
 
+# The default placeholder to use for NULL values in ASCII tables when
+# converting from binary to ASCII tables
+DEFAULT_ASCII_TNULL = '---'
+
 
 class Delayed(object):
     """Delayed file-reading data."""
@@ -157,6 +162,17 @@ class _ColumnFormat(_BaseColumnFormat):
         self = super(_ColumnFormat, cls).__new__(cls, format)
         self.repeat, self.format, self.option = _parse_tformat(format)
         self.format = self.format.upper()
+        if self.format in ('P', 'Q'):
+            # TODO: There should be a generic factory that returns either
+            # _FormatP or _FormatQ as appropriate for a given TFORMn
+            if self.format == 'P':
+                recformat = _FormatP.from_tform(format)
+            else:
+                recformat = _FormatQ.from_tform(format)
+            # Format of variable length arrays
+            self.p_format = recformat.format
+        else:
+            self.p_format = None
         return self
 
     @classmethod
@@ -388,11 +404,26 @@ class Column(object):
 
         # check format
         if ascii is None and not isinstance(format, _BaseColumnFormat):
-            # If the format is already a _BaseColumnFormat of some type
-            # then leave it be; otherwise assume a binary table column by
-            # default--the choice of this default is just to reflect the
-            # existing behavior of PyFITS
-            format, recformat = self._convert_format(format, _ColumnFormat)
+            # We basically have to guess what type of table is column is for.
+            if start and dim:
+                # This is impossible; this can't be a valid FITS column
+                raise ValueError(
+                    'Columns cannot have both a start (TCOLn) and dim '
+                    '(TDIMn) option, since the former is only applies to '
+                    'ASCII tables, and the latter is only valid for binary '
+                    'tables.')
+            elif start:
+                # Only ASCII table columns can have a 'start' option
+                guess_format = _AsciiColumnFormat
+            elif dim:
+                # Only binary tables can have a dim option
+                guess_format = _ColumnFormat
+            else:
+                # A safe guess which reflects the existing behavior of previous
+                # PyFITS versions
+                guess_format = _ColumnFormat
+
+            format, recformat = self._convert_format(format, guess_format)
         elif not ascii and not isinstance(format, _BaseColumnFormat):
             format, recformat = self._convert_format(format, _ColumnFormat)
         elif ascii and not isinstance(format, _AsciiColumnFormat):
@@ -410,6 +441,75 @@ class Column(object):
         else:
             self._phantom = False
 
+        # TODO: Perhaps offload option verification/handling to a separate
+        # method
+
+        # Validate null option
+        # Note: Enough code exists that thinks empty strings are sensible
+        # inputs for these options that we need to treat '' as None
+        if null is not None and null != '':
+            if isinstance(format, _AsciiColumnFormat):
+                null = str(null)
+                if len(null) > format.width:
+                    warnings.warn(
+                        "ASCII table null option (TNULLn) is longer than "
+                        "the column's character width and will be truncated "
+                        "(got %r)." % null)
+            else:
+                if not _is_int(null):
+                    # Make this an exception instead of a warning, since any
+                    # non-int value is meaningless
+                    # TODO: We *might* be able to issue just a warning if we
+                    # get an object that can be converted to an int, such as a
+                    # string
+                    raise TypeError('Column null option (TNULLn) must be an '
+                                    'integer for binary table columns '
+                                    '(got %r).' % null)
+                tnull_formats = ('B', 'I', 'J', 'K')
+                if not (format.format in tnull_formats or
+                        (format.format in ('P', 'Q') and
+                         format.p_format in tnull_formats)):
+                    # TODO: We should also check that TNULLn's integer value
+                    # is in the range allowed by the column's format
+                    warnings.warn('Column null option (TNULLn) is invalid '
+                                  'for binary table columns of type %r '
+                                  '(got %r).' % (format, null))
+
+        # Validate the disp option
+        # TODO: Add full parsing and validation of TDISPn keywords
+        if disp is not None and null != '':
+            if not isinstance(disp, basestring):
+                raise TypeError('Column disp option (TDISPn) must be a '
+                                'string (got %r).' % disp)
+            if (isinstance(format, _AsciiColumnFormat) and
+                    disp[0].upper() == 'L'):
+                # disp is at least one character long and has the 'L' format
+                # which is not recognized for ASCII tables
+                warnings.warn("Column disp option (TDISPn) may not use the "
+                              "'L' format with ASCII table columns.")
+
+        # Validate the start option
+        if start is not None and start != '':
+            if not isinstance(format, _AsciiColumnFormat):
+                # The 'start' option only applies to ASCII columns
+                warnings.warn('Column start option (TBCOLn) is not allowed '
+                              'for binary table columns (got %r).' % start)
+            try:
+                start = int(start)
+            except (TypeError, ValueError):
+                pass
+
+            if not _is_int(start) and start < 1:
+                raise TypeError('Column start option (TBCOLn) must be a '
+                                'positive integer (got %r).' % start)
+
+        # Process TDIMn options
+        # ASCII table columns can't have a TDIMn keyword associated with it;
+        # for now we just issue a warning and ignore it.
+        # TODO: This should be checked by the FITS verification code
+        if dim is not None and isinstance(format, _AsciiColumnFormat):
+            warnings.warn('Column dim option (TDIMn) is not allowed for ASCII '
+                          'table columns (got %r).' % dim)
         if isinstance(dim, basestring):
             self._dims = _parse_tdim(dim)
         elif isinstance(dim, tuple):
@@ -632,22 +732,7 @@ class ColDefs(object):
         columns and convert their formats if necessary).
         """
 
-        self.columns = []
-        for column in coldefs:
-            if isinstance(column.format, self._col_format_cls):
-                # This column has a FITS format compatible with this column
-                # definitions class (that is ascii or binary)
-                self.columns.append(column.copy())
-            else:
-                new_column = column.copy()
-                # Try to use the Numpy recformat as the equivalency between the
-                # two formats; if that conversion can't be made then these
-                # columns can't be transferred
-                # TODO: Catch exceptions here and raise an explicit error about
-                # column format conversion
-                new_column.format = self._col_format_cls.from_column_format(
-                        column.format)
-                self.columns.append(new_column)
+        self.columns = [self._copy_column(col) for col in coldefs]
 
     def _init_from_sequence(self, columns):
         for col in columns:
@@ -721,6 +806,54 @@ class ColDefs(object):
     def __deepcopy__(self, memo):
         return self.__class__([copy.deepcopy(c, memo) for c in self.columns],
                               tbtype=self._tbtype)
+
+    def _copy_column(self, column):
+        """Utility function used currently only by _init_from_coldefs
+        to help convert columns from binary format to ASCII format or vice
+        versa if necessary (otherwise performs a straight copy).
+        """
+
+        if isinstance(column.format, self._col_format_cls):
+            # This column has a FITS format compatible with this column
+            # definitions class (that is ascii or binary)
+            return column.copy()
+
+        new_column = column.copy()
+
+        # Try to use the Numpy recformat as the equivalency between the
+        # two formats; if that conversion can't be made then these
+        # columns can't be transferred
+        # TODO: Catch exceptions here and raise an explicit error about
+        # column format conversion
+        new_column.format = self._col_format_cls.from_column_format(
+                column.format)
+
+        # Handle a few special cases of column format options that are not
+        # compatible between ASCII an binary tables
+        # TODO: This is sort of hacked in right now; we really neet
+        # separate classes for ASCII and Binary table Columns, and they
+        # should handle formatting issues like these
+        if not isinstance(new_column.format, _AsciiColumnFormat):
+            # the column is a binary table column...
+            new_column.start = None
+            if new_column.null is not None:
+                # We can't just "guess" a value to represent null
+                # values in the new column, so just disable this for
+                # now; users may modify it later
+                new_column.null = None
+        else:
+            # the column is an ASCII table column...
+            if new_column.null is not None:
+                new_column.null = DEFAULT_ASCII_TNULL
+            if (new_column.disp is not None and
+                    new_column.disp.upper().startswith('L')):
+                # ASCII columns may not use the logical data display format;
+                # for now just drop the TDISPn option for this column as we
+                # don't have a systematic conversion of boolean data to ASCII
+                # tables yet
+                new_column.disp = None
+
+        return new_column
 
     def __getattr__(self, name):
         """
@@ -1053,13 +1186,6 @@ class _AsciiColDefs(ColDefs):
         spans = [0] * len(self.columns)
         end_col = 0  # Refers to the ASCII text column, not the table col
         for idx, col in enumerate(self.columns):
-            # TODO: Remove the following block of code--the column format
-            # should automatically use the 'canonical' format which includes
-            # the width (default or not)
-            #_, width = _convert_ascii_format(col.format)
-            #if width is None:
-            #    col.format += ASCII_DEFAULT_WIDTHS[col.format]
-            #    _, width = _convert_ascii_format(col.format)
             width = col.format.width
 
             # Update the start columns and column span widths taking into

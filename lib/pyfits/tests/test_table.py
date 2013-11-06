@@ -2060,7 +2060,8 @@ class TestTableFunctions(PyfitsTestCase):
         """Regression test for https://trac.assembla.com/pyfits/ticket/197"""
 
         c = fits.Column('F1', 'A3', null='---',
-                        array=np.array(['1.0', '2.0', '---', '3.0']))
+                        array=np.array(['1.0', '2.0', '---', '3.0']),
+                        ascii=True)
         table = fits.new_table([c], tbtype='TableHDU')
         table.writeto(self.temp('test.fits'))
 
