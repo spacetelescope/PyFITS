@@ -284,7 +284,7 @@ class FITS_rec(np.recarray):
 
         raw_data = np.empty(columns.dtype.itemsize * nrows, dtype=np.uint8)
         raw_data.fill(ord(columns._padding_byte))
-        data = np.recarray(nrows, dtype=columns.dtype).view(cls)
+        data = np.recarray(nrows, dtype=columns.dtype, buf=raw_data).view(cls)
 
         # Previously this assignment was made from hdu.columns, but that's a
         # bug since if a _TableBaseHDU has a FITS_rec in its .data attribute
@@ -341,16 +341,20 @@ class FITS_rec(np.recarray):
                     _wrapx(inarr, outarr, recformat.repeat)
                     continue
             elif isinstance(recformat, _FormatP):
-                data._convert[idx] = _makep(inarr, outarr, recformat,
+                data._convert[idx] = _makep(inarr, field, recformat,
                                             nrows=nrows)
                 continue
             # TODO: Find a better way of determining that the column is meant
             # to be FITS L formatted
             elif recformat[-2:] == FITS2NUMPY['L'] and inarr.dtype == bool:
                 # column is boolean
+                # The raw data field should be filled with either 'T' or 'F'
+                # (not 0).  Use 'F' as a default
+                field[:] = ord('F')
                 # Also save the original boolean array in data._converted so
                 # that it doesn't have to be re-converted
-                data._convert[idx] = inarr.copy()
+                data._convert[idx] = np.zeros_like(field, dtype=bool)
+                data._convert[idx][:n] = inarr
                 # TODO: Maybe this step isn't necessary at all if _scale_back
                 # will handle it?
                 inarr = np.where(inarr == False, ord('F'), ord('T'))
@@ -857,7 +861,7 @@ class FITS_rec(np.recarray):
                     # result is not allowed to expand (as C/Python does).
                     for jdx in range(len(dummy)):
                         x = fmt % dummy[jdx]
-                        if len(x) > spans[indx]:
+                        if len(x) > starts[indx + 1] - starts[indx]:
                             raise ValueError(
                                 "Value %r does not fit into the output's "
                                 "itemsize of %s." % (x, spans[indx]))

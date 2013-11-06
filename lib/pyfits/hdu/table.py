@@ -15,7 +15,7 @@ from numpy import char as chararray
 # utilities in pyfits.column
 from pyfits.column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES,
                            TDEF_RE, Column, ColDefs, _AsciiColDefs,
-                           _FormatX, _FormatP, _FormatQ, _wrapx, _makep, _VLF,
+                           _FormatX, _FormatP, _FormatQ, _makep, _VLF,
                            _parse_tformat, _scalar_to_format, _convert_format,
                            _cmp_recformats)
 from pyfits.fitsrec import FITS_rec
@@ -45,6 +45,7 @@ class _TableLikeHDU(_ValidHDU):
     """
 
     _data_type = FITS_rec
+    _columns_type = ColDefs
 
     @classmethod
     def match_header(cls, header):
@@ -190,7 +191,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
     def columns(self):
         if self._has_data and hasattr(self.data, '_coldefs'):
             return self.data._coldefs
-        return ColDefs(self)
+        return self._columns_type(self)
 
     @lazyproperty
     def data(self):
@@ -226,9 +227,16 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             # column defs, if necessary
             data = data.view(self._data_type)
 
+            if not isinstance(data.columns, self._columns_type):
+                # This would be the place, if the input data was for an ASCII
+                # table and this is binary table, or vice versa, to convert the
+                # data to the appropriate format for the table type
+                new_columns = self._columns_type(data.columns)
+                data = FITS_rec.from_columns(new_columns)
+
             self.__dict__['data'] = data
 
-            self.columns = self.data._coldefs
+            self.columns = self.data.columns
             self.update()
 
             try:
@@ -396,17 +404,13 @@ class TableHDU(_TableBaseHDU):
     _ext_comment = 'ASCII table extension'
 
     _padding_byte = ' '
+    _columns_type = _AsciiColDefs
 
     __format_RE = re.compile(
         r'(?P<code>[ADEFIJ])(?P<width>\d+)(?:\.(?P<prec>\d+))?')
 
     def __init__(self, data=None, header=None, name=None):
         super(TableHDU, self).__init__(data, header, name=name)
-        if (self._has_data and
-                not isinstance(self.data._coldefs, _AsciiColDefs)):
-            self.data._coldefs = _AsciiColDefs(self.data._coldefs)
-            self.columns = self.data._coldefs
-            self.update()
 
     @classmethod
     def match_header(cls, header):
@@ -1105,10 +1109,13 @@ class BinTableHDU(_TableBaseHDU):
         return ColDefs(columns)
 
 
-# TODO: Allow tbtype to be either a string or a class; perhaps eventually
-# replace this with separate functions for creating tables (possibly in the
-# form of a classmethod)  See ticket #60
-def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
+@deprecated('3.2',
+            alternative=':meth:`FITS_rec.from_columns` to create a new '
+                        ':class:`FITS_rec` data object from the input '
+                        'columns to pass into the constructor for '
+                        ':class:`BinTableHDU` or :class:`TableHDU`',
+            pending=True)
+def new_table(input, header=None, nrows=0, fill=False, tbtype=BinTableHDU):
     """
     Create a new table from the input column definitions.
 
@@ -1136,126 +1143,43 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
         `False`, copy the data from input, undefined cells will still
         be filled with zeros/blanks.
 
-    tbtype : str
-        Table type to be created ("BinTableHDU" or "TableHDU").
+    tbtype : str or class
+        Table type to be created (BinTableHDU or TableHDU) or the class
+        name as a string.  Currently only BinTableHDU and TableHDU (ASCII
+        tables) are supported.
     """
 
-    # construct a table HDU
-    # TODO: Something needs to be done about this as part of #60....
-    hdu = eval(tbtype)(header=header)
+    # tbtype defaults to classes now, but in all prior version of PyFITS it was
+    # a string, so we still support that use case as well
+    if not isinstance(tbtype, basestring):
+        cls = tbtype
+        tbtype = cls.__name__
+    else:
+        # Right now the string input must be one of 'TableHDU' or 'BinTableHDU'
+        # and nothing else, though we will allow this to be case insensitive
+        # This could be done more generically through the HDU registry, but my
+        # hope is to deprecate this function anyways so there's not much point
+        # in trying to make it more "generic".
+        if tbtype.lower() == 'tablehdu':
+            tbtype = 'TableHDU'
+            cls = TableHDU
+        elif tbtype.lower() == 'bintablehdu':
+            tbtype = 'BinTableHDU'
+            cls = BinTableHDU
+        else:
+            raise ValueError("tbtype must be one of 'TableHDU' or "
+                             "'BinTableHDU'")
 
-    if isinstance(input, ColDefs):
-        columns = hdu.columns = ColDefs(input, tbtype)
-    elif isinstance(input, FITS_rec):  # input is a FITS_rec
+    if isinstance(input, FITS_rec):  # input is a FITS_rec
         # Create a new ColDefs object from the input FITS_rec's ColDefs
         # object and assign it to the ColDefs attribute of the new hdu.
-        columns = hdu.columns = ColDefs(input._coldefs, tbtype)
+        columns = ColDefs(input._coldefs, tbtype)
     else:  # input is a list of Columns or possibly a recarray
         # Create a new ColDefs object from the input list of Columns and
         # assign it to the ColDefs attribute of the new hdu.
-        columns = hdu.columns = ColDefs(input, tbtype)
+        columns = ColDefs(input, tbtype)
 
-    # Delete the HDU's default columns; it will use the newly created data's
-    # coldefs instead
-    del hdu.columns
-    hdu.data = FITS_rec.from_columns(columns, nrows=nrows, fill=fill)
-    return hdu
+    data = FITS_rec.from_columns(columns, nrows=nrows, fill=fill)
 
-    # Populate data to the new table from the ndarrays in the input ColDefs
-    # object.
-    for idx in range(len(columns)):
-        # For each column in the ColDef object, determine the number
-        # of rows in that column.  This will be either the number of
-        # rows in the ndarray associated with the column, or the
-        # number of rows given in the call to this function, which
-        # ever is smaller.  If the input FILL argument is true, the
-        # number of rows is set to zero so that no data is copied from
-        # the original input data.
-        arr = columns._arrays[idx]
-        recformat = columns._recformats[idx]
-
-        if arr is None:
-            size = 0
-        else:
-            size = len(arr)
-
-        n = min(size, nrows)
-        if fill:
-            n = 0
-
-        # Get any scale factors from the FITS_rec
-        scale, zero, bscale, bzero, dim = data._get_scale_factors(idx)[3:]
-
-        field = np.rec.recarray.field(data, idx)
-
-        if n > 0:
-            # Only copy data if there is input data to copy
-            # Copy all of the data from the input ColDefs object for this
-            # column to the new FITS_rec data array for this column.
-            if isinstance(recformat, _FormatX):
-                # Data is a bit array
-                if arr[:n].shape[-1] == recformat.repeat:
-                    _wrapx(arr[:n], field[:n], recformat.repeat)
-                else:
-                    # from a table parent data, just pass it
-                    field[:n] = arr[:n]
-            elif isinstance(recformat, _FormatP):
-                data._convert[idx] = _makep(arr[:n], field, recformat,
-                                            nrows=nrows)
-            elif recformat[-2:] == FITS2NUMPY['L'] and arr.dtype == bool:
-                # column is boolean
-                field[:n] = np.where(arr == False, ord('F'), ord('T'))
-            else:
-                if tbtype == 'TableHDU':
-                    # string no need to convert,
-                    if isinstance(arr, chararray.chararray):
-                        field[:n] = arr[:n]
-                    else:
-                        data._convert[idx] = np.zeros(nrows, dtype=arr.dtype)
-                        if scale or zero:
-                            arr = arr.copy()
-                        if scale:
-                            arr *= bscale
-                        if zero:
-                            arr += bzero
-                        data._convert[idx][:n] = arr[:n]
-                else:
-                    outarr = field[:n]
-                    inarr = arr[:n]
-                    if inarr.shape != outarr.shape:
-                        if inarr.dtype != outarr.dtype:
-                            inarr = inarr.view(outarr.dtype)
-
-                        # This is a special case to handle input arrays with
-                        # non-trivial TDIMn.
-                        # By design each row of the outarray is 1-D, while each
-                        # row of the input array may be n-D
-                        if outarr.ndim > 1:
-                            # The normal case where the first dimension is the
-                            # rows
-                            inarr_rowsize = inarr[0].size
-                            inarr = inarr.reshape((n, inarr_rowsize))
-                            outarr[:, :inarr_rowsize] = inarr
-                        else:
-                            # Special case for strings where the out array only
-                            # has one dimension (the second dimension is rolled
-                            # up into the strings
-                            outarr[:n] = inarr.ravel()
-                    else:
-                        field[:n] = arr[:n]
-
-        if n < nrows:
-            # If there are additional rows in the new table that were not
-            # copied from the input ColDefs object, initialize the new data
-            if tbtype == 'BinTableHDU':
-                if isinstance(field, np.ndarray):
-                    field[n:] = -bzero / bscale
-                else:
-                    field[n:] = ''
-            else:
-                field[n:] = ' ' * data._coldefs.spans[idx]
-
-    del hdu.columns
-    hdu.data = data
-
-    return hdu
+    # construct a table HDU of the requested type
+    return cls(header=header, data=data)

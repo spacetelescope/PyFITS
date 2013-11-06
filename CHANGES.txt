@@ -20,9 +20,28 @@ Highlights
   that it uses 64-bit integers for the data descriptors, allowing more than
   4 GB of variable-length array data in a single table. (#160)
 
+- Some refactoring of the table and ``FITS_rec`` modules in order to better
+  separate the details of the FITS binary and ASCII table data structures from
+  the HDU data structures that encapsulate them.  Most of these changes should
+  not be apparent to users (but see API Changes below).
+
 
 API Changes
 ^^^^^^^^^^^
+
+- The ``pyfits.new_table`` function is marked "pending deprecation".  This
+  does not mean it will be removed outright or that its functionality has
+  changed.  It will likely be replaced in the future for a function with
+  similar, if not subtly different functionality.  A better, if not slightly
+  more verbose approach is to use ``pyfits.FITS_rec.from_columns`` to create
+  a new ``FITS_rec`` table--this has the same interface as
+  ``pyfits.new_table``.  The difference is that it returns a plan ``FITS_rec``
+  array, and not an HDU instance.  This ``FITS_rec`` object can then be used
+  as the data argument in the constructors for ``BinTableHDU`` (for binary
+  tables) or ``TableHDU`` (for ASCII tables).  This is analogous to creating
+  an ``ImageHDU`` by passing in an image array.
+  ``pyfits.FITS_rec.from_columns`` is just a simpler way of creating a
+  FITS-compatible recarray from a FITS column specification.
 
 - The ``updateHeader``, ``updateHeaderData``, and ``updateCompressedData``
   methods of the ``CompDataHDU`` class are pending deprecation and moved to
@@ -92,6 +111,11 @@ Other Changes and Additions
 - Then ``Column`` and ``ColDefs`` classes have new ``.dtype`` attributes
   which give the Numpy dtype for the column data in the first case, and the
   full Numpy compound dtype for each table row in the latter case.
+
+- There was an issue where new tables created defaulted the values in all
+  string columns to '0.0'.  Now string columns are filled with empty strings
+  by default--this seems a less surprising default, but it may cause
+  differences with tables created with older versions of PyFITS.
 
 
 Bug Fixes

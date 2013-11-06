@@ -555,21 +555,21 @@ class TestTableFunctions(PyfitsTestCase):
         assert fits.info(self.temp('newtable.fits'), output=False) == info
 
         array = np.rec.array(
-            [('NGC1', 312, '0.0',
+            [('NGC1', 312, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True),
-             ('NGC2', 334, '0.0',
+             ('NGC2', 334, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False),
-             ('NGC3', 308, '0.0',
+             ('NGC3', 308, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True),
-             ('NCG4', 317, '0.0',
+             ('NCG4', 317, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True),
-             ('NGC5', 412, '0.0',
+             ('NGC5', 412, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False),
-             ('NGC6', 434, '0.0',
+             ('NGC6', 434, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True),
-             ('NGC7', 408, '0.0',
+             ('NGC7', 408, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False),
-             ('NCG8', 417, '0.0',
+             ('NCG8', 417, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False)],
             formats='a10,u4,a10,5f4,l')
 
@@ -674,13 +674,13 @@ class TestTableFunctions(PyfitsTestCase):
                                         'spectrum', 'flag']
 
         array = np.rec.array(
-            [('NGC1', 312, '0.0',
+            [('NGC1', 312, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True),
-             ('NGC2', 334, '0.0',
+             ('NGC2', 334, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False),
-             ('NGC3', 308, '0.0',
+             ('NGC3', 308, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True),
-             ('NCG4', 317, '0.0',
+             ('NCG4', 317, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True)],
             formats='a10,u4,a10,5f4,l')
         assert comparerecords(tbhdu1.data, array)
@@ -718,21 +718,21 @@ class TestTableFunctions(PyfitsTestCase):
         hdu = fits.new_table(t1[1].columns + t2[1].columns)
 
         array = np.rec.array(
-            [('NGC1', 312, '0.0',
+            [('NGC1', 312, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True,
-              'NGC5', 412, '0.0',
+              'NGC5', 412, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False),
-             ('NGC2', 334, '0.0',
+             ('NGC2', 334, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False,
-              'NGC6', 434, '0.0',
+              'NGC6', 434, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True),
-             ('NGC3', 308, '0.0',
+             ('NGC3', 308, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True,
-              'NGC7', 408, '0.0',
+              'NGC7', 408, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False),
-             ('NCG4', 317, '0.0',
+             ('NCG4', 317, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True,
-              'NCG8', 417, '0.0',
+              'NCG8', 417, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False)],
             formats='a10,u4,a10,5f4,l,a10,u4,a10,5f4,l')
         assert comparerecords(hdu.data, array)
@@ -790,21 +790,21 @@ class TestTableFunctions(PyfitsTestCase):
                  'counts1', 'notes1', 'spectrum1', 'flag1'])
 
         array = np.rec.array(
-            [('NGC1', 312, '0.0',
+            [('NGC1', 312, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True,
-              'NGC5', 412, '0.0',
+              'NGC5', 412, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False),
-             ('NGC2', 334, '0.0',
+             ('NGC2', 334, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False,
-              'NGC6', 434, '0.0',
+              'NGC6', 434, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True),
-             ('NGC3', 308, '0.0',
+             ('NGC3', 308, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True,
-              'NGC7', 408, '0.0',
+              'NGC7', 408, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False),
-             ('NCG4', 317, '0.0',
+             ('NCG4', 317, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), True,
-              'NCG8', 417, '0.0',
+              'NCG8', 417, '',
               np.array([0., 0., 0., 0., 0.], dtype=np.float32), False)],
             formats='a10,u4,a10,5f4,l,a10,u4,a10,5f4,l')
         assert comparerecords(hdu.data, array)
@@ -883,7 +883,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert row['counts'] == 308
         a, b, c = row[1:4]
         assert a == counts[2]
-        assert b == '0.0'
+        assert b == ''
         assert (c ==
                 np.array([0., 0., 0., 0., 0.], dtype=np.float32)).all()
         row['counts'] = 310
@@ -1007,7 +1007,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert tbhdu.columns._arrays[1][0] == 312
         assert tbhdu.columns.columns[1].array[0] == 312
         assert tbhdu.columns.columns[0].array[0] == 'NGC1'
-        assert tbhdu.columns.columns[2].array[0] == '0.0'
+        assert tbhdu.columns.columns[2].array[0] == ''
         assert (tbhdu.columns.columns[3].array[0] ==
                 np.array([0., 0., 0., 0., 0.], dtype=np.float32)).all()
         assert tbhdu.columns.columns[4].array[0] == True
@@ -1069,7 +1069,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert tbhdu2.columns._arrays[1][0] == 312
         assert tbhdu2.columns.columns[1].array[0] == 312
         assert tbhdu2.columns.columns[0].array[0] == 'NGC1'
-        assert tbhdu2.columns.columns[2].array[0] == '0.0'
+        assert tbhdu2.columns.columns[2].array[0] == ''
         assert (tbhdu2.columns.columns[3].array[0] ==
                 np.array([0., 0., 0., 0., 0.], dtype=np.float32)).all()
         assert tbhdu2.columns.columns[4].array[0] == True
@@ -1080,14 +1080,14 @@ class TestTableFunctions(PyfitsTestCase):
         assert tbhdu2.columns._arrays[1][4] == 112
         assert tbhdu2.columns.columns[1].array[4] == 112
         assert tbhdu2.columns.columns[0].array[4] == 'NGC5'
-        assert tbhdu2.columns.columns[2].array[4] == '0.0'
+        assert tbhdu2.columns.columns[2].array[4] == ''
         assert (tbhdu2.columns.columns[3].array[4] ==
                 np.array([1., 2., 3., 4., 5.], dtype=np.float32)).all()
         assert tbhdu2.columns.columns[4].array[4] == False
 
         assert tbhdu2.columns.columns[1].array[8] == 0
-        assert tbhdu2.columns.columns[0].array[8] == '0.0'
-        assert tbhdu2.columns.columns[2].array[8] == '0.0'
+        assert tbhdu2.columns.columns[0].array[8] == ''
+        assert tbhdu2.columns.columns[2].array[8] == ''
         assert (tbhdu2.columns.columns[3].array[8] ==
                 np.array([0., 0., 0., 0., 0.], dtype=np.float32)).all()
         assert tbhdu2.columns.columns[4].array[8] == False
@@ -2180,6 +2180,7 @@ class TestTableFunctions(PyfitsTestCase):
             with fits.open(self.data(filename)) as hdul:
                 tbdata = hdul[1].data
                 tbhdu = fits.TableHDU(data=tbdata)
-                tbhdu.writeto(self.temp('test.fits'), clobber=True)
+                with ignore_warnings():
+                    tbhdu.writeto(self.temp('test.fits'), clobber=True)
                 with fits.open(self.temp('test.fits')) as hdul2:
                     assert comparerecords(tbdata, hdul2[1].data)
