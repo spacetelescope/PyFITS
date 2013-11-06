@@ -773,7 +773,6 @@ class ColDefs(object):
         return len(self.columns)
 
     def __repr__(self):
-        return ''
         rep = 'ColDefs('
         if self.columns:
             rep += '\n    '
@@ -1004,12 +1003,12 @@ class _AsciiColDefs(ColDefs):
 
     @lazyproperty
     def dtype(self):
-        _itemsize = columns.spans[-1] + columns.starts[-1] - 1
+        _itemsize = self.spans[-1] + self.starts[-1] - 1
         dtype = {}
 
-        for j in range(len(columns)):
-            data_type = 'S' + str(columns.spans[j])
-            dtype[columns.names[j]] = (data_type, columns.starts[j] - 1)
+        for j in range(len(self)):
+            data_type = 'S' + str(self.spans[j])
+            dtype[self.names[j]] = (data_type, self.starts[j] - 1)
 
         return np.dtype(dtype)
 
@@ -1223,7 +1222,7 @@ def _wrapx(input, output, repeat):
     np.left_shift(output[..., i], unused, output[..., i])
 
 
-def _makep(input, desp_output, format, nrows=None):
+def _makep(array, descr_output, format, nrows=None):
     """
     Construct the P (or Q) format column array, both the data descriptors and
     the data.  It returns the output "data" array of data type `dtype`.
@@ -1234,26 +1233,29 @@ def _makep(input, desp_output, format, nrows=None):
 
     Parameters
     ----------
-    input
+    array
         input object array
 
-    desp_output
-        output "descriptor" array of data type ``Int32``--must be nrows wide in
-        its first dimension
+    descr_output
+        output "descriptor" array of data type int32 (for P format arrays) or
+        int64 (for Q format arrays)--must be nrows long in its first dimension
 
     format
-        the _FormatP object reperesenting the format of the variable array
+        the _FormatP object representing the format of the variable array
 
     nrows : int, optional
         number of rows to create in the column; defaults to the number of rows
         in the input array
     """
 
+    # TODO: A great deal of this is redundant with FITS_rec._convert_p; see if
+    # we can merge the two somehow.
+
     _offset = 0
 
     if not nrows:
-        nrows = len(input)
-    n = min(len(input), nrows)
+        nrows = len(array)
+    n = min(len(array), nrows)
 
     data_output = _VLF([None] * nrows, dtype=format.dtype)
 
@@ -1263,8 +1265,8 @@ def _makep(input, desp_output, format, nrows=None):
         _nbytes = np.array([], dtype=format.dtype).itemsize
 
     for idx in range(nrows):
-        if idx < len(input):
-            rowval = input[idx]
+        if idx < len(array):
+            rowval = array[idx]
         else:
             if format.dtype == 'a':
                 rowval = ' ' * data_output.max
@@ -1276,8 +1278,8 @@ def _makep(input, desp_output, format, nrows=None):
         else:
             data_output[idx] = np.array(rowval, dtype=format.dtype)
 
-        desp_output[idx, 0] = len(data_output[idx])
-        desp_output[idx, 1] = _offset
+        descr_output[idx, 0] = len(data_output[idx])
+        descr_output[idx, 1] = _offset
         _offset += len(data_output[idx]) * _nbytes
 
     return data_output

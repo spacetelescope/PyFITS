@@ -111,20 +111,6 @@ class _TableLikeHDU(_ValidHDU):
         # new data placed in the column object above
         del columns._arrays
 
-    @classmethod
-    def _init_recarray_template(cls, columns, nrows):
-        """Given an input ColDefs, create an empty np.recarray that meets the
-        template required for those columns.
-
-        This can be overridden by subclasses to support special column types
-        or fill modes.
-        """
-
-        formats = ','.join(columns._recformats)
-        return np.rec.array(None, formats=formats,
-                            names=columns.names,
-                            shape=nrows).view(FITS_rec)
-
 
 class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
     """
@@ -463,25 +449,6 @@ class TableHDU(_TableBaseHDU):
         self._init_tbdata(data)
         return data.view(self._data_type)
 
-    @classmethod
-    def _init_recarray_template(cls, columns, nrows):
-        """Creates an all string recarray to serve as the underlying raw
-        data structure for an ASCII table.  All empty space is filled with
-        spaces by default.
-        """
-
-        _itemsize = columns.spans[-1] + columns.starts[-1] - 1
-        dtype = {}
-
-        for j in range(len(columns)):
-            data_type = 'S' + str(columns.spans[j])
-            dtype[columns.names[j]] = (data_type, columns.starts[j] - 1)
-
-        data = np.rec.array((' ' * _itemsize * nrows).encode('ascii'),
-                            dtype=dtype, shape=nrows).view(FITS_rec)
-        data.setflags(write=True)
-        return data
-
     def _calculate_datasum(self, blocking):
         """
         Calculate the value for the ``DATASUM`` card in the HDU.
@@ -599,6 +566,13 @@ class BinTableHDU(_TableBaseHDU):
         return size
 
     def _binary_table_byte_swap(self, fileobj):
+        """Prepares data in the native FITS format and writes the raw bytes
+        out to the given file object.  This handles byte swapping from native
+        to big endian (if necessary).  In addition, however, this also handles
+        writing the binary table heap when variable length array columns are
+        present.
+        """
+
         to_swap = []
         swapped = []
         nbytes = 0
@@ -1184,7 +1158,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     # Delete the HDU's default columns; it will use the newly created data's
     # coldefs instead
     del hdu.columns
-    hdu.data = hdu._tbdata_from_columns(columns)
+    hdu.data = FITS_rec.from_columns(columns, nrows=nrows, fill=fill)
     return hdu
 
     # Populate data to the new table from the ndarrays in the input ColDefs
