@@ -5,9 +5,9 @@ import weakref
 
 import numpy as np
 
-from pyfits.column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ColDefs,
-                           _FormatX, _FormatP, _VLF, _get_index, _wrapx,
-                           _unwrapx, _convert_ascii_format)
+from pyfits.column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ASCII2STR,
+                           ColDefs, _FormatX, _FormatP, _VLF, _get_index,
+                           _wrapx, _unwrapx, _convert_ascii_format)
 from pyfits.util import decode_ascii, lazyproperty
 
 
@@ -592,13 +592,6 @@ class FITS_rec(np.recarray):
         Update the parent array, using the (latest) scaled array.
         """
 
-        _fmap = {'A': 's', 'I': 'd', 'J': 'd', 'F': 'f', 'E': 'E', 'D': 'E'}
-        # calculate the starting point and width of each field for ASCII table
-        # TODO: Ick--fix this _tbtype usage eventually...
-        if self._coldefs._tbtype == 'TableHDU':
-            loc = self._coldefs.starts
-            loc.append(loc[-1] + super(FITS_rec, self).field(-1).itemsize)
-
         for indx in range(len(self.dtype.names)):
             recformat = self._coldefs._recformats[indx]
             field = super(FITS_rec, self).field(indx)
@@ -652,34 +645,51 @@ class FITS_rec(np.recarray):
 
                 # ASCII table, convert numbers to strings
                 if self._coldefs._tbtype == 'TableHDU':
+                    starts = self._coldefs.starts[:]
                     spans = self._coldefs.spans
                     format = self._coldefs.formats[indx].strip()
-                    lead = self._coldefs.starts[indx] - loc[indx]
+
+                    # The the index of the "end" column of the record, beyond
+                    # which we can't write
+                    end = super(FITS_rec, self).field(-1).itemsize
+                    starts.append(end + starts[-1])
+
+                    if indx > 0:
+                        lead = (starts[indx] - starts[indx - 1] -
+                                spans[indx - 1])
+                    else:
+                        lead = 0
+
                     if lead < 0:
-                        raise ValueError(
-                            'Column `%s` starting point overlaps to the '
-                            'previous column.' % indx + 1)
-                    trail = (loc[indx + 1] - spans[indx] -
-                             self._coldefs.starts[indx])
+                        warnings.warn(
+                            'Column %r starting point overlaps the '
+                            'previous column.' % (indx + 1))
+
+                    trail = starts[indx + 1] - starts[indx] - spans[indx]
+
                     if trail < 0:
-                        raise ValueError(
-                            'Column `%s` ending point overlaps to the next '
-                            'column.' % indx + 1)
+                        warnings.warn(
+                            'Column %r ending point overlaps the next '
+                            'column.' % (indx + 1))
+
+                    # TODO: It would be nice if these string column formatting
+                    # details were left to a specialized class, as is the case
+                    # with FormatX and FormatP
                     if 'A' in format:
                         _pc = '%-'
                     else:
                         _pc = '%'
 
-                    fmt = ''.join([(' ' * lead), _pc, format[1:],
-                                   _fmap[format[0]], (' ' * trail)])
+                    fmt = ''.join([_pc, format[1:], ASCII2STR[format[0]],
+                                   (' ' * trail)])
 
                     # not using numarray.strings's num2char because the
                     # result is not allowed to expand (as C/Python does).
                     for jdx in range(len(dummy)):
                         x = fmt % dummy[jdx]
-                        if len(x) > (loc[indx + 1] - loc[indx]):
+                        if len(x) > (starts[indx + 1] - starts[indx]):
                             raise ValueError(
-                                "Number `%s` does not fit into the output's "
+                                "Value %r does not fit into the output's "
                                 "itemsize of %s." % (x, spans[indx]))
                         else:
                             field[jdx] = x

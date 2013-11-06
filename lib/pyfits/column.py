@@ -53,6 +53,13 @@ FORMATORDER = ['L', 'B', 'I', 'J', 'K', 'D', 'M', 'A']
 ASCII2NUMPY = {'A': 'a', 'I': 'i4', 'J': 'i8', 'F': 'f4', 'E': 'f4',
                'D': 'f8'}
 
+# Maps FITS ASCII column format codes to the appropriate Python string
+# formatting codes for that type.
+ASCII2STR = {'A': 's', 'I': 'd', 'J': 'd', 'F': 'f', 'E': 'E', 'D': 'E'}
+
+
+
+
 # lists of column/field definition common names and keyword names, make
 # sure to preserve the one-to-one correspondence when updating the list(s).
 # Use lists, instead of dictionaries so the names can be displayed in a
