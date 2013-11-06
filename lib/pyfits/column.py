@@ -843,8 +843,10 @@ class ColDefs(object):
 class _ASCIIColDefs(ColDefs):
     """ColDefs implementation for ASCII tables."""
 
-    _ascii_fmt = {'A': 'A1', 'I': 'I10', 'J': 'I15', 'E': 'E15.7',
-                  'F': 'F16.7', 'D': 'D25.17'}
+    # For each ASCII table format code, provides a default width for when
+    # one isn't given explicitly
+    _default_widths = {'A': 'A1', 'I': 'I10', 'J': 'I15', 'E': 'E15.7',
+                       'F': 'F16.7', 'D': 'D25.17'}
 
     _padding_byte = ' '
 
@@ -853,25 +855,18 @@ class _ASCIIColDefs(ColDefs):
 
         # if the format of an ASCII column has no width, add one
         if not isinstance(input, _ASCIIColDefs):
-            for col in self.columns:
-                _, width = _convert_ascii_format(col.format)
-                if width is None:
-                    col.format = self._ascii_fmt[col.format]
+            self._update_field_metrics()
+        else:
+            self.starts[:] = input.starts
+            self._spans = input.spans
+            self._width = input._width
 
-    @lazyproperty
+
+    @property
     def spans(self):
-        # make sure to consider the case that the starting column of
-        # a field may not be the column right after the last field
-        end = 0
-        spans = [0] * len(self)
-        for idx in range(len(self)):
-            _, width = _convert_ascii_format(self.formats[idx])
-            if not self.starts[idx]:
-                self.starts[idx] = end + 1
-            end = self.starts[idx] + width - 1
-            spans[idx] = width
-        self._width = end
-        return spans
+        """A list of the widths of each field in the table."""
+
+        return self._spans
 
     @lazyproperty
     def _recformats(self):
@@ -879,25 +874,45 @@ class _ASCIIColDefs(ColDefs):
             widths = []
         else:
             widths = [y - x for x, y in pairwise(self.starts)]
-        # NOTE: The self._width attribute only exists if this ColDefs was
-        # instantiated with a _TableHDU object; make sure that's the only
-        # context in which this is used, for now...
-        # Touch spans to make sure self.starts is set
-        # TODO: Refactor so that this isn't necessary, as it clearly should not
-        # be...
-        self.spans
+
+        # Widths is the width of each field *including* any space between
+        # fields; this is so that we can map the fields to string records in a
+        # Numpy recarray
         widths.append(self._width - self.starts[-1] + 1)
         return ['a' + str(w) for w in widths]
 
     def add_col(self, column):
-        # Clear existing spans value
-        del self.spans
         super(_ASCIIColDefs, self).add_col(column)
+        self._update_field_metrics()
 
     def del_col(self, col_name):
-        # Clear existing spans value
-        del self.spans
         super(_ASCIIColDefs, self).del_col(col_name)
+        self._update_field_metrics()
+
+    def _update_field_metrics(self):
+        """
+        Updates the list of the start columns, the list of the widths of each
+        field, and the total width of each record in the table.
+        """
+
+        starts = self.starts
+        spans = [0] * len(self.columns)
+        end_col = 0  # Refers to the ASCII text column, not the table col
+        for idx, col in enumerate(self.columns):
+            _, width = _convert_ascii_format(col.format)
+            if width is None:
+                col.format = self._default_widths[col.format]
+                _, width = _convert_ascii_format(col.format)
+            # Update the start columns and column span widths taking into
+            # account the case that the starting column of a field may not
+            # be the column immediately after the previous field
+            if not starts[idx]:
+                starts[idx] = end_col + 1
+            end_col = starts[idx] + width - 1
+            spans[idx] = width
+
+        self._spans = spans
+        self._width = end_col
 
 
 class _VLF(np.ndarray):
