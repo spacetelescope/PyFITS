@@ -5,6 +5,7 @@ import numpy as np
 from numpy import char as chararray
 
 import pyfits as fits
+from pyfits.column import Delayed
 from pyfits.util import decode_ascii
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import ignore_warnings
@@ -2109,7 +2110,7 @@ class TestTableFunctions(PyfitsTestCase):
         col = fits.Column('mag', format='E', array=arr)
         assert (arr == col.array).all()
 
-    def test_image_none(self):
+    def test_table_none(self):
         """Regression test
         for https://github.com/spacetelescope/PyFITS/issues/27
         """
@@ -2148,3 +2149,26 @@ class TestTableFunctions(PyfitsTestCase):
             with fits.open(self.temp('test.fits')) as h2:
                 assert str(h1[1].header) == str(h2[1].header)
                 assert comparerecords(h1[1].data, h2[1].data)
+
+    def test_table_from_columns_of_other_table(self):
+        """Tests a rare corner case where the columns of an existing table
+        are used to create a new table with the new_table function.  In this
+        specific case, however, the existing table's data has not been read
+        yet, so new_table has to get at it through the Delayed proxy.
+        """
+
+        hdul = fits.open(self.data('table.fits'))
+
+        # Make sure the column array is in fact delayed...
+        assert isinstance(hdul[1].columns._arrays[0], Delayed)
+
+        # Create a new table...
+        t = fits.new_table(hdul[1].columns)
+
+        # The original columns should no longer be delayed...
+        assert not isinstance(hdul[1].columns._arrays[0], Delayed)
+
+        t.writeto(self.temp('test.fits'))
+
+        with fits.open(self.temp('test.fits')) as hdul2:
+            assert comparerecords(hdul[1].data, hdul2[1].data)
