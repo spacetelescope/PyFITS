@@ -394,7 +394,9 @@ class Column(object):
         else:
             format = self.format
             dims = self._dims
-            if 'A' in format and 'P' not in format and 'Q' not in format:
+            if 'P' in format or 'Q' in format:
+                return array
+            elif 'A' in format:
                 if array.dtype.char in 'SU':
                     if dims:
                         # The 'last' dimension (first in the order given
@@ -413,16 +415,13 @@ class Column(object):
                     return np.where(array == False, ord('F'), ord('T'))
                 else:
                     return np.where(array == 0, ord('F'), ord('T'))
-            elif ('X' not in format and 'P' not in format and
-                    'Q' not in format):
+            elif 'X' in format:
+                return _convert_array(array, np.dtype('uint8'))
+            else:
                 (repeat, fmt, option) = _parse_tformat(format)
                 # Preserve byte order of the original array for now; see #77
                 numpy_format = array.dtype.byteorder + _convert_format(fmt)
                 return _convert_array(array, np.dtype(numpy_format))
-            elif 'X' in format:
-                return _convert_array(array, np.dtype('uint8'))
-            else:
-                return array
 
 
 class ColDefs(object):
