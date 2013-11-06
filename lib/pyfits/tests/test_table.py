@@ -2177,11 +2177,17 @@ class TestTableFunctions(PyfitsTestCase):
     def test_bintable_to_asciitable(self):
         """Tests initializing a TableHDU with the data from a BinTableHDU."""
 
-        for filename in ('table.fits', 'tb.fits'):
-            with fits.open(self.data(filename)) as hdul:
-                tbdata = hdul[1].data
-                tbhdu = fits.TableHDU(data=tbdata)
-                with ignore_warnings():
-                    tbhdu.writeto(self.temp('test.fits'), clobber=True)
-                with fits.open(self.temp('test.fits')) as hdul2:
-                    assert comparerecords(tbdata, hdul2[1].data)
+        with fits.open(self.data('tb.fits')) as hdul:
+            tbdata = hdul[1].data
+            tbhdu = fits.TableHDU(data=tbdata)
+            with ignore_warnings():
+                tbhdu.writeto(self.temp('test.fits'), clobber=True)
+            with fits.open(self.temp('test.fits')) as hdul2:
+                tbdata2 = hdul2[1].data
+                assert np.all(tbdata['c1'] == tbdata2['c1'])
+                assert np.all(tbdata['c2'] == tbdata2['c2'])
+                assert np.all(tbdata['c3'] == tbdata2['c3'])
+                # c4 is a boolean column in the original table; we want ASCII
+                # columns to convert these to columns of 'T'/'F' strings
+                assert np.all(np.where(tbdata['c4'] == True, 'T', 'F') ==
+                              tbdata2['c4'])

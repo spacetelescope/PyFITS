@@ -225,10 +225,22 @@ class _AsciiColumnFormat(_BaseColumnFormat):
     def __new__(cls, format):
         self = super(_AsciiColumnFormat, cls).__new__(cls, format)
         self.format, self.width, self.precision = _parse_ascii_tformat(format)
+
+        # This is to support handling logical (boolean) data from binary tables
+        # in an ASCII table
+        self._pseudo_logical = False
         return self
 
     def __hash__(self):
         return hash(self.canonical)
+
+    @classmethod
+    def from_column_format(cls, format):
+        inst = cls.from_recformat(format.recformat)
+        # Hack
+        if format.format == 'L':
+            inst._pseudo_logical = True
+        return inst
 
     @classmethod
     def from_recformat(cls, recformat):
@@ -1653,10 +1665,16 @@ def _convert_ascii_format(format, reverse=False):
 
         kind = format.base.kind
         itemsize = format.base.itemsize
+        recformat = kind + str(itemsize)
         if kind in ('U', 'S'):
             kind = 'a'
         if kind == 'a':
             return 'A' + str(itemsize)
+        elif NUMPY2FITS.get(recformat) == 'L':
+            # Special case for logical/boolean types--for ASCII tables we
+            # represent these as single character columns containing 'T' or 'F'
+            # (a la the storage format for Logical columns in binary tables)
+            return 'A1'
         elif kind == 'i':
             # Use for the width the maximum required to represent integers
             # of that byte size plus 1 for signs, but use a minumum of the

@@ -330,6 +330,7 @@ class FITS_rec(np.recarray):
                 continue
 
             field = np.rec.recarray.field(data, idx)
+            fitsformat = columns.formats[idx]
             recformat = columns._recformats[idx]
 
             outarr = field[:n]
@@ -362,7 +363,13 @@ class FITS_rec(np.recarray):
                 # Regardless whether the format is character or numeric, if the
                 # input array contains characters then it's already in the raw
                 # format for ASCII tables
-                if not isinstance(arr, chararray.chararray):
+                if fitsformat._pseudo_logical:
+                    # Hack to support converting from 8-bit T/F characters
+                    # Normally the column array is a chararray of 1 character
+                    # strings, but we need to view it as a normal ndarray of
+                    # 8-bit ints to fill it with ASCII codes for 'T' and 'F'
+                    outarr = field.view(np.uint8, np.ndarray)[:n]
+                elif not isinstance(arr, chararray.chararray):
                     # Fill with the appropriate blanks for the column format
                     data._convert[idx] = np.zeros(nrows, dtype=arr.dtype)
                     outarr = data._convert[idx][:n]
