@@ -265,6 +265,16 @@ class Column(object):
 
         dim : str, optional
             column dimension corresponding to ``TDIM`` keyword
+
+        array : iterable, optional
+            a `list`, `numpy.ndarray` (or other iterable that can be used to
+            initialize an ndarray) providing intial data for this column.
+            The array will be automatically converted, if possible, to the data
+            format of the column.  In the case were non-trivial ``bscale``
+            and/or ``bzero`` arguments are given, the values in the array must
+            be the *physical* values--that is, the values of column as if the
+            scaling has already been applied (the array stored on the column
+            object will then be converted back to its storage values).
         """
 
         if format is None:
@@ -350,11 +360,10 @@ class Column(object):
         # scale the array back to storage values if there is bscale/bzero
         if isinstance(array, np.ndarray):
             # make a copy if scaled, so as not to corrupt the original array
-            if bzero not in ['', None, 0] or bscale not in ['', None, 1]:
-                if bzero not in ['', None, 0]:
-                    array = array - bzero
-                if bscale not in ['', None, 1]:
-                    array = array / bscale
+            if bzero not in ('', None, 0):
+                array = array - bzero
+            if bscale not in ('', None, 1):
+                array = array / bscale
 
         array = self._convert_to_valid_data_type(array)
         self.array = array
