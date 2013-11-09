@@ -67,8 +67,8 @@ widely-adopted.
 .. _Erik Bray: mailto:embray@stsci.edu
 .. _Trac site: https://trac.assembla.com/pyfits/
 .. _SVN repository: https://subversion.assembla.com/svn/pyfits/
-.. _Git mirror: git://github.com/iguananaut/PyFITS.git
-.. _GitHub site: https://github.com/iguananaut/PyFITS
+.. _Git mirror: git://github.com/spacetelescope/PyFITS.git
+.. _GitHub site: https://github.com/spacetelescope/PyFITS
 .. _Astropy: http://www.astropy.org/
 
 
@@ -144,7 +144,7 @@ into.  For example to add the missing registry entries to your Python 2.7::
 
     C:\>C:\Python27\python.exe C:\Path\To\Downloads\win_register_python.py
 
-__ https://gist.github.com/iguananaut/6042780#file-win_register_python-py
+__ https://gist.github.com/embray/6042780#file-win_register_python-py
 
 How do I install PyFITS from source on Windows?
 -----------------------------------------------
