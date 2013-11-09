@@ -23,9 +23,6 @@
 /* The second function is decompress_hdu.  It takes a pyfits.CompImageHDU    */
 /* object that already has compressed data in its .compressed_data attribute.*/
 /* It returns the decompressed image data into the HDU's .data attribute.    */
-/* Finally, the utility function calc_max_elm is used internally by the      */
-/* CompImageHDU class to estimate how much memory to allocate for the        */
-/* compressed data when compressing an image.                                */
 /*                                                                           */
 /* Copyright (C) 2012 Association of Universities for Research in Astronomy  */
 /* (AURA)                                                                    */
