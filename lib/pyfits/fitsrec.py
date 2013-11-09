@@ -178,8 +178,6 @@ class FITS_rec(np.recarray):
         self._convert = [None] * len(self.dtype.names)
         self._heapoffset = 0
         self._heapsize = 0
-        self._file = None
-        self._buffer = None
         self._coldefs = None
         self._gap = 0
         self.names = list(self.dtype.names)
@@ -194,8 +192,6 @@ class FITS_rec(np.recarray):
             self._convert = obj._convert
             self._heapoffset = obj._heapoffset
             self._heapsize = obj._heapsize
-            self._file = obj._file
-            self._buffer = obj._buffer
             self._coldefs = obj._coldefs
             self._nfields = obj._nfields
             self._gap = obj._gap
@@ -209,8 +205,6 @@ class FITS_rec(np.recarray):
 
             self._heapoffset = getattr(obj, '_heapoffset', 0)
             self._heapsize = getattr(obj, '_heapsize', 0)
-            self._file = getattr(obj, '_file', None)
-            self._buffer = getattr(obj, '_buffer', None)
 
             self._coldefs = None
             self._gap = 0

@@ -1454,7 +1454,6 @@ class CompImageHDU(BinTableHDU):
         self.compressed_data._coldefs = self.columns
         self.compressed_data._heapoffset = self._theap
         self.compressed_data._heapsize = heapsize
-        self.compressed_data._buffer = buf
         self.compressed_data.formats = self.columns.formats
 
         # Update the table header cards to match the compressed data.
