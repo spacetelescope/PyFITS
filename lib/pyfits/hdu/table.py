@@ -17,7 +17,7 @@ from pyfits.column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES,
                            TDEF_RE, Column, ColDefs, _AsciiColDefs,
                            _FormatX, _FormatP, _FormatQ, _makep, _VLF,
                            _parse_tformat, _scalar_to_format, _convert_format,
-                           _cmp_recformats)
+                           _cmp_recformats, _get_index)
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import DELAYED, _ValidHDU, ExtensionHDU
 from pyfits.header import Header
@@ -46,6 +46,10 @@ class _TableLikeHDU(_ValidHDU):
 
     _data_type = FITS_rec
     _columns_type = ColDefs
+
+    # TODO: Temporary flag representing whether uints are enabled; remove this
+    # after restructuring to support uints by default on a per-column basis
+    _uint = False
 
     @classmethod
     def match_header(cls, header):
@@ -92,6 +96,9 @@ class _TableLikeHDU(_ValidHDU):
 
         data.dtype = data.dtype.newbyteorder('>')
 
+        # hack to enable pseudo-uint support
+        data._uint = self._uint
+
         # pass datLoc, for P format
         data._heapoffset = self._theap
         data._heapsize = self._header['PCOUNT']
@@ -116,7 +123,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
     FITS table extension base HDU class.
     """
 
-    def __init__(self, data=None, header=None, name=None):
+    def __init__(self, data=None, header=None, name=None, uint=False):
         """
         Parameters
         ----------
@@ -128,6 +135,9 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
         name : str
             name to be populated in ``EXTNAME`` keyword
+
+        uint : bool, optional
+            set to ``True`` if the table contains unsigned integer columns.
         """
 
         super(_TableBaseHDU, self).__init__(data=data, header=header,
@@ -135,7 +145,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
         if header is not None and not isinstance(header, Header):
             raise ValueError('header must be a Header object.')
-
+        self._uint = uint
         if data is DELAYED:
             # this should never happen
             if header is None:
@@ -164,7 +174,77 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                 cards.extend(hcopy.cards)
 
             self._header = Header(cards)
-            self.data = data
+
+            if isinstance(data, np.ndarray) and data.dtype.fields is not None:
+                # self._data_type is FITS_rec.
+                if isinstance(data, self._data_type):
+                    self.data = data
+                else:
+                    # Just doing a view on the input data screws up unsigned
+                    # columns, so treat those more carefully.
+                    # TODO: I need to read this code a little more closely
+                    # again, but I think it can be simplified quite a bit with
+                    # the use of some appropriate utility functions
+                    update_coldefs = {}
+                    if 'u' in [data.dtype[k].kind for k in data.dtype.names]:
+                        self._uint = True
+                        bzeros = {2: np.uint16(2**15), 4: np.uint32(2**31),
+                                  8: np.uint64(2**63)}
+
+                        new_dtype = [
+                            (k, data.dtype[k].kind.replace('u', 'i') +
+                            str(data.dtype[k].itemsize))
+                            for k in data.dtype.names]
+
+                        new_data = np.zeros(data.shape, dtype=new_dtype)
+
+                        for k in data.dtype.fields:
+                            dtype = data.dtype[k]
+                            if dtype.kind == 'u':
+                                new_data[k] = data[k] - bzeros[dtype.itemsize]
+                                update_coldefs[k] = bzeros[dtype.itemsize]
+                            else:
+                                new_data[k] = data[k]
+                        self.data = new_data.view(self._data_type)
+                        # Uck...
+                        self.data._uint = True
+                    else:
+                        self.data = data.view(self._data_type)
+                    for k in update_coldefs:
+                        indx = _get_index(self.data.names, k)
+                        self.data._coldefs[indx].bzero = update_coldefs[k]
+                        # This is so bad that we have to update this in
+                        # duplicate...
+                        self.data._coldefs.bzeros[indx] = update_coldefs[k]
+                        # More uck...
+                        self.data._coldefs[indx]._physical_values = False
+                        self.data._coldefs[indx]._pseudo_unsigned_ints = True
+
+                self._header['NAXIS1'] = self.data.itemsize
+                self._header['NAXIS2'] = self.data.shape[0]
+                self._header['TFIELDS'] = len(self.data._coldefs)
+
+                self.columns = self.data._coldefs
+                self.update()
+
+                try:
+                   # Make the ndarrays in the Column objects of the ColDefs
+                   # object of the HDU reference the same ndarray as the HDU's
+                   # FITS_rec object.
+                    for idx in range(len(self.columns)):
+                        self.columns[idx].array = self.data.field(idx)
+
+                    # Delete the _arrays attribute so that it is recreated to
+                    # point to the new data placed in the column objects above
+                    del self.columns._arrays
+                except (TypeError, AttributeError) as e:
+                    # This shouldn't happen as long as self.columns._arrays
+                    # is a lazyproperty
+                    pass
+            elif data is None:
+                pass
+            else:
+                raise TypeError('Table data has incorrect type.')
 
         if not (isinstance(self._header[0], basestring) and
                 self._header[0].rstrip() == self._extension):

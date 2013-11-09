@@ -180,6 +180,7 @@ class FITS_rec(np.recarray):
         self._heapsize = 0
         self._coldefs = None
         self._gap = 0
+        self._uint = False
         self.names = list(self.dtype.names)
         self.formats = None
         return self
@@ -195,6 +196,7 @@ class FITS_rec(np.recarray):
             self._coldefs = obj._coldefs
             self._nfields = obj._nfields
             self._gap = obj._gap
+            self._uint = obj._uint
             self.names = obj.names
             self.formats = obj.formats
         else:
@@ -207,7 +209,8 @@ class FITS_rec(np.recarray):
             self._heapsize = getattr(obj, '_heapsize', 0)
 
             self._coldefs = None
-            self._gap = 0
+            self._gap = getattr(obj, '_gap', 0)
+            self._uint = getattr(obj, '_uint', False)
 
             # Bypass setattr-based assignment to fields; see #86
             self.names = list(obj.dtype.names)
@@ -353,6 +356,17 @@ class FITS_rec(np.recarray):
                 # TODO: Maybe this step isn't necessary at all if _scale_back
                 # will handle it?
                 inarr = np.where(inarr == False, ord('F'), ord('T'))
+            elif (columns[idx]._physical_values and
+                    columns[idx]._pseudo_unsigned_ints):
+                # Temporary hack...
+                bzero = columns[idx].bzero
+                data._convert[idx] = np.zeros_like(field, dtype=inarr.dtype)
+                data._convert[idx][:n] = inarr
+                if n < nrows:
+                    # Pre-scale rows below the input data
+                    field[n:] = -bzero
+
+                inarr = inarr - bzero
             elif isinstance(columns, _AsciiColDefs):
                 # Regardless whether the format is character or numeric, if the
                 # input array contains characters then it's already in the raw
@@ -679,11 +693,38 @@ class FITS_rec(np.recarray):
         # responsible for scaling their arrays to/from FITS native values
         column = self._coldefs[indx]
         if (_number and (_scale or _zero) and not column._physical_values):
-            field = np.array(field, dtype=np.float64)
+            # This is to handle pseudo unsigned ints in table columns
+            # TODO: For now this only really works correctly for binary tables
+            # Should it work for ASCII tables as well?
+            if self._uint:
+                if bzero == 2**15 and 'I' in self._coldefs.formats[indx]:
+                    field = np.array(field, dtype=np.uint16)
+                elif bzero == 2**31 and 'J' in self._coldefs.formats[indx]:
+                    field = np.array(field, dtype=np.uint32)
+                elif bzero == 2**63 and 'K' in self._coldefs.formats[indx]:
+                    field = np.array(field, dtype=np.uint64)
+                    bzero64 = np.uint64(2 ** 63)
+                else:
+                    field = np.array(field, dtype=np.float64)
+            else:
+                field = np.array(field, dtype=np.float64)
+
             if _scale:
                 np.multiply(field, bscale, field)
             if _zero:
-                field += bzero
+                if self._uint and 'K' in self._coldefs.formats[indx]:
+                    # There is a chance of overflow, so be careful
+                    test_overflow = field.copy()
+                    try:
+                        test_overflow += bzero64
+                    except OverflowError:
+                        warnings.warn(
+                            "Overflow detected while applying TZERO{0:d}. "
+                            "Returning unscaled data.".format(indx))
+                    else:
+                        field = test_overflow
+                else:
+                    field += bzero
         elif _bool and field.dtype != bool:
             field = np.equal(field, ord('T'))
         elif _str:

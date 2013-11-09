@@ -36,6 +36,10 @@ NUMPY2FITS = dict([(val, key) for key, val in FITS2NUMPY.iteritems()])
 # Normally booleans are represented as ints in pyfits, but if passed in a numpy
 # boolean array, that should be supported
 NUMPY2FITS['b1'] = 'L'
+# Add unsigned types, which will be stored as signed ints with a TZERO card.
+NUMPY2FITS['u2'] = 'I'
+NUMPY2FITS['u4'] = 'J'
+NUMPY2FITS['u8'] = 'K'
 
 # This is the order in which values are converted to FITS types
 # Note that only double precision floating point/complex are supported
@@ -453,6 +457,10 @@ class Column(object):
         else:
             self._phantom = False
 
+        # Awful hack to use for now to keep track of whether the column holds
+        # pseudo-unsigned int data
+        self._pseudo_unsigned_ints = False
+
         # TODO: Perhaps offload option verification/handling to a separate
         # method
 
@@ -673,6 +681,24 @@ class Column(object):
                 # avoid doing...
                 new_format = _convert_format(format.format)
                 numpy_format = array.dtype.byteorder + new_format
+
+                # Handle arrays passed in as unsigned ints as pseudo-unsigned
+                # int arrays; blatantly tacked in here for now--we need columns
+                # to have explicit knowledge of whether they treated as
+                # pseudo-unsigned
+                bzeros = {2: np.uint16(2**15), 4: np.uint32(2**31),
+                          8: np.uint64(2**63)}
+                if (array.dtype.kind == 'u' and
+                        array.dtype.itemsize in bzeros and
+                        self.bscale in (1, None, '') and
+                        self.bzero == bzeros[array.dtype.itemsize]):
+                    # Basically the array is uint, has scale == 1.0, and the
+                    # bzero is the appropriate value for a pseudo-unsigned
+                    # integer of the input dtype, then go ahead and assume that
+                    # uint is assumed
+                    numpy_format = numpy_format.replace('i', 'u')
+                    self._pseudo_unsigned_ints = True
+
                 return _convert_array(array, np.dtype(numpy_format))
 
 
@@ -775,8 +801,18 @@ class ColDefs(object):
             else:
                 dim = None
 
+            # Check for unsigned ints.
+            bzero = None
+            if 'I' in format and ftype == np.dtype('uint16'):
+                bzero = np.uint16(2**15)
+            elif 'J' in format and ftype == np.dtype('uint32'):
+                bzero = np.uint32(2**31)
+            elif 'K' in format and ftype == np.dtype('uint64'):
+                bzero = np.uint64(2**63)
+
             c = Column(name=cname, format=format,
-                       array=array.view(np.ndarray)[cname], dim=dim)
+                       array=array.view(np.ndarray)[cname], bzero=bzero,
+                       dim=dim)
             self.columns.append(c)
 
     def _init_from_table(self, table):
