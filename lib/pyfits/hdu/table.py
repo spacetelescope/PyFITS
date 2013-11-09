@@ -15,8 +15,8 @@ from numpy import char as chararray
 # utilities in pyfits.column
 from pyfits.column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES,
                            TDEF_RE, Column, ColDefs, _AsciiColDefs,
-                           _FormatX, _FormatP, _FormatQ, _makep, _VLF,
-                           _parse_tformat, _scalar_to_format, _convert_format,
+                           _FormatP, _FormatQ, _makep, _VLF, _parse_tformat,
+                           _scalar_to_format, _convert_format,
                            _cmp_recformats, _get_index)
 from pyfits.fitsrec import FITS_rec
 from pyfits.hdu.base import DELAYED, _ValidHDU, ExtensionHDU
@@ -722,12 +722,6 @@ class BinTableHDU(_TableBaseHDU):
                 val = getattr(cols, attr + 's')[idx]
                 if val:
                     keyword = keyword + str(idx + 1)
-                    if attr == 'format':
-                        val = cols._recformats[idx]
-                        if isinstance(val, (_FormatX, _FormatP)):
-                            val = val.tform
-                        else:
-                            val = _convert_format(val, reverse=True)
                     append((keyword, val))
 
     _tdump_file_format = textwrap.dedent("""
@@ -978,7 +972,7 @@ class BinTableHDU(_TableBaseHDU):
             for column in self.columns:
                 vla_format = None   # format of data in a variable length array
                                     # where None means it is not a VLA
-                format = _convert_format(column.format)
+                format = column.format.recformat
 
                 if isinstance(format, _FormatP):
                     # P format means this is a variable length array so output
