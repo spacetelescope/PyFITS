@@ -1340,7 +1340,9 @@ def _format_value(value):
         return '%20s' % repr(value)[0]  # T or F
 
     elif _is_int(value):
-        return '%20d' % value
+        # Originally this was '%20d' but Python 2.5 has a bug with string
+        # formatting where this format code won't accept a large 64-bit int
+        return '%20s' % value
 
     elif isinstance(value, (float, np.floating)):
         return '%20s' % _format_float(value)

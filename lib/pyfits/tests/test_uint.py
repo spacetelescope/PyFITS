@@ -34,7 +34,7 @@ class TestUintFunctions(PyfitsTestCase):
             else:
                 hdu = fits.PrimaryHDU(np.array([-3, -2, -1, 0, 1, 2, 3]))
                 hdu_number = 0
-            hdu.scale('int{0:d}'.format(bits), '', bzero=2 ** (bits-1))
+            hdu.scale('int%s' % bits, '', bzero=2 ** (bits-1))
 
             with ignore_warnings():
                 hdu.writeto(self.temp('tempfile.fits'), clobber=True)
@@ -58,7 +58,7 @@ class TestUintFunctions(PyfitsTestCase):
                         # TODO: Enable these lines if CompImageHDUs ever grow
                         # .section support
                         sec = hdul[hdu_number].section[:1]
-                        assert sec.dtype.name == 'uint{0:d}'.format(bits)
+                        assert sec.dtype.name == 'uint%s' % bits
                         assert (sec == d1[:1]).all()
 
     def test_uint_columns(self):
