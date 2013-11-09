@@ -711,19 +711,6 @@ class BinTableHDU(_TableBaseHDU):
 
         return nbytes
 
-    def _populate_table_keywords(self):
-        """Populate the new table definition keywords from the header."""
-
-        cols = self.columns
-        append = self._header.append
-
-        for idx in range(len(cols)):
-            for attr, keyword in zip(KEYWORD_ATTRIBUTES, KEYWORD_NAMES):
-                val = getattr(cols, attr + 's')[idx]
-                if val:
-                    keyword = keyword + str(idx + 1)
-                    append((keyword, val))
-
     _tdump_file_format = textwrap.dedent("""
 
         - **datafile:** Each line of the data file represents one row of table
