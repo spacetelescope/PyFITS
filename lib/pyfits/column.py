@@ -902,7 +902,7 @@ class ColDefs(object):
 
     @lazyproperty
     def _recformats(self):
-        return [_convert_format(fmt) for fmt in self.formats]
+        return [fmt.recformat for fmt in self.formats]
 
     @lazyproperty
     def _dims(self):
