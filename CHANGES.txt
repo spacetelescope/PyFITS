@@ -19,6 +19,9 @@ Changelog
   v3.1.2, but it was only fixed there for compressed image HDUs and not for
   binary tables in general. (Backported from 3.1.3)
 
+- Fixed an obscure issue that can occur on systems that don't have flush to
+  memory-mapped files implemented (namely GNU Hurd). (Backported from 3.2)
+
 
 3.0.11 (2013-04-17)
 -------------------
