@@ -2,6 +2,10 @@ from __future__ import with_statement
 
 import itertools
 import sys
+<<<<<<< HEAD
+=======
+import warnings
+>>>>>>> 422f66b... Fix an obscure issue in one of the tests related to Windows, older versions of Python, and float('nan')
 
 import numpy as np
 
@@ -261,9 +265,16 @@ class TestHeaderFunctions(PyfitsTestCase):
         """
 
         h = pyfits.Header()
-        assert_raises(ValueError, h.update, 'TEST', float('nan'))
+
+        # There is an obscure cross-platform issue that prevents things like
+        # float('nan') on Windows on older versions of Python; hence it is
+        # unlikely to come up in practice
+        if not (sys.platform.startswith('win32') and
+                sys.version_info[:2] < (2, 6)):
+           assert_raises(ValueError, h.update, 'TEST', float('nan'))
+           assert_raises(ValueError, h.update, 'TEST', float('inf'))
+
         assert_raises(ValueError, h.update, 'TEST', np.nan)
-        assert_raises(ValueError, h.update, 'TEST', float('inf'))
         assert_raises(ValueError, h.update, 'TEST', np.inf)
 
 
