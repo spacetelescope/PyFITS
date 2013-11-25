@@ -1,6 +1,6 @@
 language: python
 python:
-  - "3.3"
+  # - "3.3"  # Disabled for now as Numpy isn't working right on 3.3
   - "3.2"
   - "2.7"
   - "2.6"
