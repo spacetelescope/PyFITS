@@ -2,10 +2,6 @@ from __future__ import with_statement
 
 import itertools
 import sys
-<<<<<<< HEAD
-=======
-import warnings
->>>>>>> 422f66b... Fix an obscure issue in one of the tests related to Windows, older versions of Python, and float('nan')
 
 import numpy as np
 
