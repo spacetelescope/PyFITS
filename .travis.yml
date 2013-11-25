@@ -1,10 +1,9 @@
 language: python
 python:
-#  - "3.3"  # disabled pending better support for Numpy on 3.3
+  - "3.3"
   - "3.2"
   - "2.7"
   - "2.6"
-  - "2.5"
 before_install:
   - "sudo apt-get update -qq"
   - "if [[ ${TRAVIS_PYTHON_VERSION:0:1} == '2' ]]; then sudo apt-get install -qq python-numpy; fi"
