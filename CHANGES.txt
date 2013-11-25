@@ -34,6 +34,13 @@ Highlights
 API Changes
 ^^^^^^^^^^^
 
+- Assigning to values in ``ColDefs.names``, ``ColDefs.formats``,
+  ``ColDefs.nulls`` and other attributes of ``ColDefs`` instances that return
+  lists of column properties is no longer supported.  Assigning to those lists
+  will no longer update the corresponding columns.  Instead, please just
+  modify the ``Column`` instances directly (``Column.name``, ``Column.null``,
+  etc.)
+
 - The ``pyfits.new_table`` function is marked "pending deprecation".  This
   does not mean it will be removed outright or that its functionality has
   changed.  It will likely be replaced in the future for a function with
@@ -121,6 +128,10 @@ Other Changes and Additions
   string columns to '0.0'.  Now string columns are filled with empty strings
   by default--this seems a less surprising default, but it may cause
   differences with tables created with older versions of PyFITS.
+
+- Improved round-tripping and preservation of manually assigned column
+  attributes (``TNULLn``, ``TSCALn``, etc.) in table HDU headers.
+  (astropy/astropy#996)
 
 
 Bug Fixes

@@ -957,13 +957,14 @@ class ColDefs(object):
 
         cname = name[:-1]
         if cname in KEYWORD_ATTRIBUTES and name[-1] == 's':
-            attr = [''] * len(self)
-            for idx in range(len(self)):
-                val = getattr(self[idx], cname)
+            attr = []
+            for col in self:
+                val = getattr(col, cname)
                 if val is not None:
-                    attr[idx] = val
-            self.__dict__[name] = attr
-            return self.__dict__[name]
+                    attr.append(val)
+                else:
+                    attr.append('')
+            return attr
         raise AttributeError(name)
 
     @lazyproperty
@@ -1226,7 +1227,9 @@ class _AsciiColDefs(ColDefs):
         if not isinstance(input, _AsciiColDefs):
             self._update_field_metrics()
         else:
-            self.starts[:] = input.starts
+            for idx, s in enumerate(input.starts):
+                self.columns[idx].start = s
+
             self._spans = input.spans
             self._width = input._width
 
@@ -1274,7 +1277,6 @@ class _AsciiColDefs(ColDefs):
         field, and the total width of each record in the table.
         """
 
-        starts = self.starts
         spans = [0] * len(self.columns)
         end_col = 0  # Refers to the ASCII text column, not the table col
         for idx, col in enumerate(self.columns):
@@ -1283,9 +1285,9 @@ class _AsciiColDefs(ColDefs):
             # Update the start columns and column span widths taking into
             # account the case that the starting column of a field may not
             # be the column immediately after the previous field
-            if not starts[idx]:
-                starts[idx] = end_col + 1
-            end_col = starts[idx] + width - 1
+            if not col.start:
+                col.start = end_col + 1
+            end_col = col.start + width - 1
             spans[idx] = width
 
         self._spans = spans

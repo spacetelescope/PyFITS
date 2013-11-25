@@ -386,6 +386,9 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             if pcount > 0:
                 self.header['PCOUNT'] = pcount
 
+            # update the other T****n keywords
+            self._populate_table_keywords()
+
             # update TFORM for variable length columns
             for idx in range(self.data._nfields):
                 format = self.data._coldefs._recformats[idx]
@@ -463,14 +466,13 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         """Populate the new table definition keywords from the header."""
 
         cols = self.columns
-        append = self._header.append
 
         for idx in range(len(cols)):
             for attr, keyword in zip(KEYWORD_ATTRIBUTES, KEYWORD_NAMES):
                 val = getattr(cols, attr + 's')[idx]
                 if val:
                     keyword = keyword + str(idx + 1)
-                    append((keyword, val))
+                    self._header[keyword] = val
 
 
 class TableHDU(_TableBaseHDU):

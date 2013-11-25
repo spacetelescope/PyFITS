@@ -351,7 +351,7 @@ class FITS_rec(np.recarray):
                 field[:] = ord('F')
                 # Also save the original boolean array in data._converted so
                 # that it doesn't have to be re-converted
-                data._convert[idx] = np.zeros_like(field, dtype=bool)
+                data._convert[idx] = np.zeros(field.shape, dtype=bool)
                 data._convert[idx][:n] = inarr
                 # TODO: Maybe this step isn't necessary at all if _scale_back
                 # will handle it?
@@ -360,7 +360,7 @@ class FITS_rec(np.recarray):
                     columns[idx]._pseudo_unsigned_ints):
                 # Temporary hack...
                 bzero = columns[idx].bzero
-                data._convert[idx] = np.zeros_like(field, dtype=inarr.dtype)
+                data._convert[idx] = np.zeros(field.shape, dtype=inarr.dtype)
                 data._convert[idx][:n] = inarr
                 if n < nrows:
                     # Pre-scale rows below the input data
@@ -511,7 +511,14 @@ class FITS_rec(np.recarray):
         not share any data.
         """
 
-        new = super(FITS_rec, self).copy(order=order)
+        try:
+            new = super(FITS_rec, self).copy(order=order)
+        except TypeError:
+            # This will probably occur if the order argument is not supported,
+            # such as on Numpy 1.5; in other words we're just going to ask
+            # forgiveness rather than check the Numpy version explicitly.
+            new = super(FITS_rec, self).copy()
+
         new.__dict__ = copy.deepcopy(self.__dict__)
         return new
 
