@@ -103,6 +103,10 @@ class ReleaseManager(object):
         # of the version number
         def _my_create_tag(self, version):
             version = 'v' + version
+            # If the version is like 3.2, append a .0
+            if version.count('.') == 1:
+                version += '.0'
+
             msg = "Tagging %s" % (version,)
             cmd = 'git tag -s %s -m "%s"' % (version, msg)
             return cmd
