@@ -20,6 +20,8 @@ except ImportError:
     sys.exit(1)
 
 from zest.releaser.choose import version_control
+from zest.releaser.git import Git
+from zest.releaser.release import Releaser
 from zest.releaser.utils import get_last_tag, ask
 
 
@@ -86,6 +88,57 @@ class ReleaseManager(object):
 
         self.previous_version = get_last_tag(self.vcs)
         self.history_lines = data['history_lines']
+
+    def releaser_middle(self, data):
+        """
+        releaser.middle hook to monkey-patch zest.releaser to support signed
+        tagging--currently this is the only way to do this. Also monkey-patches
+        to disable an annoyance where zest.releaser only creates .zip source
+        distributions. This is supposedly a workaround for a bug in Python 2.4,
+        but we don't care about Python 2.4.
+        """
+
+        # Copied verbatim from zest.releaser, but with the cmd string modified
+        # to use the -s option to create a signed tag and add the 'v' in front
+        # of the version number
+        def _my_create_tag(self, version):
+            version = 'v' + version
+            msg = "Tagging %s" % (version,)
+            cmd = 'git tag -s %s -m "%s"' % (version, msg)
+            return cmd
+
+        # Similarly copied from zest.releaser to support use of 'v' in front
+        # of the version number
+        def _my_make_tag(self):
+            if self.data['tag_already_exists']:
+                return
+            cmds = self.vcs.cmd_create_tag(self.data['version'])
+            if not isinstance(cmds, list):
+                cmds = [cmds]
+            if len(cmds) == 1:
+                print("Tag needed to proceed, you can use the following command:")
+            for cmd in cmds:
+                print(cmd)
+                if ask("Run this command"):
+                    print(os.system(cmd))
+                else:
+                    # all commands are needed in order to proceed normally
+                    print("Please create a tag for %s yourself and rerun." % \
+                            (self.data['version'],))
+                    sys.exit()
+            if not self.vcs.tag_exists('v' + self.data['version']):
+                print("\nFailed to create tag %s!" % (self.data['version'],))
+                sys.exit()
+
+        # Normally all this does is to return '--formats=zip', which is currently
+        # hard-coded as an option to always add to the sdist command; they ought to
+        # make this actually optional
+        def _my_sdist_options(self):
+            return ''
+
+        Git.cmd_create_tag = _my_create_tag
+        Releaser._make_tag = _my_make_tag
+        Releaser._sdist_options = _my_sdist_options
 
     def releaser_after(self, data):
         """Save the version that was just released."""
