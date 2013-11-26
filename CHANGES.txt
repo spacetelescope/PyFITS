@@ -2,7 +2,7 @@ Changelog
 ===========
 
 
-3.0.12 (unreleased)
+3.0.12 (2013-11-26)
 -------------------
 
 - Disallowed assigning NaN and Inf floating point values as header values,
