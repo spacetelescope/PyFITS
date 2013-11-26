@@ -413,9 +413,14 @@ written down first.)
         $ nosetests pyfits
 
     If any of the tests fail abort the process and start over.  Undo the
-    previous git commit (where you bumped the version)::
+    previous two git commits (the one tagged as the release, and the one
+    where you bumped to the next dev version)::
 
-        $ git reset --hard HEAD^
+        $ git reset --hard HEAD^^
+
+    Also delete the newly created tag::
+
+        $ git tag -d v3.2.0
 
     Resolve the test failure, commit any new fixes, and start the release
     procedure over again (it's rare for this to be an issue if the tests
