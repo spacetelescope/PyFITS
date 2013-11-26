@@ -1,6 +1,7 @@
 include distribute_setup.py
 include *.txt *.ini
 recursive-include docs *
+recursive-include cextern README *.*
 recursive-include src *.c *.h
 recursive-include lib/pyfits/tests/data *.fits
 
