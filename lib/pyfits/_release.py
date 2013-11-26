@@ -58,9 +58,6 @@ class ReleaseManager(object):
     def prereleaser_before(self, data):
         """Check the long-description."""
 
-        if data['name'] != 'pyfits':
-            return
-
         global log
         log = logging.getLogger('prerelease')
 
@@ -72,9 +69,6 @@ class ReleaseManager(object):
 
     def prereleaser_middle(self, data):
         """Update the Sphinx conf.py"""
-
-        if data['name'] != 'pyfits':
-            return
 
         # Get the authors out of the setup.cfg
         cfg = ConfigParser()
@@ -90,17 +84,11 @@ class ReleaseManager(object):
         the latest tag in version control.
         """
 
-        if data['name'] != 'pyfits':
-            return
-
         self.previous_version = get_last_tag(self.vcs)
         self.history_lines = data['history_lines']
 
     def releaser_after(self, data):
         """Save the version that was just released."""
-
-        if data['name'] != 'pyfits':
-            return
 
         self.released_version = data['version']
 
@@ -116,9 +104,6 @@ class ReleaseManager(object):
         TODO: If at any point we get a Windows build machine that we can remote
         into, use this as a point to create Windows builds as well.
         """
-
-        if data['name'] != 'pyfits':
-            return
 
         if not ask('Update PyFITS homepage'):
             return
