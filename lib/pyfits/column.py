@@ -10,8 +10,8 @@ from numpy import char as chararray
 
 from pyfits.card import Card
 from pyfits.util import (lazyproperty, pairwise, _is_int, _convert_array,
-                         encode_ascii)
-from pyfits.verify import VerifyError
+                         encode_ascii, indent)
+from pyfits.verify import VerifyError, VerifyWarning
 
 
 __all__ = ['Column', 'ColDefs', 'Delayed']
@@ -405,34 +405,40 @@ class Column(object):
 
         # any of the input argument (except array) can be a Card or just
         # a number/string
+        kwargs = {'ascii': ascii}
         for attr in KEYWORD_ATTRIBUTES:
-            value = locals()[attr]           # get the argument's value
+            value = locals()[attr]  # get the argument's value
 
             if isinstance(value, Card):
-                setattr(self, attr, value.value)
-            else:
-                setattr(self, attr, value)
+                value = value.value
 
-        # If the given format string is unabiguously a Numpy dtype or one of
-        # the Numpy record format type specifiers supported by PyFITS then that
-        # should take priority--otherwise assume it is a FITS format
-        if isinstance(format, np.dtype):
-            format, _, _ = _dtype_to_recformat(format)
+            kwargs[attr] = value
 
-        # check format
-        if ascii is None and not isinstance(format, _BaseColumnFormat):
-            # We're just give a string which could be either a Numpy format
-            # code, or a format for a binary column array *or* a format for an
-            # ASCII column array--there may be many ambiguities here.  Try
-            # our best to guess what the user intended.
-            format, recformat = self._guess_format(format)
-        elif not ascii and not isinstance(format, _BaseColumnFormat):
-            format, recformat = self._convert_format(format, _ColumnFormat)
-        elif ascii and not isinstance(format, _AsciiColumnFormat):
-            format, recformat = self._convert_format(format,
-                                                     _AsciiColumnFormat)
+        valid_kwargs, invalid_kwargs = self._verify_keywords(**kwargs)
 
-        self.format = format
+        if invalid_kwargs:
+            msg = ['The following keyword arguments to Column were invalid:']
+
+            for val in invalid_kwargs.values():
+                msg.append(indent(val[1]))
+
+            raise VerifyError('\n'.join(msg))
+
+
+        for attr in KEYWORD_ATTRIBUTES:
+            setattr(self, attr, valid_kwargs.get(attr))
+
+        # TODO: For PyFITS 3.3 try to eliminate the following two special cases
+        # for recformat and dim:
+        # This is not actually stored as an attribute on columns for some
+        # reason
+        recformat = valid_kwargs['recformat']
+
+        # The 'dim' keyword's original value is stored in self.dim, while
+        # *only* the tuple form is stored in self._dims.
+        self._dims = self.dim
+        self.dim = dim
+
         # Zero-length formats are legal in the FITS format, but since they
         # are not supported by numpy we mark columns that use them as
         # "phantom" columns, that are not considered when reading the data
@@ -446,94 +452,6 @@ class Column(object):
         # Awful hack to use for now to keep track of whether the column holds
         # pseudo-unsigned int data
         self._pseudo_unsigned_ints = False
-
-        # TODO: Perhaps offload option verification/handling to a separate
-        # method
-
-        # Validate null option
-        # Note: Enough code exists that thinks empty strings are sensible
-        # inputs for these options that we need to treat '' as None
-        if null is not None and null != '':
-            if isinstance(format, _AsciiColumnFormat):
-                null = str(null)
-                if len(null) > format.width:
-                    warnings.warn(
-                        "ASCII table null option (TNULLn) is longer than "
-                        "the column's character width and will be truncated "
-                        "(got %r)." % null)
-            else:
-                if not _is_int(null):
-                    # Make this an exception instead of a warning, since any
-                    # non-int value is meaningless
-                    # TODO: We *might* be able to issue just a warning if we
-                    # get an object that can be converted to an int, such as a
-                    # string
-                    raise TypeError('Column null option (TNULLn) must be an '
-                                    'integer for binary table columns '
-                                    '(got %r).' % null)
-                tnull_formats = ('B', 'I', 'J', 'K')
-                if not (format.format in tnull_formats or
-                        (format.format in ('P', 'Q') and
-                         format.p_format in tnull_formats)):
-                    # TODO: We should also check that TNULLn's integer value
-                    # is in the range allowed by the column's format
-                    warnings.warn('Column null option (TNULLn) is invalid '
-                                  'for binary table columns of type %r '
-                                  '(got %r).' % (format, null))
-
-        # Validate the disp option
-        # TODO: Add full parsing and validation of TDISPn keywords
-        if disp is not None and null != '':
-            if not isinstance(disp, basestring):
-                raise TypeError('Column disp option (TDISPn) must be a '
-                                'string (got %r).' % disp)
-            if (isinstance(format, _AsciiColumnFormat) and
-                    disp[0].upper() == 'L'):
-                # disp is at least one character long and has the 'L' format
-                # which is not recognized for ASCII tables
-                warnings.warn("Column disp option (TDISPn) may not use the "
-                              "'L' format with ASCII table columns.")
-
-        # Validate the start option
-        if start is not None and start != '':
-            if not isinstance(format, _AsciiColumnFormat):
-                # The 'start' option only applies to ASCII columns
-                warnings.warn('Column start option (TBCOLn) is not allowed '
-                              'for binary table columns (got %r).' % start)
-            try:
-                start = int(start)
-            except (TypeError, ValueError):
-                pass
-
-            if not _is_int(start) and start < 1:
-                raise TypeError('Column start option (TBCOLn) must be a '
-                                'positive integer (got %r).' % start)
-
-        # Process TDIMn options
-        # ASCII table columns can't have a TDIMn keyword associated with it;
-        # for now we just issue a warning and ignore it.
-        # TODO: This should be checked by the FITS verification code
-        if dim is not None and isinstance(format, _AsciiColumnFormat):
-            warnings.warn('Column dim option (TDIMn) is not allowed for ASCII '
-                          'table columns (got %r).' % dim)
-        if isinstance(dim, basestring):
-            self._dims = _parse_tdim(dim)
-        elif isinstance(dim, tuple):
-            self._dims = dim
-        elif not dim:
-            self._dims = tuple()
-        else:
-            raise TypeError(
-                "`dim` argument must be a string containing a valid value "
-                "for the TDIMn header keyword associated with this column, "
-                "or a tuple containing the C-order dimensions for the column")
-
-        if self._dims:
-            if reduce(operator.mul, self._dims) > self.format.repeat:
-                raise ValueError(
-                    "The repeat count of the column format %r for column %r "
-                    "is fewer than the number of elements per the TDIM "
-                    "argument %r." % (name, format, dim))
 
         # if the column data is not ndarray, make it to be one, i.e.
         # input arrays can be just list or tuple, not required to be ndarray
@@ -640,18 +558,219 @@ class Column(object):
 
         return format, recformat
 
-    def _guess_format(self, format):
-        if self.start and self.dim:
+    @classmethod
+    def _verify_keywords(cls, name=None, format=None, unit=None, null=None,
+                         bscale=None, bzero=None, disp=None, start=None,
+                         dim=None, ascii=None):
+        """
+        Given the keyword arguments used to initialize a Column, specifically
+        those that typically read from a FITS header (so excluding array),
+        verify that each keyword has a valid value.
+
+        Returns a 2-tuple of dicts.  The first maps valid keywords to their
+        values.  The second maps invalid keywords to a 2-tuple of their value,
+        and a message explaining why they were found invalid.
+        """
+
+        valid = {}
+        invalid = {}
+
+        format, recformat = cls._determine_formats(format, start, dim, ascii)
+        valid.update(format=format, recformat=recformat)
+
+        # Currently we don't have any validation for name, unit, bscale, or
+        # bzero so include those by default
+        # TODO: Add validation for these keywords, obviously
+        for k, v in [('name', name), ('unit', unit), ('bscale', bscale),
+                     ('bzero', bzero)]:
+            if v is not None and v != '':
+                valid[k] = v
+
+        # Validate null option
+        # Note: Enough code exists that thinks empty strings are sensible
+        # inputs for these options that we need to treat '' as None
+        if null is not None and null != '':
+            msg = None
+            if isinstance(format, _AsciiColumnFormat):
+                null = str(null)
+                if len(null) > format.width:
+                    msg = (
+                        "ASCII table null option (TNULLn) is longer than "
+                        "the column's character width and will be truncated "
+                        "(got %r)." % null)
+            else:
+                if not _is_int(null):
+                    # Make this an exception instead of a warning, since any
+                    # non-int value is meaningless
+                    msg = (
+                        'Column null option (TNULLn) must be an integer for '
+                        'binary table columns (got %r).  The invalid value '
+                        'will be ignored for the purpose of formatting '
+                        'the data in this column.' % null)
+
+                tnull_formats = ('B', 'I', 'J', 'K')
+
+                if not (format.format in tnull_formats or
+                        (format.format in ('P', 'Q') and
+                         format.p_format in tnull_formats)):
+                    # TODO: We should also check that TNULLn's integer value
+                    # is in the range allowed by the column's format
+                    msg = (
+                        'Column null option (TNULLn) is invalid for binary '
+                        'table columns of type %r (got %r).  The invalid '
+                        'value will be ignored for the purpose of formatting '
+                        'the data in this column.' % (format, null))
+
+            if msg is None:
+                valid['null'] = null
+            else:
+                invalid['null'] = (null, msg)
+
+        # Validate the disp option
+        # TODO: Add full parsing and validation of TDISPn keywords
+        if disp is not None and disp != '':
+            msg = None
+            if not isinstance(disp, basestring):
+                msg = (
+                    'Column disp option (TDISPn) must be a string (got %r).'
+                    'The invalid value will be ignored for the purpose of '
+                    'formatting the data in this column.' % disp)
+
+            if (isinstance(format, _AsciiColumnFormat) and
+                    disp[0].upper() == 'L'):
+                # disp is at least one character long and has the 'L' format
+                # which is not recognized for ASCII tables
+                msg = (
+                    "Column disp option (TDISPn) may not use the 'L' format "
+                    "with ASCII table columns.  The invalid value will be "
+                    "ignored for the purpose of formatting the data in this "
+                    "column.")
+
+            if msg is None:
+                valid['disp'] = disp
+            else:
+                invalid['disp'] = (disp, msg)
+
+        # Validate the start option
+        if start is not None and start != '':
+            msg = None
+            if not isinstance(format, _AsciiColumnFormat):
+                # The 'start' option only applies to ASCII columns
+                msg = (
+                    'Column start option (TBCOLn) is not allowed for binary '
+                    'table columns (got %r).  The invalid keyword will be '
+                    'ignored for the purpose of formatting the data in this '
+                    'column.'% start)
+            try:
+                start = int(start)
+            except (TypeError, ValueError):
+                pass
+
+            if not _is_int(start) and start < 1:
+                msg = (
+                    'Column start option (TBCOLn) must be a positive integer '
+                    '(got %r).  The invalid value will be ignored for the '
+                    'purpose of formatting the data in this column.' % start)
+
+            if msg is None:
+                valid['start'] = start
+            else:
+                invalid['start'] = (start, msg)
+
+        # Process TDIMn options
+        # ASCII table columns can't have a TDIMn keyword associated with it;
+        # for now we just issue a warning and ignore it.
+        # TODO: This should be checked by the FITS verification code
+        if dim is not None and dim != '':
+            msg = None
+            dims_tuple = tuple()
+            # NOTE: If valid, the dim keyword's value in the the valid dict is
+            # a tuple, not the original string; if invalid just the original
+            # string is returned
+            if isinstance(format, _AsciiColumnFormat):
+                msg = (
+                    'Column dim option (TDIMn) is not allowed for ASCII table '
+                    'columns (got %r).  The invalid keyword will be ignored '
+                    'for the purpose of formatting this column.' % dim)
+
+            elif isinstance(dim, basestring):
+                dims_tuple = _parse_tdim(dim)
+            elif isinstance(dim, tuple):
+                dims_tuple = dim
+            else:
+                msg = (
+                    "`dim` argument must be a string containing a valid value "
+                    "for the TDIMn header keyword associated with this column, "
+                    "or a tuple containing the C-order dimensions for the "
+                    "column.  The invalid value will be ignored for the purpose "
+                    "of formatting this column.")
+
+            if dims_tuple:
+                if reduce(operator.mul, dims_tuple) > format.repeat:
+                    msg = (
+                        "The repeat count of the column format %r for column %r "
+                        "is fewer than the number of elements per the TDIM "
+                        "argument %r.  The invalid TDIMn value will be ignored "
+                        "for the purpose of formatting this column." %
+                        (name, format, dim))
+
+            if msg is None:
+                valid['dim'] = dims_tuple
+            else:
+                invalid['dim'] = (dim, msg)
+
+        return valid, invalid
+
+    @classmethod
+    def _determine_formats(cls, format, start, dim, ascii):
+        """
+        Given a format string and whether or not the Column is for an
+        ASCII table (ascii=None means unspecified, but lean toward binary table
+        where ambiguous) create an appropriate _BaseColumnFormat instance for
+        the column's format, and determine the appropriate recarray format.
+
+        The values of the start and dim keyword arguments are also useful, as
+        the former is only valid for ASCII tables and the latter only for
+        BINARY tables.
+        """
+
+        # If the given format string is unabiguously a Numpy dtype or one of
+        # the Numpy record format type specifiers supported by PyFITS then that
+        # should take priority--otherwise assume it is a FITS format
+        if isinstance(format, np.dtype):
+            format, _, _ = _dtype_to_recformat(format)
+
+        # check format
+        if ascii is None and not isinstance(format, _BaseColumnFormat):
+            # We're just give a string which could be either a Numpy format
+            # code, or a format for a binary column array *or* a format for an
+            # ASCII column array--there may be many ambiguities here.  Try our
+            # best to guess what the user intended.
+            format, recformat = cls._guess_format(format, start, dim)
+        elif not ascii and not isinstance(format, _BaseColumnFormat):
+            format, recformat = cls._convert_format(format, _ColumnFormat)
+        elif ascii and not isinstance(format, _AsciiColumnFormat):
+            format, recformat = cls._convert_format(format,
+                                                    _AsciiColumnFormat)
+        else:
+            # The format is already acceptable and unambiguous
+            recformat = format.recformat
+
+        return format, recformat
+
+    @classmethod
+    def _guess_format(cls, format, start, dim):
+        if start and dim:
             # This is impossible; this can't be a valid FITS column
             raise ValueError(
                 'Columns cannot have both a start (TCOLn) and dim '
                 '(TDIMn) option, since the former is only applies to '
                 'ASCII tables, and the latter is only valid for binary '
                 'tables.')
-        elif self.start:
+        elif start:
             # Only ASCII table columns can have a 'start' option
             guess_format = _AsciiColumnFormat
-        elif self.dim:
+        elif dim:
             # Only binary tables can have a dim option
             guess_format = _ColumnFormat
         else:
@@ -669,7 +788,7 @@ class Column(object):
             guess_format = _ColumnFormat
 
         try:
-            format, recformat = self._convert_format(format, guess_format)
+            format, recformat = cls._convert_format(format, guess_format)
         except VerifyError:
             # For whatever reason our guess was wrong (for example if we got
             # just 'F' that's not a valid binary format, but it an ASCII format
@@ -679,7 +798,7 @@ class Column(object):
                             else _ColumnFormat)
             # If this fails too we're out of options--it is truly an invalid
             # format, or at least not supported
-            format, recformat = self._convert_format(format, guess_format)
+            format, recformat = cls._convert_format(format, guess_format)
 
         return format, recformat
 
@@ -863,7 +982,7 @@ class ColDefs(object):
 
         # go through header keywords to pick out column definition keywords
         # definition dictionaries for each field
-        col_attributes = [{} for i in range(nfields)]
+        col_keywords = [{} for i in range(nfields)]
         for keyword, value in hdr.iteritems():
             key = TDEF_RE.match(keyword)
             try:
@@ -879,14 +998,29 @@ class ColDefs(object):
                         # Go ahead and convert the format value to the
                         # appropriate ColumnFormat container now
                         value = self._col_format_cls(value)
-                    col_attributes[col - 1][attr] = value
+                    col_keywords[col - 1][attr] = value
+
+        # Verify the column keywords and display any warnings if necessary;
+        # we only want to pass on the valid keywords
+        for idx, kwargs in enumerate(col_keywords):
+            valid_kwargs, invalid_kwargs = Column._verify_keywords(**kwargs)
+            for val in invalid_kwargs.values():
+                warnings.warn(
+                    'Invalid keyword for column %d: %s' % (idx + 1, val[1]),
+                    VerifyWarning)
+            # Special cases for recformat and dim
+            # TODO: Try to eliminate the need for these special cases
+            del valid_kwargs['recformat']
+            if 'dim' in valid_kwargs:
+                valid_kwargs['dim'] = kwargs['dim']
+            col_keywords[idx] = valid_kwargs
 
         # data reading will be delayed
         for col in range(nfields):
-            col_attributes[col]['array'] = Delayed(table, col)
+            col_keywords[col]['array'] = Delayed(table, col)
 
         # now build the columns
-        self.columns = [Column(**attrs) for attrs in col_attributes]
+        self.columns = [Column(**attrs) for attrs in col_keywords]
         self._listener = weakref.proxy(table)
 
     def __copy__(self):

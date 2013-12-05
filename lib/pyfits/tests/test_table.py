@@ -7,6 +7,7 @@ from numpy import char as chararray
 import pyfits as fits
 from pyfits.column import Delayed, NUMPY2FITS
 from pyfits.util import decode_ascii
+from pyfits.verify import VerifyError
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import ignore_warnings
 
@@ -1968,7 +1969,7 @@ class TestTableFunctions(PyfitsTestCase):
 
         # If dims is more than the repeat count in the format specifier raise
         # an error
-        assert_raises(ValueError, fits.Column, name='a', format='2I',
+        assert_raises(VerifyError, fits.Column, name='a', format='2I',
                       dim='(2,2)', array=arra)
 
     def test_slicing(self):
