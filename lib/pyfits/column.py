@@ -236,9 +236,6 @@ class _AsciiColumnFormat(_BaseColumnFormat):
         self._pseudo_logical = False
         return self
 
-    def __hash__(self):
-        return hash(self.canonical)
-
     @classmethod
     def from_column_format(cls, format):
         inst = cls.from_recformat(format.recformat)
