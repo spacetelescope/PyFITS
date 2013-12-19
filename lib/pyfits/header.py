@@ -106,6 +106,12 @@ class Header(object):
             yield card.keyword
 
     def __contains__(self, keyword):
+        if keyword in self._keyword_indices or keyword in self._rvkc_indices:
+            # For the most common case (single, standard form keyword lookup)
+            # this will work and is an O(1) check.  If it fails that doesn't
+            # guarantee absense, just that we have to perform the full set of
+            # checks in self._cardindex
+            return True
         try:
             self._cardindex(keyword)
         except (KeyError, IndexError):
@@ -128,8 +134,7 @@ class Header(object):
         else:
             keyword = key
         card = self._cards[self._cardindex(key)]
-        if (card.field_specifier is not None and
-            keyword == card.keyword.split('.', 1)[0]):
+        if card.field_specifier is not None and keyword == card.rawkeyword:
             # This is RVKC; if only the top-level keyword was specified return
             # the raw value, not the parsed out float value
             return card.rawvalue
@@ -204,7 +209,11 @@ class Header(object):
         elif isinstance(key, basestring):
             # delete ALL cards with the same keyword name
             key = Card.normalize_keyword(key)
+            indices = self._keyword_indices
             if key not in self._keyword_indices:
+                indices = self._rvkc_indices
+
+            if key not in indices:
                 if _is_pyfits_internal():
                     # All internal code is designed to assume that this will
                     # raise a KeyError, so go ahead and do so
@@ -220,18 +229,27 @@ class Header(object):
                     'caught and handled when deleting non-existent keywords.' %
                     key, DeprecationWarning)
                 return
-            for idx in reversed(self._keyword_indices[key]):
+            for idx in reversed(indices[key]):
                 # Have to copy the indices list since it will be modified below
                 del self[idx]
             return
 
         idx = self._cardindex(key)
-        keyword = self._cards[idx].keyword
+        card = self._cards[idx]
+        keyword = card.keyword
         del self._cards[idx]
         indices = self._keyword_indices[keyword]
         indices.remove(idx)
         if not indices:
             del self._keyword_indices[keyword]
+
+        # Also update RVKC indices if necessary :/
+        if card.field_specifier is not None:
+            indices = self._rvkc_indices[card.rawkeyword]
+            indices.remove(idx)
+            if not indices:
+                del self._rvkc_indices[card.rawkeyword]
+
 
         # We also need to update all other indices
         self._updateindices(idx, increment=False)
@@ -649,6 +667,7 @@ class Header(object):
 
         self._cards = []
         self._keyword_indices = defaultdict(list)
+        self._rvkc_indices = defaultdict(list)
 
     def copy(self, strip=False):
         """
@@ -1161,6 +1180,8 @@ class Header(object):
 
         keyword = Card.normalize_keyword(card.keyword)
         self._keyword_indices[keyword].append(idx)
+        if card.field_specifier is not None:
+            self._rvkc_indices[card.rawkeyword].append(idx)
 
         if not end:
             # If the appended card was a commentary card, and it was appended
@@ -1230,15 +1251,16 @@ class Header(object):
         else:
             first = None
 
-        # This copy is used to check for duplicates in this header prior to the
-        # extend, while not counting duplicates in the header being extended
-        # from (see ticket #156)
-        orig = self[:]
+        # We don't immediately modify the header, because first we need to sift
+        # out any duplicates in the new header prior to adding them to the
+        # existing header, but while *allowing* duplicates from the header
+        # being exteded from (see ticket #156)
+        extend_cards = []
 
         for idx, card in enumerate(temp.cards):
             keyword = card.keyword
             if keyword not in Card._commentary_keywords:
-                if unique and not update and keyword in orig:
+                if unique and not update and keyword in self:
                     continue
                 elif update:
                     if idx == 0 and update_first:
@@ -1251,30 +1273,28 @@ class Header(object):
                             self.insert(0, card)
                         else:
                             self[keyword] = (card.value, card.comment)
-                    elif keyword in orig:
+                    elif keyword in self:
                         self[keyword] = (card.value, card.comment)
                     else:
-                        self.append(card, useblanks=useblanks, bottom=bottom,
-                                    end=end)
+                        extend_cards.append(card)
                 else:
-                    self.append(card, useblanks=useblanks, bottom=bottom,
-                                end=end)
+                    extend_cards.append(card)
             else:
-                if unique or update and keyword in orig:
+                if unique or update and keyword in self:
                     if str(card) == BLANK_CARD:
-                        self.append(card, useblanks=useblanks, bottom=bottom,
-                                    end=end)
+                        extend_cards.append(card)
                         continue
 
-                    for value in orig[keyword]:
+                    for value in self[keyword]:
                         if value == card.value:
                             break
                     else:
-                        self.append(card, useblanks=useblanks, bottom=bottom,
-                                    end=end)
+                        extend_cards.append(card)
                 else:
-                    self.append(card, useblanks=useblanks, bottom=bottom,
-                                end=end)
+                    extend_cards.append(card)
+
+        for card in extend_cards:
+            self.append(card, useblanks=useblanks, bottom=bottom, end=end)
 
     def count(self, keyword):
         """
@@ -1396,6 +1416,13 @@ class Header(object):
                     'A %r keyword already exists in this header.  Inserting '
                     'duplicate keyword.' % keyword)
             self._keyword_indices[keyword].sort()
+
+        if card.field_specifier is not None:
+            # Update the index of RVKC as well
+            rvkc_indices = self._rvkc_indices[card.rawkeyword]
+            rvkc_indices.append(idx)
+            rvkc_indices.sort()
+
 
         if useblanks:
             self._useblanks(len(str(card)) // Card.length)
@@ -1556,8 +1583,12 @@ class Header(object):
     def _cardindex(self, key):
         """Returns an index into the ._cards list given a valid lookup key."""
 
-        if isinstance(key, slice):
-            return key
+        # This used to just set key = (key, 0) and then go on to act as if the
+        # user passed in a tuple, but it's much more common to just be given a
+        # string as the key, so optimize more for that case
+        if isinstance(key, basestring):
+            keyword = key
+            n = 0
         elif isinstance(key, int):
             # If < 0, determine the actual index
             if key < 0:
@@ -1565,48 +1596,40 @@ class Header(object):
             if key < 0 or key >= len(self._cards):
                 raise IndexError('Header index out of range.')
             return key
-
-        if isinstance(key, basestring):
-            key = (key, 0)
-
-        if isinstance(key, tuple):
+        elif isinstance(key, slice):
+            return key
+        elif isinstance(key, tuple):
             if (len(key) != 2 or not isinstance(key[0], basestring) or
                     not isinstance(key[1], int)):
                 raise ValueError(
                         'Tuple indices must be 2-tuples consisting of a '
                         'keyword string and an integer index.')
             keyword, n = key
-            keyword = Card.normalize_keyword(keyword)
-            # Returns the index into _cards for the n-th card with the given
-            # keyword (where n is 0-based)
-            if keyword and keyword not in self._keyword_indices:
-                if len(keyword) > KEYWORD_LENGTH or '.' in keyword:
-                    raise KeyError("Keyword %r not found." % keyword)
-                # Great--now we have to check if there's a RVKC that starts
-                # with the given keyword, making failed lookups fairly
-                # expensive
-                # TODO: Find a way to make this more efficient; perhaps a set
-                # of RVKCs in the header or somesuch.
-                keyword = keyword + '.'
-                found = 0
-                for idx, card in enumerate(self._cards):
-                    if (card.field_specifier and
-                        card.keyword.startswith(keyword)):
-                        if found == n:
-                            return idx
-                        found += 1
-                else:
-                    raise KeyError("Keyword %r not found." % keyword[:-1])
-            try:
-                return self._keyword_indices[keyword][n]
-            except IndexError:
-                raise IndexError('There are only %d %r cards in the header.' %
-                                 (len(self._keyword_indices[keyword]),
-                                  keyword))
         else:
             raise ValueError(
                     'Header indices must be either a string, a 2-tuple, or '
                     'an integer.')
+
+        keyword = Card.normalize_keyword(keyword)
+        # Returns the index into _cards for the n-th card with the given
+        # keyword (where n is 0-based)
+        indices = self._keyword_indices.get(keyword, None)
+
+        if keyword and not indices:
+            if len(keyword) > KEYWORD_LENGTH or '.' in keyword:
+                raise KeyError("Keyword %r not found." % keyword)
+            else:
+                # Maybe it's a RVKC?
+                indices = self._rvkc_indices.get(keyword, None)
+
+        if not indices:
+            raise KeyError("Keyword %r not found." % keyword)
+
+        try:
+            return indices[n]
+        except IndexError:
+            raise IndexError('There are only %d %r cards in the header.' %
+                             (len(indices), keyword))
 
     def _relativeinsert(self, card, before=None, after=None, replace=False):
         """
@@ -1964,7 +1987,7 @@ class _CardAccessor(object):
     """
     This is a generic class for wrapping a Header in such a way that you can
     use the header's slice/filtering capabilities to return a subset of cards
-    and do something of them.
+    and do something with them.
 
     This is sort of the opposite notion of the old CardList class--whereas
     Header used to use CardList to get lists of cards, this uses Header to get
@@ -1979,7 +2002,10 @@ class _CardAccessor(object):
         return '\n'.join(repr(c) for c in self._header._cards)
 
     def __len__(self):
-        return len([c for c in self])
+        return len(self._header._cards)
+
+    def __iter__(self):
+        return iter(self._header._cards)
 
     def __eq__(self, other):
         if isiterable(other):
@@ -2027,6 +2053,10 @@ class _HeaderComments(_CardAccessor):
     of values.
     """
 
+    def __iter__(self):
+        for card in self._header._cards:
+            yield card.comment
+
     def __repr__(self):
         """Returns a simple list of all keywords and their comments."""
 
@@ -2044,6 +2074,7 @@ class _HeaderComments(_CardAccessor):
 
         item = super(_HeaderComments, self).__getitem__(item)
         if isinstance(item, _HeaderComments):
+            # The item key was a slice
             return item
         return item.comment
 
@@ -2065,11 +2096,25 @@ class _HeaderComments(_CardAccessor):
 
 
 class _HeaderCommentaryCards(_CardAccessor):
+    """
+    This is used to return a list-like sequence over all the values in the
+    header for a given commentary keyword, such as HISTORY.
+    """
+
     def __init__(self, header, keyword=''):
         super(_HeaderCommentaryCards, self).__init__(header)
         self._keyword = keyword
         self._count = self._header.count(self._keyword)
         self._indices = slice(self._count).indices(self._count)
+
+    # __len__ and __iter__ need to be overridden from the base class due to the
+    # different approach this class has to take for slicing
+    def __len__(self):
+        return len(xrange(*self._indices))
+
+    def __iter__(self):
+        for idx in xrange(*self._indices):
+            yield self._header[(self._keyword, idx)]
 
     def __repr__(self):
         return '\n'.join(self)
