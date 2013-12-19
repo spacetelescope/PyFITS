@@ -72,6 +72,7 @@ class CompImageHeader(Header):
             image_header = Header()
         self._cards = image_header._cards
         self._keyword_indices = image_header._keyword_indices
+        self._rvkc_indices = image_header._rvkc_indices
         self._modified = image_header._modified
         self._table_header = table_header
 
