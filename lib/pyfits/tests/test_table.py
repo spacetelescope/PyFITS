@@ -2291,3 +2291,10 @@ class TestTableFunctions(PyfitsTestCase):
                 # columns to convert these to columns of 'T'/'F' strings
                 assert np.all(np.where(tbdata['c4'] == True, 'T', 'F') ==
                               tbdata2['c4'])
+
+    def test_new_coldefs_with_invalid_seqence(self):
+        """Test that a TypeError is raised when a ColDefs is instantiated with
+        a sequence of non-Column objects.
+        """
+
+        assert_raises(TypeError, fits.ColDefs, [1, 2, 3])

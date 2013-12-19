@@ -13,6 +13,9 @@ Changelog
 - A grab bag of minor performance improvements in headers.
   (spacetelescope/PyFITS#46)
 
+- Fix an unrelated error that occurred when instantiating a ``ColDefs`` object
+  with invalid input.
+
 
 3.1.4 (unreleased)
 ------------------
