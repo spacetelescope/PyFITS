@@ -821,7 +821,7 @@ class ColDefs(object):
             if not isinstance(col, Column):
                 raise TypeError(
                        'Element %d in the ColDefs input is not a Column.'
-                       % input.index(col))
+                       % columns.index(col))
 
         self._init_from_coldefs(columns)
 
