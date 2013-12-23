@@ -459,6 +459,8 @@ class _BaseHDU(object):
 
     # TODO: Rework checksum handling so that it's not necessary to add a
     # checksum argument here
+    # TODO: The BaseHDU class shouldn't even handle checksums since they're
+    # only implemented on _ValidHDU...
     def _prewriteto(self, checksum=False, inplace=False):
         self._update_uint_scale_keywords()
 

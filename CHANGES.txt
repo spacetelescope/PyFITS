@@ -23,6 +23,11 @@ Changelog
 - Fixed an issue where validating an HDU's checksums removed the checksum from
   that HDU's header entirely (even if it was valid.)
 
+- Fixed checksums on compressed images, so that the ``ZHECKSUM`` and
+  ``ZDATASUM`` contain a checksum of the original image HDU, while
+  ``CHECKSUM`` and ``DATASUM`` contain checksums of the compressed image HDU.
+  This feature was supposed to be supported in 3.2, but the support was buggy.
+
 
 3.1.4 (unreleased)
 ------------------

@@ -85,7 +85,7 @@ class CompImageHeader(Header):
 
         if (keyword not in ('SIMPLE', 'XTENSION', 'BITPIX', 'PCOUNT', 'GCOUNT',
                             'TFIELDS', 'EXTEND', 'ZIMAGE', 'ZBITPIX',
-                            'ZCMPTYPE') and
+                            'ZCMPTYPE', 'CHECKSUM', 'DATASUM') and
             keyword[:4] not in ('ZVAL') and
             keyword[:5] not in ('NAXIS', 'TTYPE', 'TFORM', 'ZTILE', 'ZNAME')
                 and keyword[:6] not in ('ZNAXIS')):
@@ -1641,9 +1641,17 @@ class CompImageHDU(BinTableHDU):
             # Use methods in the superclass to update the header with
             # scale/checksum keywords based on the data type of the image data
             self._update_uint_scale_keywords()
-            self._update_checksum(checksum, checksum_keyword='ZHECKSUM',
-                                  datasum_keyword='ZDATASUM')
 
+            # Shove the image header and data into a new ImageHDU and use that
+            # to compute the image checksum
+            image_hdu = ImageHDU(data=self.data, header=self.header)
+            image_hdu._update_checksum(checksum)
+            if 'CHECKSUM' in image_hdu.header:
+                self._header.set('ZHECKSUM', image_hdu.header['CHECKSUM'],
+                                 image_hdu.header.comments['CHECKSUM'])
+            if 'DATASUM' in image_hdu.header:
+                self._header.set('ZDATASUM', image_hdu.header['DATASUM'],
+                                 image_hdu.header.comments['DATASUM'])
             # Store a temporary backup of self.data in a different attribute;
             # see below
             self._imagedata = self.data
@@ -1731,23 +1739,6 @@ class CompImageHDU(BinTableHDU):
             self._bzero = 0
             self._bscale = 1
             self._bitpix = self.header['BITPIX']
-
-    def _calculate_datasum(self, blocking):
-        """
-        Calculate the value for the ``DATASUM`` card in the HDU.
-        """
-
-        if self._has_data:
-            # We have the data to be used.
-            return self._calculate_datasum_from_data(self.compressed_data,
-                                                     blocking)
-        else:
-            # This is the case where the data has not been read from the
-            # file yet.  We can handle that in a generic manner so we do
-            # it in the base class.  The other possibility is that there
-            # is no data at all.  This can also be handled in a generic
-            # manner.
-            return super(CompImageHDU, self)._calculate_datasum(blocking)
 
     def _generate_dither_seed(self, seed):
         if not _is_int(seed):

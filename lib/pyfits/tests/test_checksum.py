@@ -28,7 +28,6 @@ class TestChecksumFunctions(PyfitsTestCase):
         self._old_get_timestamp = _ValidHDU._get_timestamp
         _ValidHDU._get_timestamp = lambda self: '2013-12-20T13:36:10'
 
-
     def teardown(self):
         super(TestChecksumFunctions, self).teardown()
         warnings.filters = self._oldfilters
@@ -118,10 +117,7 @@ class TestChecksumFunctions(PyfitsTestCase):
         tbhdu = fits.new_table(cols)
         tbhdu.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
         with fits.open(self.temp('tmp.fits'), checksum=True) as hdul:
-            # TODO: This check is temporarily disabled due to a bug in writing
-            # tables with checksums--the tables write correctly but leave the
-            # original HDU data in the wrong byte order
-            #assert comparerecords(tbhdu.data, hdul[1].data)
+            assert comparerecords(tbhdu.data, hdul[1].data)
             assert 'CHECKSUM' in hdul[0].header
             assert hdul[0].header['CHECKSUM'] == 'D8iBD6ZAD6fAD6ZA'
             assert 'DATASUM' in hdul[0].header
@@ -138,10 +134,7 @@ class TestChecksumFunctions(PyfitsTestCase):
         tbhdu = fits.new_table([c1, c2])
         tbhdu.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
         with fits.open(self.temp('tmp.fits'), checksum=True) as hdul:
-            # TODO: This check is temporarily disabled due to a bug in writing
-            # tables with checksums--the tables write correctly but leave the
-            # original HDU data in the wrong byte order
-            #assert comparerecords(tbhdu.data, hdul[1].data)
+            assert comparerecords(tbhdu.data, hdul[1].data)
             assert 'CHECKSUM' in hdul[0].header
             assert hdul[0].header['CHECKSUM'] == 'D8iBD6ZAD6fAD6ZA'
             assert 'DATASUM' in hdul[0].header
@@ -202,21 +195,23 @@ class TestChecksumFunctions(PyfitsTestCase):
             assert 'DATASUM' in hdul[0].header
             assert hdul[0].header['DATASUM'] == '0'
 
-            #assert 'CHECKSUM' in hdul[1].header
-            #assert hdul[1]._header['CHECKSUM'] == 'UOMIaOKGVOKGaOKG'
-            #assert 'DATASUM' in hdul[1].header
-            #assert hdul[1]._header['DATASUM'] == '2453673070'
-            #assert 'CHECKSUM' in hdul[1].header
+            assert 'CHECKSUM' in hdul[1].header
+            assert hdul[1]._header['CHECKSUM'] == 'J5cCJ5c9J5cAJ5c9'
+            assert 'DATASUM' in hdul[1].header
+            assert hdul[1]._header['DATASUM'] == '2453673070'
+            assert 'CHECKSUM' in hdul[1].header
 
             with fits.open(self.temp('uncomp.fits'), checksum=True) as hdul2:
                 header_comp = hdul[1]._header
-                header_uncomp = hdul2[0].header
-                #assert 'ZHECKSUM' in header_comp
-                #assert 'CHECKSUM' in header_uncomp
-                #assert header_comp['ZHECKSUM'] == header_uncomp['CHECKSUM']
-                #assert 'ZDATASUM' in header_comp
-                #assert 'DATASUM' in header_uncomp
-                #assert header_comp['ZDATASUM'] == header_uncomp['DATASUM']
+                header_uncomp = hdul2[1].header
+                assert 'ZHECKSUM' in header_comp
+                assert 'CHECKSUM' in header_uncomp
+                assert header_uncomp['CHECKSUM'] == 'ZE94eE91ZE91bE91'
+                assert header_comp['ZHECKSUM'] == header_uncomp['CHECKSUM']
+                assert 'ZDATASUM' in header_comp
+                assert 'DATASUM' in header_uncomp
+                assert header_uncomp['DATASUM'] == '160565700'
+                assert header_comp['ZDATASUM'] == header_uncomp['DATASUM']
 
     def test_compressed_image_data_float32(self):
         n = np.arange(100, dtype='float32')
@@ -232,21 +227,23 @@ class TestChecksumFunctions(PyfitsTestCase):
             assert 'DATASUM' in hdul[0].header
             assert hdul[0].header['DATASUM'] == '0'
 
-            #assert 'CHECKSUM' in hdul[1].header
-            #assert hdul[1]._header['CHECKSUM'] == 'UOMIaOKGVOKGaOKG'
-            #assert 'DATASUM' in hdul[1].header
-            #assert hdul[1]._header['DATASUM'] == '2453673070'
-            #assert 'CHECKSUM' in hdul[1].header
+            assert 'CHECKSUM' in hdul[1].header
+            assert hdul[1]._header['CHECKSUM'] == 'eATIf3SHe9SHe9SH'
+            assert 'DATASUM' in hdul[1].header
+            assert hdul[1]._header['DATASUM'] == '1277667818'
+            assert 'CHECKSUM' in hdul[1].header
 
             with fits.open(self.temp('uncomp.fits'), checksum=True) as hdul2:
                 header_comp = hdul[1]._header
-                header_uncomp = hdul2[0].header
-                #assert 'ZHECKSUM' in header_comp
-                #assert 'CHECKSUM' in header_uncomp
-                #assert header_comp['ZHECKSUM'] == header_uncomp['CHECKSUM']
-                #assert 'ZDATASUM' in header_comp
-                #assert 'DATASUM' in header_uncomp
-                #assert header_comp['ZDATASUM'] == header_uncomp['DATASUM']
+                header_uncomp = hdul2[1].header
+                assert 'ZHECKSUM' in header_comp
+                assert 'CHECKSUM' in header_uncomp
+                assert header_uncomp['CHECKSUM'] == 'Cgr5FZo2Cdo2CZo2'
+                assert header_comp['ZHECKSUM'] == header_uncomp['CHECKSUM']
+                assert 'ZDATASUM' in header_comp
+                assert 'DATASUM' in header_uncomp
+                assert header_uncomp['DATASUM'] == '2393636889'
+                assert header_comp['ZDATASUM'] == header_uncomp['DATASUM']
 
     def test_open_with_no_keywords(self):
         hdul = fits.open(self.data('arange.fits'), checksum=True)
