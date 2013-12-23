@@ -16,6 +16,10 @@ Changelog
 - Fix an unrelated error that occurred when instantiating a ``ColDefs`` object
   with invalid input.
 
+- Fixed an issue where opening an image containing pseudo-unsigned integers
+  and immediately writing it to a new file using the ``writeto`` method would
+  drop the scale factors that identified the data as unsigned.
+
 
 3.1.4 (unreleased)
 ------------------
@@ -23,11 +27,18 @@ Changelog
 - A grab bag of minor performance improvements in headers.
   (Backported from 3.2.1)
 
+- Fixed an issue where opening an image containing pseudo-unsigned integers
+  and immediately writing it to a new file using the ``writeto`` method would
+  drop the scale factors that identified the data as unsigned.
+  (Backported from 3.2.1)
+
 
 3.0.13 (unreleased)
 -------------------
 
-- Nothing changed yet.
+- Fixed an issue where validating an HDU's checksums removed the checksum from
+  that HDU's header entirely (even if it was valid.)
+  (Backported from 3.2.1)
 
 
 3.2 (2013-11-26)
