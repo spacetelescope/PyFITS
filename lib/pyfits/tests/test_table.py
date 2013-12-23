@@ -342,76 +342,6 @@ class TestTableFunctions(PyfitsTestCase):
         assert (channelsIn == channelsOut).all()
         hduL.close()
 
-    def test_column_format_interpretation(self):
-        """
-        Test to ensure that when Numpy-style record formats are passed in to
-        the Column constructor for the format argument, they are recognized so
-        long as it's unambiguous (where "unambiguous" here is questionable
-        since Numpy is case insensitive when parsing the format codes.  But
-        their "proper" case is lower-case, so we can accept that.  Basically,
-        actually, any key in the NUMPY2FITS dict should be accepted.
-        """
-
-        for recformat, fitsformat in NUMPY2FITS.items():
-            c = fits.Column('TEST', np.dtype(recformat))
-            c.format == fitsformat
-            c = fits.Column('TEST', recformat)
-            c.format == fitsformat
-            c = fits.Column('TEST', fitsformat)
-            c.format == fitsformat
-
-        # Test a few cases that are ambiguous in that they *are* valid binary
-        # table formats though not ones that are likely to be used, but are
-        # also valid common ASCII table formats
-        c = fits.Column('TEST', 'I4')
-        assert c.format == 'I4'
-        assert c.format.format == 'I'
-        assert c.format.width == 4
-
-        c = fits.Column('TEST', 'F15.8')
-        assert c.format == 'F15.8'
-        assert c.format.format == 'F'
-        assert c.format.width == 15
-        assert c.format.precision == 8
-
-        c = fits.Column('TEST', 'E15.8')
-        assert c.format.format == 'E'
-        assert c.format.width == 15
-        assert c.format.precision == 8
-
-        c = fits.Column('TEST', 'D15.8')
-        assert c.format.format == 'D'
-        assert c.format.width == 15
-        assert c.format.precision == 8
-
-        # These are a couple cases where the format code is a valid binary
-        # table format, and is not strictly a valid ASCII table format but
-        # could be *interpreted* as one by appending a default width.  This
-        # will only happen either when creating an ASCII table or when
-        # explicitly specifying ascii=True when the column is created
-        c = fits.Column('TEST', 'I')
-        assert c.format == 'I'
-        assert c.format.recformat == 'i2'
-        c = fits.Column('TEST', 'I', ascii=True)
-        assert c.format == 'I10'
-
-        c = fits.Column('TEST', 'E')
-        assert c.format == 'E'
-        assert c.format.recformat == 'f4'
-        c = fits.Column('TEST', 'E', ascii=True)
-        assert c.format == 'E15.7'
-
-        # F is not a valid binary table format so it should be unambiguously
-        # treated as an ASCII column
-        c = fits.Column('TEST', 'F')
-        assert c.format == 'F16.7'
-
-        c = fits.Column('TEST', 'D')
-        assert c.format == 'D'
-        assert c.format.recformat == 'f8'
-        c = fits.Column('TEST', 'D', ascii=True)
-        assert c.format == 'D25.17'
-
     def test_column_endianness(self):
         """
         Regression test for https://trac.assembla.com/pyfits/ticket/77
@@ -2291,6 +2221,88 @@ class TestTableFunctions(PyfitsTestCase):
                 # columns to convert these to columns of 'T'/'F' strings
                 assert np.all(np.where(tbdata['c4'] == True, 'T', 'F') ==
                               tbdata2['c4'])
+
+
+# These are tests that solely test the Column and ColDefs interfaces and
+# related functionality without directly involving full tables; currently there
+# are few of these but I expect there to be more as I improve the test coverage
+class TestColumnFunctions(PyfitsTestCase):
+    def test_column_format_interpretation(self):
+        """
+        Test to ensure that when Numpy-style record formats are passed in to
+        the Column constructor for the format argument, they are recognized so
+        long as it's unambiguous (where "unambiguous" here is questionable
+        since Numpy is case insensitive when parsing the format codes.  But
+        their "proper" case is lower-case, so we can accept that.  Basically,
+        actually, any key in the NUMPY2FITS dict should be accepted.
+        """
+
+        for recformat, fitsformat in NUMPY2FITS.items():
+            c = fits.Column('TEST', np.dtype(recformat))
+            c.format == fitsformat
+            c = fits.Column('TEST', recformat)
+            c.format == fitsformat
+            c = fits.Column('TEST', fitsformat)
+            c.format == fitsformat
+
+        # Test a few cases that are ambiguous in that they *are* valid binary
+        # table formats though not ones that are likely to be used, but are
+        # also valid common ASCII table formats
+        c = fits.Column('TEST', 'I4')
+        assert c.format == 'I4'
+        assert c.format.format == 'I'
+        assert c.format.width == 4
+
+        c = fits.Column('TEST', 'F15.8')
+        assert c.format == 'F15.8'
+        assert c.format.format == 'F'
+        assert c.format.width == 15
+        assert c.format.precision == 8
+
+        c = fits.Column('TEST', 'E15.8')
+        assert c.format.format == 'E'
+        assert c.format.width == 15
+        assert c.format.precision == 8
+
+        c = fits.Column('TEST', 'D15.8')
+        assert c.format.format == 'D'
+        assert c.format.width == 15
+        assert c.format.precision == 8
+
+        # These are a couple cases where the format code is a valid binary
+        # table format, and is not strictly a valid ASCII table format but
+        # could be *interpreted* as one by appending a default width.  This
+        # will only happen either when creating an ASCII table or when
+        # explicitly specifying ascii=True when the column is created
+        c = fits.Column('TEST', 'I')
+        assert c.format == 'I'
+        assert c.format.recformat == 'i2'
+        c = fits.Column('TEST', 'I', ascii=True)
+        assert c.format == 'I10'
+
+        c = fits.Column('TEST', 'E')
+        assert c.format == 'E'
+        assert c.format.recformat == 'f4'
+        c = fits.Column('TEST', 'E', ascii=True)
+        assert c.format == 'E15.7'
+
+        # F is not a valid binary table format so it should be unambiguously
+        # treated as an ASCII column
+        c = fits.Column('TEST', 'F')
+        assert c.format == 'F16.7'
+
+        c = fits.Column('TEST', 'D')
+        assert c.format == 'D'
+        assert c.format.recformat == 'f8'
+        c = fits.Column('TEST', 'D', ascii=True)
+        assert c.format == 'D25.17'
+
+    def test_column_array_type_mismatch(self):
+        """Regression test for https://trac.assembla.com/pyfits/ticket/218"""
+
+        arr = [-99] * 20
+        col = fits.Column('mag', format='E', array=arr)
+        assert (arr == col.array).all()
 
     def test_new_coldefs_with_invalid_seqence(self):
         """Test that a TypeError is raised when a ColDefs is instantiated with
