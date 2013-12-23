@@ -5,7 +5,9 @@ import warnings
 import numpy as np
 
 import pyfits as fits
+from pyfits.hdu.base import _ValidHDU
 from pyfits.tests import PyfitsTestCase
+from pyfits.tests.test_table import comparerecords
 
 
 class TestChecksumFunctions(PyfitsTestCase):
@@ -20,9 +22,16 @@ class TestChecksumFunctions(PyfitsTestCase):
             'error',
             message='Datasum verification failed')
 
+        # Monkey-patch the _get_timestamp method so that the checksum
+        # timestamps (and hence the checksum themselves) are always the same
+        self._old_get_timestamp = _ValidHDU._get_timestamp
+        _ValidHDU._get_timestamp = lambda self: '2013-12-20T13:36:10'
+
+
     def teardown(self):
         super(TestChecksumFunctions, self).teardown()
         warnings.filters = self._oldfilters
+        _ValidHDU._get_timestamp = self._old_get_timestamp
 
     def test_sample_file(self):
         hdul = fits.open(self.data('checksum.fits'), checksum=True)
@@ -88,43 +97,44 @@ class TestChecksumFunctions(PyfitsTestCase):
         c2 = fits.Column(name='xyz', format='2I', array=[[11, 3], [12, 4]])
         tbhdu = fits.new_table([c1, c2])
         tbhdu.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
-        hdul = fits.open(self.temp('tmp.fits'), checksum=True)
-        hdul.close()
+        with fits.open(self.temp('tmp.fits'), checksum=True) as h:
+            assert comparerecords(tbhdu.data, h[1].data)
 
     def test_ascii_table_data(self):
         a1 = np.array(['abc', 'def'])
         r1 = np.array([11.0, 12.0])
         c1 = fits.Column(name='abc', format='A3', array=a1)
-        c2 = fits.Column(name='def', format='E', array=r1, bscale=2.3,
+        # This column used to be E format, but the single-precision float lost
+        # too much precision when scaling so it was changed to a D
+        c2 = fits.Column(name='def', format='D', array=r1, bscale=2.3,
                          bzero=0.6)
         c3 = fits.Column(name='t1', format='I', array=[91, 92, 93])
         x = fits.ColDefs([c1, c2, c3], tbtype='TableHDU')
         hdu = fits.new_table(x, tbtype='TableHDU')
         hdu.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
-        hdul = fits.open(self.temp('tmp.fits'), checksum=True)
-        hdul.close()
+        with fits.open(self.temp('tmp.fits'), checksum=True) as h:
+            assert comparerecords(hdu.data, h[1].data)
 
     def test_compressed_image_data(self):
-        hdul = fits.open(self.data('comp.fits'))
-        hdul.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
-        hdul1 = fits.open(self.temp('tmp.fits'), checksum=True)
-        hdul1.close()
-        hdul.close()
+        with fits.open(self.data('comp.fits')) as h1:
+            h1.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
+            with fits.open(self.temp('tmp.fits'), checksum=True) as h2:
+                assert np.all(h1[1].data == h2[1].data)
 
     def test_compressed_image_data_int16(self):
         n = np.arange(100, dtype='int16')
         hdu = fits.ImageHDU(n)
         comp_hdu = fits.CompImageHDU(hdu.data, hdu.header)
         comp_hdu.writeto(self.temp('tmp.fits'), checksum=True)
-        hdul = fits.open(self.temp('tmp.fits'), checksum=True)
-        hdul.close()
+        with fits.open(self.temp('tmp.fits'), checksum=True) as h:
+            assert np.all(h[1].data == hdu.data)
 
     def test_compressed_image_data_float32(self):
         n = np.arange(100, dtype='float32')
         comp_hdu = fits.CompImageHDU(n)
         comp_hdu.writeto(self.temp('tmp.fits'), checksum=True)
-        hdul = fits.open(self.temp('tmp.fits'), checksum=True)
-        hdul.close()
+        with fits.open(self.temp('tmp.fits'), checksum=True) as h:
+            assert np.all(h[1].data == comp_hdu.data)
 
     def test_open_with_no_keywords(self):
         hdul = fits.open(self.data('arange.fits'), checksum=True)
@@ -174,6 +184,28 @@ class TestChecksumFunctions(PyfitsTestCase):
                 hdul[0]._checksum_comment)
 
         hdul.close()
+
+    def test_hdu_writeto_existing(self):
+        """
+        Tests that when using writeto with checksum=True, a checksum and
+        datasum are added to HDUs that did not previously have one.
+
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/8
+        """
+
+        with fits.open(self.data('tb.fits')) as hdul:
+            hdul.writeto(self.temp('test.fits'), checksum=True)
+
+        with fits.open(self.temp('test.fits')) as hdul:
+            assert 'CHECKSUM' in hdul[0].header
+            # These checksums were verified against CFITSIO
+            assert hdul[0].header['CHECKSUM'] == '7UgqATfo7TfoATfo'
+            assert 'DATASUM' in hdul[0].header
+            assert hdul[0].header['DATASUM'] == '0'
+            assert 'CHECKSUM' in hdul[1].header
+            assert hdul[1].header['CHECKSUM'] == '99daD8bX98baA8bU'
+            assert 'DATASUM' in hdul[1].header
+            assert hdul[1].header['DATASUM'] == '1829680925'
 
     def test_datasum_only(self):
         n = np.arange(100, dtype='int16')
