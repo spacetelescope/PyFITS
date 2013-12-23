@@ -11,7 +11,7 @@ from pyfits.column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ASCII2STR,
                            ColDefs, _AsciiColDefs, _FormatX, _FormatP, _VLF,
                            _get_index, _wrapx, _unwrapx, _makep,
                            _convert_ascii_format, Delayed)
-from pyfits.util import decode_ascii, lazyproperty
+from pyfits.util import encode_ascii, decode_ascii, lazyproperty
 
 
 class FITS_record(object):
@@ -626,7 +626,7 @@ class FITS_rec(np.recarray):
         nullval = str(self._coldefs.nulls[indx]).strip().encode('ascii')
         if len(nullval) > format.width:
             nullval = nullval[:format.width]
-        dummy = field.replace('D'.encode('ascii'), 'E'.encode('ascii'))
+        dummy = field.replace(encode_ascii('D'), encode_ascii('E'))
         dummy = np.where(dummy.strip() == nullval, str(ASCIITNULL), dummy)
 
         try:
@@ -932,7 +932,7 @@ class FITS_rec(np.recarray):
                             field[jdx] = x
                     # Replace exponent separator in floating point numbers
                     if 'D' in format:
-                        field.replace('E', 'D')
+                        field.replace(encode_ascii('E'), encode_ascii('D'))
                 # binary table
                 else:
                     if len(field) and isinstance(field[0], np.integer):
