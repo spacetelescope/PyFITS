@@ -20,6 +20,9 @@ Changelog
   and immediately writing it to a new file using the ``writeto`` method would
   drop the scale factors that identified the data as unsigned.
 
+- Fixed an issue where validating an HDU's checksums removed the checksum from
+  that HDU's header entirely (even if it was valid.)
+
 
 3.1.4 (unreleased)
 ------------------
@@ -32,9 +35,17 @@ Changelog
   drop the scale factors that identified the data as unsigned.
   (Backported from 3.2.1)
 
+- Fixed an issue where validating an HDU's checksums removed the checksum from
+  that HDU's header entirely (even if it was valid.)
+  (Backported from 3.2.1)
+
 
 3.0.13 (unreleased)
 -------------------
+
+- Fixed an issue where validating an HDU's checksums removed the checksum from
+  that HDU's header entirely (even if it was valid.)
+  (Backported from 3.2.1)
 
 - Fixed an issue where validating an HDU's checksums removed the checksum from
   that HDU's header entirely (even if it was valid.)

@@ -1366,7 +1366,6 @@ class _ValidHDU(_BaseHDU, _Verify):
             if not self.verify_checksum(blocking):
                 warnings.warn('Checksum verification failed for HDU %s.\n' %
                               ((self.name, self.ver),))
-            del self._header['CHECKSUM']
         else:
             self._checksum = None
             self._checksum_comment = None
@@ -1378,7 +1377,6 @@ class _ValidHDU(_BaseHDU, _Verify):
             if not self.verify_datasum(blocking):
                 warnings.warn('Datasum verification failed for HDU %s.\n' %
                               ((self.name, self.ver),))
-            del self._header['DATASUM']
         else:
             self._checksum = None
             self._checksum_comment = None
