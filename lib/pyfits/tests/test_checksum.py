@@ -62,11 +62,15 @@ class TestChecksumFunctions(PyfitsTestCase):
         hdul1.close()
 
     def test_uint16_data(self):
-        hdul = fits.open(self.data('o4sp040b0_raw.fits'), uint=True)
-        hdul.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
-        hdul1 = fits.open(self.temp('tmp.fits'), uint=True, checksum=True)
-        hdul.close()
-        hdul1.close()
+        with fits.open(self.data('o4sp040b0_raw.fits'), uint=True) as hdul:
+            hdul.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
+            with fits.open(self.temp('tmp.fits'), uint=True,
+                           checksum=True) as hdul1:
+                for hdu_a, hdu_b in zip(hdul, hdul1):
+                    if hdu_a.data is None or hdu_b.data is None:
+                        assert hdu_a.data is hdu_b.data
+                    else:
+                        assert (hdu_a.data == hdu_b.data).all()
 
     def test_groups_hdu_data(self):
         imdata = np.arange(100.0)

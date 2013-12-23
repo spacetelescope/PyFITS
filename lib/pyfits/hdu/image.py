@@ -38,7 +38,7 @@ class _ImageBaseHDU(_ValidHDU):
     }
 
     def __init__(self, data=None, header=None, do_not_scale_image_data=False,
-                 uint=False, scale_back=False, **kwargs):
+                 uint=False, scale_back=None, **kwargs):
         from pyfits.hdu.groups import GroupsHDU
 
         super(_ImageBaseHDU, self).__init__(data=data, header=header)
@@ -95,6 +95,7 @@ class _ImageBaseHDU(_ValidHDU):
             self._header = header
 
         self._do_not_scale_image_data = do_not_scale_image_data
+
         self._uint = uint
         self._scale_back = scale_back
 
@@ -302,6 +303,17 @@ class _ImageBaseHDU(_ValidHDU):
     def _update_header_scale_info(self, dtype=None):
         if (not self._do_not_scale_image_data and
                 not (self._orig_bzero == 0 and self._orig_bscale == 1)):
+
+            if dtype is None:
+                dtype = self._dtype_for_bitpix()
+
+            if (dtype is not None and dtype.kind == 'u' and
+                    (self._scale_back or self._scale_back is None)):
+                # Data is pseudo-unsigned integers, and the scale_back option
+                # was not explicitly set to False, so preserve all the scale
+                # factors
+                return
+
             for keyword in ['BSCALE', 'BZERO']:
                 try:
                     del self._header[keyword]
@@ -515,6 +527,7 @@ class _ImageBaseHDU(_ValidHDU):
             bits = dtype.itemsize * 8
             data = np.array(data, dtype=dtype)
             data -= np.uint64(1 << (bits - 1))
+
             return data
 
     def _get_scaled_image_data(self, offset, shape):
@@ -776,7 +789,7 @@ class PrimaryHDU(_ImageBaseHDU):
     _default_name = 'PRIMARY'
 
     def __init__(self, data=None, header=None, do_not_scale_image_data=False,
-                 uint=False, scale_back=False):
+                 uint=False, scale_back=None):
         """
         Construct a primary HDU.
 
@@ -859,7 +872,7 @@ class ImageHDU(_ImageBaseHDU, ExtensionHDU):
     _extension = 'IMAGE'
 
     def __init__(self, data=None, header=None, name=None,
-                 do_not_scale_image_data=False, uint=False, scale_back=False):
+                 do_not_scale_image_data=False, uint=False, scale_back=None):
         """
         Construct an image HDU.
 
