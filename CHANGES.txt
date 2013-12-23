@@ -52,10 +52,6 @@ Changelog
   that HDU's header entirely (even if it was valid.)
   (Backported from 3.2.1)
 
-- Fixed an issue where validating an HDU's checksums removed the checksum from
-  that HDU's header entirely (even if it was valid.)
-  (Backported from 3.2.1)
-
 
 3.2 (2013-11-26)
 ----------------
