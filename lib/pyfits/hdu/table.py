@@ -61,6 +61,61 @@ class _TableLikeHDU(_ValidHDU):
 
         raise NotImplementedError
 
+    @classmethod
+    def from_columns(cls, columns, header=None, nrows=0, fill=False,
+                     **kwargs):
+        """
+        Given either a `ColDefs` object, a sequence of `Column` objects,
+        or another table HDU or table data (a `FITS_rec` or multi-field
+        `numpy.ndarray` or `numpy.recarray` object, return a new table HDU of
+        the class this method was called on using the column definition from
+        the input.
+
+        This is an alternative to the now deprecated `new_table` function,
+        and otherwise accepts the same arguments.  See also
+        `FITS_rec.from_columns`.
+
+        Parameters
+        ----------
+        columns : sequence of `Column`, `ColDefs`, or other
+            The columns from which to create the table data, or an object with
+            a column-like structure from which a `ColDefs` can be instantiated.
+            This includes an existing `BinTableHDU` or `TableHDU`, or a
+            `numpy.recarray` to give some examples.
+
+            If these columns have data arrays attached that data may be used in
+            initializing the new table.  Otherwise the input columns will be
+            used as a template for a new table with the requested number of
+            rows.
+
+        header : `Header`
+            An optional `Header` object to instantiate the new HDU yet.  Header
+            keywords specifically related to defining the table structure (such
+            as the "TXXXn" keywords like TTYPEn) will be overridden by the
+            supplied column definitions, but all other informational and data
+            model-specific keywords are kept.
+
+        nrows : int
+            Number of rows in the new table.  If the input columns have data
+            associated with them, the size of the largest input column is used.
+            Otherwise the default is 0.
+
+        fill : bool
+            If `True`, will fill all cells with zeros or blanks.  If `False`,
+            copy the data from input, undefined cells will still be filled with
+            zeros/blanks.
+
+        Notes
+        -----
+
+        Any additional keyword arguments accepted by the HDU class's
+        ``__init__`` may also be passed in as keyword arguments.
+        """
+
+        coldefs = cls._columns_type(columns)
+        data = FITS_rec.from_columns(coldefs, nrows=nrows, fill=fill)
+        return cls(data=data, header=header, **kwargs)
+
     @lazyproperty
     def columns(self):
         # The base class doesn't make any assumptions about where the column
@@ -368,8 +423,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
         # touch the data, so it's defined (in the case of reading from a
         # FITS file)
         self.data
-        return new_table(self.columns, header=self._header,
-                         tbtype=self.columns._tbtype)
+        return new_table(self.columns, header=self._header)
 
     def _prewriteto(self, checksum=False, inplace=False):
         if self._has_data:
@@ -1078,8 +1132,8 @@ class BinTableHDU(_TableBaseHDU):
         # can convert from this format to an actual FITS file on disk without
         # needing enough physical memory to hold the entire thing at once;
         # new_table() could use a similar feature.
-        hdu = new_table(np.recarray(shape=1, dtype=dtype), nrows=nrows,
-                        fill=True)
+        hdu = BinTableHDU.from_columns(np.recarray(shape=1, dtype=dtype),
+                                       nrows=nrows, fill=True)
         data = hdu.data
         for idx, length in enumerate(vla_lengths):
             if length is not None:
@@ -1162,12 +1216,10 @@ class BinTableHDU(_TableBaseHDU):
         return ColDefs(columns)
 
 
-@deprecated('3.2',
-            alternative=':meth:`FITS_rec.from_columns` to create a new '
-                        ':class:`FITS_rec` data object from the input '
-                        'columns to pass into the constructor for '
-                        ':class:`BinTableHDU` or :class:`TableHDU`',
-            pending=True)
+@deprecated('3.3',
+            alternative=':meth:`BinTableHDU.from_columns` for new BINARY '
+                        'tables or :meth:`TableHDU.from_columns` for new '
+                        'ASCII tables')
 def new_table(input, header=None, nrows=0, fill=False, tbtype=BinTableHDU):
     """
     Create a new table from the input column definitions.
@@ -1214,25 +1266,12 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype=BinTableHDU):
         # hope is to deprecate this function anyways so there's not much point
         # in trying to make it more "generic".
         if tbtype.lower() == 'tablehdu':
-            tbtype = 'TableHDU'
             cls = TableHDU
         elif tbtype.lower() == 'bintablehdu':
-            tbtype = 'BinTableHDU'
             cls = BinTableHDU
         else:
             raise ValueError("tbtype must be one of 'TableHDU' or "
                              "'BinTableHDU'")
 
-    if isinstance(input, FITS_rec):  # input is a FITS_rec
-        # Create a new ColDefs object from the input FITS_rec's ColDefs
-        # object and assign it to the ColDefs attribute of the new hdu.
-        columns = ColDefs(input._coldefs, tbtype)
-    else:  # input is a list of Columns or possibly a recarray
-        # Create a new ColDefs object from the input list of Columns and
-        # assign it to the ColDefs attribute of the new hdu.
-        columns = ColDefs(input, tbtype)
-
-    data = FITS_rec.from_columns(columns, nrows=nrows, fill=fill)
-
     # construct a table HDU of the requested type
-    return cls(header=header, data=data)
+    return cls.from_columns(input)

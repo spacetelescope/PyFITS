@@ -49,7 +49,7 @@ class TestCore(PyfitsTestCase):
 
         c = fits.Column(name='foo', format='i2', bscale=1, bzero=32768,
                         array=n)
-        t = fits.new_table([c])
+        t = fits.BinTableHDU.from_columns([c])
 
         l.append(p)
         l.append(t)

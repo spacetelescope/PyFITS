@@ -32,7 +32,7 @@ section on :ref:`Tables`.
 
 :class:`Group`
 ==============
-.. autoclass:: GroupData
+.. autoclass:: Group
    :members:
    :show-inheritance:
 

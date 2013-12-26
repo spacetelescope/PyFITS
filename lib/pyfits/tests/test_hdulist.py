@@ -725,9 +725,9 @@ class TestHDUListFunctions(PyfitsTestCase):
         def test(mmap_a, mmap_b):
             col_a = fits.Column(name='a', format='J', array=arr_a)
             col_b = fits.Column(name='b', format='J', array=arr_b)
-            hdu_a = fits.new_table([col_a])
+            hdu_a = fits.BinTableHDU.from_columns([col_a])
             hdu_a.writeto(self.temp('test_a.fits'), clobber=True)
-            hdu_b = fits.new_table([col_b])
+            hdu_b = fits.BinTableHDU.from_columns([col_b])
             hdu_b.writeto(self.temp('test_b.fits'), clobber=True)
 
             hdul_a = fits.open(self.temp('test_a.fits'), mode='update',

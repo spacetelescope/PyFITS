@@ -152,15 +152,13 @@ class TestTableFunctions(PyfitsTestCase):
 
         x = fits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8])
 
-        # create a new binary table HDU object by using the new_table function
-
-        tbhdu = fits.new_table(x)
+        tbhdu = fits.BinTableHDU.from_columns(x)
 
         # another way to create a table is by using existing table's
         # information:
 
         x2 = fits.ColDefs(tt[1])
-        t2 = fits.new_table(x2, nrows=2)
+        t2 = fits.BinTableHDU.from_columns(x2, nrows=2)
         ra = np.rec.array([
             (1, 'abc', 3.7000002861022949, 0),
             (2, 'xy ', 6.6999998092651367, 1)], names='c1, c2, c3, c4')
@@ -273,7 +271,7 @@ class TestTableFunctions(PyfitsTestCase):
         c1 = fits.Column(name='abc', format='A3', start=19, array=a1)
         c2 = fits.Column(name='def', format='E', start=3, array=r1)
         c3 = fits.Column(name='t1', format='I', array=[91, 92, 93])
-        hdu = fits.new_table([c2, c1, c3], tbtype='TableHDU')
+        hdu = fits.TableHDU.from_columns([c2, c1, c3])
 
         assert (dict(hdu.data.dtype.fields) ==
                 {'abc': (np.dtype('|S3'), 18),
@@ -289,7 +287,7 @@ class TestTableFunctions(PyfitsTestCase):
         def test(format_code):
             col = fits.Column(name='QUAL_SPE', format=format_code,
                               array=[[0] * 1571] * 225)
-            tb_hdu = fits.new_table([col])
+            tb_hdu = fits.BinTableHDU.from_columns([col])
             pri_hdu = fits.PrimaryHDU()
             hdu_list = fits.HDUList([pri_hdu, tb_hdu])
             with ignore_warnings():
@@ -311,7 +309,7 @@ class TestTableFunctions(PyfitsTestCase):
             arr = [[1] * 10] * 10
             col1 = fits.Column(name='TESTVLF', format=format_code, array=arr)
             col2 = fits.Column(name='TESTSCA', format='J', array=[1] * 10)
-            tb_hdu = fits.new_table([col1, col2], nrows=15)
+            tb_hdu = fits.BinTableHDU.from_columns([col1, col2], nrows=15)
             # This asserts that the normal 'scalar' column's length was extended
             assert len(tb_hdu.data['TESTSCA']) == 15
             # And this asserts that the VLF column was extended in the same manner
@@ -332,7 +330,7 @@ class TestTableFunctions(PyfitsTestCase):
         x[0] = channelsIn
         col = fits.Column(name="Channels", format="PB()", array=x)
         cols = fits.ColDefs([col])
-        tbhdu = fits.new_table(cols)
+        tbhdu = fits.BinTableHDU.from_columns(cols)
         tbhdu.name = "RFI"
         tbhdu.writeto(self.temp('testendian.fits'), clobber=True)
         hduL = fits.open(self.temp('testendian.fits'))
@@ -355,7 +353,7 @@ class TestTableFunctions(PyfitsTestCase):
         col1 = fits.Column(name='a', format='D', array=a1)
         col2 = fits.Column(name='b', format='D', array=a2)
         cols = fits.ColDefs([col1, col2])
-        tbhdu = fits.new_table(cols)
+        tbhdu = fits.BinTableHDU.from_columns(cols)
 
         assert (tbhdu.data['a'] == a1).all()
         assert (tbhdu.data['b'] == a2).all()
@@ -401,7 +399,7 @@ class TestTableFunctions(PyfitsTestCase):
                                (3, 'Rigil Kent', -0.1, 'G2V')],
                               formats='int16,a20,float32,a10',
                               names='order,name,mag,Sp')
-        hdu = fits.new_table(bright, nrows=2, tbtype='TableHDU')
+        hdu = fits.TableHDU.from_columns(bright, nrows=2)
 
         # Verify that all ndarray objects within the HDU reference the
         # same ndarray.
@@ -474,7 +472,7 @@ class TestTableFunctions(PyfitsTestCase):
             assert hdul[1].data[1][3] == 'F0Ib'
         del hdul
 
-        hdu = fits.new_table(bright, nrows=2)
+        hdu = fits.BinTableHDU.from_columns(bright, nrows=2)
         tmp = np.rec.array([(1, 'Serius', -1.45, 'A1V'),
                             (2, 'Canopys', -0.73, 'F0Ib')],
                            formats='int16,a20,float32,a10',
@@ -509,7 +507,7 @@ class TestTableFunctions(PyfitsTestCase):
         c4 = fits.Column(name='spectrum', format='5E')
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
         tbhdu.writeto(self.temp('table1.fits'))
 
         counts = np.array([412, 434, 408, 417])
@@ -520,7 +518,7 @@ class TestTableFunctions(PyfitsTestCase):
         c4 = fits.Column(name='spectrum', format='5E')
         c5 = fits.Column(name='flag', format='L', array=[0, 1, 0, 0])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
         tbhdu.writeto(self.temp('table2.fits'))
 
         # Append the rows of table 2 after the rows of table 1
@@ -540,7 +538,7 @@ class TestTableFunctions(PyfitsTestCase):
 
         # Create a new table that consists of the data from the first table
         # but has enough space in the ndarray to hold the data from both tables
-        hdu = fits.new_table(t1[1].columns, nrows=nrows)
+        hdu = fits.BinTableHDU.from_columns(t1[1].columns, nrows=nrows)
 
         # For each column in the tables append the data from table 2 after the
         # data from table 1.
@@ -665,12 +663,12 @@ class TestTableFunctions(PyfitsTestCase):
         c4 = fits.Column(name='spectrum', format='5E')
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4])
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
 
         assert tbhdu.columns.names == ['target', 'counts', 'notes', 'spectrum']
         coldefs1 = coldefs + c5
 
-        tbhdu1 = fits.new_table(coldefs1)
+        tbhdu1 = fits.BinTableHDU.from_columns(coldefs1)
         assert tbhdu1.columns.names == ['target', 'counts', 'notes',
                                         'spectrum', 'flag']
 
@@ -695,7 +693,7 @@ class TestTableFunctions(PyfitsTestCase):
         c4 = fits.Column(name='spectrum', format='5E')
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
         tbhdu.writeto(self.temp('table1.fits'))
 
         counts = np.array([412, 434, 408, 417])
@@ -706,7 +704,7 @@ class TestTableFunctions(PyfitsTestCase):
         c4 = fits.Column(name='spectrum1', format='5E')
         c5 = fits.Column(name='flag1', format='L', array=[0, 1, 0, 0])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
         tbhdu.writeto(self.temp('table2.fits'))
 
         # Merge the columns of table 2 after the columns of table 1
@@ -716,7 +714,7 @@ class TestTableFunctions(PyfitsTestCase):
         t1 = fits.open(self.temp('table1.fits'))
         t2 = fits.open(self.temp('table2.fits'))
 
-        hdu = fits.new_table(t1[1].columns + t2[1].columns)
+        hdu = fits.BinTableHDU.from_columns(t1[1].columns + t2[1].columns)
 
         array = np.rec.array(
             [('NGC1', 312, '',
@@ -905,7 +903,7 @@ class TestTableFunctions(PyfitsTestCase):
         c4 = fits.Column(name='spectrum', format='5E')
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
         tbhdu.writeto(self.temp('table1.fits'))
 
         t1 = fits.open(self.temp('table1.fits'))
@@ -970,7 +968,7 @@ class TestTableFunctions(PyfitsTestCase):
         c4 = fits.Column(name='spectrum', format='5E')
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
         tbhdu.writeto(self.temp('table1.fits'))
 
         t1 = fits.open(self.temp('table1.fits'))
@@ -997,7 +995,7 @@ class TestTableFunctions(PyfitsTestCase):
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
 
-        tbhdu1 = fits.new_table(coldefs)
+        tbhdu1 = fits.BinTableHDU.from_columns(coldefs)
 
         c1 = fits.Column(name='target', format='10A')
         c2 = fits.Column(name='counts', format='J', unit='DN')
@@ -1006,7 +1004,7 @@ class TestTableFunctions(PyfitsTestCase):
         c5 = fits.Column(name='flag', format='L')
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
 
-        tbhdu = fits.new_table(coldefs, nrows=5)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs, nrows=5)
 
         # Test assigning data to a tables row using a FITS_record
         tbhdu.data[0] = tbhdu1.data[0]
@@ -1063,7 +1061,7 @@ class TestTableFunctions(PyfitsTestCase):
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
 
-        tbhdu1 = fits.new_table(coldefs)
+        tbhdu1 = fits.BinTableHDU.from_columns(coldefs)
 
         counts = np.array([112, 134, 108, 117])
         names = np.array(['NGC5', 'NGC6', 'NGC7', 'NCG8'])
@@ -1074,10 +1072,10 @@ class TestTableFunctions(PyfitsTestCase):
         c5 = fits.Column(name='flag', format='L', array=[0, 1, 0, 0])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
 
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
         tbhdu.data[0][3] = np.array([1., 2., 3., 4., 5.], dtype=np.float32)
 
-        tbhdu2 = fits.new_table(tbhdu1.data, nrows=9)
+        tbhdu2 = fits.BinTableHDU.from_columns(tbhdu1.data, nrows=9)
 
         # Assign the 4 rows from the second table to rows 5 thru 8 of the
         # new table.  Note that the last row of the new table will still be
@@ -1132,7 +1130,7 @@ class TestTableFunctions(PyfitsTestCase):
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
 
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
 
         # Verify that original ColDefs object has independent Column
         # objects.
@@ -1223,9 +1221,9 @@ class TestTableFunctions(PyfitsTestCase):
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
 
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
 
-        tbhdu1 = fits.new_table(tbhdu.data.view(np.ndarray))
+        tbhdu1 = fits.BinTableHDU.from_columns(tbhdu.data.view(np.ndarray))
 
         # Verify that all ndarray objects within the HDU reference the
         # same ndarray.
@@ -1328,7 +1326,7 @@ class TestTableFunctions(PyfitsTestCase):
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
 
-        tbhdu = fits.new_table(coldefs)
+        tbhdu = fits.BinTableHDU.from_columns(coldefs)
 
         tbhdu.data[0][1] = 213
 
@@ -1386,8 +1384,7 @@ class TestTableFunctions(PyfitsTestCase):
 
         fr._coldefs.columns[1].array[0] = 312
 
-        tbhdu1 = fits.new_table(fr)
-        # tbhdu1 = fits.new_table(t1[1].data)
+        tbhdu1 = fits.BinTableHDU.from_columns(fr)
 
         i = 0
         for row in tbhdu1.data:
@@ -1458,7 +1455,7 @@ class TestTableFunctions(PyfitsTestCase):
         c5 = fits.Column(name='flag', format='L', array=[1, 0, 1, 1])
         coldefs = fits.ColDefs([c1, c2, c3, c4, c5])
 
-        tbhdu1 = fits.new_table(coldefs)
+        tbhdu1 = fits.BinTableHDU.from_columns(coldefs)
 
         hdu = fits.BinTableHDU(tbhdu1.data)
 
@@ -1575,14 +1572,14 @@ class TestTableFunctions(PyfitsTestCase):
                          array=[[True, False], [False, True]])
         coldefs = fits.ColDefs([c1])
 
-        tbhdu1 = fits.new_table(coldefs)
+        tbhdu1 = fits.BinTableHDU.from_columns(coldefs)
 
         assert (tbhdu1.data.field('flag')[0] ==
                 np.array([True, False], dtype=np.bool)).all()
         assert (tbhdu1.data.field('flag')[1] ==
                 np.array([False, True], dtype=np.bool)).all()
 
-        tbhdu = fits.new_table(tbhdu1.data)
+        tbhdu = fits.BinTableHDU.from_columns(tbhdu1.data)
 
         assert (tbhdu.data.field('flag')[0] ==
                 np.array([True, False], dtype=np.bool)).all()
@@ -1594,7 +1591,7 @@ class TestTableFunctions(PyfitsTestCase):
             a = np.array([np.array([7.2e-20, 7.3e-20]), np.array([0.0]),
                           np.array([0.0])], 'O')
             acol = fits.Column(name='testa', format=format_code, array=a)
-            tbhdu = fits.new_table([acol])
+            tbhdu = fits.BinTableHDU.from_columns([acol])
             with ignore_warnings():
                 tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
             with fits.open(self.temp('newtable.fits')) as tbhdu1:
@@ -1611,7 +1608,7 @@ class TestTableFunctions(PyfitsTestCase):
             a = [np.array([7.2e-20, 7.3e-20]), np.array([0.0]),
                  np.array([0.0])]
             acol = fits.Column(name='testa', format=format_code, array=a)
-            tbhdu = fits.new_table([acol])
+            tbhdu = fits.BinTableHDU.from_columns([acol])
             with ignore_warnings():
                 tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
 
@@ -1629,7 +1626,7 @@ class TestTableFunctions(PyfitsTestCase):
             a = np.array([np.array(['a', 'b', 'c']), np.array(['d', 'e']),
                           np.array(['f'])], 'O')
             acol = fits.Column(name='testa', format=format_code, array=a)
-            tbhdu = fits.new_table([acol])
+            tbhdu = fits.BinTableHDU.from_columns([acol])
             with ignore_warnings():
                 tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
 
@@ -1646,7 +1643,7 @@ class TestTableFunctions(PyfitsTestCase):
         def test(format_code):
             a = ['a', 'ab', 'abc']
             acol = fits.Column(name='testa', format=format_code, array=a)
-            tbhdu = fits.new_table([acol])
+            tbhdu = fits.BinTableHDU.from_columns([acol])
             with ignore_warnings():
                 tbhdu.writeto(self.temp('newtable.fits'), clobber=True)
 
@@ -1720,7 +1717,7 @@ class TestTableFunctions(PyfitsTestCase):
 
         acol = fits.Column(name='MEMNAME', format='A10',
                            array=chararray.array(a))
-        ahdu = fits.new_table([acol])
+        ahdu = fits.BinTableHDU.from_columns([acol])
         assert ahdu.data.tostring().decode('raw-unicode-escape') == s
         ahdu.writeto(self.temp('newtable.fits'))
         with fits.open(self.temp('newtable.fits')) as hdul:
@@ -1728,7 +1725,7 @@ class TestTableFunctions(PyfitsTestCase):
             assert (hdul[1].data['MEMNAME'] == a).all()
         del hdul
 
-        ahdu = fits.new_table([acol], tbtype='TableHDU')
+        ahdu = fits.TableHDU.from_columns([acol])
         with ignore_warnings():
             ahdu.writeto(self.temp('newtable.fits'), clobber=True)
 
@@ -1736,7 +1733,7 @@ class TestTableFunctions(PyfitsTestCase):
             assert (hdul[1].data.tostring().decode('raw-unicode-escape') ==
                     s.replace('\x00', ' '))
             assert (hdul[1].data['MEMNAME'] == a).all()
-            ahdu = fits.new_table(hdul[1].data.copy())
+            ahdu = fits.BinTableHDU.from_columns(hdul[1].data.copy())
         del hdul
 
         # Now serialize once more as a binary table; padding bytes should
@@ -1757,7 +1754,7 @@ class TestTableFunctions(PyfitsTestCase):
              ([6, 7, 8, 9, 0, 1], 'row2' * 2),
              ([2, 3, 4, 5, 6, 7], 'row3' * 2)], formats='6i4,a8')
 
-        thdu = fits.new_table(data)
+        thdu = fits.BinTableHDU.from_columns(data)
         # Modify the TDIM fields to my own specification
         thdu.header['TDIM1'] = '(2,3)'
         thdu.header['TDIM2'] = '(4,2)'
@@ -1862,7 +1859,7 @@ class TestTableFunctions(PyfitsTestCase):
                         array=arrc)
         ]
 
-        hdu = fits.new_table(fits.ColDefs(cols))
+        hdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols))
         hdu.writeto(self.temp('test.fits'))
 
         with fits.open(self.temp('test.fits')) as h:
@@ -1890,7 +1887,7 @@ class TestTableFunctions(PyfitsTestCase):
                             array=arrb)]
 
         # The first column has the mismatched repeat count
-        hdu = fits.new_table(fits.ColDefs(cols))
+        hdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols))
         hdu.writeto(self.temp('test.fits'))
 
         with fits.open(self.temp('test.fits')) as h:
@@ -2005,7 +2002,7 @@ class TestTableFunctions(PyfitsTestCase):
         a8 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.int32)
         c8 = fits.Column(name='c8', format='PJ()', array=a8)
 
-        tbhdu = fits.new_table([c0, c2, c3, c4, c5, c6, c7, c8])
+        tbhdu = fits.BinTableHDU.from_columns([c0, c2, c3, c4, c5, c6, c7, c8])
 
         datafile = self.temp('data.txt')
         tbhdu.dump(datafile)
@@ -2033,7 +2030,7 @@ class TestTableFunctions(PyfitsTestCase):
         c2 = fits.Column(name='formats', format='I', array=[2])
         c3 = fits.Column(name='other', format='I', array=[3])
 
-        t = fits.new_table([c1, c2, c3])
+        t = fits.BinTableHDU.from_columns([c1, c2, c3])
         assert t.data.names == ['names', 'formats', 'other']
         assert t.data.formats == ['I'] * 3
         assert (t.data['names'] == [1]).all()
@@ -2048,7 +2045,7 @@ class TestTableFunctions(PyfitsTestCase):
         """
 
         array = np.rec.array([(True, False), (False, True)], formats='|b1,|b1')
-        thdu = fits.new_table(array)
+        thdu = fits.BinTableHDU.from_columns(array)
         assert thdu.columns.formats == ['L', 'L']
         assert comparerecords(thdu.data, array)
 
@@ -2075,7 +2072,7 @@ class TestTableFunctions(PyfitsTestCase):
 
         c1 = fits.Column('F1', 'L', array=[True, False])
         c2 = fits.Column('F2', 'L', array=[False, True])
-        thdu = fits.new_table(fits.ColDefs([c1, c2]))
+        thdu = fits.BinTableHDU.from_columns(fits.ColDefs([c1, c2]))
         thdu.writeto(self.temp('table.fits'))
 
         with fits.open(self.temp('table.fits'), mode='update') as hdul:
@@ -2092,7 +2089,7 @@ class TestTableFunctions(PyfitsTestCase):
         c = fits.Column('F1', 'A3', null='---',
                         array=np.array(['1.0', '2.0', '---', '3.0']),
                         ascii=True)
-        table = fits.new_table([c], tbtype='TableHDU')
+        table = fits.TableHDU.from_columns([c])
         table.writeto(self.temp('test.fits'))
 
         # Now let's delete the TNULL1 keyword, making this essentially
@@ -2118,7 +2115,7 @@ class TestTableFunctions(PyfitsTestCase):
         def test(format_code):
             col = fits.Column(name='QUAL_SPE', format=format_code,
                               array=[np.arange(1572)] * 225)
-            tb_hdu = fits.new_table([col])
+            tb_hdu = fits.BinTableHDU.from_columns([col])
             pri_hdu = fits.PrimaryHDU()
             hdu_list = fits.HDUList([pri_hdu, tb_hdu])
             with ignore_warnings():
@@ -2186,6 +2183,10 @@ class TestTableFunctions(PyfitsTestCase):
         are used to create a new table with the new_table function.  In this
         specific case, however, the existing table's data has not been read
         yet, so new_table has to get at it through the Delayed proxy.
+
+        Note: Although this previously tested new_table it now uses
+        BinTableHDU.from_columns directly, around which new_table is a mere
+        wrapper.
         """
 
         hdul = fits.open(self.data('table.fits'))
@@ -2194,7 +2195,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert isinstance(hdul[1].columns._arrays[0], Delayed)
 
         # Create a new table...
-        t = fits.new_table(hdul[1].columns)
+        t = fits.BinTableHDU.from_columns(hdul[1].columns)
 
         # The original columns should no longer be delayed...
         assert not isinstance(hdul[1].columns._arrays[0], Delayed)

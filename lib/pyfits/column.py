@@ -10,7 +10,7 @@ from numpy import char as chararray
 
 from pyfits.card import Card
 from pyfits.util import (lazyproperty, pairwise, _is_int, _convert_array,
-                         encode_ascii, indent)
+                         encode_ascii, indent, isiterable)
 from pyfits.verify import VerifyError, VerifyWarning
 
 
@@ -874,9 +874,19 @@ class ColDefs(object):
     _padding_byte = '\x00'
     _col_format_cls = _ColumnFormat
 
-    def __new__(cls, input, tbtype='BinTableHDU'):
-        from pyfits.hdu.table import TableHDU
+    def __new__(cls, input, tbtype=None, ascii=False):
+        if tbtype is not None:
+            warnings.warn(
+                'The ``tbtype`` argument to `ColDefs` is deprecated as of '
+                'PyFITS 3.3; instead the appropriate table type should be '
+                'inferred from the formats of the supplied columns.  Use the '
+                '``ascii=True`` argument to ensure that ASCII table columns '
+                'are used.')
+        else:
+            tbtype = 'BinTableHDU'  # The old default
 
+        # Backards-compat support
+        # TODO: Remove once the tbtype argument is removed entirely
         if tbtype == 'BinTableHDU':
             klass = cls
         elif tbtype == 'TableHDU':
@@ -884,18 +894,26 @@ class ColDefs(object):
         else:
             raise ValueError('Invalid table type: %s.' % tbtype)
 
-        if isinstance(input, TableHDU):
+        if (hasattr(input, '_columns_type') and
+                issubclass(input._columns_type, ColDefs)):
+            klass = input._columns_type
+        elif (hasattr(input, '_col_format_cls') and
+                issubclass(input._col_format_cls, _AsciiColumnFormat)):
+            klass = _AsciiColDefs
+
+        if ascii:  # force ASCII if this has been explicitly requested
             klass = _AsciiColDefs
 
         return object.__new__(klass)
 
-    def __init__(self, input, tbtype='BinTableHDU'):
+    def __init__(self, input, tbtype=None, ascii=False):
         """
         Parameters
         ----------
 
-        input :
-            An existing table HDU, an existing ColDefs, or recarray
+        input : sequence of `Column`, `ColDefs`, other
+            An existing table HDU, an existing `ColDefs`, or any multi-field
+            Numpy array or `numpy.recarray`.
 
         **(Deprecated)** tbtype : str (optional)
             which table HDU, ``"BinTableHDU"`` (default) or
@@ -903,23 +921,29 @@ class ColDefs(object):
             Now ColDefs for a normal (binary) table by default, but converted
             automatically to ASCII table ColDefs in the appropriate contexts
             (namely, when creating an ASCII table).
+
+        ascii : bool
         """
 
         from pyfits.hdu.table import _TableBaseHDU
-
-        self._tbtype = tbtype
+        from pyfits.fitsrec import FITS_rec
 
         if isinstance(input, ColDefs):
             self._init_from_coldefs(input)
-        elif isinstance(input, (list, tuple)):
-            # if the input is a list of Columns
-            # TODO: Expand this to accept any iterable
-            self._init_from_sequence(input)
+        elif (isinstance(input, FITS_rec) and hasattr(input, '_coldefs') and
+                input._coldefs):
+            # If given a FITS_rec object we can directly copy its columns, but
+            # only if its columns have already been defined, otherwise this
+            # will loop back in on itself and blow up
+            self._init_from_coldefs(input._coldefs)
         elif isinstance(input, np.ndarray) and input.dtype.fields is not None:
             # Construct columns from the fields of a record array
             self._init_from_array(input)
-        # Construct columns from fields in an HDU header
+        elif isiterable(input):
+            # if the input is a list of Columns
+            self._init_from_sequence(input)
         elif isinstance(input, _TableBaseHDU):
+            # Construct columns from fields in an HDU header
             self._init_from_table(input)
         else:
             raise TypeError('Input to ColDefs must be a table HDU, a list '
@@ -933,11 +957,10 @@ class ColDefs(object):
         self.columns = [self._copy_column(col) for col in coldefs]
 
     def _init_from_sequence(self, columns):
-        for col in columns:
+        for idx, col in enumerate(columns):
             if not isinstance(col, Column):
                 raise TypeError(
-                       'Element %d in the ColDefs input is not a Column.'
-                       % columns.index(col))
+                    'Element %d in the ColDefs input is not a Column.' % idx)
 
         self._init_from_coldefs(columns)
 
@@ -1024,11 +1047,10 @@ class ColDefs(object):
         self._listener = weakref.proxy(table)
 
     def __copy__(self):
-        return self.__class__(self, self._tbtype)
+        return self.__class__(self)
 
     def __deepcopy__(self, memo):
-        return self.__class__([copy.deepcopy(c, memo) for c in self.columns],
-                              tbtype=self._tbtype)
+        return self.__class__([copy.deepcopy(c, memo) for c in self.columns])
 
     def _copy_column(self, column):
         """Utility function used currently only by _init_from_coldefs
@@ -1351,8 +1373,8 @@ class _AsciiColDefs(ColDefs):
     _padding_byte = ' '
     _col_format_cls = _AsciiColumnFormat
 
-    def __init__(self, input, tbtype='TableHDU'):
-        super(_AsciiColDefs, self).__init__(input, tbtype)
+    def __init__(self, input, tbtype=None, ascii=True):
+        super(_AsciiColDefs, self).__init__(input)
 
         # if the format of an ASCII column has no width, add one
         if not isinstance(input, _AsciiColDefs):

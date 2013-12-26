@@ -4,7 +4,17 @@ Changelog
 3.3 (unreleased)
 ----------------
 
-- Nothing changed yet.
+API Changes
+^^^^^^^^^^^
+
+- The ``pyfits.new_table`` function is now fully deprecated (though will not
+  be removed for a long time, considering how widely it is used.
+
+  Instead please use the more explicit ``pyfits.BinTableHDU.from_columns`` to
+  create a new binary table HDU, and the similar
+  ``pyfits.TableHDU.from_columns` to create a new ASCII table.  These
+  otherwise accept the same arguments as ``pyfits.new_table`` which is now
+  just a wrapper for these.
 
 
 3.2.1 (unreleased)
