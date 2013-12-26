@@ -31,7 +31,6 @@ from __future__ import division # confidence high
                 - Google Search, when asked for "PyFITS"
 """
 
-import urllib
 import sys
 import warnings
 
@@ -113,19 +112,23 @@ warnings.formatwarning = formatwarning
 warnings.filterwarnings('always', category=UserWarning, append=True)
 
 
-class ErrorURLopener(urllib.FancyURLopener):
-    """A class to use with `urlretrieve` to allow `IOError` exceptions to be
-    raised when a file specified by a URL cannot be accessed.
+# This is a workaround for a bug that appears in some versions of Python 2.5
+if sys.version_info[:2] < (2, 6):
+    import urllib
 
-    """
+    class ErrorURLopener(urllib.FancyURLopener):
+        """A class to use with `urlretrieve` to allow `IOError` exceptions to be
+        raised when a file specified by a URL cannot be accessed.
 
-    def http_error_default(self, url, fp, errcode, errmsg, headers):
-        raise IOError((errcode, errmsg, url))
+        """
 
-urllib._urlopener = ErrorURLopener() # Assign the locally subclassed opener
-                                     # class to the urllibrary
-urllib._urlopener.tempcache = {} # Initialize tempcache with an empty
-                                 # dictionary to enable file cacheing
+        def http_error_default(self, url, fp, errcode, errmsg, headers):
+            raise IOError((errcode, errmsg, url))
+
+    urllib._urlopener = ErrorURLopener()  # Assign the locally subclassed opener
+                                          # class to the urllibrary
+    urllib._urlopener.tempcache = {}  # Initialize tempcache with an empty
+                                      # dictionary to enable file cacheing
 
 
 
