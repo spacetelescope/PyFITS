@@ -2227,6 +2227,54 @@ class TestVLATables(PyfitsTestCase):
         for code in ('PJ()', 'QJ()'):
             test(code)
 
+    def test_copy_vla(self):
+        """
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/47
+        """
+
+        # Make a file containing a couple of VLA tables
+        arr1 = [np.arange(n + 1) for n in xrange(255)]
+        arr2 = [np.arange(255, 256 + n) for n in xrange(255)]
+
+        # A dummy non-VLA column needed to reproduce issue #47
+        c = fits.Column('test', format='J', array=np.arange(255))
+        t1 = fits.new_table([c, fits.Column('A', format='PJ', array=arr1)])
+        t2 = fits.new_table([c, fits.Column('B', format='PJ', array=arr2)])
+
+        hdul = fits.HDUList([fits.PrimaryHDU(), t1, t2])
+        hdul.writeto(self.temp('test.fits'), clobber=True)
+
+        # Just test that the test file wrote out correctly
+        with fits.open(self.temp('test.fits')) as h:
+            assert h[1].header['TFORM2'] == 'PJ(255)'
+            assert h[2].header['TFORM2'] == 'PJ(255)'
+            assert comparerecords(h[1].data, t1.data)
+            assert comparerecords(h[2].data, t2.data)
+
+        # Try copying the second VLA and writing to a new file
+        with fits.open(self.temp('test.fits')) as h:
+            new_hdu = fits.BinTableHDU(data=h[2].data, header=h[2].header)
+            new_hdu.writeto(self.temp('test3.fits'))
+
+        with fits.open(self.temp('test3.fits')) as h2:
+            assert comparerecords(h2[1].data, t2.data)
+
+        new_hdul = fits.HDUList([fits.PrimaryHDU()])
+        new_hdul.writeto(self.temp('test2.fits'))
+
+        # Open several copies of the test file and append copies of the second
+        # VLA table
+        with fits.open(self.temp('test2.fits'), mode='append') as new_hdul:
+            for _ in range(2):
+                with fits.open(self.temp('test.fits')) as h:
+                    new_hdul.append(h[2])
+                    new_hdul.flush()
+
+        # Test that all the VLA copies wrote correctly
+        with fits.open(self.temp('test2.fits')) as new_hdul:
+            for idx in range(1, 3):
+                assert comparerecords(new_hdul[idx].data, t2.data)
+
 
 # These are tests that solely test the Column and ColDefs interfaces and
 # related functionality without directly involving full tables; currently there
