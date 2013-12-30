@@ -364,7 +364,9 @@ class _BaseHDU(object):
             if 'DATASUM' in self._header:
                 del self._header['DATASUM']
 
-        if checksum and (modified or self._new):
+        if (modified or self._new or
+              (checksum and ('CHECKSUM' not in self._header or
+                             'DATASUM' not in self._header))):
             if checksum == 'datasum':
                 self.add_datasum()
             elif checksum == 'nonstandard_datasum':
