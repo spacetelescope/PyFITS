@@ -501,7 +501,9 @@ class _BaseHDU(object):
 
             if datasum_keyword in self._header:
                 del self._header[datasum_keyword]
-        elif modified or self._new:
+        elif (modified or self._new or
+                (checksum and ('CHECKSUM' not in self._header or
+                               'DATASUM' not in self._header))):
             if checksum == 'datasum':
                 self.add_datasum(datasum_keyword=datasum_keyword)
             elif checksum == 'nonstandard_datasum':

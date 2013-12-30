@@ -14,6 +14,9 @@ Changelog
   and immediately writing it to a new file using the ``writeto`` method would
   drop the scale factors that identified the data as unsigned.
 
+- Fixed a bug where writing a file with ``checksum=True`` did not add the
+  checksum on new files. (spacetelescope/PyFITS#8)
+
 - Fixed an issue where validating an HDU's checksums removed the checksum from
   that HDU's header entirely (even if it was valid.)
 
@@ -34,6 +37,9 @@ Changelog
   drop the scale factors that identified the data as unsigned.
   (Backported from 3.2.1)
 
+- Fixed a bug where writing a file with ``checksum=True`` did not add the
+  checksum on new files. (Backported from 3.2.1)
+
 - Fixed an issue where validating an HDU's checksums removed the checksum from
   that HDU's header entirely (even if it was valid.)
   (Backported from 3.2.1)
@@ -41,6 +47,9 @@ Changelog
 
 3.0.13 (unreleased)
 -------------------
+
+- Fixed a bug where writing a file with ``checksum=True`` did not add the
+  checksum on new files. (Backported from 3.2.1)
 
 - Fixed an issue where validating an HDU's checksums removed the checksum from
   that HDU's header entirely (even if it was valid.)
