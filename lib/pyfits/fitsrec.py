@@ -11,7 +11,8 @@ from pyfits.column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ASCII2STR,
                            ColDefs, _AsciiColDefs, _FormatX, _FormatP, _VLF,
                            _get_index, _wrapx, _unwrapx, _makep,
                            _convert_ascii_format, Delayed)
-from pyfits.util import encode_ascii, decode_ascii, lazyproperty
+from pyfits.util import (encode_ascii, decode_ascii, lazyproperty,
+                         PyfitsDeprecationWarning)
 
 
 class FITS_record(object):
@@ -48,7 +49,7 @@ class FITS_record(object):
         for arg in [('startColumn', 'start'), ('endColumn', 'end')]:
             if arg[0] in kwargs:
                 warnings.warn('The %s argument to FITS_record is deprecated; '
-                              'use %s instead' % arg, DeprecationWarning)
+                              'use %s instead' % arg, PyfitsDeprecationWarning)
                 if arg[0] == 'startColumn':
                     start = kwargs[arg[0]]
                 elif arg[0] == 'endColumn':

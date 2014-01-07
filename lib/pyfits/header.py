@@ -13,7 +13,7 @@ from pyfits.card import Card, CardList, BLANK_CARD, KEYWORD_LENGTH, _pad
 from pyfits.file import _File
 from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, encode_ascii,
                          decode_ascii, fileobj_is_binary, fileobj_closed,
-                         _pad_length)
+                         _pad_length, PyfitsDeprecationWarning)
 
 
 PY3K = sys.version_info[:2] >= (3, 0)
@@ -83,7 +83,7 @@ class Header(object):
             warnings.warn(
                 'The txtfile argument is deprecated.  Use Header.fromfile to '
                 'create a new Header object from a text file.',
-                DeprecationWarning)
+                PyfitsDeprecationWarning)
             # get the cards from the input ASCII file
             self.update(self.fromfile(txtfile))
             self._modified = False
@@ -226,7 +226,7 @@ class Header(object):
                     'changed so that this raises a KeyError just like a dict '
                     'would. Please update your code so that KeyErrors are '
                     'caught and handled when deleting non-existent keywords.' %
-                    key, DeprecationWarning)
+                    key, PyfitsDeprecationWarning)
                 return
             for idx in reversed(indices[key]):
                 # Have to copy the indices list since it will be modified below
@@ -1010,7 +1010,7 @@ class Header(object):
                 "`header[keyword] = value` or "
                 "`header[keyword] = (value, comment)`.  header.set() is only "
                 "necessary to use if you also want to use the before/after "
-                "keyword arguments.", DeprecationWarning)
+                "keyword arguments.", PyfitsDeprecationWarning)
 
             for k, v in zip(legacy_args, args):
                 if k in kwargs:

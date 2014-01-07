@@ -12,7 +12,7 @@ from pyfits.hdu.image import _ImageBaseHDU, ImageHDU
 from pyfits.hdu.table import BinTableHDU
 from pyfits.header import Header
 from pyfits.util import (lazyproperty, _is_pseudo_unsigned, _unsigned_zero,
-                         deprecated, _is_int)
+                         deprecated, _is_int, PyfitsPendingDeprecationWarning)
 
 try:
     from pyfits import compression
@@ -337,7 +337,7 @@ class CompImageHDU(BinTableHDU):
                 warnings.warn('Keyword argument %s to %s is pending '
                               'deprecation; use %s instead' %
                               (oldarg, self.__class__.__name__, newarg),
-                              PendingDeprecationWarning)
+                              PyfitsPendingDeprecationWarning)
                 compression_opts[newarg] = kwargs[oldarg]
                 del kwargs[oldarg]
             else:

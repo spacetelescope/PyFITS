@@ -153,6 +153,14 @@ class lazyproperty(object):
         return cls_ns[property_name]
 
 
+class PyfitsDeprecationWarning(UserWarning):
+    pass
+
+
+class PyfitsPendingDeprecationWarning(UserWarning):
+    pass
+
+
 # TODO: Provide a class deprecation marker as well.
 def deprecated(since, message='', name='', alternative='', pending=False):
     """
@@ -187,8 +195,8 @@ def deprecated(since, message='', name='', alternative='', pending=False):
         this alternative if provided.
 
     pending : bool, optional
-        If True, uses a PendingDeprecationWarning instead of a
-        DeprecationWarning.
+        If True, uses a PyfitsPendingDeprecationWarning instead of a
+        PyfitsDeprecationWarning.
 
     """
 
@@ -233,9 +241,9 @@ def deprecated(since, message='', name='', alternative='', pending=False):
         @functools.wraps(func)
         def deprecated_func(*args, **kwargs):
             if pending:
-                category = PendingDeprecationWarning
+                category = PyfitsPendingDeprecationWarning
             else:
-                category = DeprecationWarning
+                category = PyfitsDeprecationWarning
 
             warnings.warn(message, category, stacklevel=2)
 

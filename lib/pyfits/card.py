@@ -6,7 +6,7 @@ import numpy as np
 
 import pyfits
 from pyfits.util import (_str_to_num, _is_int, deprecated, maketrans,
-                         translate, _words_group)
+                         translate, _words_group, PyfitsDeprecationWarning)
 from pyfits.verify import _Verify, _ErrList, VerifyError, VerifyWarning
 
 
@@ -63,7 +63,7 @@ class CardList(list):
                 'functionality has been subsumed by the Header class, so '
                 'CardList objects should not be directly created.  See the '
                 'PyFITS 3.1.0 CHANGELOG for more details.',
-                DeprecationWarning)
+                PyfitsDeprecationWarning)
 
         # This is necessary for now to prevent a circular import
         from pyfits.header import Header
