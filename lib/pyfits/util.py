@@ -230,13 +230,14 @@ def deprecated(since, message='', name='', alternative='', pending=False):
                 message = ('The %(func)s function will be deprecated in a '
                            'future version.')
             else:
-                message = ('The %(func)s function is deprecated and may '
-                           'be removed in a future version.')
+                message = (
+                    'The %(func)s function is deprecated as of version '
+                    '%(since)s and may be removed in a future version.')
             if alternative:
-                altmessage = '\n        Use %s instead.' % alternative
+                altmessage = '\n\n        Use %s instead.' % alternative
 
-        message = ((message % {'func': name, 'alternative': alternative}) +
-                   altmessage)
+        message = ((message % {'func': name, 'alternative': alternative,
+                               'since': since}) + altmessage)
 
         @functools.wraps(func)
         def deprecated_func(*args, **kwargs):

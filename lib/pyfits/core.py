@@ -49,6 +49,8 @@ from pyfits.convenience import *
 from pyfits.diff import *
 from pyfits.fitsrec import FITS_record, FITS_rec
 from pyfits.hdu import *
+from pyfits.util import (PyfitsDeprecationWarning,
+                         PyfitsPendingDeprecationWarning)
 
 from pyfits.hdu.hdulist import fitsopen as open
 from pyfits.hdu.image import Section
@@ -83,8 +85,9 @@ __all__ = (pyfits.card.__all__ + pyfits.column.__all__ +
            pyfits.convenience.__all__ + pyfits.diff.__all__ +
            pyfits.hdu.__all__ +
            ['FITS_record', 'FITS_rec', 'open', 'Section', 'new_table',
-            'Header', 'VerifyError', 'TRUE', 'FALSE'] +
-           [g[0] for g in GLOBALS])
+            'Header', 'VerifyError', 'PyfitsDeprecationWarning',
+            'PyfitsPendingDeprecationWarning', 'ignore_deprecation_warnings',
+            'TRUE', 'FALSE'] + [g[0] for g in GLOBALS])
 
 
 # These are of course deprecated, but a handful of external code still uses
@@ -93,22 +96,9 @@ TRUE = True
 FALSE = False
 
 
-# Warnings routines
-_formatwarning = warnings.formatwarning
-
-
-def formatwarning(message, category, filename, lineno, line=None):
-    if issubclass(category, UserWarning):
-        return unicode(message) + '\n'
-    else:
-        if sys.version_info[:2] < (2, 6):
-            # Python versions prior to 2.6 don't support the line argument
-            return _formatwarning(message, category, filename, lineno)
-        else:
-            return _formatwarning(message, category, filename, lineno, line)
-
-warnings.formatwarning = formatwarning
-warnings.filterwarnings('always', category=UserWarning, append=True)
+def ignore_deprecation_warnings():
+    warnings.simplefilter('ignore', PyfitsDeprecationWarning)
+    warnings.simplefilter('ignore', PyfitsPendingDeprecationWarning)
 
 
 # This is a workaround for a bug that appears in some versions of Python 2.5
