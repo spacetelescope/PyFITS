@@ -469,7 +469,12 @@ class FITS_rec(np.recarray):
             newrecord = self._record_type(self, key)
             return newrecord
 
-    def __setitem__(self, row, value):
+    def __setitem__(self, row, value):    
+        if isinstance(row, str):
+            for idx in range( len( self[row] ) ):
+                self[row].__setitem__(idx, value)
+            return
+
         if isinstance(row, slice):
             end = min(len(self), row.stop or len(self))
             end = max(0, end)
