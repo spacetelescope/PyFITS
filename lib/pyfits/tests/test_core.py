@@ -14,7 +14,7 @@ import numpy as np
 import pyfits as fits
 from pyfits.convenience import _getext
 from pyfits.file import _File
-from pyfits.util import BytesIO
+from pyfits.util import BytesIO, PyfitsDeprecationWarning
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings, ignore_warnings, CaptureStdio
 
@@ -95,6 +95,7 @@ class TestCore(PyfitsTestCase):
                 assert table.data.dtype.names == ('c2', 'c4', 'foo')
                 assert table.columns.names == ['c2', 'c4', 'foo']
 
+    @ignore_warnings(PyfitsDeprecationWarning)
     def test_update_header_card(self):
         """A very basic test for the Header.update method--I'd like to add a
         few more cases to this at some point.
@@ -121,6 +122,7 @@ class TestCore(PyfitsTestCase):
         header.update('BITPIX', 16, 'foobarbaz', savecomment=True)
         assert header.ascard['BITPIX'].comment == comment
 
+    @ignore_warnings(PyfitsDeprecationWarning)
     def test_set_card_value(self):
         """Similar to test_update_header_card(), but tests the the
         `header['FOO'] = 'bar'` method of updating card values.
@@ -147,6 +149,7 @@ class TestCore(PyfitsTestCase):
         assert hdulist_i[1].data.dtype == np.uint16
         assert np.all(hdulist_f[1].data == hdulist_i[1].data)
 
+    @ignore_warnings(PyfitsDeprecationWarning)
     def test_fix_missing_card_append(self):
         hdu = fits.ImageHDU()
         errs = hdu.req_cards('TESTKW', None, None, 'foo', 'silentfix', [])
@@ -418,6 +421,7 @@ class TestConvenienceFunctions(PyfitsTestCase):
         assert len(hdul) == 1
         assert (data == hdul[0].data).all()
 
+    @ignore_warnings(PyfitsDeprecationWarning)
     def test_writeto_2(self):
         """
         Regression test for https://trac.assembla.com/pyfits/ticket/107

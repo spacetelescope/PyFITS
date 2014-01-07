@@ -16,6 +16,7 @@ from nose.tools import assert_raises
 
 
 class TestHDUListFunctions(PyfitsTestCase):
+    @ignore_warnings
     def test_update_name(self):
         hdul = fits.open(self.data('o4sp040b0_raw.fits'))
         hdul[4].update_ext_name('Jim', "added by Jim")

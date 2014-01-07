@@ -25,6 +25,14 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
     This tests backward compatibility support for those interfaces.
     """
 
+    def setup(self):
+        super(TestOldApiHeaderFunctions, self).setup()
+        fits.ignore_deprecation_warnings()
+
+    def teardown(self):
+        warnings.resetwarnings()
+        super(TestOldApiHeaderFunctions, self).teardown()
+
     def test_ascardimage_verifies_the_comment_string_to_be_ascii_text(self):
         # the ascardimage() verifies the comment string to be ASCII text
         c = fits.Card.fromstring('abc     = +  2.1   e + 12 / abcde\0')
@@ -215,7 +223,11 @@ class TestHeaderFunctions(PyfitsTestCase):
         """Test Card constructor with default argument values."""
 
         c = fits.Card()
-        assert '' == c.key
+
+        with ignore_warnings():
+            assert '' == c.key
+
+        assert '' == c.keyword
 
     def test_string_value_card(self):
         """Test Card constructor with string value"""

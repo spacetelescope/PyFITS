@@ -8,6 +8,8 @@ import warnings
 import numpy as np
 
 import pyfits as fits
+from pyfits.util import (PyfitsDeprecationWarning,
+                         PyfitsPendingDeprecationWarning)
 from pyfits.hdu.compressed import SUBTRACTIVE_DITHER_1, DITHER_SEED_CHECKSUM
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.test_table import comparerecords
@@ -112,7 +114,11 @@ class TestImageFunctions(PyfitsTestCase):
         with fits.open(self.temp('test.fits')) as hdul:
             assert hdul[0].name == 'XPRIMARY2'
 
+    @ignore_warnings(PyfitsDeprecationWarning)
     def test_io_manipulation(self):
+        # This legacy test also tests numerous deprecated interfaces for
+        # backwards compatibility
+
         # Get a keyword value.  An extension can be referred by name or by
         # number.  Both extension and keyword names are case insensitive.
         with fits.open(self.data('test0.fits')) as r:
@@ -550,6 +556,7 @@ class TestImageFunctions(PyfitsTestCase):
             for args in argslist:
                 yield (self._test_comp_image,) + args + (byte_order,)
 
+    @ignore_warnings(PyfitsPendingDeprecationWarning)
     def _test_comp_image(self, data, compression_type, quantize_level,
                          byte_order):
         data = data.newbyteorder(byte_order)
@@ -568,6 +575,7 @@ class TestImageFunctions(PyfitsTestCase):
             assert fd[1].header['NAXIS2'] == chdu.header['NAXIS2']
             assert fd[1].header['BITPIX'] == chdu.header['BITPIX']
 
+    @ignore_warnings(PyfitsPendingDeprecationWarning)
     def test_comp_image_hcompression_1_invalid_data(self):
         """
         Tests compression with the HCOMPRESS_1 algorithm with data that is
@@ -579,6 +587,7 @@ class TestImageFunctions(PyfitsTestCase):
                       compressionType='HCOMPRESS_1', quantizeLevel=16,
                       tileSize=[2, 10, 10])
 
+    @ignore_warnings(PyfitsPendingDeprecationWarning)
     def test_comp_image_hcompress_image_stack(self):
         """
         Regression test for https://trac.assembla.com/pyfits/ticket/171
