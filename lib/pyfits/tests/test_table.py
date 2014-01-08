@@ -1823,20 +1823,20 @@ class TestTableFunctions(PyfitsTestCase):
 
     def test_array_broadcasting(self):
         """
-        Assign values to table colums as you would a np.ndarray
+        Regression test for https://github.com/spacetelescope/PyFITS/pull/48
         """
 
-        f = fits.open(self.data('table.fits'))
-        data = f[1].data
-        data['V_mag'] = 0
-        assert np.all( data['V_mag'] == 0 )
+        with fits.open(self.data('table.fits')) as hdu:
+            data = hdu[1].data
+            data['V_mag'] = 0
+            assert np.all(data['V_mag'] == 0)
 
-        data['V_mag'] = 1
-        assert np.all( data['V_mag'] == 1 )
+            data['V_mag'] = 1
+            assert np.all(data['V_mag'] == 1)
 
-        for container in (list, tuple, np.array):
-            data['V_mag'] = container( [1, 2, 3] )
-            assert np.array_equal( data['V_mag'], np.array( [1, 2, 3] ) )
+            for container in (list, tuple, np.array):
+                data['V_mag'] = container([1, 2, 3])
+                assert np.array_equal(data['V_mag'], np.array([1, 2, 3]))
 
     def test_array_slicing_readonly(self):
         """
