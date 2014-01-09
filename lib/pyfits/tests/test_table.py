@@ -2238,8 +2238,10 @@ class TestVLATables(PyfitsTestCase):
 
         # A dummy non-VLA column needed to reproduce issue #47
         c = fits.Column('test', format='J', array=np.arange(255))
-        t1 = fits.new_table([c, fits.Column('A', format='PJ', array=arr1)])
-        t2 = fits.new_table([c, fits.Column('B', format='PJ', array=arr2)])
+        c1 = fits.Column('A', format='PJ', array=arr1)
+        c2 = fits.Column('B', format='PJ', array=arr2)
+        t1 = fits.BinTableHDU.from_columns([c, c1])
+        t2 = fits.BinTableHDU.from_columns([c, c2])
 
         hdul = fits.HDUList([fits.PrimaryHDU(), t1, t2])
         hdul.writeto(self.temp('test.fits'), clobber=True)
