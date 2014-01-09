@@ -56,6 +56,9 @@ Other Changes and Additions
   columns to a new FITS file.  This could result in corruption in the new FITS
   file. (spacetelescope/PyFITS#47)
 
+- Fixed issue with updates to the header of ``CompImageHDU`` objects not being
+  preserved on save. (spacetelescope/PyFITS#23)
+
 
 3.1.4 (unreleased)
 ------------------

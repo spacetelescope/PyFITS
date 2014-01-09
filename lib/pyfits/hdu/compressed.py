@@ -82,13 +82,7 @@ class CompImageHeader(Header):
 
         # update the underlying header (_table_header) unless the update
         # was made to a card that describes the data.
-
-        if (keyword not in ('SIMPLE', 'XTENSION', 'BITPIX', 'PCOUNT', 'GCOUNT',
-                            'TFIELDS', 'EXTEND', 'ZIMAGE', 'ZBITPIX',
-                            'ZCMPTYPE', 'CHECKSUM', 'DATASUM') and
-            keyword[:4] not in ('ZVAL') and
-            keyword[:5] not in ('NAXIS', 'TTYPE', 'TFORM', 'ZTILE', 'ZNAME')
-                and keyword[:6] not in ('ZNAXIS')):
+        if not self._is_table_keyword(keyword):
             self._table_header.set(keyword, value, comment, before, after)
 
     def add_history(self, value, before=None, after=None):
@@ -102,6 +96,20 @@ class CompImageHeader(Header):
     def add_blank(self, value='', before=None, after=None):
         super(CompImageHeader, self).add_blank(value, before, after)
         self._table_header.add_blank(value, before, after)
+
+    def _update(self, card):
+        super(CompImageHeader, self)._update(card)
+
+        if not self._is_table_keyword(card[0]):
+            self._table_header._update(card)
+
+    def _is_table_keyword(self, keyword):
+        return (keyword in ('SIMPLE', 'XTENSION', 'BITPIX', 'PCOUNT',
+                            'GCOUNT', 'TFIELDS', 'EXTEND', 'ZIMAGE',
+                            'ZBITPIX', 'ZCMPTYPE', 'CHECKSUM', 'DATASUM') or
+                keyword[:4] in ('ZVAL') or
+                keyword[:5] in ('NAXIS', 'TTYPE', 'TFORM', 'ZTILE', 'ZNAME') or
+                keyword[:6] in ('ZNAXIS'))
 
 
 class CompImageHDU(BinTableHDU):
