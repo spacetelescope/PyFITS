@@ -1048,6 +1048,23 @@ class TestImageFunctions(PyfitsTestCase):
             assert h[1].header['TFORM1'] == '1PB(30)'
             assert h[1].header['TFORM2'] == '1PB(359)'
 
+    def test_compression_update_header(self):
+        """Regression test for
+        https://github.com/spacetelescope/PyFITS/issues/23
+        """
+
+        self.copy_file('comp.fits')
+        with fits.open(self.temp('comp.fits'), mode='update') as hdul:
+            assert isinstance(hdul[1], fits.CompImageHDU)
+            hdul[1].header['test'] = 'test'
+            hdul[1]._header['test2'] = 'test2'
+
+        with fits.open(self.temp('comp.fits')) as hdul:
+            assert 'test' in hdul[1].header
+            assert hdul[1].header['test'] == 'test'
+            assert 'test2' in hdul[1].header
+            assert  hdul[1].header['test2'] == 'test2'
+
     def test_image_none(self):
         """
         Regression test for https://github.com/spacetelescope/PyFITS/issues/27
