@@ -564,9 +564,36 @@ class FITS_rec(np.recarray):
                 widths.append(f[1])
             loc.append(loc[-1] + super(FITS_rec, self).field(idx).itemsize)
 
+        # Running total for the new heap size
+        heapsize = 0
+
         for indx in range(len(self.dtype.names)):
             recformat = self._coldefs._recformats[indx]
             field = super(FITS_rec, self).field(indx)
+
+            # add the location offset of the heap area for each
+            # variable length column
+            if isinstance(recformat, _FormatP):
+                # Irritatingly, this can return a different dtype than just
+                # doing np.dtype(recformat.dtype); but this returns the results
+                # that we want.  For example if recformat.dtype is 'a' we want
+                # an array of characters.
+                dtype = np.array([], dtype=recformat.dtype).dtype
+
+                if self._convert[indx] is not None:
+                    # The VLA has potentially been updated, so we need to
+                    # update the array descriptors
+                    field[:] = 0  # reset
+                    npts = [len(arr) for arr in self._convert[indx]]
+
+                    field[:len(npts), 0] = npts
+                    field[1:, 1] = (np.add.accumulate(field[:-1, 0]) *
+                                    dtype.itemsize)
+                    field[:, 1][:] += heapsize
+
+                heapsize += field[:, 0].sum() * dtype.itemsize
+                # Even if this VLA has not been read, we need to include
+                # the size of its constituent arrays in the heap size total
 
             if self._convert[indx] is None:
                 continue
@@ -577,24 +604,6 @@ class FITS_rec(np.recarray):
 
             (_str, _bool, _number, _scale, _zero, bscale, bzero, dim) = \
                 self._get_scale_factors(indx)
-
-            # add the location offset of the heap area for each
-            # variable length column
-            if isinstance(recformat, _FormatP):
-                # Reset the heapsize and recompute it starting from the first P
-                # column
-                if indx == 0:
-                    self._heapsize = 0
-
-                field[:] = 0  # reset
-                npts = map(len, self._convert[indx])
-
-                dtype = np.array([], dtype=recformat.dtype).dtype
-                field[:len(npts), 0] = npts
-                field[1:, 1] = (np.add.accumulate(field[:-1, 0]) *
-                                dtype.itemsize)
-                field[:, 1][:] += self._heapsize
-                self._heapsize += field[:, 0].sum() * dtype.itemsize
 
             # conversion for both ASCII and binary tables
             if _number or _str:
@@ -685,3 +694,6 @@ class FITS_rec(np.recarray):
                 field[:] = np.choose(self._convert[indx],
                                      (np.array([ord('F')], dtype=np.int8)[0],
                                       np.array([ord('T')], dtype=np.int8)[0]))
+
+        # Store the updated heapsize
+        self._heapsize = heapsize
