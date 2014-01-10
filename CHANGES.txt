@@ -25,6 +25,10 @@ Changelog
   columns to a new FITS file.  This could result in corruption in the new FITS
   file. (Backported from 3.2.1)
 
+- Fixed a bug where a boolean value of ``True`` in a header could not be
+  replaced with the integer 1, and likewise for ``False`` and 0 and vice
+  versa. (Backported from 3.2.1)
+
 
 3.0.13 (unreleased)
 -------------------

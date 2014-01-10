@@ -572,8 +572,7 @@ class Card(_Verify):
             raise ValueError(
                 "Floating point %r values are not allowed in FITS headers." %
                 value)
-
-        if isinstance(value, unicode):
+        elif isinstance(value, unicode):
             try:
                 # Any string value must be encodable as ASCII
                 value.encode('ascii')
@@ -582,12 +581,16 @@ class Card(_Verify):
                     'FITS header values must contain standard ASCII '
                     'characters; %r contains characters not representable in '
                     'ASCII.' % value)
+        elif isinstance(value, np.bool_):
+            value = bool(value)
 
         if (pyfits.STRIP_HEADER_WHITESPACE and
             (isinstance(oldvalue, basestring) and
              isinstance(value, basestring))):
             # Ignore extra whitespace when comparing the new value to the old
             different = oldvalue.rstrip() != value.rstrip()
+        elif isinstance(oldvalue, bool) or isinstance(value, bool):
+            different = oldvalue is not value
         else:
             different = oldvalue != value
 
