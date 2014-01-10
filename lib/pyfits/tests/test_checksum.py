@@ -5,7 +5,9 @@ import warnings
 import numpy as np
 
 import pyfits as fits
+from pyfits.hdu.base import _ValidHDU
 from pyfits.tests import PyfitsTestCase
+from pyfits.tests.test_table import comparerecords
 
 
 class TestChecksumFunctions(PyfitsTestCase):
@@ -29,6 +31,7 @@ class TestChecksumFunctions(PyfitsTestCase):
     def teardown(self):
         super(TestChecksumFunctions, self).teardown()
         warnings.filters = self._oldfilters
+        _ValidHDU._get_timestamp = self._old_get_timestamp
 
     def test_sample_file(self):
         hdul = fits.open(self.data('checksum.fits'), checksum=True)
@@ -145,7 +148,9 @@ class TestChecksumFunctions(PyfitsTestCase):
         a1 = np.array(['abc', 'def'])
         r1 = np.array([11.0, 12.0])
         c1 = fits.Column(name='abc', format='A3', array=a1)
-        c2 = fits.Column(name='def', format='E', array=r1, bscale=2.3,
+        # This column used to be E format, but the single-precision float lost
+        # too much precision when scaling so it was changed to a D
+        c2 = fits.Column(name='def', format='D', array=r1, bscale=2.3,
                          bzero=0.6)
         c3 = fits.Column(name='t1', format='I', array=[91, 92, 93])
         x = fits.ColDefs([c1, c2, c3], tbtype='TableHDU')
@@ -282,6 +287,28 @@ class TestChecksumFunctions(PyfitsTestCase):
                     hdul[0]._datasum_comment)
             assert (hasattr(hdul[0], '_checksum_comment') and
                     hdul[0]._checksum_comment)
+
+    def test_hdu_writeto_existing(self):
+        """
+        Tests that when using writeto with checksum=True, a checksum and
+        datasum are added to HDUs that did not previously have one.
+
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/8
+        """
+
+        with fits.open(self.data('tb.fits')) as hdul:
+            hdul.writeto(self.temp('test.fits'), checksum=True)
+
+        with fits.open(self.temp('test.fits')) as hdul:
+            assert 'CHECKSUM' in hdul[0].header
+            # These checksums were verified against CFITSIO
+            assert hdul[0].header['CHECKSUM'] == '7UgqATfo7TfoATfo'
+            assert 'DATASUM' in hdul[0].header
+            assert hdul[0].header['DATASUM'] == '0'
+            assert 'CHECKSUM' in hdul[1].header
+            assert hdul[1].header['CHECKSUM'] == '99daD8bX98baA8bU'
+            assert 'DATASUM' in hdul[1].header
+            assert hdul[1].header['DATASUM'] == '1829680925'
 
     def test_datasum_only(self):
         n = np.arange(100, dtype='int16')
