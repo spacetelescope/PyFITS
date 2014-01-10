@@ -33,6 +33,10 @@ Changelog
 - Fixed issue with updates to the header of ``CompImageHDU`` objects not being
   preserved on save. (spacetelescope/PyFITS#23)
 
+- Fixed a bug where a boolean value of ``True`` in a header could not be
+  replaced with the integer 1, and likewise for ``False`` and 0 and vice
+  versa.
+
 
 3.1.4 (unreleased)
 ------------------
@@ -56,6 +60,10 @@ Changelog
   properly when writing an existing table containing variable-length array
   columns to a new FITS file.  This could result in corruption in the new FITS
   file. (Backported from 3.2.1)
+
+- Fixed a bug where a boolean value of ``True`` in a header could not be
+  replaced with the integer 1, and likewise for ``False`` and 0 and vice
+  versa. (Backported from 3.2.1)
 
 
 3.0.13 (unreleased)
