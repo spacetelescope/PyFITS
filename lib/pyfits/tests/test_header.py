@@ -887,6 +887,17 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert newheader[0] == 0
         assert newheader[1] == 2
 
+    def test_wildcard_with_hyphen(self):
+        """
+        Regression test for issue where wildcards did not work on keywords
+        containing hyphens.
+        """
+
+        header = fits.Header([('DATE', 1), ('DATE-OBS', 2), ('DATE-FOO', 3)])
+        assert len(header['DATE*']) == 3
+        assert len(header['DATE?*']) == 2
+        assert len(header['DATE-*']) == 2
+
     def test_wildcard_slice_assignment(self):
         """Test assigning to a header slice selected via wildcard matching."""
 

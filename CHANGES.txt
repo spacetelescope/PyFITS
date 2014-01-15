@@ -16,6 +16,14 @@ API Changes
   otherwise accept the same arguments as ``pyfits.new_table`` which is now
   just a wrapper for these.
 
+- Fixed an issue where header wildcard matching (for example
+  ``header['DATE*']``) can be used to match *any* characters that might appear
+  in a keyword.  Previously this only matched keywords containing characters
+  in the set ``[0-9A-Za-z_]``.  Now this can also match a hyphen ``-`` and any
+  other characters, as some conventions like ``HIERARCH`` and record-valued
+  keyword cards allow a wider range of valid characters than standard FITS
+  keywords.
+
 Other Changes and Additions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

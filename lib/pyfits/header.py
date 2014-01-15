@@ -1703,12 +1703,12 @@ class Header(object):
         Returns a list of indices of the cards matching the given wildcard
         pattern.
 
-         * '*' matches 0 or more alphanumeric characters or _
-         * '?' matches a single alphanumeric character or _
+         * '*' matches 0 or more characters
+         * '?' matches a single character
          * '...' matches 0 or more of any non-whitespace character
         """
 
-        pattern = pattern.replace('*', r'\w*').replace('?', r'\w')
+        pattern = pattern.replace('*', r'.*').replace('?', r'.')
         pattern = pattern.replace('...', r'\S*') + '$'
         pattern_re = re.compile(pattern, re.I)
 
