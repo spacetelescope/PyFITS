@@ -1912,7 +1912,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         cannot be updated to a value of 1, and likewise for False/0.
         """
 
-        h = fits.Header([('TEST', True)])
+        h = pyfits.Header([('TEST', True)])
         h['TEST'] = 1
         assert h['TEST'] is not True
         assert isinstance(h['TEST'], int)
