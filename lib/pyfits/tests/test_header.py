@@ -1888,6 +1888,34 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_raises(ValueError, h.set, 'TEST', np.nan)
         assert_raises(ValueError, h.set, 'TEST', np.inf)
 
+    def test_update_bool(self):
+        """
+        Regression test for an issue where a value of True in a header
+        cannot be updated to a value of 1, and likewise for False/0.
+        """
+
+        h = fits.Header([('TEST', True)])
+        h['TEST'] = 1
+        assert h['TEST'] is not True
+        assert isinstance(h['TEST'], int)
+        assert h['TEST'] == 1
+
+        h['TEST'] = np.bool_(True)
+        assert h['TEST'] is True
+
+        h['TEST'] = False
+        assert h['TEST'] is False
+        h['TEST'] = np.bool_(False)
+        assert h['TEST'] is False
+
+        h['TEST'] = 0
+        assert h['TEST'] is not False
+        assert isinstance(h['TEST'], int)
+        assert h['TEST'] == 0
+
+        h['TEST'] = np.bool_(False)
+        assert h['TEST'] is False
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """
