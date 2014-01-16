@@ -54,7 +54,7 @@ def itersubclasses(cls, _seen=None):
     C
     >>> # get ALL (new-style) classes currently defined
     >>> [cls.__name__ for cls in itersubclasses(object)] #doctest: +ELLIPSIS
-    ['type', ...'tuple', ...]
+    [...'tuple', ...'type', ...]
 
     From http://code.activestate.com/recipes/576949/
     """
@@ -68,7 +68,7 @@ def itersubclasses(cls, _seen=None):
         subs = cls.__subclasses__()
     except TypeError:  # fails only when cls is type
         subs = cls.__subclasses__(cls)
-    for sub in subs:
+    for sub in sorted(subs, key=lambda s: s.__name__):
         if sub not in _seen:
             _seen.add(sub)
             yield sub
