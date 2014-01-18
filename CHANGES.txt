@@ -71,6 +71,9 @@ Other Changes and Additions
   replaced with the integer 1, and likewise for ``False`` and 0 and vice
   versa.
 
+- A handful of Python 3 compatibility fixes, especially for compatibility
+  with the upcoming Python 3.4.
+
 
 3.1.4 (unreleased)
 ------------------
