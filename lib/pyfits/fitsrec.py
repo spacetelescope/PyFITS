@@ -536,8 +536,20 @@ class FITS_rec(np.recarray):
         A view of a `Column`'s data as an array.
         """
 
-        indx = _get_index(self.names, key)
-        recformat = self._coldefs._recformats[indx]
+        # NOTE: The *column* index may not be the same as the field index in
+        # the recarray, if the column is a phantom column
+        if isinstance(key, basestring):
+            col_indx = _get_index(self.columns.names, key)
+            if self.columns[col_indx]._phantom:
+                warnings.warn(
+                    'Field %r has a repeat count of 0 in its format code, '
+                    'indicating an empty field.' % key)
+                return None
+            field_indx = _get_index(self.names, key)
+        else:
+            col_indx = field_indx = _get_index(self.names, key)
+
+        recformat = self._coldefs._recformats[col_indx]
 
         # If field's base is a FITS_rec, we can run into trouble because it
         # contains a reference to the ._coldefs object of the original data;
@@ -549,21 +561,21 @@ class FITS_rec(np.recarray):
         # base could still be a FITS_rec in some cases, so take care to
         # use rec.recarray.field to avoid a potential infinite
         # recursion
-        field = np.recarray.field(base, indx)
+        field = np.recarray.field(base, field_indx)
 
-        if self._convert[indx] is None:
+        if self._convert[field_indx] is None:
             if isinstance(recformat, _FormatP):
                 # for P format
-                converted = self._convert_p(indx, field, recformat)
+                converted = self._convert_p(col_indx, field, recformat)
             else:
                 # Handle all other column data types which are fixed-width
                 # fields
-                converted = self._convert_other(indx, field, recformat)
+                converted = self._convert_other(col_indx, field, recformat)
 
-            self._convert[indx] = converted
+            self._convert[field_indx] = converted
             return converted
 
-        return self._convert[indx]
+        return self._convert[field_indx]
 
     def _convert_x(self, field, recformat):
         """Convert a raw table column to a bit array as specified by the
@@ -585,7 +597,7 @@ class FITS_rec(np.recarray):
         if raw_data is None:
             raise IOError(
                 "Could not find heap data for the %r variable-length "
-                "array column." % self.names[indx])
+                "array column." % self.columns.names[indx])
 
         for idx in xrange(len(self)):
             offset = field[idx, 1] + self._heapoffset
@@ -729,7 +741,7 @@ class FITS_rec(np.recarray):
                     except OverflowError:
                         warnings.warn(
                             "Overflow detected while applying TZERO{0:d}. "
-                            "Returning unscaled data.".format(indx))
+                            "Returning unscaled data.".format(indx + 1))
                     else:
                         field = test_overflow
                 else:

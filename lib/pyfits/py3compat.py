@@ -15,12 +15,15 @@ if sys.version_info[0] >= 3:  # pragma: py3
     def encode_ascii(s):
         if isinstance(s, str):
             return s.encode('ascii')
-        elif isinstance(s, numpy.ndarray) and \
-                issubclass(s.dtype.type, numpy.str_):
+        elif (isinstance(s, numpy.ndarray) and
+              issubclass(s.dtype.type, numpy.str_)):
             ns = numpy.char.encode(s, 'ascii').view(type(s))
             if ns.dtype.itemsize != s.dtype.itemsize / 4:
                 ns = ns.astype((numpy.bytes_, s.dtype.itemsize / 4))
             return ns
+        elif (isinstance(s, numpy.ndarray) and
+              not issubclass(s.dtype.type, numpy.bytes_)):
+            raise TypeError('string operation on non-string array')
         return s
     pyfits.util.encode_ascii = encode_ascii
 
@@ -44,6 +47,12 @@ if sys.version_info[0] >= 3:  # pragma: py3
             if ns.dtype.itemsize / 4 != s.dtype.itemsize:
                 ns = ns.astype((numpy.str_, s.dtype.itemsize))
             return ns
+        elif (isinstance(s, numpy.ndarray) and
+              not issubclass(s.dtype.type, numpy.str_)):
+            # Don't silently pass through on non-string arrays; we don't want
+            # to hide errors where things that are not stringy are attempting
+            # to be decoded
+            raise TypeError('string operation on non-string array')
         return s
     pyfits.util.decode_ascii = decode_ascii
 
