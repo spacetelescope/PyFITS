@@ -1,5 +1,6 @@
 import copy
 import operator
+import sys
 import warnings
 import weakref
 
@@ -7,12 +8,14 @@ import numpy as np
 
 from numpy import char as chararray
 
-from pyfits.column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ASCII2STR,
-                           ColDefs, _AsciiColDefs, _FormatX, _FormatP, _VLF,
-                           _get_index, _wrapx, _unwrapx, _makep,
-                           _convert_ascii_format, Delayed)
-from pyfits.util import (encode_ascii, decode_ascii, lazyproperty,
-                         PyfitsDeprecationWarning)
+from .extern.six import string_types
+from .extern.six.moves import range, reduce
+
+from .column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ASCII2STR, ColDefs,
+                     _AsciiColDefs, _FormatX, _FormatP, _VLF, _get_index,
+                     _wrapx, _unwrapx, _makep, _convert_ascii_format, Delayed)
+from .util import (encode_ascii, decode_ascii, lazyproperty,
+                   PyfitsDeprecationWarning)
 
 
 class FITS_record(object):
@@ -67,7 +70,7 @@ class FITS_record(object):
         self.base = base
 
     def __getitem__(self, key):
-        if isinstance(key, basestring):
+        if isinstance(key, string_types):
             indx = _get_index(self.array.names, key)
 
             if indx < self.start or indx > self.end - 1:
@@ -84,13 +87,13 @@ class FITS_record(object):
         return self.array.field(indx)[self.row]
 
     def __setitem__(self, key, value):
-        if isinstance(key, basestring):
+        if isinstance(key, string_types):
             indx = _get_index(self.array._coldefs.names, key)
 
             if indx < self.start or indx > self.end - 1:
                 raise KeyError("Key '%s' does not exist." % key)
         elif isinstance(key, slice):
-            for indx in xrange(slice.start, slice.stop, slice.step):
+            for indx in range(slice.start, slice.stop, slice.step):
                 indx = self._get_indx(indx)
                 self.array.field(indx)[self.row] = value
         else:
@@ -104,7 +107,7 @@ class FITS_record(object):
         return self[slice(start, end)]
 
     def __len__(self):
-        return len(xrange(self.start, self.end, self.step))
+        return len(range(self.start, self.end, self.step))
 
     def __repr__(self):
         """
@@ -112,7 +115,7 @@ class FITS_record(object):
         """
 
         outlist = []
-        for idx in xrange(len(self)):
+        for idx in range(len(self)):
             outlist.append(repr(self[idx]))
         return '(%s)' % ', '.join(outlist)
 
@@ -430,7 +433,7 @@ class FITS_rec(np.recarray):
             return super(FITS_rec, self).__setattr__(attr, value)
 
     def __getitem__(self, key):
-        if isinstance(key, basestring):
+        if isinstance(key, string_types):
             return self.field(key)
         elif isinstance(key, (slice, np.ndarray, tuple, list)):
             # Have to view as a recarray then back as a FITS_rec, otherwise the
@@ -538,7 +541,7 @@ class FITS_rec(np.recarray):
 
         # NOTE: The *column* index may not be the same as the field index in
         # the recarray, if the column is a phantom column
-        if isinstance(key, basestring):
+        if isinstance(key, string_types):
             col_indx = _get_index(self.columns.names, key)
             if self.columns[col_indx]._phantom:
                 warnings.warn(
@@ -599,7 +602,7 @@ class FITS_rec(np.recarray):
                 "Could not find heap data for the %r variable-length "
                 "array column." % self.columns.names[indx])
 
-        for idx in xrange(len(self)):
+        for idx in range(len(self)):
             offset = field[idx, 1] + self._heapoffset
             count = field[idx, 0]
 
@@ -645,10 +648,12 @@ class FITS_rec(np.recarray):
 
         try:
             dummy = np.array(dummy, dtype=recformat)
-        except ValueError, e:
+        except ValueError:
+            exc = sys.exc_info()[1]
             raise ValueError(
                 '%s; the header may be missing the necessary TNULL%d '
-                'keyword or the table contains invalid data' % (e, indx + 1))
+                'keyword or the table contains invalid data' %
+                (exc, indx + 1))
 
         return dummy
 
@@ -966,7 +971,7 @@ class FITS_rec(np.recarray):
                         else:
                             pad = self._coldefs._padding_byte.encode('ascii')
 
-                        for idx in xrange(len(dummy)):
+                        for idx in range(len(dummy)):
                             val = dummy[idx]
                             dummy[idx] = val + (pad * (itemsize - len(val)))
 

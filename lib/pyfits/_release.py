@@ -10,13 +10,16 @@ import xmlrpclib
 from ConfigParser import ConfigParser
 from datetime import datetime
 
+from .extern.six import print_, reraise, string_types
+
 try:
     from docutils.core import publish_parts
 except ImportError:
-    print >> sys.stderr, \
-        'docutils is required to convert the PyFITS changelog to HTML ' \
-        'for updating the PyFITS homepage\n\n' \
-        'Try `pip install docutils` or `easy_install docutils`.'
+    print_(
+        'docutils is required to convert the PyFITS changelog to HTML '
+        'for updating the PyFITS homepage\n\n'
+        'Try `pip install docutils` or `easy_install docutils`.',
+        file=sys.stderr)
     sys.exit(1)
 
 from zest.releaser.choose import version_control
@@ -123,18 +126,19 @@ class ReleaseManager(object):
             if not isinstance(cmds, list):
                 cmds = [cmds]
             if len(cmds) == 1:
-                print("Tag needed to proceed, you can use the following command:")
+                print_("Tag needed to proceed, you can use the following "
+                       "command:")
             for cmd in cmds:
-                print(cmd)
+                print_(cmd)
                 if ask("Run this command"):
-                    print(os.system(cmd))
+                    print_(os.system(cmd))
                 else:
                     # all commands are needed in order to proceed normally
-                    print("Please create a tag for %s yourself and rerun." % \
-                            (self.data['version'],))
+                    print_("Please create a tag for %s yourself and rerun." %
+                           self.data['version'])
                     sys.exit()
             if not self.vcs.tag_exists(tag_name):
-                print("\nFailed to create tag %s!" % (tag_name,))
+                print_("\nFailed to create tag %s!" % tag_name)
                 sys.exit()
 
         # Normally all this does is to return '--formats=zip', which is currently
@@ -240,7 +244,7 @@ class ReleaseManager(object):
                 content = proxy.retrieve()
                 content = search_version_re.sub(version_replace, content)
                 proxy.update(content)
-            except Exception, e:
+            except:
                 continue
 
         content = generate_release_notes(self.history_lines)
@@ -250,7 +254,7 @@ class ReleaseManager(object):
             proxy = _ZopeProxy(url, username, password)
             # And upload...
             proxy.update(content)
-        except Exception, e:
+        except:
             pass
 
 
@@ -275,9 +279,11 @@ def check_long_description():
                                         stdin=subprocess.PIPE,
                                         stderr=subprocess.PIPE)
             rst2html.communicate(stdout)
-        except OSError, e:
+        except OSError:
+            exc = sys.exc_info()[1]
             log.error('Error running rst2html.py: %s\n'
-                      'Make sure you have docutils correctly installed.' % e)
+                      'Make sure you have docutils correctly installed.' %
+                      exc)
             sys.exit(1)
 
         if rst2html.returncode == 0:
@@ -424,7 +430,7 @@ def config_parser(filename, callback):
         lines = callback(section, option, value, lineno, line)
         if lines != line:
             updated = True
-        if isinstance(lines, basestring):
+        if isinstance(lines, string_types):
             new_config.append(lines)
         else:
             new_config.extend(lines)
@@ -455,14 +461,15 @@ class _ZopeProxy(object):
             return
         try:
             self.proxy = xmlrpclib.ServerProxy(self.url)
-        except Exception, e:
+        except:
             # TODO: Catch bad authentication and let the user enter a new
             # username/password
+            exc_type, exc, tb = sys.exc_info()
             if log:
-                message = str(e).replace(self.url, self.masked_url)
+                message = str(exc).replace(self.url, self.masked_url)
                 log.error('Failed to connect to %s: %s' %
                           (self.masked_url, message))
-            raise
+            reraise(exc_type, exc, tb)
 
     def retrieve(self):
         """Retrieves the static page contents at the proxy's URL."""
@@ -472,12 +479,13 @@ class _ZopeProxy(object):
             log.info('Retrieving %s...' % self.masked_url)
         try:
             return self.proxy.document_src()
-        except Exception, e:
+        except:
+            exc_type, exc, tb = sys.exc_info()
             if log:
-                message = str(e).replace(self.url, self.masked_url)
+                message = str(exc).replace(self.url, self.masked_url)
                 log.error('Failed to download content at %s: %s' %
                           (self.masked_url, message))
-            raise
+            reraise(exc_type, exc, tb)
 
     def update(self, content, title=None):
         """Updates the static page content at the proxy's URL."""
@@ -489,12 +497,13 @@ class _ZopeProxy(object):
             if title is None:
                 title = self.proxy.title_or_id()
             self.proxy.manage_edit(content, title)
-        except Exception, e:
+        except:
+            exc_type, exc, tb = sys.exc_info()
             if log:
-                message = str(e).replace(self.url, self.masked_url)
+                message = str(exc).replace(self.url, self.masked_url)
                 log.error('Failed to update content at %s: %s' %
                           (self.masked_url, message))
-            raise
+            reraise(exc_type, exc, tb)
 
 
 releaser = ReleaseManager()
@@ -511,7 +520,7 @@ def _test_postrelease_after():
     """
 
     def update(self, content):
-        print content
+        print_(content)
         return
 
     _ZopeProxy.update = update

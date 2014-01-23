@@ -8,9 +8,9 @@ import sys
 import nose
 from nose.tools import assert_raises
 
-from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings
-from pyfits.util import ignore_sigint
+from ..util import ignore_sigint
+from . import PyfitsTestCase
+from .util import catch_warnings
 
 
 class TestUtils(PyfitsTestCase):

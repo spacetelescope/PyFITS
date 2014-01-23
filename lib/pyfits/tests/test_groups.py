@@ -8,8 +8,8 @@ import numpy as np
 from nose.tools import assert_raises
 
 import pyfits as fits
-from pyfits.tests import PyfitsTestCase
-from pyfits.tests.test_table import comparerecords
+from . import PyfitsTestCase
+from .test_table import comparerecords
 
 
 class TestGroupsFunctions(PyfitsTestCase):

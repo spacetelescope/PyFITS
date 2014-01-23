@@ -5,8 +5,8 @@ import platform
 import numpy as np
 
 import pyfits as fits
-from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import ignore_warnings
+from . import PyfitsTestCase
+from .util import ignore_warnings
 
 
 class TestUintFunctions(PyfitsTestCase):

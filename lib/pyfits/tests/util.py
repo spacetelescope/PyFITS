@@ -6,7 +6,7 @@ import functools
 import sys
 import warnings
 
-from pyfits.util import StringIO
+from ..extern.six import StringIO
 
 
 class CaptureStdio(object):

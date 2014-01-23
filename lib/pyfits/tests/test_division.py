@@ -4,8 +4,8 @@ from __future__ import with_statement
 import numpy as np
 
 import pyfits as fits
-from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings
+from . import PyfitsTestCase
+from .util import catch_warnings
 
 
 class TestDivisionFunctions(PyfitsTestCase):

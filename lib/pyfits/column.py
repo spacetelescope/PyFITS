@@ -8,10 +8,13 @@ import weakref
 import numpy as np
 from numpy import char as chararray
 
-from pyfits.card import Card
-from pyfits.util import (lazyproperty, pairwise, _is_int, _convert_array,
-                         encode_ascii, indent, isiterable)
-from pyfits.verify import VerifyError, VerifyWarning
+from .extern.six import iteritems, string_types
+from .extern.six.moves import reduce
+
+from .card import Card
+from .util import (lazyproperty, pairwise, _is_int, _convert_array,
+                   encode_ascii, indent, isiterable)
+from .verify import VerifyError, VerifyWarning
 
 
 __all__ = ['Column', 'ColDefs', 'Delayed']
@@ -32,7 +35,7 @@ FITS2NUMPY = {'L': 'i1', 'B': 'u1', 'I': 'i2', 'J': 'i4', 'K': 'i8', 'E': 'f4',
               'D': 'f8', 'C': 'c8', 'M': 'c16', 'A': 'a'}
 
 # the inverse dictionary of the above
-NUMPY2FITS = dict([(val, key) for key, val in FITS2NUMPY.iteritems()])
+NUMPY2FITS = dict([(val, key) for key, val in iteritems(FITS2NUMPY)])
 # Normally booleans are represented as ints in pyfits, but if passed in a numpy
 # boolean array, that should be supported
 NUMPY2FITS['b1'] = 'L'
@@ -630,7 +633,7 @@ class Column(object):
         # TODO: Add full parsing and validation of TDISPn keywords
         if disp is not None and disp != '':
             msg = None
-            if not isinstance(disp, basestring):
+            if not isinstance(disp, string_types):
                 msg = (
                     'Column disp option (TDISPn) must be a string (got %r).'
                     'The invalid value will be ignored for the purpose of '
@@ -693,7 +696,7 @@ class Column(object):
                     'columns (got %r).  The invalid keyword will be ignored '
                     'for the purpose of formatting this column.' % dim)
 
-            elif isinstance(dim, basestring):
+            elif isinstance(dim, string_types):
                 dims_tuple = _parse_tdim(dim)
             elif isinstance(dim, tuple):
                 dims_tuple = dim
@@ -1006,7 +1009,7 @@ class ColDefs(object):
         # go through header keywords to pick out column definition keywords
         # definition dictionaries for each field
         col_keywords = [{} for i in range(nfields)]
-        for keyword, value in hdr.iteritems():
+        for keyword, value in iteritems(hdr):
             key = TDEF_RE.match(keyword)
             try:
                 keyword = key.group('label')
@@ -1522,7 +1525,7 @@ def _get_index(names, key):
 
     if _is_int(key):
         indx = int(key)
-    elif isinstance(key, basestring):
+    elif isinstance(key, string_types):
         # try to find exact match first
         try:
             indx = names.index(key.rstrip())

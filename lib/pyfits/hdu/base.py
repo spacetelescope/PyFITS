@@ -8,15 +8,16 @@ import warnings
 
 import numpy as np
 
+from ..extern.six import string_types
+
 import pyfits
-from pyfits.card import Card
-from pyfits.file import _File
-from pyfits.header import Header, HEADER_END_RE
-from pyfits.util import (lazyproperty, _is_int, _is_pseudo_unsigned,
-                         _unsigned_zero, _pad_length, itersubclasses,
-                         encode_ascii, decode_ascii, deprecated,
-                         _get_array_mmap, _array_to_file)
-from pyfits.verify import _Verify, _ErrList
+from ..card import Card
+from ..file import _File
+from ..header import Header, HEADER_END_RE
+from ..util import (first, lazyproperty, _is_int, _is_pseudo_unsigned,
+                    _unsigned_zero, _pad_length, itersubclasses, encode_ascii,
+                    decode_ascii, deprecated, _get_array_mmap, _array_to_file)
+from ..verify import _Verify, _ErrList
 
 
 class _Delayed(object):
@@ -52,12 +53,14 @@ def _hdu_class_from_header(cls, header):
                     break
             except NotImplementedError:
                 continue
-            except Exception, e:
+            except:
+                exc = sys.exc_info()[1]
                 warnings.warn(
                     'An exception occurred matching an HDU header to the '
-                    'appropriate HDU type: %s' % unicode(e))
+                    'appropriate HDU type: %s' % exc)
                 warnings.warn('The HDU will be treated as corrupted.')
                 klass = _CorruptedHDU
+                del exc
                 break
 
     return klass
@@ -135,7 +138,7 @@ class _BaseHDU(object):
 
     @name.setter
     def name(self, value):
-        if not isinstance(value, basestring):
+        if not isinstance(value, string_types):
             raise TypeError("'name' attribute must be a string")
         if not pyfits.EXTENSION_NAME_CASE_SENSITIVE:
             value = value.upper()
@@ -294,7 +297,7 @@ class _BaseHDU(object):
         if isinstance(data, Header):
             header = data
             if (not len(header) or
-                    header.keys()[0] not in ('SIMPLE', 'XTENSION')):
+                first(header.keys()) not in ('SIMPLE', 'XTENSION')):
                 raise ValueError('Block does not begin with SIMPLE or '
                                  'XTENSION')
         else:
@@ -859,7 +862,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         case?  Not sure...
         """
 
-        return header.keys()[0] not in ('SIMPLE', 'XTENSION')
+        return first(header.keys()) not in ('SIMPLE', 'XTENSION')
 
     @property
     def size(self):
@@ -1089,7 +1092,7 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         # Verify that the EXTNAME keyword exists and is a string
         if 'EXTNAME' in self._header:
-            if not isinstance(self._header['EXTNAME'], basestring):
+            if not isinstance(self._header['EXTNAME'], string_types):
                 err_text = 'The EXTNAME keyword must have a string value.'
                 fix_text = 'Converted the EXTNAME keyword to a string value.'
 
@@ -1660,7 +1663,7 @@ class NonstandardExtHDU(ExtensionHDU):
 
         card = header.cards[0]
         xtension = card.value
-        if isinstance(xtension, basestring):
+        if isinstance(xtension, string_types):
             xtension = xtension.rstrip()
         # A3DTABLE is not really considered a 'standard' extension, as it was
         # sort of the prototype for BINTABLE; however, since our BINTABLE

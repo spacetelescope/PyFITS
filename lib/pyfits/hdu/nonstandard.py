@@ -1,10 +1,12 @@
 import gzip
 
-from pyfits.file import _File
-from pyfits.hdu.base import NonstandardExtHDU
-from pyfits.hdu.hdulist import HDUList
-from pyfits.header import Header
-from pyfits.util import lazyproperty, BytesIO, fileobj_name, _pad_length
+from ..extern.six import string_types, BytesIO
+
+from ..file import _File
+from ..header import Header
+from ..util import lazyproperty, fileobj_name, _pad_length
+from .base import NonstandardExtHDU
+from .hdulist import HDUList
 
 
 class FitsHDU(NonstandardExtHDU):
@@ -122,7 +124,7 @@ class FitsHDU(NonstandardExtHDU):
         if card.keyword != 'XTENSION':
             return False
         xtension = card.value
-        if isinstance(xtension, basestring):
+        if isinstance(xtension, string_types):
             xtension = xtension.rstrip()
         return xtension == cls._extension
 

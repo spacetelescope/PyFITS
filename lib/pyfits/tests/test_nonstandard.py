@@ -2,7 +2,7 @@ import numpy as np
 
 import pyfits as fits
 
-from pyfits.tests import PyfitsTestCase
+from . import PyfitsTestCase
 
 
 class TestNonstandardHdus(PyfitsTestCase):

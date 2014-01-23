@@ -4,14 +4,15 @@ import shutil
 import sys
 import warnings
 
-from pyfits.file import _File
-from pyfits.hdu import compressed
-from pyfits.hdu.base import _BaseHDU, _ValidHDU, _NonstandardHDU, ExtensionHDU
-from pyfits.hdu.groups import GroupsHDU
-from pyfits.hdu.image import PrimaryHDU, ImageHDU
-from pyfits.util import (_is_int, _tmp_name, _pad_length, ignore_sigint,
-                         _get_array_mmap, indent, fileobj_closed)
-from pyfits.verify import _Verify, _ErrList, VerifyError, VerifyWarning
+from ..extern.six import print_
+from ..file import _File
+from ..util import (_is_int, _tmp_name, _pad_length, ignore_sigint,
+                    _get_array_mmap, indent, fileobj_closed)
+from ..verify import _Verify, _ErrList, VerifyError, VerifyWarning
+from . import compressed
+from .base import _BaseHDU, _ValidHDU, _NonstandardHDU, ExtensionHDU
+from .groups import GroupsHDU
+from .image import PrimaryHDU, ImageHDU
 
 
 def fitsopen(name, mode='readonly', memmap=None, save_backup=False, **kwargs):
@@ -542,9 +543,10 @@ class HDUList(list, _Verify):
                               (filename, backup))
                 try:
                     shutil.copy(filename, backup)
-                except IOError, e:
+                except IOError:
+                    exc = sys.exc_info()[1]
                     raise IOError('Failed to save backup to destination %s: '
-                                  '%s' % (filename, str(e)))
+                                  '%s' % (filename, exc))
 
         self.verify(option=output_verify)
 
@@ -562,7 +564,7 @@ class HDUList(list, _Verify):
                     try:
                         hdu._writeto(self.__file)
                         if verbose:
-                            print 'append HDU', hdu.name, extver
+                            print_('append HDU', hdu.name, extver)
                         hdu._new = False
                     finally:
                         hdu._postwriteto()
@@ -787,7 +789,7 @@ class HDUList(list, _Verify):
                             hdu = _BaseHDU.readfrom(ffo, **kwargs)
                         except EOFError:
                             break
-                        except IOError, err:
+                        except IOError:
                             if ffo.writeonly:
                                 break
                             else:
@@ -803,13 +805,15 @@ class HDUList(list, _Verify):
                         hdu._output_checksum = kwargs['checksum']
                 # check in the case there is extra space after the last HDU or
                 # corrupted HDU
-                except (VerifyError, ValueError), err:
+                except (VerifyError, ValueError):
+                    exc = sys.exc_info()[1]
                     warnings.warn(
                         'Error validating header for HDU #%d (note: PyFITS '
                         'uses zero-based indexing).\n%s\n'
                         'There may be extra bytes after the last HDU or the '
                         'file is corrupted.' %
-                        (len(hdulist), indent(str(err))), VerifyWarning)
+                        (len(hdulist), indent(str(exc))), VerifyWarning)
+                    del exc
                     break
 
             # If we're trying to read only and no header units were found,
@@ -1028,7 +1032,7 @@ class HDUList(list, _Verify):
                     self._resize = True
                     self._truncate = False
                     if verbose:
-                        print 'One or more header is resized.'
+                        print_('One or more header is resized.')
                     break
 
                 # Data:
@@ -1041,7 +1045,7 @@ class HDUList(list, _Verify):
                     self._resize = True
                     self._truncate = False
                     if verbose:
-                        print 'One or more data area is resized.'
+                        print_('One or more data area is resized.')
                     break
 
             if self._truncate:

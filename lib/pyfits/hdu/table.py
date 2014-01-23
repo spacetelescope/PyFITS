@@ -10,19 +10,19 @@ import warnings
 import numpy as np
 from numpy import char as chararray
 
+from ..extern.six import string_types
+
 # This module may have many dependencies on pyfits.column, but pyfits.column
 # has fewer dependencies overall, so it's easier to keep table/column-related
 # utilities in pyfits.column
-from pyfits.column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES,
-                           TDEF_RE, Column, ColDefs, _AsciiColDefs,
-                           _FormatP, _FormatQ, _makep, _VLF, _parse_tformat,
-                           _scalar_to_format, _convert_format,
-                           _cmp_recformats, _get_index)
-from pyfits.fitsrec import FITS_rec
-from pyfits.hdu.base import DELAYED, _ValidHDU, ExtensionHDU
-from pyfits.header import Header
-from pyfits.util import (lazyproperty, _is_int, _str_to_num, _pad_length,
-                         deprecated)
+from ..column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, TDEF_RE,
+                      Column, ColDefs, _AsciiColDefs, _FormatP, _FormatQ,
+                      _makep, _VLF, _parse_tformat, _scalar_to_format,
+                      _convert_format, _cmp_recformats, _get_index)
+from ..fitsrec import FITS_rec
+from ..header import Header
+from ..util import lazyproperty, _is_int, _str_to_num, _pad_length, deprecated
+from .base import DELAYED, _ValidHDU, ExtensionHDU
 
 
 class FITSTableDumpDialect(csv.excel):
@@ -292,7 +292,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                     # Delete the _arrays attribute so that it is recreated to
                     # point to the new data placed in the column objects above
                     del self.columns._arrays
-                except (TypeError, AttributeError), e:
+                except (TypeError, AttributeError):
                     # This shouldn't happen as long as self.columns._arrays
                     # is a lazyproperty
                     pass
@@ -301,7 +301,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             else:
                 raise TypeError('Table data has incorrect type.')
 
-        if not (isinstance(self._header[0], basestring) and
+        if not (isinstance(self._header[0], string_types) and
                 self._header[0].rstrip() == self._extension):
             self._header[0] = (self._extension, self._ext_comment)
 
@@ -382,7 +382,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
                 # Delete the _arrays attribute so that it is recreated to
                 # point to the new data placed in the column objects above
                 del self.columns._arrays
-            except (TypeError, AttributeError), e:
+            except (TypeError, AttributeError):
                 # This shouldn't happen as long as self.columns._arrays
                 # is a lazyproperty
                 pass
@@ -550,7 +550,7 @@ class TableHDU(_TableBaseHDU):
     def match_header(cls, header):
         card = header.cards[0]
         xtension = card.value
-        if isinstance(xtension, basestring):
+        if isinstance(xtension, string_types):
             xtension = xtension.rstrip()
         return card.keyword == 'XTENSION' and xtension == cls._extension
 
@@ -636,7 +636,7 @@ class BinTableHDU(_TableBaseHDU):
     def match_header(cls, header):
         card = header.cards[0]
         xtension = card.value
-        if isinstance(xtension, basestring):
+        if isinstance(xtension, string_types):
             xtension = xtension.rstrip()
         return (card.keyword == 'XTENSION' and
                 xtension in (cls._extension, 'A3DTABLE'))
@@ -852,7 +852,7 @@ class BinTableHDU(_TableBaseHDU):
         files = [datafile, cdfile, hfile]
 
         for f in files:
-            if isinstance(f, basestring):
+            if isinstance(f, string_types):
                 if os.path.exists(f) and os.path.getsize(f) != 0:
                     if clobber:
                         warnings.warn("Overwriting existing file '%s'." % f)
@@ -980,7 +980,7 @@ class BinTableHDU(_TableBaseHDU):
 
         close_file = False
 
-        if isinstance(fileobj, basestring):
+        if isinstance(fileobj, string_types):
             fileobj = open(fileobj, 'w')
             close_file = True
 
@@ -1041,7 +1041,7 @@ class BinTableHDU(_TableBaseHDU):
 
         close_file = False
 
-        if isinstance(fileobj, basestring):
+        if isinstance(fileobj, string_types):
             fileobj = open(fileobj, 'w')
             close_file = True
 
@@ -1066,7 +1066,7 @@ class BinTableHDU(_TableBaseHDU):
 
         close_file = False
 
-        if isinstance(fileobj, basestring):
+        if isinstance(fileobj, string_types):
             fileobj = open(fileobj, 'r')
             close_file = True
 
@@ -1191,7 +1191,7 @@ class BinTableHDU(_TableBaseHDU):
 
         close_file = False
 
-        if isinstance(fileobj, basestring):
+        if isinstance(fileobj, string_types):
             fileobj = open(fileobj, 'r')
             close_file = True
 
@@ -1256,7 +1256,7 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype=BinTableHDU):
 
     # tbtype defaults to classes now, but in all prior version of PyFITS it was
     # a string, so we still support that use case as well
-    if not isinstance(tbtype, basestring):
+    if not isinstance(tbtype, string_types):
         cls = tbtype
         tbtype = cls.__name__
     else:

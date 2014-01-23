@@ -1,12 +1,13 @@
 import numpy as np
 
 import pyfits as fits
-from pyfits.column import Column
-from pyfits.diff import *
-from pyfits.hdu import HDUList, PrimaryHDU, ImageHDU
-from pyfits.hdu.table import BinTableHDU
-from pyfits.header import Header
-from pyfits.tests import PyfitsTestCase
+
+from ..column import Column
+from ..diff import FITSDiff, HeaderDiff, ImageDataDiff, TableDataDiff
+from ..hdu import HDUList, PrimaryHDU, ImageHDU
+from ..hdu.table import BinTableHDU
+from ..header import Header
+from . import PyfitsTestCase
 
 
 class TestDiff(PyfitsTestCase):

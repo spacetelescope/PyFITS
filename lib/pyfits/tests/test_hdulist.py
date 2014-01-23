@@ -6,11 +6,12 @@ import sys
 
 import numpy as np
 
+from ..extern.six import BytesIO
+
 import pyfits as fits
-from pyfits.util import BytesIO
-from pyfits.verify import VerifyError
-from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings, ignore_warnings
+from ..verify import VerifyError
+from . import PyfitsTestCase
+from .util import catch_warnings, ignore_warnings
 
 from nose.tools import assert_raises
 

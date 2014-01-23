@@ -1,15 +1,19 @@
-from __future__ import division  # confidence high
-from __future__ import with_statement
+from __future__ import division, with_statement
+
+import sys
 
 import numpy as np
 from numpy import char as chararray
 
+from ..extern.six import u, print_
+from ..extern.six.moves import range
+
 import pyfits as fits
-from pyfits.column import Delayed, NUMPY2FITS
-from pyfits.util import decode_ascii
-from pyfits.verify import VerifyError
-from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import ignore_warnings
+from ..column import Delayed, NUMPY2FITS
+from ..util import decode_ascii
+from ..verify import VerifyError
+from . import PyfitsTestCase
+from .util import ignore_warnings
 
 from nose.tools import assert_raises
 
@@ -54,7 +58,7 @@ def comparerecords(a, b):
     nfieldsa = len(a.dtype.names)
     nfieldsb = len(b.dtype.names)
     if nfieldsa != nfieldsb:
-        print "number of fields don't match"
+        print_("number of fields don't match")
         return False
     for i in range(nfieldsa):
         fielda = a.field(i)
@@ -66,28 +70,28 @@ def comparerecords(a, b):
         if (type(fielda) != type(fieldb) and not
             (issubclass(type(fielda), type(fieldb)) or
              issubclass(type(fieldb), type(fielda)))):
-            print "type(fielda): ", type(fielda), " fielda: ", fielda
-            print "type(fieldb): ", type(fieldb), " fieldb: ", fieldb
-            print 'field %d type differs' % i
+            print_("type(fielda): ", type(fielda), " fielda: ", fielda)
+            print_("type(fieldb): ", type(fieldb), " fieldb: ", fieldb)
+            print_('field %d type differs' % i)
             return False
         if isinstance(fielda[0], np.floating):
             if not comparefloats(fielda, fieldb):
-                print "fielda: ", fielda
-                print "fieldb: ", fieldb
-                print 'field %d differs' % i
+                print_("fielda: ", fielda)
+                print_("fieldb: ", fieldb)
+                print_('field %d differs' % i)
                 return False
         elif (isinstance(fielda, fits.column._VLF) or
               isinstance(fieldb, fits.column._VLF)):
             for row in range(len(fielda)):
                 if np.any(fielda[row] != fieldb[row]):
-                    print 'fielda[%d]: %s' % (row, fielda[row])
-                    print 'fieldb[%d]: %s' % (row, fieldb[row])
-                    print 'field %d differs in row %d' % (i, row)
+                    print_('fielda[%d]: %s' % (row, fielda[row]))
+                    print_('fieldb[%d]: %s' % (row, fieldb[row]))
+                    print_('field %d differs in row %d' % (i, row))
         else:
             if np.any(fielda != fieldb):
-                print "fielda: ", fielda
-                print "fieldb: ", fieldb
-                print 'field %d differs' % i
+                print_("fielda: ", fielda)
+                print_("fieldb: ", fieldb)
+                print_('field %d differs' % i)
                 return False
     return True
 
@@ -1993,8 +1997,9 @@ class TestTableFunctions(PyfitsTestCase):
         try:
             with fits.open(self.temp('test.fits')) as h:
                 h[1].data['F1']
-        except ValueError, e:
-            assert str(e).endswith(
+        except ValueError:
+            exc = sys.exc_info()[1]
+            assert str(exc).endswith(
                 "the header may be missing the necessary TNULL1 "
                 "keyword or the table contains invalid data")
 
@@ -2233,8 +2238,8 @@ class TestVLATables(PyfitsTestCase):
         """
 
         # Make a file containing a couple of VLA tables
-        arr1 = [np.arange(n + 1) for n in xrange(255)]
-        arr2 = [np.arange(255, 256 + n) for n in xrange(255)]
+        arr1 = [np.arange(n + 1) for n in range(255)]
+        arr2 = [np.arange(255, 256 + n) for n in range(255)]
 
         # A dummy non-VLA column needed to reproduce issue #47
         c = fits.Column('test', format='J', array=np.arange(255))

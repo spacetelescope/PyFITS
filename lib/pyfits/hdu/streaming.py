@@ -1,11 +1,11 @@
 import gzip
 import os
 
-from pyfits.file import _File
-from pyfits.hdu.base import _BaseHDU
-from pyfits.hdu.hdulist import HDUList
-from pyfits.hdu.image import PrimaryHDU, _ImageBaseHDU
-from pyfits.util import _pad_length, fileobj_name
+from ..file import _File
+from ..util import _pad_length, fileobj_name
+from .base import _BaseHDU
+from .hdulist import HDUList
+from .image import PrimaryHDU, _ImageBaseHDU
 
 
 class StreamingHDU(object):

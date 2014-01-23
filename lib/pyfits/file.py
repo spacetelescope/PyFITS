@@ -3,18 +3,20 @@ from __future__ import division, with_statement
 import gzip
 import mmap
 import os
+import sys
 import tempfile
-import urllib
 import warnings
 import zipfile
 
 import numpy as np
 from numpy import memmap as Memmap
 
-from pyfits.util import (isreadable, iswritable, isfile, fileobj_open,
-                         fileobj_name, fileobj_closed, fileobj_mode,
-                         _array_from_file, _array_to_file, _write_string,
-                         encode_ascii)
+from .extern.six import b, string_types
+from .extern.six.moves import urllib, reduce
+
+from .util import (isreadable, iswritable, isfile, fileobj_open, fileobj_name,
+                   fileobj_closed, fileobj_mode, _array_from_file,
+                   _array_to_file, _write_string, encode_ascii)
 
 
 # Maps PyFITS-specific file mode names to the appropriate file modes to use
@@ -58,8 +60,8 @@ MEMMAP_MODES = {'readonly': 'c', 'copyonwrite': 'c', 'update': 'r+',
 # that would generate too many warnings for too many users.  If nothing else,
 # wait until the new logging system is in place.
 
-GZIP_MAGIC = u'\x1f\x8b\x08'.encode('raw-unicode-escape')
-PKZIP_MAGIC = u'\x50\x4b\x03\x04'.encode('raw-unicode-escape')
+GZIP_MAGIC = b('\x1f\x8b\x08')
+PKZIP_MAGIC = b('\x50\x4b\x03\x04')
 
 
 class _File(object):
@@ -97,7 +99,7 @@ class _File(object):
         if mode not in PYFITS_MODES:
             raise ValueError("Mode '%s' not recognized" % mode)
 
-        if (isinstance(fileobj, basestring) and
+        if (isinstance(fileobj, string_types) and
                 mode not in ('ostream', 'append') and
                 not os.path.exists(fileobj)):
 
@@ -108,7 +110,7 @@ class _File(object):
                 if not os.path.splitdrive(fileobj)[0]:
                     # Basically if the filename (on Windows anyways) doesn't
                     # have a drive letter try to open it as a URL
-                    self.name, _ = urllib.urlretrieve(fileobj)
+                    self.name, _ = urllib.request.urlretrieve(fileobj)
                 else:
                     # Otherwise the file was already not found so just raise
                     # a ValueError
@@ -136,7 +138,7 @@ class _File(object):
         # Initialize the internal self.__file object
         if _is_random_access_file_backed(fileobj):
             self._open_fileobj(fileobj, mode, clobber)
-        elif isinstance(fileobj, basestring):
+        elif isinstance(fileobj, string_types):
             self._open_filename(fileobj, mode, clobber)
         else:
             self._open_filelike(fileobj, mode, clobber)
@@ -429,7 +431,7 @@ class _File(object):
             with fileobj_open(self.name, 'rb') as f:
                 magic = f.read(4)
         else:
-            magic = ''.encode('raw-unicode-escape')
+            magic = b('')
 
         ext = os.path.splitext(self.name)[1]
 
@@ -493,10 +495,12 @@ class _File(object):
             os.fsync(tmpfd)
             try:
                 mm = mmap.mmap(tmpfd, 1, access=mmap.ACCESS_WRITE)
-            except mmap.error, e:
+            except mmap.error:
+                exc = sys.exc_info()[1]
                 warnings.warn('Failed to create mmap: %s; mmap use will be '
-                              'disabled' % str(e))
+                              'disabled' % exc)
                 _File._mmap_available = False
+                del exc
                 return False
             try:
                 mm.flush()

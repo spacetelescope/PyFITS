@@ -75,9 +75,11 @@ def handle_options(argv=None):
             try:
                 values = [v.strip() for v in open(value, 'r').readlines()]
                 setattr(parser.values, option.dest, values)
-            except IOError, e:
+            except IOError:
+                exc = sys.exc_info()[1]
                 log.warning('reading %s for %s failed: %s; ignoring this '
-                            'argument' % (value, opt, e))
+                            'argument' % (value, opt, exc))
+                del exc
         else:
             setattr(parser.values, option.dest,
                     [v.strip() for v in value.split(',')])

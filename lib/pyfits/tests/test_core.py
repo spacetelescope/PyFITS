@@ -1,5 +1,4 @@
-from __future__ import division  # confidence high
-from __future__ import with_statement
+from __future__ import division, with_statement
 
 import gzip
 import mmap
@@ -11,12 +10,14 @@ import zipfile
 
 import numpy as np
 
+from ..extern.six import BytesIO
+
 import pyfits as fits
-from pyfits.convenience import _getext
-from pyfits.file import _File
-from pyfits.util import BytesIO, PyfitsDeprecationWarning
-from pyfits.tests import PyfitsTestCase
-from pyfits.tests.util import catch_warnings, ignore_warnings, CaptureStdio
+from ..convenience import _getext
+from ..file import _File
+from ..util import PyfitsDeprecationWarning
+from . import PyfitsTestCase
+from .util import catch_warnings, ignore_warnings, CaptureStdio
 
 from nose.tools import assert_raises
 
@@ -201,9 +202,10 @@ class TestCore(PyfitsTestCase):
             del hdu.header['NAXIS']
             try:
                 hdu.verify('ignore')
-            except Exception, e:
+            except Exception:
+                exc = sys.exc_info()[1]
                 self.fail('An exception occurred when the verification error '
-                          'should have been ignored: %s' % e)
+                          'should have been ignored: %s' % exc)
         # Make sure the error wasn't fixed either, silently or otherwise
         assert 'NAXIS' not in hdu.header
 
@@ -454,8 +456,9 @@ class TestFileFunctions(PyfitsTestCase):
 
         try:
             fits.open(self.temp('foobar.fits'))
-        except IOError, e:
-            assert 'File does not exist' in str(e)
+        except IOError:
+            exc = sys.exc_info()[1]
+            assert 'File does not exist' in str(exc)
         except:
             raise
 

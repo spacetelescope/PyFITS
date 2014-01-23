@@ -1,10 +1,13 @@
 import sys
 import numpy as np
 
-from pyfits.hdu.base import DELAYED, _ValidHDU, ExtensionHDU
-from pyfits.header import Header
-from pyfits.util import (_is_pseudo_unsigned, _unsigned_zero, _is_int,
-                         _normalize_slice, lazyproperty)
+from ..extern.six import string_types
+from ..extern.six.moves import range
+
+from ..header import Header
+from ..util import (_is_pseudo_unsigned, _unsigned_zero, _is_int,
+                    _normalize_slice, lazyproperty)
+from .base import DELAYED, _ValidHDU, ExtensionHDU
 
 
 class _ImageBaseHDU(_ValidHDU):
@@ -109,7 +112,7 @@ class _ImageBaseHDU(_ValidHDU):
         # Save off other important values from the header needed to interpret
         # the image data
         self._axes = [self._header.get('NAXIS' + str(axis + 1), 0)
-                      for axis in xrange(self._header.get('NAXIS', 0))]
+                      for axis in range(self._header.get('NAXIS', 0))]
         self._bitpix = self._header.get('BITPIX', 8)
         self._gcount = self._header.get('GCOUNT', 1)
         self._pcount = self._header.get('PCOUNT', 0)
@@ -919,7 +922,7 @@ class ImageHDU(_ImageBaseHDU, ExtensionHDU):
     def match_header(cls, header):
         card = header.cards[0]
         xtension = card.value
-        if isinstance(xtension, basestring):
+        if isinstance(xtension, string_types):
             xtension = xtension.rstrip()
         return card.keyword == 'XTENSION' and xtension == cls._extension
 

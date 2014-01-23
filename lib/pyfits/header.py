@@ -9,14 +9,14 @@ import warnings
 
 from collections import defaultdict
 
-from pyfits.card import Card, CardList, BLANK_CARD, KEYWORD_LENGTH, _pad
-from pyfits.file import _File
-from pyfits.util import (BLOCK_SIZE, deprecated, isiterable, encode_ascii,
-                         decode_ascii, fileobj_is_binary, fileobj_closed,
-                         _pad_length, PyfitsDeprecationWarning)
+from .extern.six import PY3, string_types, itervalues, iteritems, next
+from .extern.six.moves import zip, range
 
-
-PY3K = sys.version_info[:2] >= (3, 0)
+from .card import Card, CardList, BLANK_CARD, KEYWORD_LENGTH, _pad
+from .file import _File
+from .util import (BLOCK_SIZE, deprecated, isiterable, encode_ascii,
+                   decode_ascii, fileobj_is_binary, fileobj_closed,
+                   _pad_length, PyfitsDeprecationWarning)
 
 
 HEADER_END_RE = re.compile(encode_ascii('END {77} *'))
@@ -123,7 +123,7 @@ class Header(object):
         elif self._haswildcard(key):
             return Header([copy.copy(self._cards[idx])
                            for idx in self._wildcardmatch(key)])
-        elif (isinstance(key, basestring) and
+        elif (isinstance(key, string_types) and
               key.upper() in Card._commentary_keywords):
             key = key.upper()
             # Special case for commentary cards
@@ -142,12 +142,12 @@ class Header(object):
     def __setitem__(self, key, value):
         if isinstance(key, slice) or self._haswildcard(key):
             if isinstance(key, slice):
-                indices = xrange(*key.indices(len(self)))
+                indices = range(*key.indices(len(self)))
             else:
                 indices = self._wildcardmatch(key)
-            if isinstance(value, basestring) or not isiterable(value):
+            if isinstance(value, string_types) or not isiterable(value):
                 value = itertools.repeat(value, len(indices))
-            for idx, val in itertools.izip(indices, value):
+            for idx, val in zip(indices, value):
                 self[idx] = val
             return
 
@@ -195,7 +195,7 @@ class Header(object):
             # the cards are deleted before updating _keyword_indices rather
             # than updating it once for each card that gets deleted]
             if isinstance(key, slice):
-                indices = xrange(*key.indices(len(self)))
+                indices = range(*key.indices(len(self)))
                 # If the slice step is backwards we want to reverse it, because
                 # it will be reversed in a few lines...
                 if key.step and key.step < 0:
@@ -205,7 +205,7 @@ class Header(object):
             for idx in reversed(indices):
                 del self[idx]
             return
-        elif isinstance(key, basestring):
+        elif isinstance(key, string_types):
             # delete ALL cards with the same keyword name
             key = Card.normalize_keyword(key)
             indices = self._keyword_indices
@@ -431,7 +431,7 @@ class Header(object):
         """
 
         close_file = False
-        if isinstance(fileobj, basestring):
+        if isinstance(fileobj, string_types):
             # Open in text mode by default to support newline handling; if a
             # binary-mode file object is passed in, the user is on their own
             # with respect to newline handling
@@ -828,7 +828,7 @@ class Header(object):
     def itervalues(self):
         """Like :meth:`dict.itervalues`."""
 
-        for _, v in self.iteritems():
+        for _, v in iteritems(self):
             yield v
 
     def keys(self):
@@ -866,7 +866,7 @@ class Header(object):
 
     def popitem(self):
         try:
-            k, v = self.iteritems().next()
+            k, v = next(iteritems(self))
         except StopIteration:
             raise KeyError('Header is empty')
         del self[k]
@@ -1078,7 +1078,7 @@ class Header(object):
     def values(self):
         """Returns a list of the values of all cards in the header."""
 
-        return [v for _, v in self.iteritems()]
+        return [v for _, v in iteritems(self)]
 
     def append(self, card=None, useblanks=True, bottom=False, end=False):
         """
@@ -1115,7 +1115,7 @@ class Header(object):
 
         """
 
-        if isinstance(card, basestring):
+        if isinstance(card, string_types):
             card = Card(card)
         elif isinstance(card, tuple):
             card = Card(*card)
@@ -1318,7 +1318,7 @@ class Header(object):
 
         norm_keyword = Card.normalize_keyword(keyword)
 
-        for idx in xrange(start, stop, step):
+        for idx in range(start, stop, step):
             if self._cards[idx].keyword.upper() == norm_keyword:
                 return idx
         else:
@@ -1353,7 +1353,7 @@ class Header(object):
             self.append(card, end=True)
             return
 
-        if isinstance(card, basestring):
+        if isinstance(card, string_types):
             card = Card(card)
         elif isinstance(card, tuple):
             card = Card(*card)
@@ -1555,7 +1555,7 @@ class Header(object):
         # This used to just set key = (key, 0) and then go on to act as if the
         # user passed in a tuple, but it's much more common to just be given a
         # string as the key, so optimize more for that case
-        if isinstance(key, basestring):
+        if isinstance(key, string_types):
             keyword = key
             n = 0
         elif isinstance(key, int):
@@ -1568,7 +1568,7 @@ class Header(object):
         elif isinstance(key, slice):
             return key
         elif isinstance(key, tuple):
-            if (len(key) != 2 or not isinstance(key[0], basestring) or
+            if (len(key) != 2 or not isinstance(key[0], string_types) or
                     not isinstance(key[1], int)):
                 raise ValueError(
                     'Tuple indices must be 2-tuples consisting of a '
@@ -1672,7 +1672,7 @@ class Header(object):
         increment = 1 if increment else -1
 
         for index_sets in (self._keyword_indices, self._rvkc_indices):
-            for indices in index_sets.itervalues():
+            for indices in itervalues(index_sets):
                 for jdx, keyword_index in enumerate(indices):
                     if keyword_index >= idx:
                         indices[jdx] += increment
@@ -1680,7 +1680,7 @@ class Header(object):
     def _countblanks(self):
         """Returns the number of blank cards at the end of the Header."""
 
-        for idx in xrange(1, len(self._cards)):
+        for idx in range(1, len(self._cards)):
             if str(self._cards[-idx]) != BLANK_CARD:
                 return idx - 1
         return 0
@@ -1695,7 +1695,7 @@ class Header(object):
     def _haswildcard(self, keyword):
         """Return `True` if the input keyword contains a wildcard pattern."""
 
-        return (isinstance(keyword, basestring) and
+        return (isinstance(keyword, string_types) and
                 (keyword.endswith('...') or '*' in keyword or '?' in keyword))
 
     def _wildcardmatch(self, pattern):
@@ -1807,7 +1807,7 @@ class Header(object):
 
     # Some fixes for compatibility with the Python 3 dict interface, where
     # iteritems -> items, etc.
-    if PY3K:  # pragma: py3
+    if PY3:  # pragma: py3
         keys = iterkeys
         values = itervalues
         items = iteritems
@@ -1970,7 +1970,7 @@ class _CardAccessor(object):
 
     def __eq__(self, other):
         if isiterable(other):
-            for a, b in itertools.izip(self, other):
+            for a, b in zip(self, other):
                 if a != b:
                     return False
             else:
@@ -1992,12 +1992,12 @@ class _CardAccessor(object):
 
         if isinstance(item, slice) or self._header._haswildcard(item):
             if isinstance(item, slice):
-                indices = xrange(*item.indices(len(self)))
+                indices = range(*item.indices(len(self)))
             else:
                 indices = self._header._wildcardmatch(item)
-            if isinstance(value, basestring) or not isiterable(value):
+            if isinstance(value, string_types) or not isiterable(value):
                 value = itertools.repeat(value, len(indices))
-            for idx, val in itertools.izip(indices, value):
+            for idx, val in zip(indices, value):
                 self[idx] = val
             return True
         return False
@@ -2071,10 +2071,10 @@ class _HeaderCommentaryCards(_CardAccessor):
     # __len__ and __iter__ need to be overridden from the base class due to the
     # different approach this class has to take for slicing
     def __len__(self):
-        return len(xrange(*self._indices))
+        return len(range(*self._indices))
 
     def __iter__(self):
-        for idx in xrange(*self._indices):
+        for idx in range(*self._indices):
             yield self._header[(self._keyword, idx)]
 
     def __repr__(self):
@@ -2088,7 +2088,7 @@ class _HeaderCommentaryCards(_CardAccessor):
         elif not isinstance(idx, int):
             raise ValueError('%s index must be an integer' % self._keyword)
 
-        idx = range(*self._indices)[idx]
+        idx = list(range(*self._indices))[idx]
         return self._header[(self._keyword, idx)]
 
     def __setitem__(self, item, value):

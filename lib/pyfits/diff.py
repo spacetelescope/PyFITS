@@ -12,18 +12,22 @@ import functools
 import glob
 import inspect
 import textwrap
+import sys
 
 from collections import defaultdict
-from itertools import islice, izip
+from itertools import islice
 
 import numpy as np
 
+from .extern.six import PY3, string_types, StringIO
+from .extern.six.moves import zip, range, reduce
+
 import pyfits
-from pyfits.card import Card, BLANK_CARD
-from pyfits.header import Header
-from pyfits.hdu.hdulist import fitsopen
-from pyfits.hdu.table import _TableLikeHDU
-from pyfits.util import StringIO, indent, reduce
+from .card import Card, BLANK_CARD
+from .header import Header
+from .hdu.hdulist import fitsopen
+from .hdu.table import _TableLikeHDU
+from .util import indent
 
 
 __all__ = ['FITSDiff', 'HDUDiff', 'HeaderDiff', 'ImageDataDiff', 'RawDataDiff',
@@ -78,6 +82,10 @@ class _BaseDiff(object):
         """
 
         return not self.identical
+
+    if PY3:
+        __bool__ = __nonzero__
+        del __nonzero__
 
     @classmethod
     def fromdiff(cls, other, a, b):
@@ -218,22 +226,24 @@ class FITSDiff(_BaseDiff):
             (default: True).
         """
 
-        if isinstance(a, basestring):
+        if isinstance(a, string_types):
             try:
                 a = fitsopen(a)
-            except Exception, e:
+            except Exception:
+                excls, exc = sys.exc_info()[:2]
                 raise IOError("error opening file a (%s): %s: %s" %
-                              (a, e.__class.__name__, e.args[0]))
+                              (a, excls.__name__, exc.args[0]))
             close_a = True
         else:
             close_a = False
 
-        if isinstance(b, basestring):
+        if isinstance(b, string_types):
             try:
                 b = fitsopen(b)
-            except Exception, e:
+            except Exception:
+                excls, exc = sys.exc_info()[:2]
                 raise IOError("error opening file b (%s): %s: %s" %
-                              (b, e.__class.__name__, e.args[0]))
+                              (b, excls, exc.args[0]))
             close_b = True
         else:
             close_b = False
@@ -544,9 +554,9 @@ class HeaderDiff(_BaseDiff):
         # (excluding keywords in ignore_keywords or in ignore_comments)
         self.diff_keyword_comments = defaultdict(lambda: [])
 
-        if isinstance(a, basestring):
+        if isinstance(a, string_types):
             a = Header.fromstring(a)
-        if isinstance(b, basestring):
+        if isinstance(b, string_types):
             b = Header.fromstring(b)
 
         if not (isinstance(a, Header) and isinstance(b, Header)):
@@ -572,7 +582,7 @@ class HeaderDiff(_BaseDiff):
             comments = {}
             for card in cards:
                 value = card.value
-                if self.ignore_blanks and isinstance(value, basestring):
+                if self.ignore_blanks and isinstance(value, string_types):
                     value = value.rstrip()
                 values.setdefault(card.keyword, []).append(value)
                 comments.setdefault(card.keyword, []).append(card.comment)
@@ -786,7 +796,7 @@ class ImageDataDiff(_BaseDiff):
             numdiffs = self.numdiffs
 
         self.diff_pixels = [(idx, (self.a[idx], self.b[idx]))
-                            for idx in islice(izip(*diffs), 0, numdiffs)]
+                            for idx in islice(zip(*diffs), 0, numdiffs)]
         self.diff_ratio = float(self.diff_total) / float(len(self.a.flat))
 
     def _report(self):
@@ -1071,7 +1081,7 @@ class TableDataDiff(_BaseDiff):
                 diffs = where_not_allclose(arra, arrb, atol=0.0,
                                            rtol=self.tolerance)
             elif 'P' in col.format:
-                diffs = ([idx for idx in xrange(len(arra))
+                diffs = ([idx for idx in range(len(arra))
                           if not np.allclose(arra[idx], arrb[idx], atol=0.0,
                                              rtol=self.tolerance)],)
             else:
@@ -1185,7 +1195,7 @@ def report_diff_values(fileobj, a, b, ind=0):
         diff_indices = np.where(a != b)
         num_diffs = reduce(lambda x, y: x * y,
                            (len(d) for d in diff_indices), 1)
-        for idx in islice(izip(*diff_indices), 3):
+        for idx in islice(zip(*diff_indices), 3):
             fileobj.write(indent('  at %r:\n' % list(idx), ind))
             report_diff_values(fileobj, a[idx], b[idx], ind=ind + 1)
 

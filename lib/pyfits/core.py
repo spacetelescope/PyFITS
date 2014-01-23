@@ -34,15 +34,16 @@ import os
 import sys
 import warnings
 
-import pyfits.py3compat
+from . import py3compat
 
 # Public API compatibility imports
-import pyfits.card
-import pyfits.column
-import pyfits.convenience
-import pyfits.diff
-import pyfits.hdu
+from . import card
+from . import column
+from . import convenience
+from . import diff
+from . import hdu
 
+# Relative imports of * are not syntactically valid in Python 2.5
 from pyfits.card import *
 from pyfits.column import *
 from pyfits.convenience import *
@@ -52,15 +53,15 @@ from pyfits.hdu import *
 from pyfits.util import (PyfitsDeprecationWarning,
                          PyfitsPendingDeprecationWarning)
 
-from pyfits.hdu.hdulist import fitsopen as open
-from pyfits.hdu.image import Section
-from pyfits.hdu.table import new_table
-from pyfits.header import Header
+from .hdu.hdulist import fitsopen as open
+from .hdu.image import Section
+from .hdu.table import new_table
+from .header import Header
 
 
 # Additional imports used by the documentation (some of which should be
 # restructured at some point)
-from pyfits.verify import VerifyError
+from .verify import VerifyError
 
 
 # Set module-global boolean variables--these variables can also get their
@@ -81,9 +82,8 @@ for varname, default in GLOBALS:
         locals()[varname] = default
 
 
-__all__ = (pyfits.card.__all__ + pyfits.column.__all__ +
-           pyfits.convenience.__all__ + pyfits.diff.__all__ +
-           pyfits.hdu.__all__ +
+__all__ = (card.__all__ + column.__all__ + convenience.__all__ + diff.__all__ +
+           hdu.__all__ +
            ['FITS_record', 'FITS_rec', 'open', 'Section', 'new_table',
             'Header', 'VerifyError', 'PyfitsDeprecationWarning',
             'PyfitsPendingDeprecationWarning', 'ignore_deprecation_warnings',
@@ -122,7 +122,7 @@ if sys.version_info[:2] < (2, 6):
 
 __credits__ = """
 
-Copyright (C) 2004 Association of Universities for Research in Astronomy (AURA)
+Copyright (C) 2014 Association of Universities for Research in Astronomy (AURA)
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:

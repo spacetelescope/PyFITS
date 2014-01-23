@@ -8,12 +8,11 @@ import warnings
 import numpy as np
 
 import pyfits as fits
-from pyfits.util import (PyfitsDeprecationWarning,
-                         PyfitsPendingDeprecationWarning)
-from pyfits.hdu.compressed import SUBTRACTIVE_DITHER_1, DITHER_SEED_CHECKSUM
-from pyfits.tests import PyfitsTestCase
-from pyfits.tests.test_table import comparerecords
-from pyfits.tests.util import catch_warnings, ignore_warnings, CaptureStdio
+from ..util import PyfitsDeprecationWarning, PyfitsPendingDeprecationWarning
+from ..hdu.compressed import SUBTRACTIVE_DITHER_1, DITHER_SEED_CHECKSUM
+from . import PyfitsTestCase
+from .test_table import comparerecords
+from .util import catch_warnings, ignore_warnings, CaptureStdio
 
 from nose.tools import assert_raises
 

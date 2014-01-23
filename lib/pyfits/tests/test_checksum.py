@@ -6,9 +6,9 @@ import sys
 import numpy as np
 
 import pyfits as fits
-from pyfits.hdu.base import _ValidHDU
-from pyfits.tests import PyfitsTestCase
-from pyfits.tests.test_table import comparerecords
+from ..hdu.base import _ValidHDU
+from . import PyfitsTestCase
+from .test_table import comparerecords
 
 
 class TestChecksumFunctions(PyfitsTestCase):

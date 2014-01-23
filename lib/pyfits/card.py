@@ -1,13 +1,17 @@
 import copy
 import re
+import sys
 import warnings
 
 import numpy as np
 
+from .extern.six import string_types, integer_types, text_type
+from .extern.six.moves import range
+
 import pyfits
-from pyfits.util import (_str_to_num, _is_int, deprecated, maketrans,
-                         translate, _words_group, PyfitsDeprecationWarning)
-from pyfits.verify import _Verify, _ErrList, VerifyError, VerifyWarning
+from .util import (_str_to_num, _is_int, deprecated, maketrans, translate,
+                   _words_group, PyfitsDeprecationWarning)
+from .verify import _Verify, _ErrList, VerifyError, VerifyWarning
 
 
 __all__ = ['Card', 'CardList', 'create_card', 'create_card_from_string',
@@ -256,7 +260,7 @@ class CardList(list):
 
         # Backward is just ignored now, since the search is not linear anyways
 
-        if _is_int(key) or isinstance(key, basestring):
+        if _is_int(key) or isinstance(key, string_types):
             return self._header._cardindex(key)
         else:
             raise KeyError('Illegal key data type %s' % type(key))
@@ -479,7 +483,7 @@ class Card(_Verify):
         if self._keyword is not None:
             raise AttributeError(
                 'Once set, the Card keyword may not be modified')
-        elif isinstance(keyword, basestring):
+        elif isinstance(keyword, string_types):
             # Be nice and remove trailing whitespace--some FITS code always
             # pads keywords out with spaces; leading whitespace, however,
             # should be strictly disallowed.
@@ -538,7 +542,7 @@ class Card(_Verify):
         else:
             self._value = value = ''
 
-        if pyfits.STRIP_HEADER_WHITESPACE and isinstance(value, basestring):
+        if pyfits.STRIP_HEADER_WHITESPACE and isinstance(value, string_types):
             value = value.rstrip()
 
         return value
@@ -556,16 +560,16 @@ class Card(_Verify):
         if oldvalue is None:
             oldvalue = ''
 
-        if not isinstance(value, (basestring, int, long, float, complex, bool,
-                                  Undefined, np.floating, np.integer,
-                                  np.complexfloating, np.bool_)):
+        if not isinstance(value, string_types + integer_types +
+                                 (float, complex, bool, Undefined, np.floating,
+                                  np.integer, np.complexfloating, np.bool_)):
             raise ValueError('Illegal value: %r.' % value)
 
         if isinstance(value, float) and (np.isnan(value) or np.isinf(value)):
             raise ValueError(
                 "Floating point %r values are not allowed in FITS headers." %
                 value)
-        elif isinstance(value, unicode):
+        elif isinstance(value, text_type):
             try:
                 # Any string value must be encodable as ASCII
                 value.encode('ascii')
@@ -578,8 +582,8 @@ class Card(_Verify):
             value = bool(value)
 
         if (pyfits.STRIP_HEADER_WHITESPACE and
-            (isinstance(oldvalue, basestring) and
-             isinstance(value, basestring))):
+            (isinstance(oldvalue, string_types) and
+             isinstance(value, string_types))):
             # Ignore extra whitespace when comparing the new value to the old
             different = oldvalue.rstrip() != value.rstrip()
         elif isinstance(oldvalue, bool) or isinstance(value, bool):
@@ -666,7 +670,7 @@ class Card(_Verify):
         if comment is None:
             comment = ''
 
-        if isinstance(comment, unicode):
+        if isinstance(comment, text_type):
             try:
                 # Any string value must be encodable as ASCII
                 comment.encode('ascii')
@@ -827,7 +831,7 @@ class Card(_Verify):
             self._check_if_rvkc_image(*args)
         elif len(args) == 2:
             keyword, value = args
-            if not isinstance(keyword, basestring):
+            if not isinstance(keyword, string_types):
                 return False
             if keyword in self._commentary_keywords:
                 return False
@@ -839,7 +843,7 @@ class Card(_Verify):
 
             # Testing for ': ' is a quick way to avoid running the full regular
             # expression, speeding this up for the majority of cases
-            if isinstance(value, basestring) and value.find(': ') > 0:
+            if isinstance(value, string_types) and value.find(': ') > 0:
                 match = self._rvkc_field_specifier_val_RE.match(value)
                 if match and self._keywd_FSC_RE.match(keyword):
                     self._init_rvkc(keyword, match.group('keyword'), value,
@@ -1193,7 +1197,7 @@ class Card(_Verify):
             # longstring case (CONTINUE card)
             # try not to use CONTINUE if the string value can fit in one line.
             # Instead, just truncate the comment
-            if (isinstance(self.value, basestring) and
+            if (isinstance(self.value, string_types) and
                 len(value) > (self.length - 10)):
                 output = self._format_long_image()
             else:
@@ -1335,7 +1339,7 @@ class Card(_Verify):
 
         ncards = len(self._image) // Card.length
 
-        for idx in xrange(0, Card.length * ncards, Card.length):
+        for idx in range(0, Card.length * ncards, Card.length):
             card = Card.fromstring(self._image[idx:idx + Card.length])
             if idx > 0 and card.keyword.upper() != 'CONTINUE':
                 raise VerifyError(
@@ -1391,8 +1395,9 @@ def _int_or_float(s):
     except (ValueError, TypeError):
         try:
             return float(s)
-        except (ValueError, TypeError), e:
-            raise ValueError(str(e))
+        except (ValueError, TypeError):
+            exc = sys.exc_info()[1]
+            raise ValueError(*exc.args)
 
 
 def _format_value(value):
@@ -1403,7 +1408,7 @@ def _format_value(value):
 
     # string value should occupies at least 8 columns, unless it is
     # a null string
-    if isinstance(value, basestring):
+    if isinstance(value, string_types):
         if value == '':
             return "''"
         else:
