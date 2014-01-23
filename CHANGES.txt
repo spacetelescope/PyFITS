@@ -27,6 +27,12 @@ API Changes
 Other Changes and Additions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- PyFITS has switched to a unified code base which supports Python 2.5 through
+  3.4 simultaneously without translation.  This *shouldn't* have any
+  significant performance impacts, but please report if anything seems
+  noticeably slower.  As a reminder, support for Python 2.5 will be ended
+  after PyFITS 3.3.x.
+
 - Warnings for deprecated APIs in PyFITS are now always displayed by default.
   This is in line with a similar change made recently to Astropy:
   https://github.com/astropy/astropy/pull/1871
