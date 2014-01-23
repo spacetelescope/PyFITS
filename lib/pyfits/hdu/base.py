@@ -9,6 +9,7 @@ import warnings
 import numpy as np
 
 from ..extern.six import string_types
+from ..extern.six.moves import range
 
 import pyfits
 from ..card import Card
@@ -1443,13 +1444,13 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         return s
 
-    def _compute_checksum(self, bytes, sum32=0, blocking="standard"):
+    def _compute_checksum(self, data, sum32=0, blocking="standard"):
         """
         Compute the ones-complement checksum of a sequence of bytes.
 
         Parameters
         ----------
-        bytes
+        data
             a memory region to checksum
 
         sum32
@@ -1469,17 +1470,17 @@ class _ValidHDU(_BaseHDU, _Verify):
         """
 
         blocklen = {'standard': 2880,
-                    'nonstandard': len(bytes),
+                    'nonstandard': len(data),
                     'either': 2880,  # do standard first
                     True: 2880}[blocking]
 
         sum32 = np.uint32(sum32)
-        for i in range(0, len(bytes), blocklen):
-            length = min(blocklen, len(bytes) - i)   # ????
-            sum32 = self._compute_hdu_checksum(bytes[i:i + length], sum32)
+        for i in range(0, len(data), blocklen):
+            length = min(blocklen, len(data) - i)   # ????
+            sum32 = self._compute_hdu_checksum(data[i:i + length], sum32)
         return sum32
 
-    def _compute_hdu_checksum(self, bytes, sum32=0):
+    def _compute_hdu_checksum(self, data, sum32=0):
         """
         Translated from FITS Checksum Proposal by Seaman, Pence, and Rots.
         Use uint32 literals as a hedge against type promotion to int64.
@@ -1494,20 +1495,20 @@ class _ValidHDU(_BaseHDU, _Verify):
         u16 = np.uint32(16)
         uFFFF = np.uint32(0xFFFF)
 
-        if bytes.nbytes % 2:
-            last = bytes[-1]
-            bytes = bytes[:-1]
+        if data.nbytes % 2:
+            last = data[-1]
+            data = data[:-1]
         else:
             last = np.uint32(0)
 
-        bytes = bytes.view('>u2')
+        data = data.view('>u2')
 
         hi = sum32 >> u16
         lo = sum32 & uFFFF
-        hi += np.add.reduce(bytes[0::2])
-        lo += np.add.reduce(bytes[1::2])
+        hi += np.add.reduce(data[0::2])
+        lo += np.add.reduce(data[1::2])
 
-        if (bytes.nbytes // 2) % 2:
+        if (data.nbytes // 2) % 2:
             lo += last << u8
         else:
             hi += last << u8

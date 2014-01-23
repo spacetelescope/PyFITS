@@ -13,7 +13,7 @@ from .extern.six.moves import reduce
 
 from .card import Card
 from .util import (lazyproperty, pairwise, _is_int, _convert_array,
-                   encode_ascii, indent, isiterable)
+                   encode_ascii, indent, isiterable, cmp)
 from .verify import VerifyError, VerifyWarning
 
 

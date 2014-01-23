@@ -1,12 +1,8 @@
-import sys
+from .extern.six import PY3
 
-if sys.version_info[0] >= 3:  # pragma: py3
+if PY3:  # pragma: py3
     # Stuff to do if Python 3
-    import builtins
     import io
-
-    # Bring back the cmp() function
-    builtins.cmp = lambda a, b: (a > b) - (a < b)
 
     # Make the decode_ascii utility function actually work
     import pyfits.util
@@ -201,13 +197,6 @@ if sys.version_info[0] >= 3:  # pragma: py3
     pyfits.util.translate = translate
 else:
     # Stuff to do if not Python 3
-
-    # We want a bytes stand-in so we can do stuff like isinstance(..., bytes)
-    # and have it work correctly
-    import __builtin__
-    if not hasattr(__builtin__, 'bytes'):
-        __builtin__.bytes = str
-
     import string
     import pyfits.util
     pyfits.util.maketrans = string.maketrans

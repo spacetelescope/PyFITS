@@ -15,12 +15,18 @@ import warnings
 
 import numpy as np
 
-from .extern.six import (iteritems, string_types, integer_types, text_type,
-                         next)
+from .extern.six import (PY3, iteritems, string_types, integer_types,
+                         text_type, binary_type, next)
 from .extern.six.moves import zip, reduce
 
 
 BLOCK_SIZE = 2880  # the FITS block size
+
+
+if PY3:
+    cmp = lambda a, b: (a > b) - (a < b)
+else:
+    cmp = cmp
 
 
 def first(iterable):
@@ -909,7 +915,7 @@ def _words_group(input, strlen):
     words = []
     nblanks = input.count(' ')
     nmax = max(nblanks, len(input) // strlen + 1)
-    arr = np.fromstring((input + ' '), dtype=(bytes, 1))
+    arr = np.fromstring((input + ' '), dtype=(binary_type, 1))
 
     # locations of the blanks
     blank_loc = np.nonzero(arr == ' '.encode('latin1'))[0]
