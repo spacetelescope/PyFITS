@@ -1934,6 +1934,81 @@ class TestHeaderFunctions(PyfitsTestCase):
         h['TEST'] = np.bool_(False)
         assert h['TEST'] is False
 
+    def test_update_numeric(self):
+        """
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/49
+
+        Ensure that numeric values can be upcast/downcast between int, float,
+        and complex by assigning values that compare equal to the existing
+        value but are a different type.
+        """
+
+        h = pyfits.Header()
+        h['TEST'] = 1
+
+        # int -> float
+        h['TEST'] = 1.0
+        assert isinstance(h['TEST'], float)
+        assert str(h).startswith('TEST    =                  1.0')
+
+        # float -> int
+        h['TEST'] = 1
+        assert isinstance(h['TEST'], int)
+        assert str(h).startswith('TEST    =                    1')
+
+        # int -> complex
+        h['TEST'] = 1.0+0.0j
+        assert isinstance(h['TEST'], complex)
+        assert str(h).startswith('TEST    =           (1.0, 0.0)')
+
+        # complex -> float
+        h['TEST'] = 1.0
+        assert isinstance(h['TEST'], float)
+        assert str(h).startswith('TEST    =                  1.0')
+
+        # float -> complex
+        h['TEST'] = 1.0+0.0j
+        assert isinstance(h['TEST'], complex)
+        assert str(h).startswith('TEST    =           (1.0, 0.0)')
+
+        # complex -> int
+        h['TEST'] = 1
+        assert isinstance(h['TEST'], int)
+        assert str(h).startswith('TEST    =                    1')
+
+        # Now the same tests but with zeros
+        h['TEST'] = 0
+
+        # int -> float
+        h['TEST'] = 0.0
+        assert isinstance(h['TEST'], float)
+        assert str(h).startswith('TEST    =                  0.0')
+
+        # float -> int
+        h['TEST'] = 0
+        assert isinstance(h['TEST'], int)
+        assert str(h).startswith('TEST    =                    0')
+
+        # int -> complex
+        h['TEST'] = 0.0+0.0j
+        assert isinstance(h['TEST'], complex)
+        assert str(h).startswith('TEST    =           (0.0, 0.0)')
+
+        # complex -> float
+        h['TEST'] = 0.0
+        assert isinstance(h['TEST'], float)
+        assert str(h).startswith('TEST    =                  0.0')
+
+        # float -> complex
+        h['TEST'] = 0.0+0.0j
+        assert isinstance(h['TEST'], complex)
+        assert str(h).startswith('TEST    =           (0.0, 0.0)')
+
+        # complex -> int
+        h['TEST'] = 0
+        assert isinstance(h['TEST'], int)
+        assert str(h).startswith('TEST    =                    0')
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """
