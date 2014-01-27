@@ -589,7 +589,8 @@ class Card(_Verify):
         elif isinstance(oldvalue, bool) or isinstance(value, bool):
             different = oldvalue is not value
         else:
-            different = oldvalue != value
+            different = (oldvalue != value or
+                         not isinstance(value, type(oldvalue)))
 
         if different:
             self._value = value
