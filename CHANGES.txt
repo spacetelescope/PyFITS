@@ -114,6 +114,12 @@ Other Changes and Additions
   replaced with the integer 1, and likewise for ``False`` and 0 and vice
   versa. (Backported from 3.2.1)
 
+- Fixed an issue similar to the above one but for numeric values--now
+  replacing a header value with an equivalent numeric value will up/downcast
+  that value.  For example replacing '0' with '0.0' will write '0.0' to the
+  header so that it is returned as a floating point value.  Likewise a float
+  can be downcast to an integer. (Backported from 3.2.1)
+
 
 3.0.13 (unreleased)
 -------------------
