@@ -19,12 +19,20 @@ from .util import (BLOCK_SIZE, deprecated, isiterable, encode_ascii,
                    _pad_length, PyfitsDeprecationWarning)
 
 
-HEADER_END_RE = re.compile(encode_ascii('END {77} *'))
+# This regular expression can match a *valid* END card which just consists of
+# the the string 'END' followed by all spaces, or an *invalid* end card which
+# consists of END, followed by any character that is *not* a valid character
+# for a valid FITS keyword (that is, this is not a keyword like 'ENDER' which
+# starts with 'END' but is not 'END'), followed by any arbitrary bytes.  An
+# invalid end card may also consist of just 'END' with no trailing bytes.
+HEADER_END_RE = re.compile(encode_ascii(
+    r'(?:(?P<valid>END {77}) *)|(?P<invalid>END$|END {0,76}[^A-Z0-9_-])'))
 
 
 # According to the FITS standard the only characters that may appear in a
 # header record are the restricted ASCII chars from 0x20 through 0x7E.
 VALID_HEADER_CHARS = set(chr(x) for x in range(0x20, 0x7F))
+END_CARD = 'END' + ' ' * 77
 
 
 class Header(object):
@@ -348,8 +356,6 @@ class Header(object):
 
         cards = []
 
-        end = 'END' + ' ' * 77
-
         # If the card separator contains characters that may validly appear in
         # a card, the only way to unambiguously distinguish between cards is to
         # require that they be Card.length long.  However, if the separator
@@ -380,7 +386,7 @@ class Header(object):
                 cards.append(Card.fromstring(''.join(image)))
 
             if require_full_cardlength:
-                if next_image == end:
+                if next_image == END_CARD:
                     image = []
                     break
             else:
@@ -438,81 +444,136 @@ class Header(object):
             fileobj = open(fileobj, 'r')
             close_file = True
 
+        try:
+            return cls._fromfile_internal(fileobj, sep, endcard, padding)
+        finally:
+            if close_file:
+                fileobj.close()
+
+    @classmethod
+    def _fromfile_internal(cls, fileobj, sep, endcard, padding):
+        """
+        The meat of `Header.fromfile`; in a separate method so that
+        `Header.fromfile` itself is just responsible for wrapping file
+        handling.
+        """
+
         is_binary = fileobj_is_binary(fileobj)
         actual_block_size = _block_size(sep)
         clen = Card.length + len(sep)
 
-        try:
-            # Read the first header block.
+        # Read the first header block.
+        block = fileobj.read(actual_block_size)
+        if not is_binary:
+            # TODO: There needs to be error handling at *this* level for
+            # non-ASCII characters; maybe at this stage decoding latin-1 might
+            # be safer
+            block = encode_ascii(block)
+
+        if not block:
+            raise EOFError()
+
+        blocks = []
+        is_eof = False
+        end_found = False
+
+        # continue reading header blocks until END card or EOF is reached
+        while True:
+            # find the END card
+            end_found, block = cls._find_end_card(block, clen)
+
+            blocks.append(decode_ascii(block))
+
+            if end_found:
+                break
+
             block = fileobj.read(actual_block_size)
+
+            if not block:
+                is_eof = True
+                break
+
             if not is_binary:
                 block = encode_ascii(block)
 
-            if not block:
+        if not end_found and is_eof and endcard:
+            # TODO: Pass this error to validation framework as an ERROR,
+            # rather than raising an exception
+            raise IOError('Header missing END card.')
+
+        blocks = ''.join(blocks)
+
+        # Strip any zero-padding (see ticket #106)
+        if blocks and blocks[-1] == '\0':
+            if is_eof and blocks.strip('\0') == '':
+                # TODO: Pass this warning to validation framework
+                warnings.warn(
+                    'Unexpected extra padding at the end of the file.  This '
+                    'padding may not be preserved when saving changes.')
                 raise EOFError()
+            else:
+                # Replace the illegal null bytes with spaces as required by
+                # the FITS standard, and issue a nasty warning
+                # TODO: Pass this warning to validation framework
+                warnings.warn(
+                    'Header block contains null bytes instead of spaces for '
+                    'padding, and is not FITS-compliant. Nulls may be '
+                    'replaced with spaces upon writing.')
+                blocks.replace('\0', ' ')
 
-            blocks = []
-            is_eof = False
+        if padding and (len(blocks) % actual_block_size) != 0:
+            # This error message ignores the length of the separator for
+            # now, but maybe it shouldn't?
+            actual_len = len(blocks) - actual_block_size + BLOCK_SIZE
+            # TODO: Pass this error to validation framework
+            raise ValueError('Header size is not multiple of %d: %d'
+                             % (BLOCK_SIZE, actual_len))
 
-            # continue reading header blocks until END card is reached
-            while True:
-                # find the END card
-                is_end = False
-                for mo in HEADER_END_RE.finditer(block):
-                    # Ensure the END card was found, and it started on the
-                    # boundary of a new card (see ticket #142)
-                    if mo.start() % clen == 0:
-                        # This must be the last header block, otherwise the
-                        # file is malformatted
-                        is_end = True
-                        break
+        return cls.fromstring(blocks, sep=sep)
 
-                if not is_end:
-                    blocks.append(decode_ascii(block))
-                    block = fileobj.read(actual_block_size)
-                    if not is_binary:
-                        block = encode_ascii(block)
-                    if not block:
-                        is_eof = True
-                        break
+    @classmethod
+    def _find_end_card(cls, block, card_len):
+        """
+        Utitility method to search a header block for the END card and handle
+        invalid END cards.
+
+        This method can also returned a modified copy of the input header block
+        in case an invalid end card needs to be sanitized
+        """
+
+        for mo in HEADER_END_RE.finditer(block):
+            # Ensure the END card was found, and it started on the
+            # boundary of a new card (see ticket #142)
+            if mo.start() % card_len != 0:
+                continue
+
+            # This must be the last header block, otherwise the
+            # file is malformatted
+            if mo.group('invalid'):
+                offset = mo.start()
+                trailing = block[offset + 3:offset + card_len - 3].rstrip()
+                if trailing:
+                    # TODO: Pass this warning up to the validation framework
+                    warnings.warn(
+                        'Unexpected bytes trailing END keyword: %r; these '
+                        'bytes will be replaced with spaces on write.' %
+                        trailing)
                 else:
-                    break
+                    # TODO: Pass this warning up to the validation framework
+                    warnings.warn(
+                        'Missing padding to end of the FITS block after the '
+                        'END keyword; additional spaces will be appended to '
+                        'the file upon writing to pad out to %d bytes.' %
+                        BLOCK_SIZE)
 
-            last_block = block
-            blocks.append(decode_ascii(block))
+                # Sanitize out invalid END card now that the appropriate
+                # warnings have been issued
+                block = (block[:offset] + END_CARD +
+                         block[offset + len(END_CARD):])
 
-            blocks = ''.join(blocks)
+            return True, block
 
-            # Strip any zero-padding (see ticket #106)
-            if blocks and blocks[-1] == '\0':
-                if is_eof and blocks.strip('\0') == '':
-                    warnings.warn('Unexpected extra padding at the end of the '
-                                  'file.  This padding may not be preserved '
-                                  'when saving changes.')
-                    raise EOFError()
-                else:
-                    # Replace the illegal null bytes with spaces as required by
-                    # the FITS standard, and issue a nasty warning
-                    warnings.warn('Header block contains null bytes instead '
-                                  'of spaces for padding, and is not FITS-'
-                                  'compliant. Nulls may be replaced with '
-                                  'spaces upon writing.')
-                    blocks.replace('\0', ' ')
-
-            if not HEADER_END_RE.search(last_block) and endcard:
-                raise IOError('Header missing END card.')
-
-            if padding and (len(blocks) % actual_block_size) != 0:
-                # This error message ignores the length of the separator for
-                # now, but maybe it shouldn't?
-                actual_len = len(blocks) - actual_block_size + BLOCK_SIZE
-                raise ValueError('Header size is not multiple of %d: %d'
-                                 % (BLOCK_SIZE, actual_len))
-
-            return cls.fromstring(blocks, sep=sep)
-        finally:
-            if close_file:
-                fileobj.close()
+        return False, block
 
     def tostring(self, sep='', endcard=True, padding=True):
         r"""
