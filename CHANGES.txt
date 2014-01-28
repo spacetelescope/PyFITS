@@ -35,6 +35,11 @@ Changelog
   header so that it is returned as a floating point value.  Likewise a float
   can be downcast to an integer. (Backported from 3.2.1)
 
+- Fixed unrelated crash when a header contains an invalid END card (for
+  example "END = ").  This resulted in a cryptic traceback.  Now headers like
+  this will detect "clearly intended" END cards and produce a warning about
+  their invalidity and fix them. (Backported from 3.2.1)
+
 
 3.0.13 (unreleased)
 -------------------

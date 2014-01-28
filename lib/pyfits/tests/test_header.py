@@ -10,7 +10,7 @@ import numpy as np
 import pyfits
 
 from pyfits.card import _pad
-from pyfits.util import encode_ascii
+from pyfits.util import encode_ascii, _pad_length, BLOCK_SIZE, StringIO
 from pyfits.tests import PyfitsTestCase
 from pyfits.tests.util import catch_warnings, ignore_warnings, CaptureStdio
 
@@ -1448,6 +1448,75 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_raises(ValueError, header.append, 'END', end=True)
         assert_raises(ValueError, header.insert, len(header), 'END')
         assert_raises(ValueError, header.set, 'END')
+
+    def test_invalid_end_cards(self):
+        """
+        Regression test for https://trac.assembla.com/pyfits/ticket/217
+
+        This tests the case where the END card looks like a normal card like
+        'END = ' and other similar oddities.  As long as a card starts with END
+        and looks like it was intended to be the END card we allow it, but with
+        a warning.
+        """
+
+        horig = pyfits.PrimaryHDU(data=np.arange(100)).header
+
+        def invalid_header(end, pad):
+            # Build up a goofy invalid header
+            # Start from a seemingly normal header
+            s = horig.tostring(sep='', endcard=False, padding=False)
+            # append the bogus end card
+            s += end
+            # add additional padding if requested
+            if pad:
+                s += ' ' * _pad_length(len(s))
+
+            return StringIO(s)
+
+        # Basic case motivated by the original issue; it's as if the END card
+        # was appened by software that doesn't know to treat it specially, and
+        # it is given an = after it
+        s = invalid_header('END =', True)
+
+        with catch_warnings(record=True) as w:
+            h = pyfits.Header.fromfile(s)
+            assert h == horig
+            assert len(w) == 1
+            assert str(w[0].message).startswith(
+                "Unexpected bytes trailing END keyword: ' ='")
+
+        # A case similar to the last but with more spaces between END and the
+        # =, as though the '= ' value indicator were placed like that of a
+        # normal card
+        s = invalid_header('END     = ', True)
+        with catch_warnings(record=True) as w:
+            h = pyfits.Header.fromfile(s)
+            assert h == horig
+            assert len(w) == 1
+            assert str(w[0].message).startswith(
+                "Unexpected bytes trailing END keyword: '     ='")
+
+        # END card with trailing gibberish
+        s = invalid_header('END$%&%^*%*', True)
+        with catch_warnings(record=True) as w:
+            h = pyfits.Header.fromfile(s)
+            assert h == horig
+            assert len(w) == 1
+            assert str(w[0].message).startswith(
+                "Unexpected bytes trailing END keyword: '$%&%^*%*'")
+
+        # 'END' at the very end of a truncated file without padding; the way
+        # the block reader works currently this can only happen if the 'END'
+        # is at the very end of the file.
+        s = invalid_header('END', False)
+        with catch_warnings(record=True) as w:
+            # Don't raise an exception on missing padding, but still produce a
+            # warning that the END card is incomplete
+            h = pyfits.Header.fromfile(s, padding=False)
+            assert h == horig
+            assert len(w) == 1
+            assert str(w[0].message).startswith(
+                "Missing padding to end of the FITS block")
 
     def test_unnecessary_move(self):
         """
