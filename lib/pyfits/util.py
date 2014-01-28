@@ -14,6 +14,11 @@ import threading
 import warnings
 
 try:
+    import io
+except ImportError:
+    io = None
+
+try:
     try:
         from cStringIO import StringIO
     except ImportError:
@@ -501,8 +506,8 @@ def fileobj_is_binary(f):
     mode.  When in doubt, returns True by default.
     """
 
-    # TODO: In Python 3 it might be more reliable to check if the fileobj is a
-    # text reader or a binary reader
+    if io is not None and isinstance(f, io.TextIOBase):
+        return False
 
     mode = fileobj_mode(f)
     if mode:
