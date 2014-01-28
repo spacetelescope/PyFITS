@@ -13,6 +13,11 @@ import textwrap
 import threading
 import warnings
 
+try:
+    import io
+except ImportError:
+    io = None
+
 import numpy as np
 
 from .extern.six import (PY3, iteritems, string_types, integer_types,
@@ -684,8 +689,9 @@ def fileobj_is_binary(f):
     if hasattr(f, 'binary'):
         return f.binary
 
-    # TODO: In Python 3 it might be more reliable to check if the fileobj is a
-    # text reader or a binary reader
+    if io is not None and isinstance(f, io.TextIOBase):
+        return False
+
     mode = fileobj_mode(f)
     if mode:
         return 'b' in mode
