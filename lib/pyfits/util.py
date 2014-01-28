@@ -20,6 +20,11 @@ except ImportError:
     from __builtin__ import reduce
 
 try:
+    import io
+except ImportError:
+    io = None
+
+try:
     try:
         from cStringIO import StringIO
     except ImportError:
@@ -671,8 +676,9 @@ def fileobj_is_binary(f):
     if hasattr(f, 'binary'):
         return f.binary
 
-    # TODO: In Python 3 it might be more reliable to check if the fileobj is a
-    # text reader or a binary reader
+    if io is not None and isinstance(f, io.TextIOBase):
+        return False
+
     mode = fileobj_mode(f)
     if mode:
         return 'b' in mode
