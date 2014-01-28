@@ -553,9 +553,10 @@ class Header(object):
                 offset = mo.start()
                 trailing = block[offset + 3:offset + card_len - 3].rstrip()
                 if trailing:
+                    trailing = repr(trailing).lstrip('ub')
                     # TODO: Pass this warning up to the validation framework
                     warnings.warn(
-                        'Unexpected bytes trailing END keyword: %r; these '
+                        'Unexpected bytes trailing END keyword: %s; these '
                         'bytes will be replaced with spaces on write.' %
                         trailing)
                 else:
@@ -568,7 +569,7 @@ class Header(object):
 
                 # Sanitize out invalid END card now that the appropriate
                 # warnings have been issued
-                block = (block[:offset] + END_CARD +
+                block = (block[:offset] + encode_ascii(END_CARD) +
                          block[offset + len(END_CARD):])
 
             return True, block
