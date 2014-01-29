@@ -10,8 +10,8 @@ always be in an extension HDU, never in a primary HDU.
 There are two kinds of table in the FITS standard: binary tables and ASCII
 tables. Binary tables are more economical in storage and faster in data access
 and manipulation. ASCII tables store the data in a "human readable" form and
-therefore takes up more storage space as well as more processing time since the
-ASCII text need to be parsed back into numerical values.
+therefore take up more storage space as well as more processing time since the
+ASCII text needs to be parsed into numerical values.
 
 
 Table Data as a Record Array
@@ -23,7 +23,7 @@ What is a Record Array?
 
 A record array is an array which contains records (i.e. rows) of heterogeneous
 data types. Record arrays are available through the records module in the numpy
-library. Here is a simple example of record array:
+library. Here is a simple example of record array::
 
     >>> from numpy import rec
     >>> bright = rec.array([(1,'Sirius', -1.45, 'A1V'),
@@ -65,8 +65,8 @@ specifications when constructing a record array.
 Reading a FITS Table
 --------------------
 
-Like images, the .data attribute of a table HDU contains the data of the table.
-To recap, the simple example in the Quick Tutorial:
+Like images, the ``.data`` attribute of a table HDU contains the data of the
+table.  To recap, the simple example in the Quick Tutorial::
 
     >>> f = pyfits.open('bright_stars.fits')  # open a FITS file
     >>> tbdata = f[1].data  # assume the first extension is a table
@@ -84,13 +84,15 @@ the suffixes in header keywords, such as TFORM is 1-indexed. So,
 ``tbdata.field(0)`` is the data in the column with the name specified in TTYPE1
 and format in TFORM1.
 
-**Warning:** The FITS format allows table columns with a zero-width data
-format, such as '0D'.  This is probably intended as a space-saving measure on
-files in which that column contains no data.  In such files, the zero-width
-columns are ommitted when accessing the table data, so the indexes of fields
-might change when using the ``field()`` method.  For this reason, if you expect
-to encounter files containg zero-width columns it is recommended to access
-fields by name rather than by index.
+.. warning::
+
+    The FITS format allows table columns with a zero-width data format, such as
+    ``'0D'``.  This is probably intended as a space-saving measure on files in
+    which that column contains no data.  In such files, the zero-width columns
+    are ommitted when accessing the table data, so the indexes of fields might
+    change when using the ``field()`` method.  For this reason, if you expect
+    to encounter files containg zero-width columns it is recommended to access
+    fields by name rather than by index.
 
 
 Table Operations
@@ -105,7 +107,7 @@ records from a table and make a new table out of it.
 
 In the next example, assuming the table's second field having the name
 'magnitude', an output table containing all the records of magnitude > 5 from
-the input table is generated:
+the input table is generated::
 
     >>> import pyfits
     >>> t = pyfits.open('table.fits')
@@ -120,7 +122,7 @@ Merging Tables
 --------------
 
 Merging different tables is straightforward in PyFITS. Simply merge the column
-definitions of the input tables:
+definitions of the input tables::
 
     >>> t1 = pyfits.open('table1.fits')
     >>> t2 = pyfits.open('table2.fits')
@@ -142,7 +144,7 @@ Appending one table after another is slightly trickier, since the two tables
 may have different field attributes. Here are two examples. The first is to
 append by field indices, the second one is to append by field names. In both
 cases, the output table will inherit column attributes (name, format, etc.) of
-the first table.
+the first table::
 
     >>> t1 = pyfits.open('table1.fits')
     >>> t2 = pyfits.open('table2.fits')

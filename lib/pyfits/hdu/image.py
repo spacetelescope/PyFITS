@@ -194,6 +194,19 @@ class _ImageBaseHDU(_ValidHDU):
 
     @lazyproperty
     def data(self):
+        """
+        Image/array data as a `~numpy.ndarray`.
+
+        Please remember that the order of axes on an Numpy array are opposite
+        of the order specified in the FITS file.  For example for a 2D image
+        the "rows" or y-axis are the first dimension, and the "columns" or
+        x-axis are the second dimension.
+
+        If the data is scaled using the BZERO and BSCALE parameters, this
+        attribute returns the data scaled to its physical values unless the
+        file was opened with ``do_not_scale_image_data=True``.
+        """
+
         if len(self._axes) < 1:
             return
 

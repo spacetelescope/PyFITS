@@ -118,6 +118,10 @@ class _TableLikeHDU(_ValidHDU):
 
     @lazyproperty
     def columns(self):
+        """
+        The :class:`ColDefs` objects describing the columns in this table.
+        """
+
         # The base class doesn't make any assumptions about where the column
         # definitions come from, so just return an empty ColDefs
         return ColDefs([])
@@ -322,6 +326,10 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
     @lazyproperty
     def columns(self):
+        """
+        The :class:`ColDefs` objects describing the columns in this table.
+        """
+
         if self._has_data and hasattr(self.data, '_coldefs'):
             return self.data._coldefs
         return self._columns_type(self)
