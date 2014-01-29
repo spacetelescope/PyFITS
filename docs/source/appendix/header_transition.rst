@@ -362,3 +362,57 @@ because of this.
 - As mentioned earlier, locate any code that deletes keywords with ``del``, and
   make sure they either look before they leap (``if keyword in header:``) or
   ask forgiveness (``try/except KeyError:``).
+
+Other Gotchas
+-------------
+
+- As mentioned above it is not necessary to enter ``print header`` to display
+  a header in an interactive Python prompt.  Simply entering ``>>> header``
+  by itself is sufficient.  Using ``print`` usually will *not* display the
+  header readably, because it does not include line-breaks between the header
+  cards.  The reason is that Python has two types of string representations:
+  One is returned when one calls ``str(header)`` which happens automatically
+  when you ``print`` a variable.  In the case of the Header class this actually
+  returns the string value of the header as it is written literally in the
+  FITS file, which includes no line breaks.
+
+  The other type of string representation happens when one calls
+  ``repr(header)``.  The `repr` of an object is just meant to be a useful
+  string "representation" of the object; in this case the contents of the
+  header but with linebreaks betwen the cards and with the END card and
+  padding trailing padding stripped off.  This happens automatically when
+  one enters a variable at the Python prompt by itself without a ``print``
+  call.
+
+- The current version of the FITS Standard (3.0) states in section 4.2.1
+  that trailing spaces in string values in headers are not significant and
+  should be ignored.  PyFITS < 3.1 *did* treat treat trailing spaces as
+  significant.  For example if a header contained:
+
+      KEYWORD1= 'Value    '
+
+  then ``header['KEYWORD1']`` would return the string ``'Value    '`` exactly,
+  with the trailing spaces intact.  The new Header interface fixes this by
+  automatically stripping trailing spaces, so that ``header['KEYWORD1']`` would
+  return just ``'Value'``.
+
+  There is, however, one convention used by the IRAF ccdmosiac task for
+  representing its `TNX World Coordinate System
+  <http://iraf.noao.edu/projects/ccdmosaic/tnx.html>`_ and `ZPX World
+  Coordinate System <http://iraf.noao.edu/projects/ccdmosaic/zpx.html>`_
+  non-standard WCS' that uses a series of keywords in the form ``WATj_nnn``
+  which store a text description of coefficients for a non-linear distortion
+  projection.  It uses its own microformat for listing the coefficients as a
+  string, but the string is long, and thus broken up into several of these
+  ``WATj_nnn`` keywords.  Correct recombination of these keywords requires
+  treating all whitespace literally.  This convention either overlooked or
+  predated the prescribed treatment of whitespace in the FITS standard.
+
+  To get around this issue a global variable ``pyfits.STRIP_HEADER_WHITESPACE``
+  was introduced.  Temporarily setting ``pyfits.STRIP_HEADER_WHITESPACE =
+  False`` before reading keywords affected by this issue will return their
+  values with all trailing whitespace intact.
+
+  A future version of PyFITS may be able to detect use of conventions like this
+  contextually and behave according to the convention, but in most cases the
+  default behavior of PyFITS is to behave according to the FITS Standard.
