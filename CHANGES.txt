@@ -91,6 +91,10 @@ Other Changes and Additions
   this will detect "clearly intended" END cards and produce a warning about
   their invalidity and fix them. (#217)
 
+- Allowed a sequence of ``Column`` objects to be passed in as the main
+  argument to ``FITS_rec.from_columns`` as the documentation suggests should
+  be possible.
+
 
 3.1.4 (unreleased)
 ------------------
