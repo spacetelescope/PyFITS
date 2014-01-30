@@ -37,7 +37,7 @@ Other Changes and Additions
   This is in line with a similar change made recently to Astropy:
   https://github.com/astropy/astropy/pull/1871
   To disable PyFITS deprecation warnings in scripts one may call
-  ``pyfits.ignore_deprecation_warnings()` after importing PyFITS.
+  ``pyfits.ignore_deprecation_warnings()`` after importing PyFITS.
 
 
 
