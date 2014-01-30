@@ -52,6 +52,9 @@ Other Changes and Additions
   ``after=True`` the the insertion is made below the insertion point instead
   of above it. (spacetelescope/PyFITS#12)
 
+- Fixed support for broadcasting of values assigned to table columns.
+  (spacetelescope/PyFITS#48)
+
 - A grab bag of minor performance improvements in headers.
   (spacetelescope/PyFITS#46)
 
