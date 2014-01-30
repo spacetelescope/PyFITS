@@ -1276,6 +1276,43 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert header[1] == 'H'
         assert header[-1] == ''
 
+    def test_header_insert_before_keyword(self):
+        """
+        Test that a keyword name or tuple can be used to insert new keywords.
+
+        Also tests the ``after`` keyword argument.
+
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/12
+        """
+
+        header = fits.Header([
+            ('NAXIS1', 10), ('COMMENT', 'Comment 1'),
+            ('COMMENT', 'Comment 3')])
+
+        header.insert('NAXIS1', ('NAXIS', 2, 'Number of axes'))
+        assert list(header.keys())[0] == 'NAXIS'
+        assert header[0] == 2
+        assert header.comments[0] == 'Number of axes'
+
+        header.insert('NAXIS1', ('NAXIS2', 20), after=True)
+        assert list(header.keys())[1] == 'NAXIS1'
+        assert list(header.keys())[2] == 'NAXIS2'
+        assert header[2] == 20
+
+        header.insert(('COMMENT', 1), ('COMMENT', 'Comment 2'))
+        assert header['COMMENT'] == ['Comment 1', 'Comment 2', 'Comment 3']
+
+        header.insert(('COMMENT', 2), ('COMMENT', 'Comment 4'), after=True)
+        assert header['COMMENT'] == ['Comment 1', 'Comment 2', 'Comment 3',
+                                     'Comment 4']
+
+        header.insert(-1, ('TEST1', True))
+        assert list(header.keys())[-2] == 'TEST1'
+
+        header.insert(-1, ('TEST2', True), after=True)
+        assert list(header.keys())[-1] == 'TEST2'
+        assert list(header.keys())[-3] == 'TEST1'
+
     def test_header_comments(self):
         header = fits.Header([('A', 'B', 'C'), ('DEF', 'G', 'H')])
         assert repr(header.comments) == '       A  C\n     DEF  H'

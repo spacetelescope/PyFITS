@@ -44,6 +44,14 @@ Other Changes and Additions
 3.2.1 (unreleased)
 ------------------
 
+- Added missing features from the ``Header.insert()`` method that were
+  intended for inclusion in the original 3.1 release:  In addition to
+  accepting an integer index as the first argument, it also supports supplying
+  a keyword name as the first argument for insertion relative to a specific
+  keyword.  It also now supports an optional ``after`` argument.  If
+  ``after=True`` the the insertion is made below the insertion point instead
+  of above it. (spacetelescope/PyFITS#12)
+
 - A grab bag of minor performance improvements in headers.
   (spacetelescope/PyFITS#46)
 
@@ -98,6 +106,14 @@ Other Changes and Additions
 
 3.1.4 (unreleased)
 ------------------
+
+- Added missing features from the ``Header.insert()`` method that were
+  intended for inclusion in the original 3.1 release:  In addition to
+  accepting an integer index as the first argument, it also supports supplying
+  a keyword name as the first argument for insertion relative to a specific
+  keyword.  It also now supports an optional ``after`` argument.  If
+  ``after=True`` the the insertion is made below the insertion point instead
+  of above it. (Backported from 3.2.1)
 
 - A grab bag of minor performance improvements in headers.
   (Backported from 3.2.1)
