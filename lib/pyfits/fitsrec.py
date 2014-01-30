@@ -479,11 +479,15 @@ class FITS_rec(np.recarray):
             newrecord = self._record_type(self, key)
             return newrecord
 
-    def __setitem__(self, row, value):
-        if isinstance(row, slice):
-            end = min(len(self), row.stop or len(self))
+    def __setitem__(self, key, value):    
+        if isinstance(key, basestring):
+            self[key][:] = value
+            return
+
+        if isinstance(key, slice):
+            end = min(len(self), key.stop or len(self))
             end = max(0, end)
-            start = max(0, row.start or 0)
+            start = max(0, key.start or 0)
             end = min(end, start + len(value))
 
             for idx in range(start, end):
@@ -492,11 +496,11 @@ class FITS_rec(np.recarray):
 
         if isinstance(value, FITS_record):
             for idx in range(self._nfields):
-                self.field(self.names[idx])[row] = value.field(self.names[idx])
+                self.field(self.names[idx])[key] = value.field(self.names[idx])
         elif isinstance(value, (tuple, list, np.void)):
             if self._nfields == len(value):
                 for idx in range(self._nfields):
-                    self.field(idx)[row] = value[idx]
+                    self.field(idx)[key] = value[idx]
             else:
                 raise ValueError('Input tuple or list required to have %s '
                                  'elements.' % self._nfields)
