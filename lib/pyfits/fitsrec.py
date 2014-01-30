@@ -34,11 +34,11 @@ class FITS_record(object):
 
         start : int, optional
            The starting column in the row associated with this object.
-           Used for subsetting the columns of the FITS_rec object.
+           Used for subsetting the columns of the `FITS_rec` object.
 
         end : int, optional
            The ending column in the row associated with this object.
-           Used for subsetting the columns of the FITS_rec object.
+           Used for subsetting the columns of the `FITS_rec` object.
         """
 
         # For backward compatibility...
@@ -150,8 +150,8 @@ class FITS_rec(np.recarray):
     """
     FITS record array class.
 
-    `FITS_rec` is the data part of a table HDU's data part.  This is a
-    layer over the `recarray`, so we can deal with scaled columns.
+    `FITS_rec` is the data part of a table HDU's data part.  This is a layer
+    over the `~numpy.recarray`, so we can deal with scaled columns.
 
     It inherits all of the standard methods from `numpy.ndarray`.
     """
@@ -323,7 +323,9 @@ class FITS_rec(np.recarray):
     @property
     def columns(self):
         """
-        A user-visible accessor for the coldefs.  See ticket #44.
+        A user-visible accessor for the coldefs.
+
+        See https://trac.assembla.com/pyfits/ticket/44
         """
 
         return self._coldefs

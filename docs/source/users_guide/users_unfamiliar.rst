@@ -21,6 +21,8 @@ same, i.e. the data is in the ``.data`` attribute and the ``field()`` method
 is used to refer to the columns and returns a numpy array. When reading the
 table, PyFITS will automatically detect what kind of table it is.
 
+::
+
     >>> hdus = pyfits.open('ascii_table.fits')
     >>> hdus[1].data[:1]
     FITS_rec(
@@ -172,6 +174,8 @@ is regular and the other variable length array.
     TTYPE2  = 'xyz '
     TFORM2  = '2I '
 
+
+.. _random-groups:
 
 Random Access Groups
 ====================

@@ -58,6 +58,10 @@ class _TableLikeHDU(_ValidHDU):
 
     @lazyproperty
     def columns(self):
+        """
+        The :class:`ColDefs` objects describing the columns in this table.
+        """
+
         # The base class doesn't make any assumptions about where the column
         # definitions come from, so just return an empty ColDefs
         return ColDefs([])
@@ -193,6 +197,9 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
     @lazyproperty
     def columns(self):
+        """
+        The :class:`ColDefs` objects describing the columns in this table.
+        """
         if self._data_loaded and hasattr(self.data, '_coldefs'):
             return self.data._coldefs
         return ColDefs(self)
@@ -805,7 +812,7 @@ class BinTableHDU(_TableBaseHDU):
             When the cdfile and hfile are missing, use this Header object in
             the creation of the new table and HDU.  Otherwise this Header
             supercedes the keywords from hfile, which is only used to update
-            values not present in this Header, unless replace=True in which
+            values not present in this Header, unless ``replace=True`` in which
             this Header's values are completely replaced with the values from
             hfile.
 
@@ -1108,19 +1115,19 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype='BinTableHDU'):
     separate arrays they must be combined into a single contiguous array.
 
     If the column data is already in a single contiguous array (such as an
-    existing record array) it may be better to create a BinTableHDU instance
+    existing record array) it may be better to create a `BinTableHDU` instance
     directly.  See the PyFITS documentation for more details.
 
     Parameters
     ----------
-    input : sequence of Column or ColDefs objects
-        The data to create a table from.
+    input : sequence of `Column` or a `ColDefs`
+        The data to create a table from
 
-    header : Header instance
-        Header to be used to populate the non-required keywords.
+    header : `Header` instance
+        Header to be used to populate the non-required keywords
 
     nrows : int
-        Number of rows in the new table.
+        Number of rows in the new table
 
     fill : bool
         If `True`, will fill all cells with zeros or blanks.  If

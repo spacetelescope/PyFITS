@@ -48,21 +48,21 @@ class Header(object):
     n)--this returns the n-th value with that keyword, in the case where there
     are duplicate keywords.
 
-    For example:
+    For example::
 
         >>> header['NAXIS']
         0
-        >>> header[('FOO', 1)] # Return the value of the second FOO keyword
+        >>> header[('FOO', 1)]  # Return the value of the second FOO keyword
         'foo'
 
-    The header may also be indexed by card number:
+    The header may also be indexed by card number::
 
-        >>> header[0] # Return the value of the first card in the header
+        >>> header[0]  # Return the value of the first card in the header
         'T'
 
     Commentary keywords such as HISTORY and COMMENT are special cases: When
     indexing the Header object with either 'HISTORY' or 'COMMENT' a list of all
-    the HISTORY/COMMENT values is returned:
+    the HISTORY/COMMENT values is returned::
 
         >>> header['HISTORY']
         This is the first history entry in this header.
@@ -78,10 +78,10 @@ class Header(object):
 
         Parameters
         ----------
-        cards : A list of `Card` objects (optional)
+        cards : A list of `Card` objects, optional
             The cards to initialize the header with.
 
-        txtfile : file path, file object or file-like object (optional)
+        txtfile : file path, file object or file-like object, optional
             Input ASCII header parameters file **(Deprecated)**
             Use the Header.fromfile classmethod instead.
         """
@@ -344,7 +344,7 @@ class Header(object):
         data : str
            String containing the entire header.
 
-        sep : str (optional)
+        sep : str, optional
             The string separating cards from each other, such as a newline.  By
             default there is no card separator (as is the case in a raw FITS
             file).
@@ -416,17 +416,17 @@ class Header(object):
             to be read.  For open file handles the file pointer must be at the
             beginning of the header.
 
-        sep : str (optional)
+        sep : str, optional
             The string separating cards from each other, such as a newline.  By
             default there is no card separator (as is the case in a raw FITS
             file).
 
-        endcard : bool (optional)
+        endcard : bool, optional
             If True (the default) the header must end with an END card in order
             to be considered valid.  If an END card is not found an `IOError`
             is raised.
 
-        padding : bool (optional)
+        padding : bool, optional
             If True (the default) the header will be required to be padded out
             to a multiple of 2880, the FITS header block size.  Otherwise any
             padding, or lack thereof, is ignored.
@@ -587,16 +587,16 @@ class Header(object):
 
         Parameters
         ----------
-        sep : str (optional)
+        sep : str, optional
             The character or string with which to separate cards.  By default
             there is no separator, but one could use `'\\n'`, for example, to
             separate each card with a new line
 
-        endcard : bool (optional)
+        endcard : bool, optional
             If True (default) adds the END card to the end of the header
             string
 
-        padding : bool (optional)
+        padding : bool, optional
             If True (default) pads the string with spaces out to the next
             multiple of 2880 characters
 
@@ -633,24 +633,24 @@ class Header(object):
 
         Parameters
         ----------
-        fileobj : str, file (optional)
+        fileobj : str, file, optional
             Either the pathname of a file, or an open file handle or file-like
             object
 
-        sep : str (optional)
+        sep : str, optional
             The character or string with which to separate cards.  By default
             there is no separator, but one could use `'\\n'`, for example, to
             separate each card with a new line
 
-        endcard : bool (optional)
+        endcard : bool, optional
             If `True` (default) adds the END card to the end of the header
             string
 
-        padding : bool (optional)
+        padding : bool, optional
             If `True` (default) pads the string with spaces out to the next
             multiple of 2880 characters
 
-        clobber : bool (optional)
+        clobber : bool, optional
             If `True`, overwrites the output file if it already exists
         """
 
@@ -707,16 +707,20 @@ class Header(object):
     @classmethod
     def fromtextfile(cls, fileobj, endcard=False):
         """
-        Equivalent to ``Header.fromfile(fileobj, sep='\\n', endcard=False,
-        padding=False)``.
+        Equivalent to::
+
+            >>> Header.fromfile(fileobj, sep='\\n', endcard=False,
+            ...                 padding=False)
         """
 
         return cls.fromfile(fileobj, sep='\n', endcard=endcard, padding=False)
 
     def totextfile(self, fileobj, endcard=False, clobber=False):
         """
-        Equivalent to ``Header.tofile(fileobj, sep='\\n', endcard=False,
-        padding=False, clobber=clobber)``.
+        Equivalent to::
+
+            >>> Header.tofile(fileobj, sep='\\n', endcard=False,
+            ...               padding=False, clobber=clobber)
         """
 
         self.tofile(fileobj, sep='\n', endcard=endcard, padding=False,
@@ -737,9 +741,10 @@ class Header(object):
 
         Parameters
         ----------
-        strip : bool (optional)
-           If True, strip any headers that are specific to one of the standard
-           HDU types, so that this header can be used in a different HDU.
+        strip : bool, optional
+           If `True`, strip any headers that are specific to one of the
+           standard HDU types, so that this header can be used in a different
+           HDU.
 
         Returns
         -------
@@ -766,7 +771,7 @@ class Header(object):
         iterable
             Any iterable that returns strings representing FITS keywords.
 
-        value : (optional)
+        value : optional
             A default value to assign to each keyword; must be a valid type for
             FITS keywords.
 
@@ -793,7 +798,7 @@ class Header(object):
         key : str
             A keyword that may or may not be in the header.
 
-        default : (optional)
+        default : optional
             A default value to return if the keyword is not found in the
             header.
 
@@ -826,11 +831,15 @@ class Header(object):
             ``header[keyword] = (value, comment)`` respectfully.
 
             New keywords can also be inserted relative to existing keywords
-            using, for example
-            ``header.insert('NAXIS1', ('NAXIS', 2, 'Number of axes'))`` to
-            insert before an existing keyword, or
-            ``header.insert('NAXIS', ('NAXIS1', 4096), after=True)`` to insert
-            after an existing keyword.
+            using, for example::
+
+                >>> header.insert('NAXIS1', ('NAXIS', 2, 'Number of axes'))
+
+            to insert before an existing keyword, or::
+
+                >>> header.insert('NAXIS', ('NAXIS1', 4096), after=True)
+
+            to insert after an existing keyword.
 
             The the only advantage of using :meth:`Header.set` is that it
             easily replaces the old usage of :meth:`Header.update` both
@@ -841,20 +850,20 @@ class Header(object):
         keyword : str
             A header keyword
 
-        value : str (optional)
+        value : str, optional
             The value to set for the given keyword; if None the existing value
             is kept, but '' may be used to set a blank value
 
-        comment : str (optional)
+        comment : str, optional
             The comment to set for the given keyword; if None the existing
-            comment is kept, but '' may be used to set a blank comment
+            comment is kept, but ``''`` may be used to set a blank comment
 
-        before : str, int (optional)
-            Name of the keyword, or index of the `Card` before which
-            this card should be located in the header.  The argument `before`
-            takes precedence over `after` if both specified.
+        before : str, int, optional
+            Name of the keyword, or index of the `Card` before which this card
+            should be located in the header.  The argument ``before`` takes
+            precedence over ``after`` if both specified.
 
-        after : str, int (optional)
+        after : str, int, optional
             Name of the keyword, or index of the `Card` after which this card
             should be located in the header.
 
@@ -927,7 +936,7 @@ class Header(object):
     def keys(self):
         """
         Return a list of keywords in the header in the order they
-        appear--like:meth:`dict.keys` but ordered.
+        appear--like :meth:`dict.keys` but ordered.
         """
 
         return [keyword for keyword in self]
@@ -958,6 +967,8 @@ class Header(object):
         return value
 
     def popitem(self):
+        """Similar to :meth:`dict.popitem`."""
+
         try:
             k, v = self.iteritems().next()
         except StopIteration:
@@ -966,6 +977,8 @@ class Header(object):
         return k, v
 
     def setdefault(self, key, default=None):
+        """Similar to :meth:`dict.setitem`."""
+
         try:
             return self[key]
         except (KeyError, IndexError):
@@ -976,30 +989,32 @@ class Header(object):
         """
         Update the Header with new keyword values, updating the values of
         existing keywords and appending new keywords otherwise; similar to
-        dict.update().
+        `dict.update`.
 
-        update() accepts either a dict-like object or an iterable.  In the
+        `update` accepts either a dict-like object or an iterable.  In the
         former case the keys must be header keywords and the values may be
         either scalar values or (value, comment) tuples.  In the case of an
-        iterable the items must be (keyword, value) tuples or
-        (keyword, value, comment) tuples.
+        iterable the items must be (keyword, value) tuples or (keyword, value,
+        comment) tuples.
 
         Arbitrary arguments are also accepted, in which case the update() is
         called again with the kwargs dict as its only argument.  That is,
 
+        ::
+
             >>> header.update(NAXIS1=100, NAXIS2=100)
 
-        is equivalent to
+        is equivalent to::
 
             >>> header.update({'NAXIS1': 100, 'NAXIS2': 100})
 
         .. warning::
-            As this method works similarly to dict.update() it is very
-            different from the Header.update() method in PyFITS versions prior
-            to 3.1.0.  However, support for the old API is also maintained for
-            backwards compatibility.  If update() is called with at least two
-            positional arguments then it can be assumed that the old API is
-            being used.  Use of the old API should be considered
+            As this method works similarly to `dict.update` it is very
+            different from the ``Header.update()`` method in PyFITS versions
+            prior to 3.1.0.  However, support for the old API is also
+            maintained for backwards compatibility.  If update() is called with
+            at least two positional arguments then it can be assumed that the
+            old API is being used.  Use of the old API should be considered
             **deprecated**.  Most uses of the old API can be replaced as
             follows:
 
@@ -1037,19 +1052,18 @@ class Header(object):
                   ...               after=True)
 
             See also :meth:`Header.set` which is a new method that provides an
-            interface similar to the old Header.update() and may help make
+            interface similar to the old ``Header.update()`` and may help make
             transition a little easier.
 
-            For reference, the old documentation for the old Header.update()
-            is provided below:
+            For reference, the old documentation for the old
+            ``Header.update()`` is provided below:
 
         Update one header card.
 
-        If the keyword already exists, it's value and/or comment will
-        be updated.  If it does not exist, a new card will be created
-        and it will be placed before or after the specified location.
-        If no `before` or `after` is specified, it will be appended at
-        the end.
+        If the keyword already exists, it's value and/or comment will be
+        updated.  If it does not exist, a new card will be created and it will
+        be placed before or after the specified location.  If no ``before`` or
+        ``after`` is specified, it will be appended at the end.
 
         Parameters
         ----------
@@ -1059,22 +1073,22 @@ class Header(object):
         value : str
             value to be used for updating
 
-        comment : str (optional)
+        comment : str, optional
             to be used for updating, default=None.
 
-        before : str, int (optional)
+        before : str, int, optional
             name of the keyword, or index of the `Card` before which
-            the new card will be placed.  The argument `before` takes
-            precedence over `after` if both specified.
+            the new card will be placed.  The argument ``before`` takes
+            precedence over ``after`` if both specified.
 
-        after : str, int (optional)
+        after : str, int, optional
             name of the keyword, or index of the `Card` after which
             the new card will be placed.
 
-        savecomment : bool (optional)
+        savecomment : bool, optional
             When `True`, preserve the current comment for an existing
             keyword.  The argument `savecomment` takes precedence over
-            `comment` if both specified.  If `comment` is not
+            ``comment`` if both specified.  If ``comment`` is not
             specified then the current comment will automatically be
             preserved.
 
@@ -1176,13 +1190,13 @@ class Header(object):
     def append(self, card=None, useblanks=True, bottom=False, end=False):
         """
         Appends a new keyword+value card to the end of the Header, similar
-        to list.append().
+        to `list.append`.
 
         By default if the last cards in the Header have commentary keywords,
         this will append the new keyword before the commentary (unless the new
         keyword is also commentary).
 
-        Also differs from list.append() in that it can be called with no
+        Also differs from `list.append` in that it can be called with no
         arguments: In this case a blank card is appended to the end of the
         Header.  In the case all the keyword arguments are ignored.
 
@@ -1193,16 +1207,16 @@ class Header(object):
             single header card; the comment is optional in which case a
             2-tuple may be used
 
-        useblanks : bool (optional)
+        useblanks : bool, optional
             If there are blank cards at the end of the Header, replace the
             first blank card so that the total number of cards in the Header
             does not increase.  Otherwise preserve the number of blank cards.
 
-        bottom : bool (optional)
+        bottom : bool, optional
             If True, instead of appending after the last non-commentary card,
             append after the last non-blank card.
 
-        end : bool (optional):
+        end : bool, optional
             If True, ignore the useblanks and bottom options, and append at the
             very end of the Header.
 
@@ -1262,32 +1276,32 @@ class Header(object):
                update_first=False, useblanks=True, bottom=False, end=False):
         """
         Appends multiple keyword+value cards to the end of the header, similar
-        to list.extend().
+        to `list.extend`.
 
         Parameters
         ----------
         cards : iterable
             An iterable of (keyword, value, [comment]) tuples; see
-            Header.append()
+            `Header.append`.
 
-        strip : bool (optional)
+        strip : bool, optional
             Remove any keywords that have meaning only to specific types of
             HDUs, so that only more general keywords are added from extension
-            Header or Card list (default: True).
+            Header or Card list (default: `True`).
 
-        unique : bool (optional)
+        unique : bool, optional
             If `True`, ensures that no duplicate keywords are appended;
             keywords already in this header are simply discarded.  The
             exception is commentary keywords (COMMENT, HISTORY, etc.): they are
             only treated as duplicates if their values match.
 
-        update : bool (optional)
+        update : bool, optional
             If `True`, update the current header with the values and comments
             from duplicate keywords in the input header.  This supercedes the
-            `unique` argument.  Commentary keywords are treated the same as if
-            `unique=True`.
+            ``unique`` argument.  Commentary keywords are treated the same as
+            if ``unique=True``.
 
-        update_first : bool (optional)
+        update_first : bool, optional
             If the first keyword in the header is 'SIMPLE', and the first
             keyword in the input header is 'XTENSION', the 'SIMPLE' keyword is
             replaced by the 'XTENSION' keyword.  Likewise if the first keyword
@@ -1297,9 +1311,9 @@ class Header(object):
             not the resulting header is a valid primary or extension header.
             This is mostly provided to support backwards compatibility with the
             old :meth:`Header.fromTxtFile` method, and only applies if
-            `update=True`.
+            ``update=True``.
 
-        useblanks, bottom, end : bool (optional)
+        useblanks, bottom, end : bool, optional
             These arguments are passed to :meth:`Header.append` while appending
             new cards to the header.
         """
@@ -1361,7 +1375,7 @@ class Header(object):
     def count(self, keyword):
         """
         Returns the count of the given keyword in the header, similar to
-        list.count() if the Header object is treated as a list of keywords.
+        `list.count` if the Header object is treated as a list of keywords.
 
         Parameters
         ----------
@@ -1390,10 +1404,10 @@ class Header(object):
         keyword : str
             The keyword to look up in the list of all keywords in the header
 
-        start : int (optional)
+        start : int, optional
             The lower bound for the index
 
-        stop : int (optional)
+        stop : int, optional
             The upper bound for the index
 
         """
@@ -1430,9 +1444,9 @@ class Header(object):
 
         card : str, tuple
             A keyword or a (keyword, value, [comment]) tuple; see
-            Header.append()
+            `Header.append`
 
-        useblanks : bool (optional)
+        useblanks : bool, optional
             If there are blank cards at the end of the Header, replace the
             first blank card so that the total number of cards in the Header
             does not increase.  Otherwise preserve the number of blank cards.
@@ -1493,9 +1507,8 @@ class Header(object):
 
     def remove(self, keyword):
         """
-        Removes the first instance of the given keyword from the header
-        similar to list.remove() if the Header object is treated as a list of
-        keywords.
+        Removes the first instance of the given keyword from the header similar
+        to `list.remove` if the Header object is treated as a list of keywords.
 
         Parameters
         ----------
@@ -1518,7 +1531,7 @@ class Header(object):
         newkeyword : str
             New keyword
 
-        force : bool (optional)
+        force : bool, optional
             When `True`, if the new keyword already exists in the header, force
             the creation of a duplicate keyword.  Otherwise a `ValueError` is
             raised.
@@ -1552,13 +1565,13 @@ class Header(object):
         Parameters
         ----------
         value : str
-            history text to be added.
+            History text to be added.
 
         before : str or int, optional
-            same as in `Header.update`
+            Same as in `Header.update`
 
         after : str or int, optional
-            same as in `Header.update`
+            Same as in `Header.update`
         """
 
         self._add_commentary('HISTORY', value, before=before, after=after)
@@ -1570,13 +1583,13 @@ class Header(object):
         Parameters
         ----------
         value : str
-            text to be added.
+            Text to be added.
 
         before : str or int, optional
-            same as in `Header.update`
+            Same as in `Header.update`
 
         after : str or int, optional
-            same as in `Header.update`
+            Same as in `Header.update`
         """
 
         self._add_commentary('COMMENT', value, before=before, after=after)
@@ -1588,13 +1601,13 @@ class Header(object):
         Parameters
         ----------
         value : str, optional
-            text to be added.
+            Text to be added.
 
         before : str or int, optional
-            same as in `Header.update`
+            Same as in `Header.update`
 
         after : str or int, optional
-            same as in `Header.update`
+            Same as in `Header.update`
         """
 
         self._add_commentary('', value, before=before, after=after)
@@ -1915,9 +1928,9 @@ class Header(object):
     @deprecated('3.1', alternative='the `.cards` attribute')
     def ascard(self):
         """
-        Returns a CardList object wrapping this Header; provided for
+        Returns a ``CardList`` object wrapping this Header; provided for
         backwards compatibility for the old API (where Headers had an
-        underlying CardList).
+        underlying ``CardList``).
         """
 
         return CardList(self)

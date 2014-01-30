@@ -93,23 +93,25 @@ class CompImageHDU(BinTableHDU):
         Parameters
         ----------
         data : array, optional
-            data of the image
+            Uncompressed image data
 
         header : Header instance, optional
-            header to be associated with the image; when reading the HDU from a
+            Header to be associated with the image; when reading the HDU from a
             file (data=DELAYED), the header read from the file
 
         name : str, optional
-            the ``EXTNAME`` value; if this value is `None`, then the name from
+            The ``EXTNAME`` value; if this value is `None`, then the name from
             the input image header will be used; if there is no name in the
             input image header then the default name ``COMPRESSED_IMAGE`` is
             used.
 
         compressionType : str, optional
-            compression algorithm 'RICE_1', 'PLIO_1', 'GZIP_1', 'HCOMPRESS_1'
+            Compression algorithm: one of
+            ``'RICE_1'``, ``'RICE_ONE'``, ``'PLIO_1'``, ``'GZIP_1'``,
+            ``'GZIP_2'``, ``'HCOMPRESS_1'``
 
         tileSize : int, optional
-            compression tile sizes.  Default treats each row of image as a
+            Compression tile sizes.  Default treats each row of image as a
             tile.
 
         hcompScale : float, optional
@@ -119,7 +121,7 @@ class CompImageHDU(BinTableHDU):
             HCOMPRESS smooth parameter
 
         quantizeLevel : float, optional
-            floating point quantization level; see note below
+            Floating point quantization level; see note below
 
         Notes
         -----
@@ -152,12 +154,12 @@ class CompImageHDU(BinTableHDU):
                support the ability to extract and uncompress sections of the
                image without having to uncompress the entire image.
 
-        The `pyfits` module supports 3 general-purpose compression algorithms
+        The pyfits module supports 3 general-purpose compression algorithms
         plus one other special-purpose compression technique that is designed
         for data masks with positive integer pixel values.  The 3 general
         purpose algorithms are GZIP, Rice, and HCOMPRESS, and the
         special-purpose technique is the IRAF pixel list compression technique
-        (PLIO).  The `compressionType` parameter defines the compression
+        (PLIO).  The ``compressionType`` parameter defines the compression
         algorithm to be used.
 
         The FITS image can be subdivided into any desired rectangular grid of

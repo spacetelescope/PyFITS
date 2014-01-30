@@ -21,3 +21,11 @@ Images
    :members:
    :inherited-members:
    :show-inheritance:
+
+`Section`
+=========
+
+.. autoclass:: Section
+   :members:
+   :inherited-members:
+   :show-inheritance:
