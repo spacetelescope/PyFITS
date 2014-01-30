@@ -1365,7 +1365,7 @@ class Header(object):
     def index(self, keyword, start=None, stop=None):
         """
         Returns the index if the first instance of the given keyword in the
-        header, similar to list.index() if the Header object is treated as a
+        header, similar to `list.index` if the Header object is treated as a
         list of keywords.
 
         Parameters
@@ -1400,16 +1400,18 @@ class Header(object):
         else:
             raise ValueError('The keyword %r is not in the header.' % keyword)
 
-    def insert(self, idx, card, useblanks=True):
+    def insert(self, key, card, useblanks=True, after=False):
         """
         Inserts a new keyword+value card into the Header at a given location,
-        similar to list.insert().
+        similar to `list.insert`.
 
         Parameters
         ----------
-        idx : int
+        key : int, str, or tuple
             The index into the the list of header keywords before which the
-            new keyword should be inserted
+            new keyword should be inserted, or the name of a keyword before
+            which the new keyword should be inserted.  Can also accept a
+            (keyword, index) tuple for inserting around duplicate keywords.
 
         card : str, tuple
             A keyword or a (keyword, value, [comment]) tuple; see
@@ -1420,7 +1422,25 @@ class Header(object):
             first blank card so that the total number of cards in the Header
             does not increase.  Otherwise preserve the number of blank cards.
 
+        after : bool, optional
+            If set to `True`, insert *after* the specified index or keyword,
+            rather than before it.  Defaults to `False`.
         """
+
+        if not isinstance(key, int):
+            # Don't pass through ints to _cardindex because it will not take
+            # kindly to indices outside the existing number of cards in the
+            # header, which insert needs to be able to support (for example
+            # when inserting into empty headers)
+            idx = self._cardindex(key)
+        else:
+            idx = key
+
+        if after:
+            if idx == -1:
+                idx = len(self._cards)
+            else:
+                idx += 1
 
         if idx >= len(self._cards):
             # This is just an append (Though it must be an append absolutely to
