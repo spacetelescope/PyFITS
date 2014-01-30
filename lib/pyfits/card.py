@@ -158,7 +158,7 @@ class CardList(list):
         """
         Return a list of the values of all cards in the `CardList`.
 
-        For `RecordValuedKeywordCard` objects, the value returned is
+        For ``RecordValuedKeywordCard`` objects, the value returned is
         the floating point value, exclusive of the
         ``field_specifier``.
         """
@@ -178,17 +178,16 @@ class CardList(list):
         useblanks : bool, optional
             Use any *extra* blank cards?
 
-            If `useblanks` is `True`, and if there are blank cards
-            directly before ``END``, it will use this space first,
-            instead of appending after these blank cards, so the total
-            space will not increase.  When `useblanks` is `False`, the
-            card will be appended at the end, even if there are blank
-            cards in front of ``END``.
+            If ``useblanks`` is `True`, and if there are blank cards directly
+            before ``END``, it will use this space first, instead of appending
+            after these blank cards, so the total space will not increase.
+            When ``useblanks`` is `False`, the card will be appended at the
+            end, even if there are blank cards in front of ``END``.
 
         bottom : bool, optional
-           If `False` the card will be appended after the last
-           non-commentary card.  If `True` the card will be appended
-           after the last non-blank card.
+           If `False` the card will be appended after the last non-commentary
+           card.  If `True` the card will be appended after the last non-blank
+           card.
         """
 
         self._header.append(card, useblanks=useblanks, bottom=bottom)
@@ -212,12 +211,11 @@ class CardList(list):
             The card to be inserted.
 
         useblanks : bool, optional
-            If `useblanks` is `True`, and if there are blank cards
-            directly before ``END``, it will use this space first,
-            instead of appending after these blank cards, so the total
-            space will not increase.  When `useblanks` is `False`, the
-            card will be appended at the end, even if there are blank
-            cards in front of ``END``.
+            If ``useblanks`` is `True`, and if there are blank cards directly
+            before ``END``, it will use this space first, instead of appending
+            after these blank cards, so the total space will not increase.
+            When `useblanks` is `False`, the card will be appended at the end,
+            even if there are blank cards in front of ``END``.
         """
 
         self._header.insert(idx, card, useblanks=useblanks)
@@ -248,7 +246,7 @@ class CardList(list):
         key : str or int
             The keyword name (a string) or the index (an integer).
 
-        backward : bool, (optional)
+        backward : bool, optional
             When `True`, search the index from the ``END``, i.e.,
             backward.
 
@@ -265,7 +263,7 @@ class CardList(list):
         else:
             raise KeyError('Illegal key data type %s' % type(key))
 
-    @deprecated('3.1', alternative='`header[<wildcard_pattern>]`')
+    @deprecated('3.1', alternative='``header[<wildcard_pattern>]``')
     def filter_list(self, key):
         """
         Construct a `CardList` that contains references to all of the cards in
@@ -279,7 +277,7 @@ class CardList(list):
 
         Returns
         -------
-        cardlist :
+        cardlist
             A `CardList` object containing references to all the
             requested cards.
         """
@@ -297,7 +295,9 @@ class CardList(list):
 
 
 class Card(_Verify):
+
     length = CARD_LENGTH
+    """The length of a Card image; should always be 80 for valid FITS files."""
 
     # String for a FITS standard compliant (FSC) keyword.
     _keywd_FSC_RE = re.compile(r'^[A-Z0-9_-]{0,%d}$' % KEYWORD_LENGTH)
@@ -531,6 +531,8 @@ class Card(_Verify):
 
     @property
     def value(self):
+        """The value associated with the keyword stored in this card."""
+
         if self.field_specifier:
             return float(self._value)
 
@@ -734,6 +736,11 @@ class Card(_Verify):
 
     @property
     def image(self):
+        """
+        The card "image", that is, the 80 byte character string that represents
+        this card in an actual FITS header.
+        """
+
         if self._image and not self._verified:
             self.verify('fix')
         if self._image is None or self._modified:
@@ -776,10 +783,6 @@ class Card(_Verify):
         ----------
         key : or str
             A keyword value or a ``keyword.field-specifier`` value
-
-        Returns
-        -------
-            The converted string
         """
 
         # Test first for the most common case: a standard FITS keyword provided
@@ -1358,7 +1361,7 @@ def create_card(key='', value='', comment=''):
 create_card.__doc__ = Card.__init__.__doc__
 # For API backwards-compatibility
 create_card = deprecated('3.1', name='create_card',
-                         alternative=':meth:`Card.__init__`',
+                         alternative='``Card.__init__``',
                          pending=False)(create_card)
 
 

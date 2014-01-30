@@ -10,8 +10,8 @@ the astronomy community to store images and tables.
 Installation
 ============
 
-PyFITS requires Python version 2.3 or newer. PyFITS also requires the numpy
-module. Information about numpy can be found at:
+PyFITS requires Python version 2.5 or newer. PyFITS also requires the numpy
+package. Information about numpy can be found at:
 
     http://numpy.scipy.org/
 
@@ -19,9 +19,15 @@ To download numpy, go to:
 
     http://sourceforge.net/project/numpy
 
-PyFITS's source code is pure Python. It can be downloaded from:
+PyFITS' source code is mostly pure Python, but includes an optional C module
+which wraps CFITSIO for compression support.  The latest source distributions
+and binary installers for Windows can be downloaded from:
 
     http://www.stsci.edu/resources/software_hardware/pyfits/Download
+
+Or from the Python Package Index (PyPI) at:
+
+    https://pypi.python.org/pypi/pyfits
 
 PyFITS uses Python's distutils for its installation. To install it, unpack the
 tar file and type:
@@ -30,21 +36,10 @@ tar file and type:
 
     python setup.py install
 
-This will install PyFITS in Python's site-packages directory. If permissions do
-not allow this kind of installation PyFITS can be installed in a personal
-directory using one of the commands below. Note, that PYTHONPATH has to be set
-or modified accordingly. The three examples below show how to install PyFITS in
-an arbitrary directory <install-dir> and how to modify PYTHONPATH.
-
-.. parsed-literal::
-
-    python setup.py install --home=<install-dir>
-    setenv PYTHONPATH <install-dir>/lib/python
-
-.. parsed-literal::
-
-    python setup.py install --prefix=<install-lib>
-    setenv PYTHONPATH <install-dir>lib/python2.3/site-packages
+This will install PyFITS in the system's Python site-packages directory. If
+your system permissions do not allow this kind of installation, use of
+`virtualenv <http://www.virtualenv.org>`_ for personal installations is
+recommended.
 
 In this guide, we'll assume that the reader has basic familiarity with Python.
 Familiarity with numpy is not required, but it will help to understand the data

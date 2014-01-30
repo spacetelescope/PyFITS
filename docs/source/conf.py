@@ -266,7 +266,7 @@ latex_preamble += r"""
 #latex_appendices = []
 
 # If false, no module index is generated.
-latex_use_modindex = False
+latex_domain_indices = False
 
 
 # Example configuration for intersphinx: refer to the Python standard library.

@@ -194,6 +194,19 @@ class _ImageBaseHDU(_ValidHDU):
 
     @lazyproperty
     def data(self):
+        """
+        Image/array data as a `~numpy.ndarray`.
+
+        Please remember that the order of axes on an Numpy array are opposite
+        of the order specified in the FITS file.  For example for a 2D image
+        the "rows" or y-axis are the first dimension, and the "columns" or
+        x-axis are the second dimension.
+
+        If the data is scaled using the BZERO and BSCALE parameters, this
+        attribute returns the data scaled to its physical values unless the
+        file was opened with ``do_not_scale_image_data=True``.
+        """
+
         if len(self._axes) < 1:
             return
 
@@ -340,11 +353,10 @@ class _ImageBaseHDU(_ValidHDU):
         """
         Scale image data by using ``BSCALE``/``BZERO``.
 
-        Call to this method will scale `data` and update the keywords
-        of ``BSCALE`` and ``BZERO`` in `_header`.  This method should
-        only be used right before writing to the output file, as the
-        data will be scaled and is therefore not very usable after the
-        call.
+        Call to this method will scale `data` and update the keywords of
+        ``BSCALE`` and ``BZERO`` in the HDU's header.  This method should only
+        be used right before writing to the output file, as the data will be
+        scaled and is therefore not very usable after the call.
 
         Parameters
         ----------
@@ -358,10 +370,10 @@ class _ImageBaseHDU(_ValidHDU):
             ``BSCALE`` and ``BZERO`` values when the data was
             read/created. If ``"minmax"``, use the minimum and maximum
             of the data to scale.  The option will be overwritten by
-            any user specified `bscale`/`bzero` values.
+            any user specified ``bscale``/``bzero`` values.
 
         bscale, bzero : int, optional
-            User-specified ``BSCALE`` and ``BZERO`` values.
+            User-specified ``BSCALE`` and ``BZERO`` values
         """
 
         if self.data is None:
@@ -802,8 +814,8 @@ class PrimaryHDU(_ImageBaseHDU):
             The data in the HDU.
 
         header : Header instance, optional
-            The header to be used (as a template).  If `header` is
-            `None`, a minimal header will be provided.
+            The header to be used (as a template).  If ``header`` is `None`, a
+            minimal header will be provided.
 
         do_not_scale_image_data : bool, optional
             If `True`, image data is not scaled using BSCALE/BZERO values
