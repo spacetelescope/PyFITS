@@ -11,7 +11,9 @@ from ConfigParser import ConfigParser
 from datetime import datetime
 
 try:
+    from docutils import nodes
     from docutils.core import publish_parts
+    from docutils.writers import html4css1
 except ImportError:
     print >> sys.stderr, \
            'docutils is required to convert the PyFITS changelog to HTML ' \
@@ -35,7 +37,8 @@ PYFITS_HOMEPAGE_SUBPAGES = ['content', 'Download']
 
 # The website will only have final release up on it, so we can use a simplified
 # version regexp
-VERSION_RE = re.compile(r'(?P<MAJOR>\d+)\.(?P<MINOR>\d+)(?:\.(?P<MICRO>\d+))?')
+VERSION_RE = re.compile(
+    r'v?(?P<MAJOR>\d+)\.(?P<MINOR>\d+)(?:\.(?P<MICRO>\d+))?')
 
 # This is the format used to search for/replace the previous version
 # This is based on simply a manual analysis of where the PyFITS version number
@@ -314,6 +317,69 @@ def update_docs_config(new_version=None, authors=None):
         f.write(conf_py_src)
 
 
+class _ReleaseNotesWriter(html4css1.Writer):
+    """
+    Custom HTML writer for docutils to handle outputting the body of the
+    release notes HTML in the formatted required for integration into the STScI
+    website.
+
+    This requires two tweaks to the default HTML writer:
+
+     1. Section headers will need to start from <h3> not <h1>
+     2. <tt> tags should be replaced by <code> tags for HTML5 compatibility
+    """
+
+    def __init__(self):
+        # Note docutils still uses old-style classes
+        html4css1.Writer.__init__(self)
+        self.translator_class = _ReleaseNotesTranslator
+
+
+class _ReleaseNotesTranslator(html4css1.HTMLTranslator):
+    """This does the actual HTML translation work for _ReleaseNotesWriter."""
+
+    def __init__(self, document):
+        html4css1.HTMLTranslator.__init__(self, document)
+
+        # In principle this can be overridden by some command-line settings but
+        # I don't know how best to do that via the API, so just hard-code it
+        # here:
+        self.initial_header_level = 3
+
+    def visit_literal(self, node):
+        # copypasta'd from the base class to force use of 'code' instead of
+        # 'tt' elements for literals
+        # special case: "code" role
+        classes = node.get('classes', [])
+        if 'code' in classes:
+            # filter 'code' from class arguments
+            node['classes'] = [cls for cls in classes if cls != 'code']
+            self.body.append(self.starttag(node, 'code', ''))
+            return
+        self.body.append(
+            self.starttag(node, 'code', '', CLASS='docutils literal'))
+        text = node.astext()
+        for token in self.words_and_spaces.findall(text):
+            if token.strip():
+                # Protect text like "--an-option" and the regular expression
+                # ``[+]?(\d+(\.\d*)?|\.\d+)`` from bad line wrapping
+                if self.sollbruchstelle.search(token):
+                    self.body.append('<span class="pre">%s</span>'
+                                     % self.encode(token))
+                else:
+                    self.body.append(self.encode(token))
+            elif token in ('\n', ' '):
+                # Allow breaks at whitespace:
+                self.body.append(token)
+            else:
+                # Protect runs of multiple spaces; the last space can wrap:
+                self.body.append('&nbsp;' * (len(token) - 1) + ' ')
+        self.body.append('</code>')
+        # Content already processed:
+        raise nodes.SkipNode
+
+
+
 def generate_release_notes(lines):
     """
     Generates the release notes page from the lines of restructuredText in the
@@ -340,25 +406,11 @@ def generate_release_notes(lines):
     """)
 
     # Update the release notes
-    parts = publish_parts('\n'.join(lines), writer_name='html')
+    parts = publish_parts('\n'.join(lines), writer=_ReleaseNotesWriter())
     # Get just the body of the HTML and convert headers to <h3> tags
     # instead of <h1> (there might be a 'better' way to do this, but
     # this is a simple enough case to suffice for our purposes
     content = parts['html_body']
-
-    # A quickie regexp--no good for general use, but should work fine
-    # in this case; this will prevent replacement of the <h1> tag in
-    # the title, but will take care of all the others
-    # This increments each header it finds by 2
-    def increment_header(match):
-        hlvl = int(match.group(1))
-        cont = match.group(2)
-        return '<h%d>%s</h%d>' % (hlvl + 2, cont, hlvl + 2)
-
-    content = re.sub(r'<h(\d)>([^<]+)</h\d>', increment_header, content)
-
-    # Another hackish regexp--this one to replace tt tags with code tags
-    content = re.sub(r'<tt (.*?)</tt>', r'<code \1</code>', content, re.M)
 
     # A few more quickie formatting hacks...
     content = content.splitlines()
@@ -437,8 +489,8 @@ class _ZopeProxy(object):
         if username and password:
             protocol, rest = url.split('://', 1)
             self.url = '%s://%s:%s@%s' % (protocol, username, password, rest)
-            self.masked_url = '%s//%s:%s@%s' % (protocol, username, '*' * 8,
-                                                rest)
+            self.masked_url = '%s://%s:%s@%s' % (protocol, username, '*' * 8,
+                                                 rest)
         else:
             self.url = self.masked_url = url
 

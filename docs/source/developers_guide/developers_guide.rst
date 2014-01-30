@@ -237,22 +237,26 @@ Prerequisites for performing a release
    the ``.pypirc`` file is *currently* the most reliable way to make
    authentication with PyPI "just work".  Be sure to ``chmod 600`` this file.
 
-2. Also make sure to have an account on readthedocs.org with administrative
+2. Generate a signing key--all PyFITS tags are now cryptographically signed
+   when creating the tag (using ``git tag -s``).  The `Astropy release
+   process`_ page documents how to set this up.
+
+3. Also make sure to have an account on readthedocs.org with administrative
    access to the PyFITS project on Read the Docs:
    https://readthedocs.org/projects/pyfits/
    This hosts documentation for all (recent) versions of PyFITS.  (TODO: Here
    also we need a "space telescope" account with administrative rights to all
    STScI projects that use RtD.)
 
-3. It's best to do the release in a relatively "clean" Python environment, so
+4. It's best to do the release in a relatively "clean" Python environment, so
    make sure you have `virtualenv`_ installed and that you've had some practice
    in using it.
 
-4. Make sure you have Numpy and nose installed and are able to run the PyFITS
+5. Make sure you have Numpy and nose installed and are able to run the PyFITS
    tests successfully without any errors.  Even better if you can do this with
    tox.
 
-5. Make sure that at least someone can make the Windows builds.  This requires
+6. Make sure that at least someone can make the Windows builds.  This requires
    a Windows machine with at least Windows XP, Mingw32 with msys, and all of
    the Python development packages.  Python versions 2.5, 2.6, 2.7, 3.1, and
    3.2 should be installed with the installers from python.org, as well as a
@@ -260,7 +264,7 @@ Prerequisites for performing a release
    1.6.x), as well as Git.  (TODO: More detailed instructions for setting up
    a Windows development environment.)
 
-6. PyFITS also has a page on STScI's website:
+7. PyFITS also has a page on STScI's website:
    http://www.stsci.edu/institute/software_hardware/pyfits.  This is normally
    the first hit when Googling 'pyfits' so it's important to keep up to date.
    At a minimum each release should update the front page to mention the most
@@ -282,6 +286,28 @@ Prerequisites for performing a release
    production server.  As of writing the best person to ask is George Smyth--
    asking him directly is the fastest way to get it done, though if you send a
    ticket to IT it will be handled eventually.
+
+8. Triage issues is milestones in the PyFITS bug tracker(s).  Currently this
+   includes the Trac site: https://trac.assembla.com/pyfits/roadmap and the
+   GitHub site: https://github.com/spacetelescope/PyFITS/issues/milestones
+
+   No new tickets are being added in Trac, so after all open tickets in the
+   Trac site have been addressed, milestones will only need to be managed in
+   GitHub.
+
+   First create a new milestone for the version after the version to be
+   released.  If a major/minor release is being made, make the milestone for
+   the next bugfix release in that series as well.  For example if releasing a
+   bugfix release like 3.0.1, create a milestone for 3.0.2.  If releasing
+   3.1.0, create milestones for 3.2.0 *and* 3.2.1.
+
+   If the milestone for the to be released version still has any issues
+   remaining in it, such as bugs that were not fixed, move them to the next
+   appriopriate milestone if they will not be addressed before the release
+   (or close issues that are no longer applicable).  Ensure that the milestone
+   for the to be released version has no open issues remaining in it.
+
+
 
 Release procedure
 -----------------
@@ -339,7 +365,8 @@ written down first.)
    enter 'Y': This feature is used when uploading the source distribution to
    our local package index.  When asked to 'Register and upload' to PyPI enter
    'N'.  We will do this manually later in the process once we've tested the
-   release out first.
+   release out first.  If asked to add the package to the "STScI package
+   index" enter 'N'--this package index is no longer being maintained.
 
 10. You will be asked to enter a new development version.  Normally the next
     logical version will be selected--press enter to accept the default, or
@@ -410,7 +437,18 @@ written down first.)
     place).
 
 19. Assuming the test installation worked, change directories back into the
-    repository and register the release on PyPI with::
+    repository and push the new tag/release to the main repository on GitHub::
+
+        $ git push --tags
+
+    This initial step is necessary since the tag was made off of a pure git
+    commit.  But when we synchronize with SVN the commit history will change
+    so we need to force an additional push to the GitHub repository::
+
+        $ git svn dcommit
+        $ git push --force
+
+    Then register the release on PyPI with::
 
         $ python setup.py register
 
@@ -419,6 +457,14 @@ written down first.)
     distribution to upload::
 
         $ python setup.py sdist upload
+
+    After registering on PyPI go to the URL:
+
+    https://pypi.python.org/pypi?%3Aaction=pkg_edit&name=pyfits
+
+    and mark any previous releases superceded by this release as hidden via the
+    web UI.  Don't check "Auto-hide old releases" as we want to support
+    discovery of bugfix releases of older versions.
 
 20. When releasing a new major or minor version, create a bugfix branch for
     that version.  Starting from the tagged changset, just checkout a new
@@ -441,28 +487,72 @@ written down first.)
     master branch.  Only changesets that fix bugs without making significant
     API changes should be merged to the bugfix branches.
 
-21. Log into the Read the Docs control panel for PyFITS at
+21. On the other hand, if a bugfix release was made, the ``CHANGES.txt`` file
+    will only be updated in the stable branch; the master branch also needs to
+    be updated so that the release is reflected in its copy of ``CHANGES.txt``.
+    Just run::
+
+        $ git checkout master
+
+    Say 3.2.1 was just released.  Use ``git log -p`` to find the commit
+    that updated the changelog with the release date in the stable branch,
+    like::
+
+        $ git log -p 3.2-stable
+
+    Copy the commit hash, and then cherry-pick it into master::
+
+        $ git cherry-pick <sha1 hash>
+
+    You will likely have to resolve a merge conflict, but just make sure that
+    the section heading for the just released version is updated so that
+    "(unreleased)" is replaced with today's date.  Also ensure that a new
+    section is added for the next bugfix release in that release series.
+
+
+22. Log into the Read the Docs control panel for PyFITS at
     https://readthedocs.org/projects/pyfits/.  Click on "Admin" and then
     "Versions".  Find the just-released version (it might not appear for a few
     minutes) and click the check mark next to "Active" under that version.
     Leave the dropdown list on "Public", then scroll to the bottom of the page
-    and click "Submit".
+    and click "Submit".  If this is the release with the highest version
+    number, make sure to set it as the "default" version as soon as the build
+    finishes.
 
-22. We also mirror the most recent documentation at pythonhosted.org/pyfits (
-    formerly packages.python.org).  The easiest way to do this is to wait until
-    the documentation has been built by Read the Docs (otherwise it is
-    necessary to build the docs yourself) and download it as a zip file.  For
-    version 3.2.0 the URL would be:
+    Note: When you first activate the new version in Read the Docs, it
+    immediately displays a "Build Failed" message for the build of the new
+    docs.  This is a bug--all it really means is that those docs have never
+    been built yet.  Give it a few minutes before checking that the build
+    succeeded.  Then you can set that version as the default if needed.
 
-    https://media.readthedocs.org/htmlzip/pyfits/v3.2.0/pyfits.zip
+23. We also mirror the most recent documentation at pythonhosted.org/pyfits (
+    formerly packages.python.org).
 
-    (just replace the version part of the URL with the appropriate version).
+    First it is necessary to build the docs manually.  Make sure all the
+    dependencies are satisfied by running::
 
-    Then on the package management page on PyPI
-    (https://pypi.python.org/pypi?%3Aaction=pkg_edit&name=pyfits) locate the
-    documentation upload form and upload the just-downloaded zip file.
+        $ pip install sphinx
 
-23. Build and upload the Windows installers:
+    Then change directories into the docs/ directory and install the additional
+    requirements for the docs::
+
+        $ cd docs
+        $ pip install -r requirements.txt
+
+    Then make the HTML docs::
+
+        make html
+
+    Now change directories back to the source root and upload::
+
+        $ cd ..
+        $ python setup.py upload_docs
+
+24. Mark the milestone of the released version as closed/completed in the
+    PyFITS bug tracker(s).  If asked for a timestamp (as Trac does) use the
+    timestamp of the git tag made for the release.
+
+25. Build and upload the Windows installers:
 
     a. Launch a MinGW shell.
 
@@ -494,10 +584,10 @@ written down first.)
            $ < ... and so on, for all currently supported Python versions ... >
 
 
-.. _Coding Guidelines: http://astropy.readthedocs.org/en/v0.2.1/development/codeguide.html
-.. _Documentation Guidelines: http://astropy.readthedocs.org/en/v0.2.1/development/docguide.html
-.. _Contributing to Astropy: http://astropy.readthedocs.org/en/v0.2.1/development/workflow/index.html
-.. _Workflow for Developers: http://astropy.readthedocs.org/en/v0.2.1/development/workflow/development_workflow.html
-.. _Astropy release process: http://astropy.readthedocs.org/en/v0.2.1/development/building_packaging.html#release
-.. _zest.releaser: https://pypi.python.org/pypi/zest.releaser/3.44
-.. _virtualenv: https://pypi.python.org/pypi/virtualenv/1.9.1
+.. _Coding Guidelines: http://astropy.readthedocs.org/en/v0.3/development/codeguide.html
+.. _Documentation Guidelines: http://astropy.readthedocs.org/en/v0.3/development/docguide.html
+.. _Contributing to Astropy: http://astropy.readthedocs.org/en/v0.3/development/workflow/index.html
+.. _Workflow for Developers: http://astropy.readthedocs.org/en/v0.3/development/workflow/development_workflow.html
+.. _Astropy release process: http://astropy.readthedocs.org/en/v0.3/development/releasing.html
+.. _zest.releaser: https://pypi.python.org/pypi/zest.releaser
+.. _virtualenv: https://pypi.python.org/pypi/virtualenv
