@@ -138,23 +138,25 @@ class CompImageHDU(BinTableHDU):
         Parameters
         ----------
         data : array, optional
-            data of the image
+            Uncompressed image data
 
         header : Header instance, optional
-            header to be associated with the image; when reading the HDU from a
+            Header to be associated with the image; when reading the HDU from a
             file (data=DELAYED), the header read from the file
 
         name : str, optional
-            the ``EXTNAME`` value; if this value is `None`, then the name from
+            The ``EXTNAME`` value; if this value is `None`, then the name from
             the input image header will be used; if there is no name in the
             input image header then the default name ``COMPRESSED_IMAGE`` is
             used.
 
         compression_type : str, optional
-            compression algorithm 'RICE_1', 'PLIO_1', 'GZIP_1', 'HCOMPRESS_1'
+            Compression algorithm: one of
+            ``'RICE_1'``, ``'RICE_ONE'``, ``'PLIO_1'``, ``'GZIP_1'``,
+            ``'GZIP_2'``, ``'HCOMPRESS_1'``
 
         tile_size : int, optional
-            compression tile sizes.  Default treats each row of image as a
+            Compression tile sizes.  Default treats each row of image as a
             tile.
 
         hcomp_scale : float, optional
@@ -164,17 +166,17 @@ class CompImageHDU(BinTableHDU):
             HCOMPRESS smooth parameter
 
         quantize_level : float, optional
-            floating point quantization level; see note below
+            Floating point quantization level; see note below
 
         quantize_method : int, optional
-            floating point quantization dithering method; can be either
-            NO_DITHER (-1), SUBTRACTIVE_DITHER_1 (1; default), or
-            SUBTRACTIVE_DITHER_2 (2); see note below
+            Floating point quantization dithering method; can be either
+            ``NO_DITHER`` (-1), ``SUBTRACTIVE_DITHER_1`` (1; default), or
+            ``SUBTRACTIVE_DITHER_2`` (2); see note below
 
         dither_seed : int, optional
-            random seed to use for dithering; can be either an integer in the
-            range 1 to 1000 (inclusive), DITHER_SEED_CLOCK (0; default), or
-            DITHER_SEED_CHECKSUM (-1); see note below
+            Random seed to use for dithering; can be either an integer in the
+            range 1 to 1000 (inclusive), ``DITHER_SEED_CLOCK`` (0; default), or
+            ``DITHER_SEED_CHECKSUM`` (-1); see note below
 
         Notes
         -----
@@ -206,12 +208,12 @@ class CompImageHDU(BinTableHDU):
                support the ability to extract and uncompress sections of the
                image without having to uncompress the entire image.
 
-        The `pyfits` module supports 3 general-purpose compression algorithms
+        The pyfits module supports 3 general-purpose compression algorithms
         plus one other special-purpose compression technique that is designed
         for data masks with positive integer pixel values.  The 3 general
         purpose algorithms are GZIP, Rice, and HCOMPRESS, and the
         special-purpose technique is the IRAF pixel list compression technique
-        (PLIO).  The `compression_type` parameter defines the compression
+        (PLIO).  The ``compression_type`` parameter defines the compression
         algorithm to be used.
 
         The FITS image can be subdivided into any desired rectangular grid of

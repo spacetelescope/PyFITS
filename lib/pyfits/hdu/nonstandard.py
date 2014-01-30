@@ -43,7 +43,7 @@ class FitsHDU(NonstandardExtHDU):
         ----------
         filename : str
             The path to the file to read into a FitsHDU
-        compress : bool (optional)
+        compress : bool, optional
             Gzip compress the FITS file
         """
 
@@ -58,7 +58,7 @@ class FitsHDU(NonstandardExtHDU):
         ----------
         hdulist : HDUList
             A valid Headerlet object.
-        compress : bool (optional)
+        compress : bool, optional
             Gzip compress the FITS file
         """
 

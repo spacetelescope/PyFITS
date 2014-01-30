@@ -37,11 +37,11 @@ class FITS_record(object):
 
         start : int, optional
            The starting column in the row associated with this object.
-           Used for subsetting the columns of the FITS_rec object.
+           Used for subsetting the columns of the `FITS_rec` object.
 
         end : int, optional
            The ending column in the row associated with this object.
-           Used for subsetting the columns of the FITS_rec object.
+           Used for subsetting the columns of the `FITS_rec` object.
         """
 
         # For backward compatibility...
@@ -153,8 +153,8 @@ class FITS_rec(np.recarray):
     """
     FITS record array class.
 
-    `FITS_rec` is the data part of a table HDU's data part.  This is a
-    layer over the `recarray`, so we can deal with scaled columns.
+    `FITS_rec` is the data part of a table HDU's data part.  This is a layer
+    over the `~numpy.recarray`, so we can deal with scaled columns.
 
     It inherits all of the standard methods from `numpy.ndarray`.
     """
@@ -231,17 +231,20 @@ class FITS_rec(np.recarray):
     @classmethod
     def from_columns(cls, columns, nrows=0, fill=False):
         """
-        Given a ColDefs object of unknown origin, initialize a new FITS_rec
+        Given a `ColDefs` object of unknown origin, initialize a new `FITS_rec`
         object.
 
-        This was originally part of the new_table function in the table module
-        but was moved into a class method since most of its functionality
-        always had more to do with initializing a FITS_rec object than anything
-        else, and much of it also overlapped with FITS_rec._scale_back.
+        Note
+        ----
+        This was originally part of the `new_table` function in the table
+        module but was moved into a class method since most of its
+        functionality always had more to do with initializing a `FITS_rec
+        object` than anything else, and much of it also overlapped with
+        ``FITS_rec._scale_back``.
 
         Parameters
         ----------
-        columns : sequence of Columns or a ColDefs
+        columns : sequence of `Column` or a `ColDefs`
             The columns from which to create the table data.  If these
             columns have data arrays attached that data may be used in
             initializing the new table.  Otherwise the input columns
@@ -505,13 +508,13 @@ class FITS_rec(np.recarray):
 
     def copy(self, order='C'):
         """
-        The Numpy documentation lies; ndarray.copy is not equivalent to
-        np.copy.  Differences include that it re-views the copied array
-        as self's ndarray subclass, as though it were taking a slice;
-        this means __array_finalize__ is called and the copy shares all
-        the array attributes (including ._convert!).  So we need to make
-        a deep copy of all those attributes so that the two arrays truly do
-        not share any data.
+        The Numpy documentation lies; `numpy.ndarray.copy` is not equivalent to
+        `numpy.copy`.  Differences include that it re-views the copied array as
+        self's ndarray subclass, as though it were taking a slice; this means
+        ``__array_finalize__`` is called and the copy shares all the array
+        attributes (including ``._convert``!).  So we need to make a deep copy
+        of all those attributes so that the two arrays truly do not share any
+        data.
         """
 
         try:
@@ -528,7 +531,9 @@ class FITS_rec(np.recarray):
     @property
     def columns(self):
         """
-        A user-visible accessor for the coldefs.  See ticket #44.
+        A user-visible accessor for the coldefs.
+
+        See https://trac.assembla.com/pyfits/ticket/44
         """
 
         return self._coldefs

@@ -63,6 +63,10 @@ class _TableLikeHDU(_ValidHDU):
 
     @lazyproperty
     def columns(self):
+        """
+        The :class:`ColDefs` objects describing the columns in this table.
+        """
+
         # The base class doesn't make any assumptions about where the column
         # definitions come from, so just return an empty ColDefs
         return ColDefs([])
@@ -137,7 +141,7 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
             name to be populated in ``EXTNAME`` keyword
 
         uint : bool, optional
-            set to ``True`` if the table contains unsigned integer columns.
+            set to `True` if the table contains unsigned integer columns.
         """
 
         super(_TableBaseHDU, self).__init__(data=data, header=header,
@@ -267,6 +271,10 @@ class _TableBaseHDU(ExtensionHDU, _TableLikeHDU):
 
     @lazyproperty
     def columns(self):
+        """
+        The :class:`ColDefs` objects describing the columns in this table.
+        """
+
         if self._has_data and hasattr(self.data, '_coldefs'):
             return self.data._coldefs
         return self._columns_type(self)
@@ -732,9 +740,9 @@ class BinTableHDU(_TableBaseHDU):
           .. note::
 
               This format does *not* support variable length arrays using the
-              ('Q' format) due difficult to overcome ambiguities. What
-              this means is that this file format cannot support VLA columns
-              in tables stored in files that are over 2 GB in size.
+              ('Q' format) due to difficult to overcome ambiguities. What this
+              means is that this file format cannot support VLA columns in
+              tables stored in files that are over 2 GB in size.
 
           For column data representing a bit field ('X' format), each bit
           value in the field is output right-justified in a 21-character field
@@ -866,7 +874,7 @@ class BinTableHDU(_TableBaseHDU):
             When the cdfile and hfile are missing, use this Header object in
             the creation of the new table and HDU.  Otherwise this Header
             supercedes the keywords from hfile, which is only used to update
-            values not present in this Header, unless replace=True in which
+            values not present in this Header, unless ``replace=True`` in which
             this Header's values are completely replaced with the values from
             hfile.
 
@@ -1177,28 +1185,28 @@ def new_table(input, header=None, nrows=0, fill=False, tbtype=BinTableHDU):
     separate arrays they must be combined into a single contiguous array.
 
     If the column data is already in a single contiguous array (such as an
-    existing record array) it may be better to create a BinTableHDU instance
+    existing record array) it may be better to create a `BinTableHDU` instance
     directly.  See the PyFITS documentation for more details.
 
     Parameters
     ----------
-    input : sequence of Column or ColDefs objects
-        The data to create a table from.
+    input : sequence of `Column` or a `ColDefs`
+        The data to create a table from
 
-    header : Header instance
-        Header to be used to populate the non-required keywords.
+    header : `Header` instance
+        Header to be used to populate the non-required keywords
 
     nrows : int
-        Number of rows in the new table.
+        Number of rows in the new table
 
     fill : bool
         If `True`, will fill all cells with zeros or blanks.  If
         `False`, copy the data from input, undefined cells will still
         be filled with zeros/blanks.
 
-    tbtype : str or class
-        Table type to be created (BinTableHDU or TableHDU) or the class
-        name as a string.  Currently only BinTableHDU and TableHDU (ASCII
+    tbtype : str or type
+        Table type to be created (`BinTableHDU` or `TableHDU`) or the class
+        name as a string.  Currently only `BinTableHDU` and `TableHDU` (ASCII
         tables) are supported.
     """
 
