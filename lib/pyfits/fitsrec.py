@@ -259,6 +259,9 @@ class FITS_rec(np.recarray):
             be filled with zeros/blanks.
         """
 
+        if not isinstance(columns, ColDefs):
+            columns = ColDefs(columns)
+
         # read the delayed data
         for idx in range(len(columns)):
             arr = columns._arrays[idx]
