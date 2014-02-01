@@ -476,7 +476,7 @@ class FITS_rec(np.recarray):
             return newrecord
 
     def __setitem__(self, key, value):
-        if isinstance(key, string_types):
+        if isinstance(key, basestring):
             self[key][:] = value
             return
 
