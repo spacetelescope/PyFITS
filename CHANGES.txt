@@ -39,6 +39,9 @@ Other Changes and Additions
   To disable PyFITS deprecation warnings in scripts one may call
   ``pyfits.ignore_deprecation_warnings()`` after importing PyFITS.
 
+- ``Card`` objects have a new ``is_blank`` attribute which returns ``True`` if
+  the card represents a blank card (no keyword, value, or comment) and
+  ``False`` otherwise.
 
 
 3.2.1 (unreleased)
