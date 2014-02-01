@@ -750,6 +750,13 @@ class Card(_Verify):
 
     @property
     def is_blank(self):
+        """
+        `True` if the card is completely blank--that is, it has no keyword,
+        value, or comment.  It appears in the header as 80 spaces.
+
+        Returns `False` otherwise.
+        """
+
         if not self._verified:
             # The card image has not been parsed yet; compare directly with the
             # string representation of a blank card
