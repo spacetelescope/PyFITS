@@ -1,3 +1,5 @@
+# -*- coding: utf8 -*-
+
 from __future__ import division, with_statement
 
 import sys
@@ -7,7 +9,7 @@ import numpy as np
 
 import pyfits as fits
 
-from ..extern.six import u, iterkeys, itervalues, iteritems, StringIO
+from ..extern.six import u, b, iterkeys, itervalues, iteritems, StringIO, PY3
 from ..extern.six.moves import zip, range
 
 from ..card import _pad
@@ -1864,6 +1866,27 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert_raises(ValueError, assign, 'FOO', ('BAR', erikku))
         assert_raises(ValueError, assign, 'FOO', (erikku, 'BAZ'))
         assert_raises(ValueError, assign, 'FOO', (erikku, erikku))
+
+    def test_assign_non_ascii(self):
+        """
+        First regression test for
+        https://github.com/spacetelescope/PyFITS/issues/37
+
+        Although test_assign_unicode ensures that Python 2 `unicode` objects
+        and Python 3 `str` objects containing non-ASCII characters cannot be
+        assigned to headers, there is a bug that allows Python 2 `str` objects
+        of arbitrary encoding containing non-ASCII characters to be passed
+        through.
+
+        On Python 3 it should not be possible to assign bytes to a header at
+        all.
+        """
+
+        h = fits.Header()
+        if PY3:
+            assert_raises(ValueError, h.set, 'TEST', b('Hello'))
+        else:
+            assert_raises(ValueError, h.set, 'TEST', str('ñ'))
 
     def test_header_strip_whitespace(self):
         """
