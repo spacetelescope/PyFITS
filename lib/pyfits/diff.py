@@ -1186,10 +1186,10 @@ def diff_values(a, b, tolerance=0.0):
 def report_diff_values(fileobj, a, b, ind=0):
     """Write a diff between two values to the specified file-like object."""
 
-    if isinstance(a, float):
+    if isinstance(a, (int, float, complex, np.number)):
         a = repr(a)
 
-    if isinstance(b, float):
+    if isinstance(b, (int, float, complex, np.number)):
         b = repr(b)
 
     if isinstance(a, np.ndarray) and isinstance(b, np.ndarray):
