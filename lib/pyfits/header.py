@@ -12,7 +12,7 @@ from collections import defaultdict
 from .extern.six import PY3, string_types, itervalues, iteritems, next
 from .extern.six.moves import zip, range
 
-from .card import Card, CardList, BLANK_CARD, KEYWORD_LENGTH, _pad
+from .card import Card, CardList, KEYWORD_LENGTH, _pad
 from .file import _File
 from .util import (BLOCK_SIZE, deprecated, isiterable, encode_ascii,
                    decode_ascii, fileobj_is_binary, fileobj_closed,
@@ -1202,7 +1202,7 @@ class Header(object):
                 'The value appended to a Header must be either a keyword or '
                 '(keyword, value, [comment]) tuple; got: %r' % card)
 
-        if not end and str(card) == BLANK_CARD:
+        if not end and card.is_blank:
             # Blank cards should always just be appended to the end
             end = True
 
@@ -1211,7 +1211,7 @@ class Header(object):
             idx = len(self._cards) - 1
         else:
             idx = len(self._cards) - 1
-            while idx >= 0 and str(self._cards[idx]) == BLANK_CARD:
+            while idx >= 0 and self._cards[idx].is_blank:
                 idx -= 1
 
             if not bottom and card.keyword not in Card._commentary_keywords:
@@ -1236,7 +1236,12 @@ class Header(object):
                 self._keyword_indices[keyword].sort()
 
             # Finally, if useblanks, delete a blank cards from the end
-            if useblanks:
+            if useblanks and self._countblanks():
+                # Don't do this unless there is at least one blanks at the end
+                # of the header; we need to convert the card to its string
+                # image to see how long it is.  In the vast majority of cases
+                # this will just be 80 (Card.length) but it may be longer for
+                # CONTINUE cards
                 self._useblanks(len(str(card)) // Card.length)
 
         self._modified = True
@@ -1326,7 +1331,7 @@ class Header(object):
                     extend_cards.append(card)
             else:
                 if unique or update and keyword in self:
-                    if str(card) == BLANK_CARD:
+                    if card.is_blank:
                         extend_cards.append(card)
                         continue
 
@@ -1776,13 +1781,13 @@ class Header(object):
         """Returns the number of blank cards at the end of the Header."""
 
         for idx in range(1, len(self._cards)):
-            if str(self._cards[-idx]) != BLANK_CARD:
+            if not self._cards[-idx].is_blank:
                 return idx - 1
         return 0
 
     def _useblanks(self, count):
         for _ in range(count):
-            if str(self._cards[-1]) == BLANK_CARD:
+            if self._cards[-1].is_blank:
                 del self[-1]
             else:
                 break

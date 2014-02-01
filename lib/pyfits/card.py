@@ -515,7 +515,8 @@ class Card(_Verify):
                     # also displayed
                     warnings.warn(
                         'Keyword name %r is greater than 8 characters or '
-                        'or contains spaces; a HIERARCH card will be created.' %
+                        'or contains characters not allowed by the FITS '
+                        'standard; a HIERARCH card will be created.' %
                         keyword, VerifyWarning)
             else:
                 raise ValueError('Illegal keyword name: %r.' % keyword)
@@ -746,6 +747,20 @@ class Card(_Verify):
         if self._image is None or self._modified:
             self._image = self._format_image()
         return self._image
+
+    @property
+    def is_blank(self):
+        if not self._verified:
+            # The card image has not been parsed yet; compare directly with the
+            # string representation of a blank card
+            return self._image == BLANK_CARD
+
+        # If the keyword, value, and comment are all empty (for self.value
+        # explicitly check that it is a string value, since a blank value is
+        # returned as '')
+        return (not self.keyword and
+                (isinstance(self.value, string_types) and not self.value) and
+                not self.comment)
 
     @property
     @deprecated('3.1', alternative='the `.image` attribute')
