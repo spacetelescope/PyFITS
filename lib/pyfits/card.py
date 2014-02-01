@@ -575,6 +575,19 @@ class Card(_Verify):
                     'FITS header values must contain standard ASCII '
                     'characters; %r contains characters not representable in '
                     'ASCII.' % value)
+        elif isinstance(value, bytes):
+            # Allow str, but only if they can be decoded to ASCII text; note
+            # this is not even allowed on Python 3 since the `bytes` type is
+            # not included in `six.string_types`.  Presently we simply don't
+            # allow bytes to be assigned to headers, as doing so would too
+            # easily mask potential user error
+            try:
+                value.decode('ascii')
+            except UnicodeDecodeError:
+                raise ValueError(
+                    'FITS header values must contain standard ASCII '
+                    'characters; %r contains characters/bytes that do not '
+                    'represent characters in ASCII.' % value)
         elif isinstance(value, np.bool_):
             value = bool(value)
 
