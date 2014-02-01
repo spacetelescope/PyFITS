@@ -66,6 +66,10 @@ Changelog
   argument to ``FITS_rec.from_columns`` as the documentation suggests should
   be possible.
 
+- Fixed a display formatting issue with fitsdiff where sometimes it did not
+  show the difference between two floating point numbers if they were the same
+  up to some low number of digits. (spacetelescope/PyFITS#21)
+
 
 3.1.4 (unreleased)
 ------------------
@@ -112,6 +116,10 @@ Changelog
   example "END = ").  This resulted in a cryptic traceback.  Now headers like
   this will detect "clearly intended" END cards and produce a warning about
   their invalidity and fix them. (Backported from 3.2.1)
+
+- Fixed a display formatting issue with fitsdiff where sometimes it did not
+  show the difference between two floating point numbers if they were the same
+  up to some low number of digits. (Backported from 3.2.1)
 
 
 3.0.13 (unreleased)

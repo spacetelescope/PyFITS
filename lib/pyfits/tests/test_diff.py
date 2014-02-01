@@ -3,10 +3,12 @@ import numpy as np
 import pyfits as fits
 from pyfits.column import Column
 from pyfits.diff import *
+from pyfits.diff import report_diff_values
 from pyfits.hdu import HDUList, PrimaryHDU, ImageHDU
 from pyfits.hdu.table import new_table
 from pyfits.header import Header
 from pyfits.tests import PyfitsTestCase
+from pyfits.util import StringIO
 
 
 class TestDiff(PyfitsTestCase):
@@ -571,3 +573,21 @@ class TestDiff(PyfitsTestCase):
         assert diff.diff_values[1][0] == ('colb', 1)
         assert np.isnan(diff.diff_values[1][1][0])
         assert diff.diff_values[1][1][1] == 2.0
+
+    def test_float_comparison(self):
+        """
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/21
+        """
+
+        f = StringIO()
+
+        a = np.float32(0.029751372)
+        b = np.float32(0.029751368)
+
+        report_diff_values(f, a, b)
+        out = f.getvalue()
+
+        # This test doesn't care about what the exact output is, just that it
+        # did show a difference in their text representations
+        assert 'a>' in out
+        assert 'b>' in out
