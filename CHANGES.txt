@@ -52,6 +52,10 @@ Changelog
   show the difference between two floating point numbers if they were the same
   up to some low number of digits. (Backported from 3.2.1)
 
+- Fixed an issue where Python 2 sometimes allowed non-ASCII strings to be
+  assigned as header values if they were assigned as old-style ``str`` objects
+  and not ``unicode`` objects. (Backported from 3.2.1)
+
 
 3.0.13 (unreleased)
 -------------------
