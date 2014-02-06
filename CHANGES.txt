@@ -4,6 +4,8 @@ Changelog
 3.2.1 (unreleased)
 ------------------
 
+- Nominal support for the upcoming Python 3.4.
+
 - Added missing features from the ``Header.insert()`` method that were
   intended for inclusion in the original 3.1 release:  In addition to
   accepting an integer index as the first argument, it also supports supplying
