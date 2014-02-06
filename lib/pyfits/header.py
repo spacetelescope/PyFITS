@@ -148,15 +148,7 @@ class Header(object):
         return card.value
 
     def __setitem__(self, key, value):
-        if isinstance(key, slice) or self._haswildcard(key):
-            if isinstance(key, slice):
-                indices = xrange(*key.indices(len(self)))
-            else:
-                indices = self._wildcardmatch(key)
-            if isinstance(value, basestring) or not isiterable(value):
-                value = itertools.repeat(value, len(indices))
-            for idx, val in itertools.izip(indices, value):
-                self[idx] = val
+        if self._set_slice(key, value, self):
             return
 
         if isinstance(value, tuple):
@@ -1695,6 +1687,24 @@ class Header(object):
             raise IndexError('There are only %d %r cards in the header.' %
                              (len(indices), keyword))
 
+    def _keyword_from_index(self, idx):
+        """
+        Given an integer index, return the (keyword, repeat) tuple that index
+        refers to.  For most keywords the repeat will always be zero, but it
+        may be greater than zero for keywords that are duplicated (especially
+        commentary keywords).
+
+        In a sense this is the inverse of self.index, except that it also
+        supports duplicates.
+        """
+
+        if idx < 0:
+            idx += len(self._cards) - 1
+
+        keyword = self._cards[idx].keyword
+        repeat = self._keyword_indices[keyword].index(idx)
+        return keyword, repeat
+
     def _relativeinsert(self, card, before=None, after=None, replace=False):
         """
         Inserts a new card before or after an existing card; used to
@@ -1724,7 +1734,7 @@ class Header(object):
         if replace:
             # The card presumably already exists somewhere in the header.
             # Check whether or not we actually have to move it; if it does need
-            # to be moved we just delete it and then it will be reinstered
+            # to be moved we just delete it and then it will be reinserted
             # below
             old_idx = self._cardindex(card.keyword)
             insertion_idx = get_insertion_idx()
@@ -1808,6 +1818,27 @@ class Header(object):
 
         return [idx for idx, card in enumerate(self._cards)
                 if pattern_re.match(card.keyword)]
+
+    def _set_slice(self, key, value, target):
+        """
+        Used to implement Header.__setitem__ and CardAccessor.__setitem__.
+        """
+
+        if isinstance(key, slice) or self._haswildcard(key):
+            if isinstance(key, slice):
+                indices = range(*key.indices(len(target)))
+            else:
+                indices = self._wildcardmatch(key)
+
+            if isinstance(value, basestring) or not isiterable(value):
+                value = itertools.repeat(value, len(indices))
+
+            for idx, val in zip(indices, value):
+                target[idx] = val
+
+            return True
+
+        return False
 
     def _splitcommentary(self, keyword, value):
         """
@@ -2078,24 +2109,6 @@ class _CardAccessor(object):
         idx = self._header._cardindex(item)
         return self._header._cards[idx]
 
-    def _setslice(self, item, value):
-        """
-        Helper for implementing __setitem__ on _CardAccessor subclasses; slices
-        should always be handled in this same way.
-        """
-
-        if isinstance(item, slice) or self._header._haswildcard(item):
-            if isinstance(item, slice):
-                indices = xrange(*item.indices(len(self)))
-            else:
-                indices = self._header._wildcardmatch(item)
-            if isinstance(value, basestring) or not isiterable(value):
-                value = itertools.repeat(value, len(indices))
-            for idx, val in itertools.izip(indices, value):
-                self[idx] = val
-            return True
-        return False
-
 
 class _HeaderComments(_CardAccessor):
     """
@@ -2140,7 +2153,7 @@ class _HeaderComments(_CardAccessor):
         Slice/filter updates work similarly to how Header.__setitem__ works.
         """
 
-        if self._setslice(item, comment):
+        if self._header._set_slice(item, comment, self):
             return
 
         # In this case, key/index errors should be raised; don't update
@@ -2192,7 +2205,7 @@ class _HeaderCommentaryCards(_CardAccessor):
         Slice/filter updates work similarly to how Header.__setitem__ works.
         """
 
-        if self._setslice(item, value):
+        if self._header._set_slice(item, value, self):
             return
 
         # In this case, key/index errors should be raised; don't update
