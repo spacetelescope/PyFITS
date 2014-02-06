@@ -544,6 +544,210 @@ class TestImageFunctions(PyfitsTestCase):
         assert (d.section[0:2, 0:2] == dat[0:2, 0:2]).all()
         assert not d._data_loaded
 
+    def test_do_not_scale_image_data(self):
+        hdul = fits.open(self.data('scale.fits'), do_not_scale_image_data=True)
+        assert hdul[0].data.dtype == np.dtype('>i2')
+        hdul = fits.open(self.data('scale.fits'))
+        assert hdul[0].data.dtype == np.dtype('float32')
+
+    def test_append_uint_data(self):
+        """Regression test for https://trac.assembla.com/pyfits/ticket/56
+        (BZERO and BSCALE added in the wrong location when appending scaled
+        data)
+        """
+
+        fits.writeto(self.temp('test_new.fits'), data=np.array([],
+                     dtype='uint8'))
+        d = np.zeros([100, 100]).astype('uint16')
+        fits.append(self.temp('test_new.fits'), data=d)
+        f = fits.open(self.temp('test_new.fits'), uint=True)
+        assert f[1].data.dtype == 'uint16'
+
+    def test_blanks(self):
+        """Test image data with blank spots in it (which should show up as
+        NaNs in the data array.
+        """
+
+        arr = np.zeros((10, 10), dtype=np.int32)
+        # One row will be blanks
+        arr[1] = 999
+        hdu = fits.ImageHDU(data=arr)
+        hdu.header['BLANK'] = 999
+        hdu.writeto(self.temp('test_new.fits'))
+
+        hdul = fits.open(self.temp('test_new.fits'))
+        assert np.isnan(hdul[1].data[1]).all()
+
+    def test_bzero_with_floats(self):
+        """Test use of the BZERO keyword in an image HDU containing float
+        data.
+        """
+
+        arr = np.zeros((10, 10)) - 1
+        hdu = fits.ImageHDU(data=arr)
+        hdu.header['BZERO'] = 1.0
+        hdu.writeto(self.temp('test_new.fits'))
+
+        hdul = fits.open(self.temp('test_new.fits'))
+        arr += 1
+        assert (hdul[1].data == arr).all()
+
+    def test_rewriting_large_scaled_image(self):
+        """Regression test for https://trac.assembla.com/pyfits/ticket/84 and
+        https://trac.assembla.com/pyfits/ticket/101
+        """
+
+        hdul = fits.open(self.data('fixed-1890.fits'))
+        orig_data = hdul[0].data
+        with ignore_warnings():
+            hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        hdul.close()
+        hdul = fits.open(self.temp('test_new.fits'))
+        assert (hdul[0].data == orig_data).all()
+        hdul.close()
+
+        # Just as before, but this time don't touch hdul[0].data before writing
+        # back out--this is the case that failed in
+        # https://trac.assembla.com/pyfits/ticket/84
+        hdul = fits.open(self.data('fixed-1890.fits'))
+        with ignore_warnings():
+            hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        hdul.close()
+        hdul = fits.open(self.temp('test_new.fits'))
+        assert (hdul[0].data == orig_data).all()
+        hdul.close()
+
+        # Test opening/closing/reopening a scaled file in update mode
+        hdul = fits.open(self.data('fixed-1890.fits'),
+                         do_not_scale_image_data=True)
+        hdul.writeto(self.temp('test_new.fits'), clobber=True,
+                     output_verify='silentfix')
+        hdul.close()
+        hdul = fits.open(self.temp('test_new.fits'))
+        orig_data = hdul[0].data
+        hdul.close()
+        hdul = fits.open(self.temp('test_new.fits'), mode='update')
+        hdul.close()
+        hdul = fits.open(self.temp('test_new.fits'))
+        assert (hdul[0].data == orig_data).all()
+        hdul = fits.open(self.temp('test_new.fits'))
+        hdul.close()
+
+    def test_image_update_header(self):
+        """
+        Regression test for https://trac.assembla.com/pyfits/ticket/105
+
+        Replacing the original header to an image HDU and saving should update
+        the NAXISn keywords appropriately and save the image data correctly.
+        """
+
+        # Copy the original file before saving to it
+        self.copy_file('test0.fits')
+        with fits.open(self.temp('test0.fits'), mode='update') as hdul:
+            orig_data = hdul[1].data.copy()
+            hdr_copy = hdul[1].header.copy()
+            del hdr_copy['NAXIS*']
+            hdul[1].header = hdr_copy
+
+        with fits.open(self.temp('test0.fits')) as hdul:
+            assert (orig_data == hdul[1].data).all()
+
+    def test_open_scaled_in_update_mode(self):
+        """
+        Regression test for https://trac.assembla.com/pyfits/ticket/119
+        (Don't update scaled image data if the data is not read)
+
+        This ensures that merely opening and closing a file containing scaled
+        image data does not cause any change to the data (or the header).
+        Changes should only occur if the data is accessed.
+        """
+
+        # Copy the original file before making any possible changes to it
+        self.copy_file('scale.fits')
+        mtime = os.stat(self.temp('scale.fits')).st_mtime
+
+        time.sleep(1)
+
+        fits.open(self.temp('scale.fits'), mode='update').close()
+
+        # Ensure that no changes were made to the file merely by immediately
+        # opening and closing it.
+        assert mtime == os.stat(self.temp('scale.fits')).st_mtime
+
+        # Insert a slight delay to ensure the mtime does change when the file
+        # is changed
+        time.sleep(1)
+
+        hdul = fits.open(self.temp('scale.fits'), 'update')
+        orig_data = hdul[0].data
+        hdul.close()
+
+        # Now the file should be updated with the rescaled data
+        assert mtime != os.stat(self.temp('scale.fits')).st_mtime
+        hdul = fits.open(self.temp('scale.fits'), mode='update')
+        assert hdul[0].data.dtype == np.dtype('>f4')
+        assert hdul[0].header['BITPIX'] == -32
+        assert 'BZERO' not in hdul[0].header
+        assert 'BSCALE' not in hdul[0].header
+        assert (orig_data == hdul[0].data).all()
+
+        # Try reshaping the data, then closing and reopening the file; let's
+        # see if all the changes are preseved properly
+        hdul[0].data.shape = (42, 10)
+        hdul.close()
+
+        hdul = fits.open(self.temp('scale.fits'))
+        assert hdul[0].shape == (42, 10)
+        assert hdul[0].data.dtype == np.dtype('>f4')
+        assert hdul[0].header['BITPIX'] == -32
+        assert 'BZERO' not in hdul[0].header
+        assert 'BSCALE' not in hdul[0].header
+
+    def test_scale_back(self):
+        """A simple test for https://trac.assembla.com/pyfits/ticket/120
+
+        The scale_back feature for image HDUs.
+        """
+
+        self.copy_file('scale.fits')
+        with fits.open(self.temp('scale.fits'), mode='update',
+                       scale_back=True) as hdul:
+            orig_bitpix = hdul[0].header['BITPIX']
+            orig_bzero = hdul[0].header['BZERO']
+            orig_bscale = hdul[0].header['BSCALE']
+            orig_data = hdul[0].data.copy()
+            hdul[0].data[0] = 0
+
+        with fits.open(self.temp('scale.fits'),
+                       do_not_scale_image_data=True) as hdul:
+            assert hdul[0].header['BITPIX'] == orig_bitpix
+            assert hdul[0].header['BZERO'] == orig_bzero
+            assert hdul[0].header['BSCALE'] == orig_bscale
+
+            zero_point = int(math.floor(-orig_bzero / orig_bscale))
+            assert (hdul[0].data[0] == zero_point).all()
+
+        with fits.open(self.temp('scale.fits')) as hdul:
+            assert (hdul[0].data[1:] == orig_data[1:]).all()
+
+    def test_image_none(self):
+        """
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/27
+        """
+
+        with fits.open(self.data('test0.fits')) as h:
+            h[1].data
+            h[1].data = None
+            h[1].writeto(self.temp('test.fits'))
+
+        with fits.open(self.temp('test.fits')) as h:
+            assert h[1].data is None
+            assert h[1].header['NAXIS'] == 0
+            assert 'NAXIS1' not in h[1].header
+            assert 'NAXIS2' not in h[1].header
+
+
+class TestCompressedImage(PyfitsTestCase):
     def test_comp_image(self):
         argslist = [
             (np.zeros((2, 10, 10), dtype=np.float32), 'RICE_1', 16),
@@ -664,225 +868,6 @@ class TestImageFunctions(PyfitsTestCase):
         # opening and closing it.
         assert mtime == os.stat(self.temp('comp.fits')).st_mtime
 
-    def test_write_comp_hdu_direct_from_existing(self):
-        with fits.open(self.data('comp.fits')) as hdul:
-            hdul[1].writeto(self.temp('test.fits'))
-
-        with fits.open(self.data('comp.fits')) as hdul1:
-            with fits.open(self.temp('test.fits')) as hdul2:
-                assert np.all(hdul1[1].data == hdul2[1].data)
-                assert comparerecords(hdul1[1].compressed_data,
-                                      hdul2[1].compressed_data)
-
-    def test_do_not_scale_image_data(self):
-        hdul = fits.open(self.data('scale.fits'), do_not_scale_image_data=True)
-        assert hdul[0].data.dtype == np.dtype('>i2')
-        hdul = fits.open(self.data('scale.fits'))
-        assert hdul[0].data.dtype == np.dtype('float32')
-
-    def test_append_uint_data(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/56
-        (BZERO and BSCALE added in the wrong location when appending scaled
-        data)
-        """
-
-        fits.writeto(self.temp('test_new.fits'), data=np.array([],
-                     dtype='uint8'))
-        d = np.zeros([100, 100]).astype('uint16')
-        fits.append(self.temp('test_new.fits'), data=d)
-        f = fits.open(self.temp('test_new.fits'), uint=True)
-        assert f[1].data.dtype == 'uint16'
-
-    def test_blanks(self):
-        """Test image data with blank spots in it (which should show up as
-        NaNs in the data array.
-        """
-
-        arr = np.zeros((10, 10), dtype=np.int32)
-        # One row will be blanks
-        arr[1] = 999
-        hdu = fits.ImageHDU(data=arr)
-        hdu.header['BLANK'] = 999
-        hdu.writeto(self.temp('test_new.fits'))
-
-        hdul = fits.open(self.temp('test_new.fits'))
-        assert np.isnan(hdul[1].data[1]).all()
-
-    def test_bzero_with_floats(self):
-        """Test use of the BZERO keyword in an image HDU containing float
-        data.
-        """
-
-        arr = np.zeros((10, 10)) - 1
-        hdu = fits.ImageHDU(data=arr)
-        hdu.header['BZERO'] = 1.0
-        hdu.writeto(self.temp('test_new.fits'))
-
-        hdul = fits.open(self.temp('test_new.fits'))
-        arr += 1
-        assert (hdul[1].data == arr).all()
-
-    def test_rewriting_large_scaled_image(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/84 and
-        https://trac.assembla.com/pyfits/ticket/101
-        """
-
-        hdul = fits.open(self.data('fixed-1890.fits'))
-        orig_data = hdul[0].data
-        with ignore_warnings():
-            hdul.writeto(self.temp('test_new.fits'), clobber=True)
-        hdul.close()
-        hdul = fits.open(self.temp('test_new.fits'))
-        assert (hdul[0].data == orig_data).all()
-        hdul.close()
-
-        # Just as before, but this time don't touch hdul[0].data before writing
-        # back out--this is the case that failed in
-        # https://trac.assembla.com/pyfits/ticket/84
-        hdul = fits.open(self.data('fixed-1890.fits'))
-        with ignore_warnings():
-            hdul.writeto(self.temp('test_new.fits'), clobber=True)
-        hdul.close()
-        hdul = fits.open(self.temp('test_new.fits'))
-        assert (hdul[0].data == orig_data).all()
-        hdul.close()
-
-        # Test opening/closing/reopening a scaled file in update mode
-        hdul = fits.open(self.data('fixed-1890.fits'),
-                         do_not_scale_image_data=True)
-        hdul.writeto(self.temp('test_new.fits'), clobber=True,
-                     output_verify='silentfix')
-        hdul.close()
-        hdul = fits.open(self.temp('test_new.fits'))
-        orig_data = hdul[0].data
-        hdul.close()
-        hdul = fits.open(self.temp('test_new.fits'), mode='update')
-        hdul.close()
-        hdul = fits.open(self.temp('test_new.fits'))
-        assert (hdul[0].data == orig_data).all()
-        hdul = fits.open(self.temp('test_new.fits'))
-        hdul.close()
-
-    def test_rewriting_large_scaled_image_compressed(self):
-        """
-        Regression test for https://trac.assembla.com/pyfits/ticket/88 1
-
-        Identical to test_rewriting_large_scaled_image() but with a compressed
-        image.
-        """
-
-        with fits.open(self.data('fixed-1890.fits'),
-                       do_not_scale_image_data=True) as hdul:
-            chdu = fits.CompImageHDU(data=hdul[0].data,
-                                     header=hdul[0].header)
-            chdu.writeto(self.temp('fixed-1890-z.fits'))
-
-        hdul = fits.open(self.temp('fixed-1890-z.fits'))
-        orig_data = hdul[1].data
-        with ignore_warnings():
-            hdul.writeto(self.temp('test_new.fits'), clobber=True)
-        hdul.close()
-        hdul = fits.open(self.temp('test_new.fits'))
-        assert (hdul[1].data == orig_data).all()
-        hdul.close()
-
-        # Just as before, but this time don't touch hdul[0].data before writing
-        # back out--this is the case that failed in
-        # https://trac.assembla.com/pyfits/ticket/84
-        hdul = fits.open(self.temp('fixed-1890-z.fits'))
-        with ignore_warnings():
-            hdul.writeto(self.temp('test_new.fits'), clobber=True)
-        hdul.close()
-        hdul = fits.open(self.temp('test_new.fits'))
-        assert (hdul[1].data == orig_data).all()
-        hdul.close()
-
-        # Test opening/closing/reopening a scaled file in update mode
-        hdul = fits.open(self.temp('fixed-1890-z.fits'),
-                         do_not_scale_image_data=True)
-        hdul.writeto(self.temp('test_new.fits'), clobber=True,
-                     output_verify='silentfix')
-        hdul.close()
-        hdul = fits.open(self.temp('test_new.fits'))
-        orig_data = hdul[1].data
-        hdul.close()
-        hdul = fits.open(self.temp('test_new.fits'), mode='update')
-        hdul.close()
-        hdul = fits.open(self.temp('test_new.fits'))
-        assert (hdul[1].data == orig_data).all()
-        hdul = fits.open(self.temp('test_new.fits'))
-        hdul.close()
-
-    def test_image_update_header(self):
-        """
-        Regression test for https://trac.assembla.com/pyfits/ticket/105
-
-        Replacing the original header to an image HDU and saving should update
-        the NAXISn keywords appropriately and save the image data correctly.
-        """
-
-        # Copy the original file before saving to it
-        self.copy_file('test0.fits')
-        with fits.open(self.temp('test0.fits'), mode='update') as hdul:
-            orig_data = hdul[1].data.copy()
-            hdr_copy = hdul[1].header.copy()
-            del hdr_copy['NAXIS*']
-            hdul[1].header = hdr_copy
-
-        with fits.open(self.temp('test0.fits')) as hdul:
-            assert (orig_data == hdul[1].data).all()
-
-    def test_open_scaled_in_update_mode(self):
-        """
-        Regression test for https://trac.assembla.com/pyfits/ticket/119
-        (Don't update scaled image data if the data is not read)
-
-        This ensures that merely opening and closing a file containing scaled
-        image data does not cause any change to the data (or the header).
-        Changes should only occur if the data is accessed.
-        """
-
-        # Copy the original file before making any possible changes to it
-        self.copy_file('scale.fits')
-        mtime = os.stat(self.temp('scale.fits')).st_mtime
-
-        time.sleep(1)
-
-        fits.open(self.temp('scale.fits'), mode='update').close()
-
-        # Ensure that no changes were made to the file merely by immediately
-        # opening and closing it.
-        assert mtime == os.stat(self.temp('scale.fits')).st_mtime
-
-        # Insert a slight delay to ensure the mtime does change when the file
-        # is changed
-        time.sleep(1)
-
-        hdul = fits.open(self.temp('scale.fits'), 'update')
-        orig_data = hdul[0].data
-        hdul.close()
-
-        # Now the file should be updated with the rescaled data
-        assert mtime != os.stat(self.temp('scale.fits')).st_mtime
-        hdul = fits.open(self.temp('scale.fits'), mode='update')
-        assert hdul[0].data.dtype == np.dtype('>f4')
-        assert hdul[0].header['BITPIX'] == -32
-        assert 'BZERO' not in hdul[0].header
-        assert 'BSCALE' not in hdul[0].header
-        assert (orig_data == hdul[0].data).all()
-
-        # Try reshaping the data, then closing and reopening the file; let's
-        # see if all the changes are preseved properly
-        hdul[0].data.shape = (42, 10)
-        hdul.close()
-
-        hdul = fits.open(self.temp('scale.fits'))
-        assert hdul[0].shape == (42, 10)
-        assert hdul[0].data.dtype == np.dtype('>f4')
-        assert hdul[0].header['BITPIX'] == -32
-        assert 'BZERO' not in hdul[0].header
-        assert 'BSCALE' not in hdul[0].header
-
     def test_open_scaled_in_update_mode_compressed(self):
         """
         Regression test for https://trac.assembla.com/pyfits/ticket/88 2
@@ -936,32 +921,65 @@ class TestImageFunctions(PyfitsTestCase):
         assert 'BZERO' not in hdul[1].header
         assert 'BSCALE' not in hdul[1].header
 
-    def test_scale_back(self):
-        """A simple test for https://trac.assembla.com/pyfits/ticket/120
+    def test_write_comp_hdu_direct_from_existing(self):
+        with fits.open(self.data('comp.fits')) as hdul:
+            hdul[1].writeto(self.temp('test.fits'))
 
-        The scale_back feature for image HDUs.
+        with fits.open(self.data('comp.fits')) as hdul1:
+            with fits.open(self.temp('test.fits')) as hdul2:
+                assert np.all(hdul1[1].data == hdul2[1].data)
+                assert comparerecords(hdul1[1].compressed_data,
+                                      hdul2[1].compressed_data)
+
+    def test_rewriting_large_scaled_image_compressed(self):
+        """
+        Regression test for https://trac.assembla.com/pyfits/ticket/88 1
+
+        Identical to test_rewriting_large_scaled_image() but with a compressed
+        image.
         """
 
-        self.copy_file('scale.fits')
-        with fits.open(self.temp('scale.fits'), mode='update',
-                       scale_back=True) as hdul:
-            orig_bitpix = hdul[0].header['BITPIX']
-            orig_bzero = hdul[0].header['BZERO']
-            orig_bscale = hdul[0].header['BSCALE']
-            orig_data = hdul[0].data.copy()
-            hdul[0].data[0] = 0
-
-        with fits.open(self.temp('scale.fits'),
+        with fits.open(self.data('fixed-1890.fits'),
                        do_not_scale_image_data=True) as hdul:
-            assert hdul[0].header['BITPIX'] == orig_bitpix
-            assert hdul[0].header['BZERO'] == orig_bzero
-            assert hdul[0].header['BSCALE'] == orig_bscale
+            chdu = fits.CompImageHDU(data=hdul[0].data,
+                                     header=hdul[0].header)
+            chdu.writeto(self.temp('fixed-1890-z.fits'))
 
-            zero_point = int(math.floor(-orig_bzero / orig_bscale))
-            assert (hdul[0].data[0] == zero_point).all()
+        hdul = fits.open(self.temp('fixed-1890-z.fits'))
+        orig_data = hdul[1].data
+        with ignore_warnings():
+            hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        hdul.close()
+        hdul = fits.open(self.temp('test_new.fits'))
+        assert (hdul[1].data == orig_data).all()
+        hdul.close()
 
-        with fits.open(self.temp('scale.fits')) as hdul:
-            assert (hdul[0].data[1:] == orig_data[1:]).all()
+        # Just as before, but this time don't touch hdul[0].data before writing
+        # back out--this is the case that failed in
+        # https://trac.assembla.com/pyfits/ticket/84
+        hdul = fits.open(self.temp('fixed-1890-z.fits'))
+        with ignore_warnings():
+            hdul.writeto(self.temp('test_new.fits'), clobber=True)
+        hdul.close()
+        hdul = fits.open(self.temp('test_new.fits'))
+        assert (hdul[1].data == orig_data).all()
+        hdul.close()
+
+        # Test opening/closing/reopening a scaled file in update mode
+        hdul = fits.open(self.temp('fixed-1890-z.fits'),
+                         do_not_scale_image_data=True)
+        hdul.writeto(self.temp('test_new.fits'), clobber=True,
+                     output_verify='silentfix')
+        hdul.close()
+        hdul = fits.open(self.temp('test_new.fits'))
+        orig_data = hdul[1].data
+        hdul.close()
+        hdul = fits.open(self.temp('test_new.fits'), mode='update')
+        hdul.close()
+        hdul = fits.open(self.temp('test_new.fits'))
+        assert (hdul[1].data == orig_data).all()
+        hdul = fits.open(self.temp('test_new.fits'))
+        hdul.close()
 
     def test_scale_back_compressed(self):
         """
@@ -1055,27 +1073,159 @@ class TestImageFunctions(PyfitsTestCase):
         self.copy_file('comp.fits')
         with fits.open(self.temp('comp.fits'), mode='update') as hdul:
             assert isinstance(hdul[1], fits.CompImageHDU)
-            hdul[1].header['test'] = 'test'
+            hdul[1].header['test1'] = 'test'
             hdul[1]._header['test2'] = 'test2'
 
         with fits.open(self.temp('comp.fits')) as hdul:
-            assert 'test' in hdul[1].header
-            assert hdul[1].header['test'] == 'test'
+            assert 'test1' in hdul[1].header
+            assert hdul[1].header['test1'] == 'test'
             assert 'test2' in hdul[1].header
             assert  hdul[1].header['test2'] == 'test2'
 
-    def test_image_none(self):
+        # Test update via index now:
+        with fits.open(self.temp('comp.fits'), mode='update') as hdul:
+            hdr = hdul[1].header
+            hdr[hdr.index('TEST1')] = 'foo'
+
+        with fits.open(self.temp('comp.fits')) as hdul:
+            assert hdul[1].header['TEST1'] == 'foo'
+
+        # Test slice updates
+        with fits.open(self.temp('comp.fits'), mode='update') as hdul:
+            hdul[1].header['TEST*'] = 'qux'
+
+        with fits.open(self.temp('comp.fits')) as hdul:
+            assert list(hdul[1].header['TEST*'].values()) == ['qux', 'qux']
+
+        with fits.open(self.temp('comp.fits'), mode='update') as hdul:
+            hdr = hdul[1].header
+            idx = hdr.index('TEST1')
+            hdr[idx:idx + 2] = 'bar'
+
+        with fits.open(self.temp('comp.fits')) as hdul:
+            assert list(hdul[1].header['TEST*'].values()) == ['bar', 'bar']
+
+        # Test updating a specific COMMENT card duplicate
+        with fits.open(self.temp('comp.fits'), mode='update') as hdul:
+            hdul[1].header[('COMMENT', 1)] = 'I am fire. I am death!'
+
+        with fits.open(self.temp('comp.fits')) as hdul:
+            assert hdul[1].header['COMMENT'][1] == 'I am fire. I am death!'
+            assert hdul[1]._header['COMMENT'][1] == 'I am fire. I am death!'
+
+        # Test deleting by keyword and by slice
+        with fits.open(self.temp('comp.fits'), mode='update') as hdul:
+            hdr = hdul[1].header
+            del hdr['COMMENT']
+            idx = hdr.index('TEST1')
+            del hdr[idx:idx + 2]
+
+        with fits.open(self.temp('comp.fits')) as hdul:
+            assert 'COMMENT' not in hdul[1].header
+            assert 'COMMENT' not in hdul[1]._header
+            assert 'TEST1' not in hdul[1].header
+            assert 'TEST1' not in hdul[1]._header
+            assert 'TEST2' not in hdul[1].header
+            assert 'TEST2' not in hdul[1]._header
+
+    def test_compression_update_header_with_reserved(self):
         """
-        Regression test for https://github.com/spacetelescope/PyFITS/issues/27
+        Ensure that setting reserved keywords related to the table data
+        structure on CompImageHDU image headers fails.
         """
 
-        with fits.open(self.data('test0.fits')) as h:
-            h[1].data
-            h[1].data = None
-            h[1].writeto(self.temp('test.fits'))
+        def test_set_keyword(hdr, keyword, value):
+            with catch_warnings(record=True) as w:
+                hdr[keyword] = value
+                assert len(w) == 1
+                assert str(w[0].message).startswith(
+                        "Keyword %r is reserved" % keyword)
+                assert keyword not in hdr
 
-        with fits.open(self.temp('test.fits')) as h:
-            assert h[1].data is None
-            assert h[1].header['NAXIS'] == 0
-            assert 'NAXIS1' not in h[1].header
-            assert 'NAXIS2' not in h[1].header
+        with fits.open(self.data('comp.fits')) as hdul:
+            hdr = hdul[1].header
+            test_set_keyword(hdr, 'TFIELDS', 8)
+            test_set_keyword(hdr, 'TTYPE1', 'Foo')
+            test_set_keyword(hdr, 'ZCMPTYPE', 'ASDF')
+            test_set_keyword(hdr, 'ZVAL1', 'Foo')
+
+    def test_compression_header_append(self):
+        with fits.open(self.data('comp.fits')) as hdul:
+            imghdr = hdul[1].header
+            tblhdr = hdul[1]._header
+            with catch_warnings(record=True) as w:
+                imghdr.append('TFIELDS')
+                assert len(w) == 1
+                assert 'TFIELDS' not in imghdr
+
+            imghdr.append(('FOO', 'bar', 'qux'), end=True)
+            assert 'FOO' in imghdr
+            assert imghdr[-1] == 'bar'
+            assert 'FOO' in tblhdr
+            assert tblhdr[-1] == 'bar'
+
+            imghdr.append(('CHECKSUM', 'abcd1234'))
+            assert 'CHECKSUM' in imghdr
+            assert imghdr['CHECKSUM'] == 'abcd1234'
+            assert 'CHECKSUM' not in tblhdr
+            assert 'ZHECKSUM' in tblhdr
+            assert tblhdr['ZHECKSUM'] == 'abcd1234'
+
+    def test_compression_header_insert(self):
+        with fits.open(self.data('comp.fits')) as hdul:
+            imghdr = hdul[1].header
+            tblhdr = hdul[1]._header
+            # First try inserting a restricted keyword
+            with catch_warnings(record=True) as w:
+                imghdr.insert(1000, 'TFIELDS')
+                assert len(w) == 1
+                assert 'TFIELDS' not in imghdr
+                assert tblhdr.count('TFIELDS') == 1
+
+            # First try keyword-relative insert
+            imghdr.insert('TELESCOP', ('OBSERVER', 'Phil Plait'))
+            assert 'OBSERVER' in imghdr
+            assert imghdr.index('OBSERVER') == imghdr.index('TELESCOP') - 1
+            assert 'OBSERVER' in tblhdr
+            assert tblhdr.index('OBSERVER') == tblhdr.index('TELESCOP') - 1
+
+            # Next let's see if an index-relative insert winds up being
+            # sensible
+            idx = imghdr.index('OBSERVER')
+            imghdr.insert('OBSERVER', ('FOO',))
+            assert 'FOO' in imghdr
+            assert imghdr.index('FOO') == idx
+            assert 'FOO' in tblhdr
+            assert tblhdr.index('FOO') == tblhdr.index('OBSERVER') - 1
+
+    def test_compression_header_set_before_after(self):
+        with fits.open(self.data('comp.fits')) as hdul:
+            imghdr = hdul[1].header
+            tblhdr = hdul[1]._header
+
+            with catch_warnings(record=True) as w:
+                imghdr.set('ZBITPIX', 77, 'asdf', after='XTENSION')
+                assert len(w) == 1
+                assert 'ZBITPIX' not in imghdr
+                assert tblhdr.count('ZBITPIX') == 1
+                assert tblhdr['ZBITPIX'] != 77
+
+            # Move GCOUNT before PCOUNT (not that there's any reason you'd
+            # *want* to do that, but it's just a test...)
+            imghdr.set('GCOUNT', 99, before='PCOUNT')
+            assert imghdr.index('GCOUNT') == imghdr.index('PCOUNT') - 1
+            assert imghdr['GCOUNT'] == 99
+            assert tblhdr.index('ZGCOUNT') == tblhdr.index('ZPCOUNT') - 1
+            assert tblhdr['ZGCOUNT'] == 99
+            assert tblhdr.index('PCOUNT') == 5
+            assert tblhdr.index('GCOUNT') == 6
+            assert tblhdr['GCOUNT'] == 1
+
+            imghdr.set('GCOUNT', 2, after='PCOUNT')
+            assert imghdr.index('GCOUNT') == imghdr.index('PCOUNT') + 1
+            assert imghdr['GCOUNT'] == 2
+            assert tblhdr.index('ZGCOUNT') == tblhdr.index('ZPCOUNT') + 1
+            assert tblhdr['ZGCOUNT'] == 2
+            assert tblhdr.index('PCOUNT') == 5
+            assert tblhdr.index('GCOUNT') == 6
+            assert tblhdr['GCOUNT'] == 1
