@@ -1,5 +1,6 @@
 from __future__ import division, with_statement  # confidence high
 
+import sys
 import warnings
 import sys
 
@@ -47,10 +48,7 @@ class TestChecksumFunctions(PyfitsTestCase):
             assert 'CHECKSUM' in hdul[0].header
             assert 'DATASUM' in hdul[0].header
 
-            if sys.platform != 'win32':
-                # The checksum ends up being different on Windows, possibly due
-                # to slight floating point differences
-                # TODO: In Astropy mark these properly as known fail
+            if not sys.platform.startswith('win32'):
                 assert hdul[0].header['CHECKSUM'] == 'ZHMkeGKjZGKjbGKj'
                 assert hdul[0].header['DATASUM'] == '4950'
 
@@ -62,10 +60,8 @@ class TestChecksumFunctions(PyfitsTestCase):
         with fits.open(self.temp('tmp.fits'), checksum='nonstandard') as hdul:
             assert 'CHECKSUM' in hdul[0].header
             assert 'DATASUM' in hdul[0].header
-            if sys.platform != 'win32':
-                # The checksum ends up being different on Windows, possibly due
-                # to slight floating point differences
-                # TODO: In Astropy mark these properly as known fail
+
+            if not sys.platform.startswith('win32'):
                 assert hdul[0].header['CHECKSUM'] == 'jD4Am942jC48j948'
                 assert hdul[0].header['DATASUM'] == '4164005614'
 
@@ -240,11 +236,8 @@ class TestChecksumFunctions(PyfitsTestCase):
 
             assert 'CHECKSUM' in hdul[1].header
             assert 'DATASUM' in hdul[1].header
-            assert 'CHECKSUM' in hdul[1].header
-            if sys.platform != 'win32':
-                # The checksum ends up being different on Windows, possibly due
-                # to slight floating point differences
-                # TODO: In Astropy mark these properly as known fail
+
+            if not sys.platform.startswith('win32'):
                 assert hdul[1]._header['CHECKSUM'] == 'eATIf3SHe9SHe9SH'
                 assert hdul[1]._header['DATASUM'] == '1277667818'
 
