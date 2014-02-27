@@ -1,6 +1,6 @@
-from .extern.six import PY3
+from .extern import six
 
-if PY3:  # pragma: py3
+if six.PY3:
     # Stuff to do if Python 3
     import io
 

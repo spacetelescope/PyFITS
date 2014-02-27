@@ -21,17 +21,18 @@ except ImportError:
 
 import numpy as np
 
-from .extern.six import (PY3, iteritems, string_types, integer_types,
-                         text_type, binary_type, next)
+from .extern import six
+from .extern.six import (iteritems, string_types, integer_types, text_type,
+                         binary_type, next)
 from .extern.six.moves import zip, reduce
 
 
 BLOCK_SIZE = 2880  # the FITS block size
 
 
-if PY3:
+if six.PY3:
     cmp = lambda a, b: (a > b) - (a < b)
-else:
+elif six.PY2:
     cmp = cmp
 
 

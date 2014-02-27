@@ -19,7 +19,8 @@ from itertools import islice
 
 import numpy as np
 
-from .extern.six import PY3, string_types, StringIO
+from .extern import six
+from .extern.six import string_types, StringIO
 from .extern.six.moves import zip, range, reduce
 
 import pyfits
@@ -83,7 +84,7 @@ class _BaseDiff(object):
 
         return not self.identical
 
-    if PY3:
+    if six.PY3:
         __bool__ = __nonzero__
         del __nonzero__
 

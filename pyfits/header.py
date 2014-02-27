@@ -7,7 +7,8 @@ import warnings
 
 from collections import defaultdict
 
-from .extern.six import PY3, string_types, itervalues, iteritems, next
+from .extern import six
+from .extern.six import string_types, itervalues, iteritems, next
 from .extern.six.moves import zip, range, zip_longest
 
 from .card import Card, KEYWORD_LENGTH, _pad
@@ -1812,7 +1813,7 @@ class Header(object):
 
     # Some fixes for compatibility with the Python 3 dict interface, where
     # iteritems -> items, etc.
-    if PY3:  # pragma: py3
+    if six.PY3:
         keys = iterkeys
         values = itervalues
         items = iteritems
