@@ -10,6 +10,7 @@ import pyfits as fits
 
 from warnings import catch_warnings
 
+from ..extern import six
 from ..extern.six import u, b, iterkeys, itervalues, iteritems, StringIO, PY3
 from ..extern.six.moves import zip, range
 
@@ -1750,9 +1751,10 @@ class TestHeaderFunctions(PyfitsTestCase):
         """
 
         h = fits.Header()
-        if PY3:
-            assert_raises(ValueError, h.set, 'TEST', b('Hello'))
-        else:
+        if six.PY3:
+            assert_raises(ValueError, h.set, 'TEST',
+                          bytes('Hello', encoding='ascii'))
+        elif six.PY2:
             assert_raises(ValueError, h.set, 'TEST', str('ñ'))
 
     def test_header_strip_whitespace(self):
