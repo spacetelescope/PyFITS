@@ -5,6 +5,10 @@ Executable Scripts
 PyFITS installs a couple of useful utility programs on your system that are
 built with PyFITS.
 
+fitsheader
+^^^^^^^^^
+.. automodule:: astropy.io.fits.scripts.fitsheader
+
 fitscheck
 =========
 .. automodule:: pyfits.scripts.fitscheck
