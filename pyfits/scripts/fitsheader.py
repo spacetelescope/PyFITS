@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-``fitsheader`` is a command line script based on astropy.io.fits for printing
+``fitsheader`` is a command line script based on pyfits for printing
 the header(s) of one ore more FITS file(s) to the standard output.
 
 Example uses of fitsheader:
@@ -24,18 +24,21 @@ in the header:
 
 Note that compressed images (HDUs of type `CompImageHDU`) really have two
 headers: a real BINTABLE header to describe the compressed data, and a fake
-IMAGE header representing the image that was compressed. Astropy returns the
+IMAGE header representing the image that was compressed. PyFITS returns the
 latter by default. You must supply the "--compressed" option if you require the
 header that describes the compression.
 
-With Astropy installed, please run ``fitsheader --help`` to see the full usage
+With PyFITS installed, please run ``fitsheader --help`` to see the full usage
 documentation.
 """
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from ... import fits
-from .... import log
+import optparse
+import logging
+import pyfits
+
+log = logging.getLogger('fitscheck')
 
 
 class FormattingException(Exception):
@@ -50,10 +53,13 @@ class HeaderFormatter(object):
     ----------
     filename : str
         Path to the FITS file.
+
+    compressed : boolean, optional
+        show the header describing the compression (for CompImageHDU's only)
     """
     def __init__(self, filename, compressed=False):
         try:
-            self.hdulist = fits.open(filename)
+            self.hdulist = pyfits.open(filename)
         except IOError as e:
             raise FormattingException(e.message)
         self.compressed = compressed
@@ -92,7 +98,7 @@ class HeaderFormatter(object):
         return self._format_hdulist(hdukeys)
 
     def _get_header(self, hdukey):
-        """Returns the `astropy.io.fits.header.Header` object for the HDU."""
+        """Returns the `pyfits.header.Header` object for the HDU."""
         try:
             if self.compressed:
                 # In the case of a compressed image, return the header before
@@ -125,21 +131,19 @@ class HeaderFormatter(object):
 
 
 def main(args=None):
-    from astropy.utils.compat import argparse
-
-    parser = argparse.ArgumentParser(
+    parser = argparse.OptionParser(
         description=('Print the header(s) of a FITS file. '
                      'All HDU extensions are shown by default. '
                      'In the case of a compressed image, '
                      'the decompressed header is shown.'))
-    parser.add_argument('-e', '--ext', metavar='hdu',
-                        help='specify the HDU extension number or name')
-    parser.add_argument('-c', '--compressed', action='store_true',
-                        help='for compressed image data, '
-                             'show the true header which describes '
-                             'the compression rather than the data')
-    parser.add_argument('filename', nargs='+',
-                        help='path to one or more FITS files to display')
+    parser.add_option('-e', '--ext', metavar='hdu',
+                      help='specify the HDU extension number or name')
+    parser.add_option('-c', '--compressed', action='store_true',
+                      help='for compressed image data, '
+                           'show the true header which describes '
+                           'the compression rather than the data')
+    parser.add_option('filename', nargs='+',
+                      help='path to one or more FITS files to display')
     args = parser.parse_args(args)
 
     try:
