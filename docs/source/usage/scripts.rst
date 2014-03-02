@@ -6,8 +6,8 @@ PyFITS installs a couple of useful utility programs on your system that are
 built with PyFITS.
 
 fitsheader
-^^^^^^^^^
-.. automodule:: astropy.io.fits.scripts.fitsheader
+^^^^^^^^^^
+.. automodule:: pyfits.scripts.fitsheader
 
 fitscheck
 =========
