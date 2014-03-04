@@ -26,6 +26,7 @@ except ImportError:
 
 from zest.releaser.choose import version_control
 from zest.releaser.git import Git
+from zest.releaser.svn import Subversion
 from zest.releaser.release import Releaser
 from zest.releaser.utils import get_last_tag, ask
 
@@ -105,7 +106,11 @@ class ReleaseManager(object):
         """
 
         def normalize_tag_version(v):
-            v = 'v' + v
+            # Only prepend the 'v' when making the release with Git;
+            # historically this has *not* been used in the SVN tag names
+            if not isinstance(self.vcs, Subversion):
+                v = 'v' + v
+
             # If the version is like 3.2, append a .0
             if v.count('.') == 1:
                 v += '.0'
