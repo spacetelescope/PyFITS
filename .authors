@@ -2,3 +2,6 @@ stsci_embray = Erik Bray <erik.m.bray@gmail.com>
 stsci_iraf = stsci_iraf <iraf@stsci.edu>
 stsci_mrdavis = Matt Davis <mrdavis@stsci.edu>
 stsci_sienkiew = Mark Sienkiewicz <sienkiew@stsci.edu>
+embray = Erik Bray <erik.m.bray@gmail.com>
+sienkiew = Mark Sienkiewicz <sienkiew@stsci.edu>
+iraf = stsci_iraf <iraf@stsci.edu>
