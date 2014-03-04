@@ -21,6 +21,7 @@ except ImportError:
 
 from zest.releaser.choose import version_control
 from zest.releaser.git import Git
+from zest.releaser.svn import Subversion
 from zest.releaser.release import Releaser
 from zest.releaser.utils import get_last_tag, ask
 
@@ -99,11 +100,21 @@ class ReleaseManager(object):
         but we don't care about Python 2.4.
         """
 
+        def normalize_tag_version(v):
+            # Only prepend the 'v' when making the release with Git;
+            # historically this has *not* been used in the SVN tag names
+            if not isinstance(self.vcs, Subversion):
+                v = 'v' + v
+
+            # If the version is like 3.2, append a .0
+            if v.count('.') == 1:
+                v += '.0'
+            return v
+
         # Copied verbatim from zest.releaser, but with the cmd string modified
         # to use the -s option to create a signed tag and add the 'v' in front
         # of the version number
         def _my_create_tag(self, version):
-            version = 'v' + version
             msg = "Tagging %s" % (version,)
             cmd = 'git tag -s %s -m "%s"' % (version, msg)
             return cmd
@@ -111,9 +122,10 @@ class ReleaseManager(object):
         # Similarly copied from zest.releaser to support use of 'v' in front
         # of the version number
         def _my_make_tag(self):
+            tag_name = normalize_tag_version(self.data['version'])
             if self.data['tag_already_exists']:
                 return
-            cmds = self.vcs.cmd_create_tag(self.data['version'])
+            cmds = self.vcs.cmd_create_tag(tag_name)
             if not isinstance(cmds, list):
                 cmds = [cmds]
             if len(cmds) == 1:
@@ -127,8 +139,8 @@ class ReleaseManager(object):
                     print("Please create a tag for %s yourself and rerun." % \
                             (self.data['version'],))
                     sys.exit()
-            if not self.vcs.tag_exists('v' + self.data['version']):
-                print("\nFailed to create tag %s!" % (self.data['version'],))
+            if not self.vcs.tag_exists(tag_name):
+                print("\nFailed to create tag %s!" % (tag_name,))
                 sys.exit()
 
         # Normally all this does is to return '--formats=zip', which is currently
