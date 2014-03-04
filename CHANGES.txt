@@ -2,7 +2,7 @@ Changelog
 ===========
 
 
-3.0.13 (2014-03-04)
+3.0.13 (unreleased)
 -------------------
 
 - Fixed a bug where writing a file with ``checksum=True`` did not add the
