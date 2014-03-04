@@ -1,7 +1,7 @@
 Changelog
 ===========
 
-3.2.1 (unreleased)
+3.2.1 (2014-03-04)
 ------------------
 
 - Nominal support for the upcoming Python 3.4.
