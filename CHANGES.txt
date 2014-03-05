@@ -44,7 +44,7 @@ Other Changes and Additions
   ``False`` otherwise.
 
 
-3.2.1 (unreleased)
+3.2.1 (2014-03-04)
 ------------------
 
 - Nominal support for the upcoming Python 3.4.
@@ -120,7 +120,7 @@ Other Changes and Additions
   and not ``unicode`` objects. (spacetelescope/PyFITS#37)
 
 
-3.1.4 (unreleased)
+3.1.4 (2014-03-04)
 ------------------
 
 - Added missing features from the ``Header.insert()`` method that were
@@ -175,7 +175,7 @@ Other Changes and Additions
   and not ``unicode`` objects. (Backported from 3.2.1)
 
 
-3.0.13 (unreleased)
+3.0.13 (2014-03-04)
 -------------------
 
 - Fixed a bug where writing a file with ``checksum=True`` did not add the
@@ -184,11 +184,6 @@ Other Changes and Additions
 - Fixed an issue where validating an HDU's checksums removed the checksum from
   that HDU's header entirely (even if it was valid.)
   (Backported from 3.2.1)
-
-- Fixed an issue where the size of the heap was sometimes not computed
-  properly when writing an existing table containing variable-length array
-  columns to a new FITS file.  This could result in corruption in the new FITS
-  file. (Backported from 3.2.1)
 
 
 3.2 (2013-11-26)
