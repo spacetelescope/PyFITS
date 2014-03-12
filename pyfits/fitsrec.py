@@ -183,8 +183,8 @@ class FITS_rec(np.recarray):
 
         super(FITS_rec, self).__setstate__(state)
 
-        for attr, value in zip(meta, column_state):
-            setattr(self, attr, value)
+        for i in range(len(meta)):
+            setattr(self,  meta[i],  column_state[i])
 
     def __reduce__(self):
         """
@@ -192,27 +192,21 @@ class FITS_rec(np.recarray):
         functionality but then add in a tuple of FITS_rec-specific
         values that get used in __setstate__.
         """
-
-        reconst_func, reconst_func_args, state = \
-            super(FITS_rec, self).__reduce__()
+        super_class = np.ndarray
+        reconst_func, reconst_func_args, state = super_class.__reduce__(self)
 
         # Define FITS_rec-specific attrs that get added to state
         column_state = []
         meta = []
 
-        for attrs in ['_convert', '_heapoffset', '_heapsize', '_nfields',
-                      '_gap', '_uint', 'formats', 'parnames', '_coldefs']:
-
-            try:
-                # _coldefs can be Delayed, and file objects cannot be
-                # picked, it needs to be deepcopied first
-                if attrs == '_coldefs':
-                    column_state.append(self._coldefs.__deepcopy__(None))
-                else:
-                    column_state.append(getattr(self, attrs))
-                meta.append(attrs)
-            except AttributeError:
-                pass
+        for attrs in set(dir(self))-set(dir(self.__class__)):
+            # _coldefs can be Delayed, and file objects cannot be
+            # picked, it needs to be deepcopied first
+            if attrs is '_coldefs':
+                column_state.append(self._coldefs.__deepcopy__(None))
+            else:
+                column_state.append(getattr(self, attrs))
+            meta.append(attrs)
 
         state = state + (column_state, meta)
 
