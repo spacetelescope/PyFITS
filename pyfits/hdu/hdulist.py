@@ -4,7 +4,7 @@ import shutil
 import sys
 import warnings
 
-from ..extern.six import print_
+from ..extern.six import print_, string_types
 from ..file import _File
 from ..util import (_is_int, _tmp_name, _pad_length, ignore_sigint,
                     _get_array_mmap, indent, fileobj_closed)
@@ -474,7 +474,7 @@ class HDUList(list, _Verify):
             _key = key
             _ver = None
 
-        if not isinstance(_key, str):
+        if not isinstance(_key, string_types):
             raise KeyError(key)
         _key = (_key.strip()).upper()
 
@@ -482,7 +482,7 @@ class HDUList(list, _Verify):
         found = None
         for idx, hdu in enumerate(self):
             name = hdu.name
-            if isinstance(name, str):
+            if isinstance(name, string_types):
                 name = name.strip().upper()
             # 'PRIMARY' should always work as a reference to the first HDU
             if ((name == _key or (_key == 'PRIMARY' and idx == 0)) and
