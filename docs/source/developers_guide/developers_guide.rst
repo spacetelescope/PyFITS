@@ -63,13 +63,16 @@ reposiotry and add the git-svn metadata manually:
        [svn]
            authorsfile = .authors
        [svn-remote "svn"]
-           url = http://svn6.assembla.com/svn/pyfits
+           url = https://aeon.stsci.edu/ssb/svn/pyfits/
            fetch = trunk:refs/remotes/trunk
-           branches = branches/{3.1-stable,3.0-stable}:refs/remotes/branches/*
+           branches = branches/{3.2-stable,3.1-stable,3.0-stable}:refs/remotes/branches/*
        [branch "3.0-stable"]
            remote = .
            merge = refs/remotes/branches/3.0-stable
        [branch "3.1-stable"]
+           remote = .
+           merge = refs/remotes/branches/3.1-stable
+       [branch "3.2-stable"]
            remote = .
            merge = refs/remotes/branches/3.1-stable
 
