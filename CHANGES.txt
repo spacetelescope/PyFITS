@@ -44,7 +44,7 @@ Other Changes and Additions
   ``False`` otherwise.
 
 
-3.2.2 (unreleased)
+3.2.2 (2014-03-25)
 ------------------
 
 - Fixed a regression on deletion of record-valued keyword cards using
