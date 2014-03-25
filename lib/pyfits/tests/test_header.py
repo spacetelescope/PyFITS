@@ -2286,6 +2286,28 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         self._test_header['DP1.AXIS.1'] = 1.1
         assert self._test_header['DP1.AXIS.1'] == 1.1
 
+    def test_update_rvkc_2(self):
+        """Regression test for an issue that appeared after SVN r2412."""
+
+        h = fits.Header()
+        h['D2IM1.EXTVER'] = 1
+        assert h['D2IM1.EXTVER'] == 1.0
+        h['D2IM1.EXTVER'] = 2
+        assert h['D2IM1.EXTVER'] == 2.0
+
+    def test_raw_keyword_value(self):
+        c = fits.Card.fromstring("DP1     = 'NAXIS: 2' / A comment")
+        assert c.rawkeyword == 'DP1'
+        assert c.rawvalue == 'NAXIS: 2'
+
+        c = fits.Card('DP1.NAXIS', 2)
+        assert c.rawkeyword == 'DP1'
+        assert c.rawvalue == 'NAXIS: 2.0'
+
+        c = fits.Card('DP1.NAXIS', 2.0)
+        assert c.rawkeyword == 'DP1'
+        assert c.rawvalue == 'NAXIS: 2.0'
+
     def test_rvkc_insert_after(self):
         """
         It should be possible to insert a new RVKC after an existing one

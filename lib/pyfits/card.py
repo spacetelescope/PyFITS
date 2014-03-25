@@ -428,6 +428,7 @@ class Card(_Verify):
         self._invalid = False
 
         self._field_specifier = None
+
         # These are used primarily only by RVKCs
         self._rawkeyword = None
         self._rawvalue = None
@@ -604,6 +605,7 @@ class Card(_Verify):
 
         if different:
             self._value = value
+            self._rawvalue = None
             self._modified = True
             self._valuestring = None
             self._valuemodified = True
@@ -629,15 +631,33 @@ class Card(_Verify):
 
     @property
     def rawkeyword(self):
-        if self._rawkeyword is None and self.keyword:
-            self._rawkeyword = self.keyword
-        return self._rawkeyword
+        """On record-valued keyword cards this is the name of the standard <= 8
+        character FITS keyword that this RVKC is stored in.  Otherwise it is
+        the card's normal keyword.
+        """
+
+        if self._rawkeyword is not None:
+            return self._rawkeyword
+        elif self.field_specifier is not None:
+            self._rawkeyword = self.keyword.split('.', 1)[0]
+            return self._rawkeyword
+        else:
+            return self.keyword
 
     @property
     def rawvalue(self):
-        if self._rawvalue is None and self.value:
-            self._rawvalue = self.value
-        return self._rawvalue
+        """On record-valued keyword cards this is the raw string value in
+        the ``<field-specifier>: <value>`` format stored in the card in order
+        to represent a RVKC.  Otherwise it is the card's normal value.
+        """
+
+        if self._rawvalue is not None:
+            return self._rawvalue
+        elif self.field_specifier is not None:
+            self._rawvalue = '%s: %s' % (self.field_specifier, self.value)
+            return self._rawvalue
+        else:
+            return self.value
 
     @property
     def comment(self):
@@ -830,11 +850,8 @@ class Card(_Verify):
                 return False
             match = self._rvkc_keyword_name_RE.match(keyword)
             if match and isinstance(value, (int, float)):
-                field_specifier = match.group('field_specifier')
-                self._keyword = '.'.join((match.group('keyword').upper(),
-                                          field_specifier))
-                self._field_specifier = field_specifier
-                self._value = value
+                self._init_rvkc(match.group('keyword'),
+                                match.group('field_specifier'), None, value)
                 return True
 
             # Testing for ': ' is a quick way to avoid running the full regular
