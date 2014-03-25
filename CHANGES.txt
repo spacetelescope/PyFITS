@@ -44,6 +44,22 @@ Other Changes and Additions
   ``False`` otherwise.
 
 
+3.2.2 (unreleased)
+------------------
+
+- Fixed a regression on deletion of record-valued keyword cards using
+  the Header wildcard syntax.  This was intended to be fixed before the
+  v3.2.1 release.
+
+
+3.1.5 (unreleased)
+------------------
+
+- Fixed a regression on deletion of record-valued keyword cards using
+  the Header wildcard syntax.  This was intended to be fixed before the
+  v3.1.4 release.
+
+
 3.2.1 (2014-03-04)
 ------------------
 
