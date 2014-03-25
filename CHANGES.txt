@@ -9,7 +9,7 @@ Changelog
   v3.2.1 release.
 
 
-3.1.5 (unreleased)
+3.1.5 (2014-03-25)
 ------------------
 
 - Fixed a regression on deletion of record-valued keyword cards using
