@@ -2361,6 +2361,15 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         assert_equal(self._test_header.keys()[1], 'DP1.AXIS.2')
         assert_equal(self._test_header[1], 2)
 
+        # Perform a subsequent delete to make sure all the index mappings were
+        # updated
+        del self._test_header['DP1.AXIS.2']
+        assert len(self._test_header) == 6
+        assert self._test_header.keys()[0] == 'DP1.NAXIS'
+        assert self._test_header[0] == 2
+        assert self._test_header.keys()[1] == 'DP1.NAUX'
+        assert self._test_header[1] == 2
+
     def test_pattern_matching_keys(self):
         """Test the keyword filter strings with RVKCs."""
 

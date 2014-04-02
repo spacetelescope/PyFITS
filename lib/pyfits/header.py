@@ -1798,10 +1798,11 @@ class Header(object):
 
         increment = 1 if increment else -1
 
-        for indices in self._keyword_indices.itervalues():
-            for jdx, keyword_index in enumerate(indices):
-                if keyword_index >= idx:
-                    indices[jdx] += increment
+        for index_sets in (self._keyword_indices, self._rvkc_indices):
+            for indices in index_sets.itervalues():
+                for jdx, keyword_index in enumerate(indices):
+                    if keyword_index >= idx:
+                        indices[jdx] += increment
 
     def _countblanks(self):
         """Returns the number of blank cards at the end of the Header."""
