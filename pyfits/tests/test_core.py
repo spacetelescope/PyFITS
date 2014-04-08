@@ -1001,3 +1001,11 @@ class TestStreamingFunctions(PyfitsTestCase):
 
         with fits.open(self.data('blank.fits'), ignore_blank=True) as f:
             assert f[0].data.flat[0] == 2
+
+    def test_error_if_memmap_impossible(self):
+        pth = self.data('blank.fits')
+
+        assert_raises(ValueError,
+                      lambda attr: getattr(fits.open(pth, memmap=True)[0],
+                                           attr),
+                      'data')
