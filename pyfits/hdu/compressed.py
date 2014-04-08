@@ -1425,7 +1425,7 @@ class CompImageHDU(BinTableHDU):
         return self.compressed_data
 
     @lazyproperty
-    @deprecated('3.2', alternative='the `.compressed_data attribute`',
+    @deprecated('3.2', alternative='the ``.compressed_data` attribute',
                 pending=True)
     def compData(self):
         return self.compressed_data
@@ -1664,8 +1664,8 @@ class CompImageHDU(BinTableHDU):
         """
         Scale image data by using ``BSCALE`` and ``BZERO``.
 
-        Calling this method will scale `self.data` and update the keywords of
-        ``BSCALE`` and ``BZERO`` in `self._header` and `self._image_header`.
+        Calling this method will scale ``self.data`` and update the keywords of
+        ``BSCALE`` and ``BZERO`` in ``self._header`` and ``self._image_header``.
         This method should only be used right before writing to the output
         file, as the data will be scaled and is therefore not very usable after
         the call.

@@ -294,8 +294,8 @@ class _BaseHDU(object):
                  **kwargs):
         """
         Read the HDU from a file.  Normally an HDU should be opened with
-        `pyfits.open` which reads the entire HDU list in a FITS file.  But this
-        method is still provided for symmetry with `writeto`.
+        :func:`open` which reads the entire HDU list in a FITS file.  But this
+        method is still provided for symmetry with :func:`writeto`.
 
         Parameters
         ----------
@@ -804,7 +804,7 @@ class _NonstandardHDU(_BaseHDU, _Verify):
 
     def _writedata(self, fileobj):
         """
-        Differs from the base class `_writedata()` in that it doesn't
+        Differs from the base class :class:`_writedata` in that it doesn't
         automatically add padding, and treats the data as a string of raw bytes
         instead of an array.
         """
@@ -980,8 +980,8 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         savecomment : bool, optional
             When `True`, preserve the current comment for an existing
-            keyword.  The argument `savecomment` takes precedence over
-            `comment` if both specified.  If `comment` is not
+            keyword.  The argument ``savecomment`` takes precedence over
+            ``comment`` if both specified.  If ``comment`` is not
             specified then the current comment will automatically be
             preserved.
         """
@@ -1029,8 +1029,8 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         savecomment : bool, optional
             When `True`, preserve the current comment for an existing
-            keyword.  The argument `savecomment` takes precedence over
-            `comment` if both specified.  If `comment` is not
+            keyword.  The argument ``savecomment`` takes precedence over
+            ``comment`` if both specified.  If ``comment`` is not
             specified then the current comment will automatically be
             preserved.
         """
@@ -1117,7 +1117,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             The keyword to validate
 
         pos : int, callable
-            If an `int`, this specifies the exact location this card should
+            If an ``int``, this specifies the exact location this card should
             have in the header.  Remember that Python is zero-indexed, so this
             means ``pos=0`` requires the card to be the first card in the
             header.  If given a callable, it should take one argument--the
@@ -1594,7 +1594,7 @@ class _ValidHDU(_BaseHDU, _Verify):
 
     def _char_encode(self, value):
         """
-        Encodes the checksum `value` using the algorithm described
+        Encodes the checksum ``value`` using the algorithm described
         in SPR section A.7.2 and returns it as a 16 character string.
 
         Parameters

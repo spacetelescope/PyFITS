@@ -305,9 +305,9 @@ for a certain group, this is similar to the situation in table data (with its
 
 On the other hand, to modify a group parameter, we can either assign the new
 value directly (if accessing the row/group number last) or use the
-:meth:`~Group.setpar` method (if accessing the row/group number first). The
-method :meth:`~Group.setpar` is also needed for updating by name if the
-parameter is shared by more than one parameters::
+:meth:``~GroupData.setpar`` method (if accessing the row/group number first). The
+method :meth:``~GroupData.setpar`` is also needed for updating by name if the
+parameter is shared by more than one parameters:
 
     >>> # Update group parameter when selecting the row (group) number last
     >>> f[0].data.par(0)[99] = 99.
@@ -327,8 +327,8 @@ Data: Image Data
 ----------------
 
 The image array of the data portion is accessible by the
-:attr:`~GroupData.data` attribute of the data object. A numpy array is
-returned::
+:attr:``~GroupData.data`` attribute of the data object. A numpy array is
+returned:
 
     >>> print f[0].data.data[99]
     array([[[[[ 12.4308672 , 0.56860745, 3.99993873],
