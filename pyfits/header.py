@@ -911,7 +911,7 @@ class Header(object):
 
     def pop(self, *args):
         """
-        Works like :meth:``list.pop`` if no arguments or an index argument are
+        Works like :meth:`list.pop` if no arguments or an index argument are
         supplied; otherwise works like :meth:`dict.pop`.
         """
 
@@ -1026,13 +1026,13 @@ class Header(object):
     def append(self, card=None, useblanks=True, bottom=False, end=False):
         """
         Appends a new keyword+value card to the end of the Header, similar
-        to ``list.append``.
+        to `list.append`.
 
         By default if the last cards in the Header have commentary keywords,
         this will append the new keyword before the commentary (unless the new
         keyword is also commentary).
 
-        Also differs from ``list.append`` in that it can be called with no
+        Also differs from `list.append` in that it can be called with no
         arguments: In this case a blank card is appended to the end of the
         Header.  In the case all the keyword arguments are ignored.
 
@@ -1117,7 +1117,7 @@ class Header(object):
                update_first=False, useblanks=True, bottom=False, end=False):
         """
         Appends multiple keyword+value cards to the end of the header, similar
-        to ``list.extend``.
+        to `list.extend`.
 
         Parameters
         ----------
@@ -1216,7 +1216,7 @@ class Header(object):
     def count(self, keyword):
         """
         Returns the count of the given keyword in the header, similar to
-        ``list.count`` if the Header object is treated as a list of keywords.
+        `list.count` if the Header object is treated as a list of keywords.
 
         Parameters
         ----------
@@ -1237,7 +1237,7 @@ class Header(object):
     def index(self, keyword, start=None, stop=None):
         """
         Returns the index if the first instance of the given keyword in the
-        header, similar to ``list.index`` if the Header object is treated as a
+        header, similar to `list.index` if the Header object is treated as a
         list of keywords.
 
         Parameters
@@ -1275,7 +1275,7 @@ class Header(object):
     def insert(self, key, card, useblanks=True, after=False):
         """
         Inserts a new keyword+value card into the Header at a given location,
-        similar to ``list.insert``.
+        similar to `list.insert`.
 
         Parameters
         ----------
@@ -1368,7 +1368,7 @@ class Header(object):
     def remove(self, keyword):
         """
         Removes the first instance of the given keyword from the header similar
-        to ``list.remove`` if the Header object is treated as a list of keywords.
+        to `list.remove` if the Header object is treated as a list of keywords.
 
         Parameters
         ----------
