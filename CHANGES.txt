@@ -4,6 +4,15 @@ Changelog
 3.3 (unreleased)
 ----------------
 
+New Features
+^^^^^^^^^^^^
+
+- Added new verification options ``fix+ignore``, ``fix+warn``,
+  ``fix+exception``, ``silentfix+ignore``, ``silentfix+warn``, and
+  ``silentfix+exception`` which give more control over how to report fixable
+  errors as opposed to unfixable errors.  See the "Verification" section in
+  the PyFITS documentation for more details.
+
 API Changes
 ^^^^^^^^^^^
 

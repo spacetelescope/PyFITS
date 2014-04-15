@@ -55,10 +55,10 @@ reading a FITS file, no ``verify()`` is called on input. On output,
 Verification Options
 ====================
 
-There are 5 options for all verify(option) calls in PyFITS. In addition, they
-available for the ``output_verify`` argument of the following methods:
-``close()``, ``writeto()``, and ``flush()``. In these cases, they are passed to
-a ``verify()`` call within these methods. The 5 options are:
+There are several options accepted by all verify(option) calls in PyFITS. In
+addition, they available for the ``output_verify`` argument of the following
+methods: ``close()``, ``writeto()``, and ``flush()``. In these cases, they are
+passed to a ``verify()`` call within these methods. The available options are:
 
 **exception**
 
@@ -66,6 +66,11 @@ This option will raise an exception, if any FITS standard is violated. This is
 the default option for output (i.e. when ``writeto()``, ``close()``, or
 ``flush()`` is called. If a user wants to overwrite this default on output, the
 other options listed below can be used.
+
+**warn**
+
+This option is the same as the ignore option but will send warning messages. It
+will not try to fix any FITS standard violations whether fixable or not.
 
 **ignore**
 
@@ -110,10 +115,21 @@ Same as fix, but will not print out informative messages. This may be useful in
 a large script where the user does not want excessive harmless messages. If the
 violation is not fixable, it will still throw an exception.
 
-**warn**
+In addition, as of PyFITS version 3.3.0 the following 'combined' options are
+available:
 
-This option is the same as the ignore option but will send warning messages. It
-will not try to fix any FITS standard violations whether fixable or not.
+ * **fix+ignore**
+ * **fix+warn**
+ * **fix+exception**
+ * **silentfix+ignore**
+ * **silentfix+warn**
+ * **silentfix+exception**
+
+These options combine the semantics of the basic options.  For example
+``silentfix+exception`` is actually equivalent to just ``silentfix`` in that
+fixable errors will be fixed silently, but any unfixable errors will raise an
+exception.  On the other hand ``silentfix+warn`` will issue warnings for
+unfixable errors, but will stay silent about any fixed errors.
 
 
 Verifications at Different Data Object Levels
@@ -217,7 +233,7 @@ We'll summarize the verification with a "life-cycle" example::
 
     >>> h = pyfits.PrimaryHDU() # create a PrimaryHDU
     >>> # Try to add an non-standard FITS keyword 'P.I.' (FITS does no allow
-    >>> '.' in the keyword), if using the update() method - doesn't work!
+    >>> # '.' in the keyword), if using the update() method - doesn't work!
     >>> h['P.I.'] = 'Hubble'
     ValueError: Illegal keyword name 'P.I.'
     >>> # Have to do it the hard way (so a user will not do this by accident)

@@ -518,7 +518,9 @@ class HDUList(list, _Verify):
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  See :ref:`verify` for more info.
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See :ref:`verify` for more info.
 
         verbose : bool
             When `True`, print verbose messages
@@ -611,7 +613,9 @@ class HDUList(list, _Verify):
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  See :ref:`verify` for more info.
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See :ref:`verify` for more info.
 
         clobber : bool
             When `True`, overwrite the output file if exists.
@@ -660,7 +664,9 @@ class HDUList(list, _Verify):
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  See :ref:`verify` for more info.
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See :ref:`verify` for more info.
 
         verbose : bool
             When `True`, print out verbose messages.
