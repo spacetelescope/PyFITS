@@ -2133,6 +2133,45 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert isinstance(h['TEST'], int)
         assert str(h).startswith('TEST    =                    0')
 
+    def test_newlines_in_commentary(self):
+        """
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/51
+
+        Test data extracted from a header in an actual FITS file found in the
+        wild.  Names have been changed to protect the innocent.
+        """
+
+        # First ensure that we can't assign new keyword values with newlines in
+        # them
+        h = fits.Header()
+        assert_raises(ValueError, h.set, 'HISTORY', '\n')
+        assert_raises(ValueError, h.set, 'HISTORY', '\nabc')
+        assert_raises(ValueError, h.set, 'HISTORY', 'abc\n')
+        assert_raises(ValueError, h.set, 'HISTORY', 'abc\ndef')
+
+        test_cards = [
+            "HISTORY File modified by user 'wilma' with fv  on 2013-04-22T21:42:18           "
+            "HISTORY File modified by user ' fred' with fv  on 2013-04-23T11:16:29           "
+            "HISTORY File modified by user ' fred' with fv  on 2013-11-04T16:59:14           "
+            "HISTORY File modified by user 'wilma' with fv  on 2013-04-22T21:42:18\nFile modif"
+            "HISTORY ied by user 'wilma' with fv  on 2013-04-23T11:16:29\nFile modified by use"
+            "HISTORY r ' fred' with fv  on 2013-11-04T16:59:14                               "
+            "HISTORY File modified by user 'wilma' with fv  on 2013-04-22T21:42:18\nFile modif"
+            "HISTORY ied by user 'wilma' with fv  on 2013-04-23T11:16:29\nFile modified by use"
+            "HISTORY r ' fred' with fv  on 2013-11-04T16:59:14\nFile modified by user 'wilma' "
+            "HISTORY with fv  on 2013-04-22T21:42:18\nFile modif\nied by user 'wilma' with fv  "
+            "HISTORY on 2013-04-23T11:16:29\nFile modified by use\nr ' fred' with fv  on 2013-1"
+            "HISTORY 1-04T16:59:14                                                           "
+        ]
+
+        for card_image in test_cards:
+            c = fits.Card.fromstring(card_image)
+
+            if '\n' in card_image:
+                assert_raises(fits.VerifyError, c.verify, 'exception')
+            else:
+                c.verify('exception')
+
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """

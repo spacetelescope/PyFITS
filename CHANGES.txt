@@ -44,6 +44,20 @@ Other Changes and Additions
   ``False`` otherwise.
 
 
+3.2.3 (unreleased)
+------------------
+
+- Fixed an issue where PyFITS allowed newline characters in header values and
+  comments. (spacetelescope/PyFITS#51)
+
+
+3.1.6 (unreleased)
+------------------
+
+- Fixed an issue where PyFITS allowed newline characters in header values and
+  comments. (Backported from 3.2.3)
+
+
 3.2.2 (2014-03-25)
 ------------------
 
