@@ -213,6 +213,79 @@ class TestCore(PyfitsTestCase):
         hdu = fits.ImageHDU()
         assert_raises(ValueError, hdu.verify, 'foobarbaz')
 
+    def test_combined_verify_options(self):
+        """
+        Test verify options like fix+ignore.
+        """
+
+        def make_invalid_hdu():
+            hdu = fits.ImageHDU()
+            # Add one keyword to the header that contains a fixable defect, and one
+            # with an unfixable defect
+            c1 = fits.Card.fromstring("test    = '    test'")
+            c2 = fits.Card.fromstring("P.I.    = '  Hubble'")
+            hdu.header.append(c1)
+            hdu.header.append(c2)
+            return hdu
+
+        # silentfix+ignore should be completely silent
+        hdu = make_invalid_hdu()
+        with catch_warnings():
+            warnings.simplefilter('error')
+            try:
+                hdu.verify('silentfix+ignore')
+            except Exception:
+                exc = sys.exc_info()[1]
+                self.fail('An exception occurred when the verification error '
+                          'should have been ignored: %s' % exc)
+
+        # silentfix+warn should be quiet about the fixed HDU and only warn
+        # about the unfixable one
+        hdu = make_invalid_hdu()
+        with catch_warnings(record=True) as w:
+            hdu.verify('silentfix+warn')
+            assert len(w) == 4
+            assert 'Illegal keyword name' in str(w[2].message)
+
+        # silentfix+exception should only mention the unfixable error in the
+        # exception
+        hdu = make_invalid_hdu()
+        try:
+            hdu.verify('silentfix+exception')
+        except fits.VerifyError:
+            exc = sys.exc_info()[1]
+            assert 'Illegal keyword name' in str(exc)
+            assert 'not upper case' not in str(exc)
+        else:
+            self.fail('An exception should have been raised.')
+
+        # fix+ignore is not too useful, but it should warn about the fixed
+        # problems while saying nothing about the unfixable problems
+        hdu = make_invalid_hdu()
+        with catch_warnings(record=True) as w:
+            hdu.verify('fix+ignore')
+            assert len(w) == 4
+            assert 'not upper case' in str(w[2].message)
+
+        # fix+warn
+        hdu = make_invalid_hdu()
+        with catch_warnings(record=True) as w:
+            hdu.verify('fix+warn')
+            assert len(w) == 6
+            assert 'not upper case' in str(w[2].message)
+            assert 'Illegal keyword name' in str(w[4].message)
+
+        # fix+exception
+        hdu = make_invalid_hdu()
+        try:
+            hdu.verify('fix+exception')
+        except fits.VerifyError:
+            exc = sys.exc_info()[1]
+            assert 'Illegal keyword name' in str(exc)
+            assert 'not upper case' in str(exc)
+        else:
+            self.fail('An exception should have been raised.')
+
     def test_getext(self):
         """
         Test the various different ways of specifying an extension header in

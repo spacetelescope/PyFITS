@@ -963,9 +963,6 @@ class Card(_Verify):
 
                 keyword_upper = keyword_upper[:val_ind_idx]
 
-            if keyword_upper != keyword:
-                self._modified = True
-
             return keyword_upper
         elif (keyword_upper == 'HIERARCH' and self._image[8] == ' ' and
               HIERARCH_VALUE_INDICATOR in self._image):
@@ -1333,18 +1330,24 @@ class Card(_Verify):
                 self._hierarch):
             pass
         else:
+            if self._image:
+                # PyFITS will auto-uppercase any standard keyword, so lowercase
+                # keywords can only occur if they came from the wild
+                keyword = self._split()[0]
+                if keyword != keyword.upper():
+                # Keyword should be uppercase unless it's a HIERARCH card
+                    errs.append(self.run_option(
+                        option,
+                        err_text='Card keyword %r is not upper case.' %
+                                  keyword,
+                        fix_text=fix_text,
+                        fix=self._fix_keyword))
+
             keyword = self.keyword
             if self.field_specifier:
                 keyword = keyword.split('.', 1)[0]
 
-            if keyword != keyword.upper():
-            # Keyword should be uppercase unless it's a HIERARCH card
-                errs.append(self.run_option(
-                    option,
-                    err_text='Card keyword %r is not upper case.' % keyword,
-                    fix_text=fix_text,
-                    fix=self._fix_keyword))
-            elif not self._keywd_FSC_RE.match(keyword):
+            if not self._keywd_FSC_RE.match(keyword):
                 errs.append(self.run_option(
                     option,
                     err_text='Illegal keyword name %s' % repr(keyword),

@@ -38,7 +38,7 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
 
     def test_ascardimage_verifies_the_comment_string_to_be_ascii_text(self):
         # the ascardimage() verifies the comment string to be ASCII text
-        c = fits.Card.fromstring('abc     = +  2.1   e + 12 / abcde\0')
+        c = fits.Card.fromstring('ABC     = +  2.1   e + 12 / abcde\0')
         assert_raises(Exception, c.ascardimage)
 
     def test_rename_key(self):
@@ -246,7 +246,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         c = fits.Card("abc", True)
         assert str(c) == "ABC     =                    T                                                  "
 
-        c = fits.Card.fromstring('abc     = F')
+        c = fits.Card.fromstring('ABC     = F')
         assert c.value == False
 
     def test_long_integer_value_card(self):
@@ -315,7 +315,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_commentary_cards(self):
         # commentary cards
-        c = fits.Card("history",
+        c = fits.Card("HISTORY",
                       "A commentary card's value has no quotes around it.")
         assert str(c) == "HISTORY A commentary card's value has no quotes around it.                      "
         c = fits.Card("comment",
@@ -331,13 +331,13 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_commentary_card_will_not_parse_numerical_value(self):
         # commentary card will not parse the numerical value
-        c = fits.Card.fromstring("history  (1, 2)")
+        c = fits.Card.fromstring("HISTORY  (1, 2)")
         assert str(c) == "HISTORY  (1, 2)                                                                 "
 
     def test_equal_sign_after_column8(self):
         # equal sign after column 8 of a commentary card will be part ofthe
         # string value
-        c = fits.Card.fromstring("history =   (1, 2)")
+        c = fits.Card.fromstring("HISTORY =   (1, 2)")
         assert str(c) == "HISTORY =   (1, 2)                                                              "
 
     def test_blank_keyword(self):
@@ -350,19 +350,19 @@ class TestHeaderFunctions(PyfitsTestCase):
     def test_specify_undefined_value(self):
         # this is how to specify an undefined value
         c = fits.Card("undef", fits.card.UNDEFINED)
-        assert str(c) == "UNDEF   =                                                                       "
+        assert str(c) == _pad("UNDEF   =")
 
     def test_complex_number_using_string_input(self):
         # complex number using string input
-        c = fits.Card.fromstring('abc     = (8, 9)')
-        assert str(c) == "ABC     =               (8, 9)                                                  "
+        c = fits.Card.fromstring('ABC     = (8, 9)')
+        assert str(c) == _pad("ABC     = (8, 9)")
 
     def test_fixable_non_standard_fits_card(self):
         # fixable non-standard FITS card will keep the original format
         c = fits.Card.fromstring('abc     = +  2.1   e + 12')
         assert c.value == 2100000000000.0
         with CaptureStdio():
-            assert str(c) == "ABC     =             +2.1E+12                                                  "
+            assert str(c) == _pad("ABC     =             +2.1E+12")
 
     def test_fixable_non_fsc(self):
         # fixable non-FSC: if the card is not parsable, it's value will be
@@ -375,16 +375,16 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_undefined_value_using_string_input(self):
         # undefined value using string input
-        c = fits.Card.fromstring('abc     =    ')
-        assert str(c) == "ABC     =                                                                       "
+        c = fits.Card.fromstring('ABC     =    ')
+        assert str(c) == _pad("ABC     =")
 
     def test_mislocated_equal_sign(self):
         # test mislocated "=" sign
-        c = fits.Card.fromstring('xyz= 100')
+        c = fits.Card.fromstring('XYZ= 100')
         assert c.keyword == 'XYZ'
         assert c.value == 100
         with CaptureStdio():
-            assert str(c) == "XYZ     =                  100                                                  "
+            assert str(c) == _pad("XYZ     =                  100")
 
     def test_equal_only_up_to_column_10(self):
         # the test of "=" location is only up to column 10
@@ -395,17 +395,17 @@ class TestHeaderFunctions(PyfitsTestCase):
         # completely wrong we don't make any assumptions and the card should be
         # left alone
         with CaptureStdio():
-            c = fits.Card.fromstring("histo       =   (1, 2)")
-            assert str(c) == _pad("histo       =   (1, 2)")
+            c = fits.Card.fromstring("HISTO       =   (1, 2)")
+            assert str(c) == _pad("HISTO       =   (1, 2)")
 
             # Likewise this card should just be left in its original form and
             # we shouldn't guess how to parse it or rewrite it.
-            c = fits.Card.fromstring("   history          (1, 2)")
-            assert str(c) == _pad("   history          (1, 2)")
+            c = fits.Card.fromstring("   HISTORY          (1, 2)")
+            assert str(c) == _pad("   HISTORY          (1, 2)")
 
     def test_verify_invalid_equal_sign(self):
         # verification
-        c = fits.Card.fromstring('abc= a6')
+        c = fits.Card.fromstring('ABC= a6')
         with catch_warnings(record=True) as w:
             with CaptureStdio():
                 c.verify()
@@ -418,7 +418,7 @@ class TestHeaderFunctions(PyfitsTestCase):
             assert err_text2 in str(w[2].message)
 
     def test_fix_invalid_equal_sign(self):
-        c = fits.Card.fromstring('abc= a6')
+        c = fits.Card.fromstring('ABC= a6')
         with catch_warnings(record=True) as w:
             with CaptureStdio():
                 c.verify('fix')
@@ -532,10 +532,11 @@ class TestHeaderFunctions(PyfitsTestCase):
             _pad("abc     = 'longstring''s testing  &  ' / comments in line 1") +
             _pad("continue  'continue with long string but without the ampersand at the end' /") +
             _pad("continue  'continue must have string value (with quotes)' / comments with ''. "))
-        assert (str(c) ==
-            "ABC     = 'longstring''s testing  continue with long string but without the &'  "
-            "CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  "
-            "CONTINUE  '&' / comments in line 1 comments with ''.                            ")
+        with CaptureStdio():
+            assert (str(c) ==
+                "ABC     = 'longstring''s testing  continue with long string but without the &'  "
+                "CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  "
+                "CONTINUE  '&' / comments in line 1 comments with ''.                            ")
 
     def test_continue_card_with_equals_in_value(self):
         """
