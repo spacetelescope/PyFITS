@@ -1368,7 +1368,7 @@ class Card(_Verify):
                 errs.append(self.run_option(
                     option,
                     err_text='Card %r is not FITS standard (invalid value '
-                             'string: %s).' % (self.keyword, valuecomment),
+                             'string: %r).' % (self.keyword, valuecomment),
                     fix_text=fix_text,
                     fix=self._fix_value))
 

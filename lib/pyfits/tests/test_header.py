@@ -412,7 +412,7 @@ class TestHeaderFunctions(PyfitsTestCase):
             err_text1 = ("Card 'ABC' is not FITS standard (equal sign not at "
                          "column 8)")
             err_text2 = ("Card 'ABC' is not FITS standard (invalid value "
-                         "string: a6")
+                         "string: 'a6'")
             assert len(w) == 4
             assert err_text1 in str(w[1].message)
             assert err_text2 in str(w[2].message)
@@ -1665,7 +1665,7 @@ class TestHeaderFunctions(PyfitsTestCase):
             # should be output as separate warning messages, but that's
             # something to think about...
             msg = str(w[3].message)
-            assert '(invalid value string: 5.0022221e-07)' in msg
+            assert "(invalid value string: '5.0022221e-07')" in msg
 
     def test_leading_zeros(self):
         """

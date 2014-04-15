@@ -171,7 +171,7 @@ class TestCore(PyfitsTestCase):
         errs = hdu.req_cards('TESTKW', None, lambda v: v == 'bar', 'bar',
                              'exception', [])
         assert len(errs) == 1
-        assert errs[0] == "'TESTKW' card has invalid value 'foo'."
+        assert errs[0][1] == "'TESTKW' card has invalid value 'foo'."
 
         # See if fixing will work
         hdu.req_cards('TESTKW', None, lambda v: v == 'bar', 'bar', 'silentfix',
