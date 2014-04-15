@@ -4,7 +4,8 @@ Changelog
 3.1.6 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fixed an issue where PyFITS allowed newline characters in header values and
+  comments. (Backported from 3.2.3)
 
 
 3.1.5 (2014-03-28)
