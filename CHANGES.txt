@@ -56,12 +56,20 @@ Other Changes and Additions
 3.2.3 (unreleased)
 ------------------
 
+- Fixed a bug with using the ``tabledump`` and ``tableload`` functions with
+  tables containing array columns (columns in which each element is an array
+  instead of a single scalar value). (spacetelescope/PyFITS#22)
+
 - Fixed an issue where PyFITS allowed newline characters in header values and
   comments. (spacetelescope/PyFITS#51)
 
 
 3.1.6 (unreleased)
 ------------------
+
+- Fixed a bug with using the ``tabledump`` and ``tableload`` functions with
+  tables containing array columns (columns in which each element is an array
+  instead of a single scalar value). (Backported from 3.2.3)
 
 - Fixed an issue where PyFITS allowed newline characters in header values and
   comments. (Backported from 3.2.3)
