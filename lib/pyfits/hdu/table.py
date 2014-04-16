@@ -809,7 +809,8 @@ class BinTableHDU(_TableBaseHDU):
             if isinstance(f, basestring):
                 if os.path.exists(f) and os.path.getsize(f) != 0:
                     if clobber:
-                        warnings.warn("Overwriting existing file '%s'." % f)
+                        warnings.warn("Overwriting existing file %r." % f)
+                        os.remove(f)
                     else:
                         exist.append(f)
 
@@ -980,9 +981,17 @@ class BinTableHDU(_TableBaseHDU):
                     # The column data is a single element
                     dtype = self.data.dtype.fields[column.name][0]
                     array_format = dtype.char
+                    if array_format == 'V':
+                        array_format = dtype.base.char
                     if array_format == 'S':
                         array_format += str(dtype.itemsize)
-                    line.append(format_value(row[column.name], array_format))
+
+                    if dtype.char == 'V':
+                        for value in row[column.name].flat:
+                            line.append(format_value(value, array_format))
+                    else:
+                        line.append(format_value(row[column.name],
+                                    array_format))
             linewriter.writerow(line)
         if close_file:
             fileobj.close()
@@ -1102,6 +1111,19 @@ class BinTableHDU(_TableBaseHDU):
                 data.columns._recformats[idx] = recformats[idx]
                 data._convert[idx] = _makep(arr, arr, recformats[idx])
 
+        def format_value(col, val):
+            # Special formatting for a couple particular data types
+            if recformats[col] == FITS2NUMPY['L']:
+                return bool(int(val))
+            elif recformats[col] == FITS2NUMPY['M']:
+                # For some reason, in arrays/fields where numpy expects a
+                # complex it's not happy to take a string representation
+                # (though it's happy to do that in other contexts), so we have
+                # to convert the string representation for it:
+                return complex(val)
+            else:
+                return val
+
         # Jump back to the start of the data and create a new line reader
         fileobj.seek(initialpos)
         linereader = csv.reader(fileobj, dialect=FITSTableDumpDialect)
@@ -1112,23 +1134,25 @@ class BinTableHDU(_TableBaseHDU):
                 if line[idx] == 'VLA_Length=':
                     vla_len = vla_lengths[col]
                     idx += 2
+                    slice_ = slice(idx, idx + vla_len)
                     data[row][col][:] = line[idx:idx + vla_len]
                     idx += vla_len
+                elif dtype[col].shape:
+                    # This is an array column
+                    array_size = int(np.multiply.reduce(dtype[col].shape))
+                    slice_ = slice(idx, idx + array_size)
+                    idx += array_size
                 else:
-                    # TODO: This won't work for complex-valued types; fix this
-                    # Kind of silly special handling for bools
-                    val = line[idx]
-                    if recformats[col] == FITS2NUMPY['L']:
-                        val = bool(int(val))
-                    elif recformats[col] == FITS2NUMPY['M']:
-                        # For some reason, in arrays/fields where numpy expects
-                        # a complex it's not happy to take a string
-                        # representation (though it's happy to do that in other
-                        # contexts), so we have to convert the string
-                        # representation for it:
-                        val = complex(val)
-                    data[row][col] = val
+                    slice_ = None
+
+                if slice_ is None:
+                    # This is a scalar row element
+                    data[row][col] = format_value(col, line[idx])
                     idx += 1
+                else:
+                    data[row][col].flat[:] = [format_value(col, val)
+                                              for val in line[slice_]]
+
                 col += 1
 
         if close_file:
