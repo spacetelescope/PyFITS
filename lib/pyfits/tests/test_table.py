@@ -1881,6 +1881,27 @@ class TestTableFunctions(PyfitsTestCase):
         # Double check that the headers are equivalent
         assert str(tbhdu.header) == str(new_tbhdu.header)
 
+    def test_dump_load_array_colums(self):
+        """
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/22
+
+        Ensures that a table containing a multi-value array column can be
+        dumped and loaded successfully.
+        """
+
+        data = np.rec.array([('a', [1, 2, 3, 4], 0.1),
+                             ('b', [5, 6, 7, 8], 0.2)],
+                            formats='a1,4i4,f8')
+        tbhdu = fits.BinTableHDU.from_columns(data)
+        datafile = self.temp('data.txt')
+        cdfile = self.temp('coldefs.txt')
+        hfile = self.temp('header.txt')
+
+        tbhdu.dump(datafile, cdfile, hfile)
+        new_tbhdu =fits.BinTableHDU.load(datafile, cdfile, hfile)
+        assert comparerecords(tbhdu.data, new_tbhdu.data)
+        assert str(tbhdu.header) == str(new_tbhdu.header)
+
     def test_load_guess_format(self):
         """
         Tests loading a table dump with no supplied coldefs or header, so that
