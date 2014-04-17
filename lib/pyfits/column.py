@@ -1,3 +1,4 @@
+import copy
 import operator
 import re
 import sys
@@ -421,6 +422,9 @@ class ColDefs(object):
 
         return object.__new__(klass)
 
+    def __getnewargs__(self):
+        return (self._arrays,)
+
     def __init__(self, input, tbtype='BinTableHDU'):
         """
         Parameters
@@ -515,6 +519,13 @@ class ColDefs(object):
         else:
             raise TypeError('Input to ColDefs must be a table HDU or a list '
                             'of Columns.')
+
+    def __copy__(self):
+        return self.__class__(self, self._tbtype)
+
+    def __deepcopy__(self, memo):
+        return self.__class__([copy.deepcopy(c, memo) for c in self.columns
+                               if not c._phantom], tbtype=self._tbtype)
 
     def __getattr__(self, name):
         """
