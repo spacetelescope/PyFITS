@@ -4,6 +4,11 @@ from __future__ import with_statement
 import numpy as np
 from numpy import char as chararray
 
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
 import pyfits as fits
 from pyfits.column import Delayed, NUMPY2FITS
 from pyfits.util import decode_ascii
@@ -2329,6 +2334,42 @@ class TestTableFunctions(PyfitsTestCase):
                 # columns to convert these to columns of 'T'/'F' strings
                 assert np.all(np.where(tbdata['c4'] == True, 'T', 'F') ==
                               tbdata2['c4'])
+
+    def test_pickle(self):
+        """
+        Regression test for https://github.com/astropy/astropy/issues/1597
+
+        Tests for pickling FITS_rec objects
+        """
+
+        # open existing FITS tables (images pickle by default, no test needed):
+        with fits.open(self.data('tb.fits')) as btb:
+            # Test column array is delayed and can pickle
+            assert isinstance(btb[1].columns._arrays[0], Delayed)
+
+            btb_pd = pickle.dumps(btb[1].data)
+            btb_pl = pickle.loads(btb_pd)
+
+            # It should not be delayed any more
+            assert not isinstance(btb[1].columns._arrays[0], Delayed)
+
+            assert comparerecords(btb_pl, btb[1].data)
+
+        with fits.open(self.data('ascii.fits')) as asc:
+            asc_pd = pickle.dumps(asc[1].data)
+            asc_pl = pickle.loads(asc_pd)
+            assert comparerecords(asc_pl, asc[1].data)
+
+        with fits.open(self.data('random_groups.fits')) as rgr:
+            rgr_pd = pickle.dumps(rgr[0].data)
+            rgr_pl = pickle.loads(rgr_pd)
+            assert comparerecords(rgr_pl, rgr[0].data)
+
+        with fits.open(self.data('zerowidth.fits')) as zwc:
+            # Doesn't pickle zero-width (_phanotm) column 'ORBPARM'
+            zwc_pd = pickle.dumps(zwc[2].data)
+            zwc_pl = pickle.loads(zwc_pd)
+            assert comparerecords(zwc_pl, zwc[2].data)
 
     def test_copy_vla(self):
         """
