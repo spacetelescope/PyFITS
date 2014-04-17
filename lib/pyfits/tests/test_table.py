@@ -75,7 +75,7 @@ def comparerecords(a, b):
             print_("type(fieldb): ", type(fieldb), " fieldb: ", fieldb)
             print_('field %d type differs' % i)
             return False
-        if isinstance(fielda[0], np.floating):
+        if len(fielda) and isinstance(fielda[0], np.floating):
             if not comparefloats(fielda, fieldb):
                 print_("fielda: ", fielda)
                 print_("fieldb: ", fieldb)
@@ -1564,7 +1564,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert 'ORBPARM' in tbhdu.columns.names
         # The ORBPARM column should not be in the data, though the data should
         # be readable
-        assert 'ORBPARM' not in tbhdu.data.names
+        assert 'ORBPARM' in tbhdu.data.names
         # Verify that some of the data columns are still correctly accessible
         # by name
         assert tbhdu.data[0]['ANNAME'] == 'VLA:_W16'
@@ -1584,9 +1584,10 @@ class TestTableFunctions(PyfitsTestCase):
         hdul.close()
         hdul = fits.open(self.temp('newtable.fits'))
         tbhdu = hdul[2]
+
         # Verify that the previous tests still hold after writing
         assert 'ORBPARM' in tbhdu.columns.names
-        assert 'ORBPARM' not in tbhdu.data.names
+        assert 'ORBPARM' in tbhdu.data.names
         assert tbhdu.data[0]['ANNAME'] == 'VLA:_W16'
         assert comparefloats(
             tbhdu.data[0]['STABXYZ'],
@@ -2166,9 +2167,10 @@ class TestTableFunctions(PyfitsTestCase):
 
         with fits.open(self.data('zerowidth.fits')) as zwc:
             # Doesn't pickle zero-width (_phanotm) column 'ORBPARM'
-            zwc_pd = pickle.dumps(zwc[2].data)
-            zwc_pl = pickle.loads(zwc_pd)
-            assert comparerecords(zwc_pl, zwc[2].data)
+            with ignore_warnings():
+                zwc_pd = pickle.dumps(zwc[2].data)
+                zwc_pl = pickle.loads(zwc_pd)
+                assert comparerecords(zwc_pl, zwc[2].data)
 
 
 class TestVLATables(PyfitsTestCase):

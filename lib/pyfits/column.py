@@ -449,6 +449,7 @@ class Column(object):
         if self.format[0] == '0' or \
            (self.format[-1] == '0' and self.format[-2].isalpha()):
             self._phantom = True
+            array = None
         else:
             self._phantom = False
 
@@ -1056,8 +1057,7 @@ class ColDefs(object):
         return self.__class__(self)
 
     def __deepcopy__(self, memo):
-        return self.__class__([copy.deepcopy(c, memo) for c in self.columns
-                               if not c._phantom])
+        return self.__class__([copy.deepcopy(c, memo) for c in self.columns])
 
     def _copy_column(self, column):
         """Utility function used currently only by _init_from_coldefs
