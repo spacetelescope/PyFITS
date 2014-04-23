@@ -456,6 +456,11 @@ def fileobj_closed(f):
     file-like object.
     """
 
+    # Workaround for inconsistent handling of file path strings in parts of
+    # PyFITS 3.1.x
+    if isinstance(f, basestring):
+        return True
+
     if hasattr(f, 'closed'):
         return f.closed
     elif hasattr(f, 'fileobj') and hasattr(f.fileobj, 'closed'):
@@ -463,7 +468,7 @@ def fileobj_closed(f):
     elif hasattr(f, 'fp') and hasattr(f.fp.closed):
         return f.fp.closed
     else:
-        return True
+        return False
 
 
 def fileobj_mode(f):

@@ -17,6 +17,10 @@ Changelog
 - Improved behavior when writing large compressed images on OSX by removing an
   unncessary check for platform architecture. (Backported from 3.2.3)
 
+- Allow reading FITS files from file-like objects that do not have a
+  ``.closed`` attribute (and as such may not even have an "open" vs. "closed"
+  concept). (Backported from 3.2.3)
+
 
 3.1.5 (2014-03-28)
 ------------------
