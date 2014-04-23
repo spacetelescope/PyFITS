@@ -14,6 +14,9 @@ Changelog
 - Fixed pickling of ``FITS_rec`` (table data) objects.
   (Backported from 3.2.3)
 
+- Improved behavior when writing large compressed images on OSX by removing an
+  unncessary check for platform architecture. (Backported from 3.2.3)
+
 
 3.1.5 (2014-03-28)
 ------------------
