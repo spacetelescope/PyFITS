@@ -66,6 +66,9 @@ Other Changes and Additions
 - Fixed pickling of ``FITS_rec`` (table data) objects.
   (spacetelescope/PyFITS#53)
 
+- Improved behavior when writing large compressed images on OSX by removing an
+  unncessary check for platform architecture. (spacetelescope/PyFITS#57)
+
 
 3.1.6 (unreleased)
 ------------------
@@ -79,6 +82,9 @@ Other Changes and Additions
 
 - Fixed pickling of ``FITS_rec`` (table data) objects.
   (Backported from 3.2.3)
+
+- Improved behavior when writing large compressed images on OSX by removing an
+  unncessary check for platform architecture. (Backported from 3.2.3)
 
 
 3.2.2 (2014-03-25)
