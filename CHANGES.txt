@@ -21,6 +21,9 @@ Changelog
   ``.closed`` attribute (and as such may not even have an "open" vs. "closed"
   concept). (spacetelescope/PyFITS#56)
 
+- Fixed duplicate insertion of commentary keywords on compressed image
+  headers. (spacetelescope/PyFITS#58)
+
 - Fixed minor issue with comparison of header commentary card values.
   (spacetelescope/PyFITS#59)
 
