@@ -8,10 +8,9 @@ import sys
 import warnings
 
 from collections import defaultdict
-from itertools import izip_longest
 
 from .extern.six import PY3, string_types, itervalues, iteritems, next
-from .extern.six.moves import zip, range
+from .extern.six.moves import zip, range, zip_longest
 
 from .card import Card, CardList, KEYWORD_LENGTH, _pad
 from .file import _File
@@ -2109,7 +2108,7 @@ class _CardAccessor(object):
             else:
                 return False
 
-        for a, b in izip_longest(self, other):
+        for a, b in zip_longest(self, other):
             if a != b:
                 return False
         else:
