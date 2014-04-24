@@ -9,7 +9,11 @@ import sys
 import warnings
 
 from collections import defaultdict
-from itertools import izip_longest
+
+try:
+    from itertools import zip_longest
+except ImportError:
+    from itertools import izip_longest as zip_longest
 
 from pyfits.card import Card, CardList, BLANK_CARD, KEYWORD_LENGTH, _pad
 from pyfits.file import _File, PYTHON_MODES
@@ -2113,7 +2117,7 @@ class _CardAccessor(object):
             else:
                 return False
 
-        for a, b in izip_longest(self, other):
+        for a, b in zip_longest(self, other):
             if a != b:
                 return False
         else:
