@@ -21,6 +21,9 @@ Changelog
   ``.closed`` attribute (and as such may not even have an "open" vs. "closed"
   concept). (spacetelescope/PyFITS#56)
 
+- Fixed minor issue with comparison of header commentary card values.
+  (spacetelescope/PyFITS#59)
+
 
 3.1.6 (unreleased)
 ------------------
@@ -41,6 +44,9 @@ Changelog
 - Allow reading FITS files from file-like objects that do not have a
   ``.closed`` attribute (and as such may not even have an "open" vs. "closed"
   concept). (Backported from 3.2.3)
+
+- Fixed minor issue with comparison of header commentary card values.
+  (Backported from 3.2.3)
 
 
 3.2.2 (2014-03-28)
