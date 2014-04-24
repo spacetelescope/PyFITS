@@ -21,6 +21,9 @@ Changelog
   ``.closed`` attribute (and as such may not even have an "open" vs. "closed"
   concept). (Backported from 3.2.3)
 
+- Fixed minor issue with comparison of header commentary card values.
+  (Backported from 3.2.3)
+
 
 3.1.5 (2014-03-28)
 ------------------

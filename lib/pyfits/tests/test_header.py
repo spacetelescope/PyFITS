@@ -1412,6 +1412,22 @@ class TestHeaderFunctions(PyfitsTestCase):
         header['HISTORY'][:] = ['BAZ', 'QUX']
         assert_equal(header['HISTORY'], ['BAZ', 'QUX', 'BAR'])
 
+    def test_commentary_comparison(self):
+        """
+        Regression test for an issue found in *writing* the regression test for
+        https://github.com/astropy/astropy/issues/2363, where comparison of
+        the list of values for a commentary keyword did not always compare
+        correctly with other iterables.
+        """
+
+        header = fits.Header()
+        header['HISTORY'] = 'hello world'
+        header['HISTORY'] = 'hello world'
+        header['COMMENT'] = 'hello world'
+        assert header['HISTORY'] != header['COMMENT']
+        header['COMMENT'] = 'hello world'
+        assert header['HISTORY'] == header['COMMENT']
+
     def test_long_commentary_card(self):
         header = pyfits.Header()
         header['FOO'] = 'BAR'
