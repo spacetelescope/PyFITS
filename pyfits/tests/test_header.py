@@ -2257,9 +2257,9 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         # updated
         del self._test_header['DP1.AXIS.2']
         assert len(self._test_header) == 6
-        assert list(self._test_header.keys())[0] == 'DP1.NAXIS'
+        assert list(self._test_header)[0] == 'DP1.NAXIS'
         assert self._test_header[0] == 2
-        assert list(self._test_header.keys())[1] == 'DP1.NAUX'
+        assert list(self._test_header)[1] == 'DP1.NAUX'
         assert self._test_header[1] == 2
 
     def test_pattern_matching_keys(self):
