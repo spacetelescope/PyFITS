@@ -636,7 +636,7 @@ class HDUList(list, _Verify):
         self.verify(option=output_verify)
 
         # check if the file object is closed
-        closed = fileobj_closed(fileobj)
+        closed = isinstance(fileobj, basestring) or fileobj_closed(fileobj)
         fmode = fileobj_mode(fileobj) or 'ab+'
         filename = fileobj_name(fileobj)
 
