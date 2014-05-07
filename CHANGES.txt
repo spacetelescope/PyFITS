@@ -25,6 +25,10 @@ API Changes
   otherwise accept the same arguments as ``pyfits.new_table`` which is now
   just a wrapper for these.
 
+- The ``.fromstring`` classmethod of each HDU type has been simplified such
+  that, true to its namesake, it only initializes an HDU from a string
+  containing its header *and* data. (spacetelescope/PyFITS#64)
+
 - Fixed an issue where header wildcard matching (for example
   ``header['DATE*']``) can be used to match *any* characters that might appear
   in a keyword.  Previously this only matched keywords containing characters

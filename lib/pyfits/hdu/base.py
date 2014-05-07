@@ -12,9 +12,8 @@ from ..extern.six import string_types
 from ..extern.six.moves import range
 
 import pyfits
-from ..card import Card
 from ..file import _File
-from ..header import Header, HEADER_END_RE
+from ..header import Header
 from ..util import (first, lazyproperty, _is_int, _is_pseudo_unsigned,
                     _unsigned_zero, _pad_length, itersubclasses, encode_ascii,
                     decode_ascii, deprecated, _get_array_mmap, _array_to_file)
@@ -252,12 +251,9 @@ class _BaseHDU(object):
     def match_header(cls, header):
         raise NotImplementedError
 
-    # TODO: This method is a bit kludgy, especially in how it still usually
-    # works with a fileobj, and how the first argument may or may not contain
-    # HDU data.  This should be rethought.
     @classmethod
-    def fromstring(cls, data, fileobj=None, offset=0, checksum=False,
-                   ignore_missing_end=False, **kwargs):
+    def fromstring(cls, data, checksum=False, ignore_missing_end=False,
+                   **kwargs):
         """
         Creates a new HDU object of the appropriate type from a string
         containing the HDU's entire header and, optionally, its data.
@@ -270,107 +266,29 @@ class _BaseHDU(object):
         Parameters
         ----------
         data : str, bytearray, memoryview, ndarray
-           A byte string contining the HDU's header and, optionally, its data.
-           If ``fileobj`` is not specified, and the length of ``data`` extends
-           beyond the header, then the trailing data is taken to be the HDU's
-           data.  If ``fileobj`` is specified then the trailing data is
-           ignored.
-
-        fileobj : file, optional
-           The file-like object that this HDU was read from.
-
-        offset : int, optional
-           If ``fileobj`` is specified, the offset into the file-like object at
-           which this HDU begins.
+           A byte string contining the HDU's header and data.
 
         checksum : bool, optional
            Check the HDU's checksum and/or datasum.
 
         ignore_missing_end : bool, optional
-           Ignore a missing end card in the header data.  Note that without
-           the end card the end of the header can't be found, so the entire
-           data is just assumed to be the header.
+           Ignore a missing end card in the header data.  Note that without the
+           end card the end of the header may be ambiguous and resulted in a
+           corrupt HDU.  In this case the assumption is that the first 2880
+           block that does not begin with valid FITS header data is the
+           beginning of the data.
 
         kwargs : optional
-           May contain additional keyword arguments specific to an HDU type.
-           Any unrecognized kwargs are simply ignored.
+           May consist of additional keyword arguments specific to an HDU
+           type--these correspond to keywords recognized by the constructors of
+           different HDU classes such as `PrimaryHDU`, `ImageHDU`, or
+           `BinTableHDU`.  Any unrecognized keyword arguments are simply
+           ignored.
         """
 
-        if isinstance(data, Header):
-            header = data
-            if (not len(header) or
-                first(header.keys()) not in ('SIMPLE', 'XTENSION')):
-                raise ValueError('Block does not begin with SIMPLE or '
-                                 'XTENSION')
-        else:
-            try:
-                # Test that the given object supports the buffer interface by
-                # ensuring an ndarray can be created from it
-                np.ndarray((), dtype='ubyte', buffer=data)
-            except TypeError:
-                raise TypeError(
-                    'The provided object %r does not contain an underlying '
-                    'memory buffer.  fromstring() requires an object that '
-                    'supports the buffer interface such as bytes, str '
-                    '(in Python 2.x but not in 3.x), buffer, memoryview, '
-                    'ndarray, etc.' % data)
-
-            if data[:8] not in [encode_ascii('SIMPLE  '),
-                                encode_ascii('XTENSION')]:
-                raise ValueError('Block does not begin with SIMPLE or '
-                                 'XTENSION')
-
-            # Make sure the end card is present
-            for match in HEADER_END_RE.finditer(data):
-                endpos = match.start()
-                if endpos % Card.length == 0:
-                    hdrlen = endpos + len(match.group())
-                    hdrlen += _pad_length(hdrlen)
-                    break
-            else:
-                if ignore_missing_end:
-                    hdrlen = len(data)
-                else:
-                    raise ValueError('Header missing END card.')
-
-            header = Header.fromstring(decode_ascii(data[:hdrlen]))
-        # Determine the appropriate arguments to pass to the constructor from
-        # self._kwargs.  self._kwargs contains any number of optional arguments
-        # that may or may not be valid depending on the HDU type
-        cls = _hdu_class_from_header(cls, header)
-        args, varargs, varkwargs, defaults = inspect.getargspec(cls.__init__)
-        new_kwargs = kwargs.copy()
-        if not varkwargs:
-            # If __init__ accepts arbitrary keyword arguments, then we can go
-            # ahead and pass all keyword arguments; otherwise we need to delete
-            # any that are invalid
-            for key in kwargs:
-                if key not in args:
-                    del new_kwargs[key]
-
-        hdu = cls(data=DELAYED, header=header, **new_kwargs)
-
-        hdu._file = fileobj
-
-        if not fileobj and len(data) > hdrlen:
-            # Provide an underlying buffer to read the data from
-            hdu._buffer = data
-
-        hdu._header_offset = offset            # beginning of the header area
-        if fileobj:
-            hdu._data_offset = fileobj.tell()  # beginning of the data area
-        else:
-            hdu._data_offset = hdrlen
-
-        # data area size, including padding
-        size = hdu.size
-        hdu._data_size = size + _pad_length(size)
-
-        # Checksums are not checked on invalid HDU types
-        if checksum and checksum != 'remove' and isinstance(hdu, _ValidHDU):
-            hdu._verify_checksum_datasum(checksum)
-
-        return hdu
+        return cls._readfrom_internal(data, checksum=checksum,
+                                      ignore_missing_end=ignore_missing_end,
+                                      **kwargs)
 
     @classmethod
     def readfrom(cls, fileobj, checksum=False, ignore_missing_end=False,
@@ -401,15 +319,13 @@ class _BaseHDU(object):
         if not isinstance(fileobj, _File):
             fileobj = _File(fileobj)
 
-        hdr_offset = fileobj.tell()
-        hdr = Header.fromfile(fileobj, endcard=not ignore_missing_end)
 
-        hdu = cls.fromstring(hdr, fileobj=fileobj, offset=hdr_offset,
-                             checksum=checksum,
-                             ignore_missing_end=ignore_missing_end, **kwargs)
+        hdu = cls._readfrom_internal(fileobj, checksum=checksum,
+                                     ignore_missing_end=ignore_missing_end,
+                                     **kwargs)
 
         # If the checksum had to be checked the data may have already been read
-        # from the file, in which case we don't want to see relative
+        # from the file, in which case we don't want to seek relative
         fileobj.seek(hdu._data_offset + hdu._data_size, os.SEEK_SET)
         return hdu
 
@@ -446,6 +362,97 @@ class _BaseHDU(object):
         hdulist = HDUList([self])
         hdulist.writeto(name, output_verify, clobber=clobber,
                         checksum=checksum)
+
+    @classmethod
+    def _readfrom_internal(cls, data, header=None, checksum=False,
+                           ignore_missing_end=False, **kwargs):
+        """
+        Provides the bulk of the internal implementation for readfrom and
+        fromstring.
+
+        For some special cases, supports using a header that was already
+        created, and just using the input data for the actual array data.
+        """
+
+        hdu_buffer = None
+        hdu_fileobj = None
+        header_offset = 0
+
+        if isinstance(data, _File):
+            from_file = True
+            if header is None:
+                header_offset = data.tell()
+                header = Header.fromfile(data, endcard=not ignore_missing_end)
+            hdu_fileobj = data
+            data_offset = data.tell()  # *after* reading the header
+        else:
+            from_file = False
+            try:
+                # Test that the given object supports the buffer interface by
+                # ensuring an ndarray can be created from it
+                np.ndarray((), dtype='ubyte', buffer=data)
+            except TypeError:
+                raise TypeError(
+                    'The provided object %r does not contain an underlying '
+                    'memory buffer.  fromstring() requires an object that '
+                    'supports the buffer interface such as bytes, str '
+                    '(in Python 2.x but not in 3.x), buffer, memoryview, '
+                    'ndarray, etc.  This restriction is to ensure that '
+                    'efficient access to the array/table data is possible.'
+                    % data)
+
+            if header is None:
+                def block_iter(nbytes):
+                    idx = 0
+                    while idx < len(data):
+                        yield data[idx:idx + nbytes]
+                        idx += nbytes
+
+                header_str, header = Header._from_blocks(
+                    block_iter, True, '', not ignore_missing_end, True)
+
+                if len(data) > len(header_str):
+                    hdu_buffer = data
+            elif data:
+                hdu_buffer = data
+
+            header_offset = 0
+            data_offset = len(header_str)
+
+        # Determine the appropriate arguments to pass to the constructor from
+        # self._kwargs.  self._kwargs contains any number of optional arguments
+        # that may or may not be valid depending on the HDU type
+        cls = _hdu_class_from_header(cls, header)
+        args, varargs, varkwargs, defaults = inspect.getargspec(cls.__init__)
+        new_kwargs = kwargs.copy()
+        if not varkwargs:
+            # If __init__ accepts arbitrary keyword arguments, then we can go
+            # ahead and pass all keyword arguments; otherwise we need to delete
+            # any that are invalid
+            for key in kwargs:
+                if key not in args:
+                    del new_kwargs[key]
+
+        hdu = cls(data=DELAYED, header=header, **new_kwargs)
+
+        # One of these may be None, depending on whether the data came from a
+        # file or a string buffer--later this will be further abstracted
+        hdu._file = hdu_fileobj
+        hdu._buffer = hdu_buffer
+
+        hdu._header_offset = header_offset     # beginning of the header area
+        hdu._data_offset = data_offset         # beginning of the data area
+
+        # data area size, including padding
+        size = hdu.size
+        hdu._data_size = size + _pad_length(size)
+
+        # Checksums are not checked on invalid HDU types
+        if checksum and checksum != 'remove' and isinstance(hdu, _ValidHDU):
+            hdu._verify_checksum_datasum(checksum)
+
+        return hdu
+
 
     def _get_raw_data(self, shape, code, offset):
         """
