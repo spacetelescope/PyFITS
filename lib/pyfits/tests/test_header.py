@@ -1420,7 +1420,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         correctly with other iterables.
         """
 
-        header = fits.Header()
+        header = pyfits.Header()
         header['HISTORY'] = 'hello world'
         header['HISTORY'] = 'hello world'
         header['COMMENT'] = 'hello world'

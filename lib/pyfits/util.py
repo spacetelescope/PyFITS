@@ -837,3 +837,27 @@ if sys.version_info[:2] < (2, 6):
 
             return cls_ns[property_name]
     __builtin__.property = property
+
+
+    # Provide an implementation of izip_longest
+    class ZipExhausted(Exception):
+        pass
+
+    def izip_longest(*args, **kwds):
+        # izip_longest('ABCD', 'xy', fillvalue='-') --> Ax By C- D-
+        fillvalue = kwds.get('fillvalue')
+        counter = [len(args) - 1]
+        def sentinel():
+            if not counter[0]:
+                raise ZipExhausted
+            counter[0] -= 1
+            yield fillvalue
+        fillers = itertools.repeat(fillvalue)
+        iterators = [itertools.chain(it, sentinel(), fillers) for it in args]
+        try:
+            while iterators:
+                yield tuple(map(lambda it: it.next(), iterators))
+        except ZipExhausted:
+            pass
+
+    itertools.izip_longest = izip_longest
