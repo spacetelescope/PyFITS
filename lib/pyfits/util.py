@@ -1024,9 +1024,8 @@ if sys.version_info[:2] < (2, 6):
         iterators = [itertools.chain(it, sentinel(), fillers) for it in args]
         try:
             while iterators:
-                yield tuple(map(next, iterators))
+                yield tuple(map(lambda it: it.next(), iterators))
         except ZipExhausted:
             pass
 
-    from .extern import six
-    six.moves.zip_longest = izip_longest
+    itertools.izip_longest = izip_longest
