@@ -746,14 +746,11 @@ def _array_to_file(arr, outfile):
         # treat as file-like object with "write" method and write the array
         # via its buffer interface
         def write(a, f):
-            # StringIO in Python 2.5 asks 'if not s' which fails for a Numpy
-            # array; test ahead of time if the array is empty, and pass in the
-            # array buffer directly
-            if isinstance(f, StringIO):
-                if len(a):
-                    f.write(a.data)
-            else:
-                f.write(a)
+            # StringIO in some versions of Python ask 'if not s' before
+            # writing, which fails for Numpy arrays.  Test ahead of time that
+            # the array is non-empty, then pass in the array buffer directly
+            if len(a):
+                f.write(a.data)
 
     # Implements a workaround for a bug deep in OSX's stdlib file writing
     # functions; on 64-bit OSX it is not possible to correctly write a number
