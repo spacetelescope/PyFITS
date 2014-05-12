@@ -17,6 +17,12 @@ try:
 except ImportError:
     io = None
 
+try:
+    from StringIO import StringIO
+except ImportError:
+    class StringIO(object):
+        pass
+
 import numpy as np
 
 from .extern.six import (PY3, iteritems, string_types, integer_types,
@@ -769,8 +775,11 @@ def _array_to_file(arr, outfile):
             # StringIO in Python 2.5 asks 'if not s' which fails for a Numpy
             # array; test ahead of time if the array is empty, and pass in the
             # array buffer directly
-            if len(a):
-                f.write(a.data)
+            if isinstance(f, StringIO):
+                if len(a):
+                    f.write(a.data)
+            else:
+                f.write(a)
 
     # Implements a workaround for a bug deep in OSX's stdlib file writing
     # functions; on 64-bit OSX it is not possible to correctly write a number
@@ -806,6 +815,9 @@ def _write_string(f, s):
         s = encode_ascii(s)
     elif not binmode and not isinstance(f, text_type):
         s = decode_ascii(s)
+    elif isinstance(f, StringIO) and isinstance(s, np.ndarray):
+        # Workaround for StringIO/ndarray incompatibility
+        s = s.data
     f.write(s)
 
 
