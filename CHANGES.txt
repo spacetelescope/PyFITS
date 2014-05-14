@@ -60,6 +60,8 @@ Other Changes and Additions
 3.2.3 (unreleased)
 ------------------
 
+- Nominal support for Python 3.4.
+
 - Fixed a bug with using the ``tabledump`` and ``tableload`` functions with
   tables containing array columns (columns in which each element is an array
   instead of a single scalar value). (spacetelescope/PyFITS#22)
@@ -86,6 +88,8 @@ Other Changes and Additions
 
 3.1.6 (unreleased)
 ------------------
+
+- Nominal support for Python 3.4.
 
 - Fixed a bug with using the ``tabledump`` and ``tableload`` functions with
   tables containing array columns (columns in which each element is an array
