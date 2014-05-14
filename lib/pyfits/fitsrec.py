@@ -8,7 +8,8 @@ import numpy as np
 from pyfits.column import (ASCIITNULL, FITS2NUMPY, Column, ColDefs, _FormatX,
                            _FormatP, _VLF, _get_index, _wrapx, _unwrapx,
                             _convert_ascii_format)
-from pyfits.util import _array_from_file, decode_ascii, lazyproperty
+from pyfits.util import (_array_from_file, decode_ascii, encode_ascii,
+                         lazyproperty)
 
 
 class FITS_record(object):
@@ -454,10 +455,12 @@ class FITS_rec(np.recarray):
 
                 # if the string = TNULL, return ASCIITNULL
                 nullval = self._coldefs.nulls[indx].strip().encode('ascii')
-                dummy = field.replace('D'.encode('ascii'),
-                                      'E'.encode('ascii'))
-                dummy = np.where(dummy.strip() == nullval, str(ASCIITNULL),
-                                 dummy)
+                dummy = field.replace(encode_ascii('D'),
+                                      encode_ascii('E'))
+                width = self._coldefs.spans[indx]
+                null_fill = encode_ascii(str(ASCIITNULL).rjust(width))
+                dummy = np.where(dummy.strip() == nullval, null_fill, dummy)
+
                 try:
                     dummy = np.array(dummy, dtype=_type)
                 except ValueError, e:
