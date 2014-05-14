@@ -86,7 +86,7 @@ Other Changes and Additions
   (spacetelescope/PyFITS#59)
 
 
-3.1.6 (unreleased)
+3.1.6 (2014-05-14)
 ------------------
 
 - Nominal support for Python 3.4.
