@@ -57,7 +57,7 @@ Other Changes and Additions
   ``False`` otherwise.
 
 
-3.2.3 (unreleased)
+3.2.3 (2014-05-14)
 ------------------
 
 - Nominal support for Python 3.4.
