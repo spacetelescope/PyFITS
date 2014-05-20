@@ -168,7 +168,7 @@ is regular and the other variable length array::
     >>> import numpy as np
     >>> c1 = pyfits.Column(name='var', format='PJ()',
     ...                    array=np.array([[45., 56]
-                                           [11, 12, 13]],
+    ...                                    [11, 12, 13]],
     ...                                   dtype=np.object))
     >>> c2 = pyfits.Column(name='xyz', format='2I', array=[[11, 3], [12, 4]])
     >>> tbhdu = pyfits.BinTableHDU.from_columns([c1, c2])
@@ -282,14 +282,14 @@ name::
 Note that the parameter name 'date' appears twice. This is a feature in the
 random access group, and it means to add the values together. Thus::
 
-    >>> f[0].data.parnames # get the parameter names
+    >>> f[0].data.parnames  # get the parameter names
     ['uu--', 'vv--', 'ww--', 'baseline', 'date', 'date']
     >>> print f[0].data.par(4)[99]  # Duplicate parameter name 'date'
     2445728.0
     >>> print f[0].data.par(5)[99]
     0.10
-    # When accessed by name, it adds the values together if the name is shared
-    # by more than one parameter
+    >>> # When accessed by name, it adds the values together if the name is 
+    >>> # shared by more than one parameter
     >>> print f[0].data.par('date')[99]
     2445728.10
 
@@ -348,7 +348,7 @@ to create the HDU itself::
     >>> imdata = numpy.arange(100.0, shape=(10, 1, 1, 2, 5))
     >>> # Next, create the group parameter data, we'll have two parameters.
     >>> # Note that the size of each parameter's data is also the number of
-    >>> groups.
+    >>> # groups.
     >>> # A parameter's data can also be a numeric constant.
     >>> pdata1 = numpy.arange(10) + 0.1
     >>> pdata2 = 42
