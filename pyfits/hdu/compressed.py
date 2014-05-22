@@ -438,13 +438,13 @@ class CompImageHDU(BinTableHDU):
             1) The entire FITS file may be externally compressed with the gzip
                or pkzip utility programs, producing a ``*.gz`` or ``*.zip``
                file, respectively.  When reading compressed files of this type,
-               pyfits first uncompresses the entire file into a temporary file
-               before performing the requested read operations.  The pyfits
-               module does not support writing to these types of compressed
-               files.  This type of compression is supported in the `_File`
-               class, not in the `CompImageHDU` class.  The file compression
-               type is recognized by the ``.gz`` or ``.zip`` file name
-               extension.
+               PyFITS first uncompresses the entire file into a temporary file
+               before performing the requested read operations.  The
+               astropy.io.fits package does not support writing to these types
+               of compressed files.  This type of compression is supported in
+               the ``_File`` class, not in the `CompImageHDU` class.  The file
+               compression type is recognized by the ``.gz`` or ``.zip`` file
+               name extension.
 
             2) The `CompImageHDU` class supports the FITS tiled image
                compression convention in which the image is subdivided into a
