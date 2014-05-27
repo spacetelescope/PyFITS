@@ -566,9 +566,6 @@ class _BaseHDU(object):
         else:
             size = len(str(self._header))
 
-        # Update hdrLoc with the new offset
-        self._header_offset = offset
-
         return offset, size
 
     def _writedata(self, fileobj):
@@ -606,10 +603,6 @@ class _BaseHDU(object):
         # flush, to make sure the content is written
         if not fileobj.simulateonly:
             fileobj.flush()
-
-        # Update datLoc with the new offset
-        self._data_offset = offset
-        self._data_size = size
 
         # return both the location and the size of the data area
         return offset, size
@@ -652,8 +645,14 @@ class _BaseHDU(object):
     def _writeto(self, fileobj, inplace=False, copy=False):
         # For now fileobj is assumed to be a _File object
         if not inplace or self._new:
-            self._writeheader(fileobj)
-            self._writedata(fileobj)
+            header_offset, _ = self._writeheader(fileobj)
+            data_offset, data_size = self._writedata(fileobj)
+
+            # Set the various data location attributes on newly-written HDUs
+            if self._new:
+                self._header_offset = header_offset
+                self._data_offset = data_offset
+                self._data_size = data_size
             return
 
         hdrloc = self._header_offset
