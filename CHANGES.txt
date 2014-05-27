@@ -57,6 +57,18 @@ Other Changes and Additions
   ``False`` otherwise.
 
 
+3.2.4 (unreleased)
+------------------
+
+- Nothing changed yet.
+
+
+3.1.7 (unreleased)
+------------------
+
+- Nothing changed yet.
+
+
 3.2.3 (2014-05-14)
 ------------------
 
