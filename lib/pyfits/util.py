@@ -834,7 +834,7 @@ def _convert_array(array, dtype):
             (np.issubdtype(array.dtype, np.number) and
              np.issubdtype(dtype, np.number))):
         # Includes a special case when both dtypes are at least numeric to
-        # account for ticket #218: https://trac.assembla.com/pyfits/ticket/218
+        # account for ticket #218: https://aeon.stsci.edu/ssb/trac/pyfits/ticket/218
         return array.view(dtype)
     else:
         return array.astype(dtype)

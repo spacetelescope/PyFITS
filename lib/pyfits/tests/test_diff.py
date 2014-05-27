@@ -127,7 +127,7 @@ class TestDiff(PyfitsTestCase):
             fits.STRIP_HEADER_WHITESPACE = True
 
     def test_ignore_blank_cards(self):
-        """Test for https://trac.assembla.com/pyfits/ticket/152
+        """Test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/152
 
         Ignore blank cards.
         """
@@ -212,7 +212,7 @@ class TestDiff(PyfitsTestCase):
         assert diff.diff_total == 0
 
     def test_identical_comp_image_hdus(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/189
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/189
 
         For this test we mostly just care that comparing to compressed images
         does not crash, and returns the correct results.  Two compressed images
@@ -286,7 +286,7 @@ class TestDiff(PyfitsTestCase):
 
     def test_diff_empty_tables(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/178
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/178
 
         Ensure that diffing tables containing empty data doesn't crash.
         """
@@ -542,7 +542,7 @@ class TestDiff(PyfitsTestCase):
         assert '100 different pixels found (100.00% different)' in report
 
     def test_diff_nans(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/204"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/204"""
 
         # First test some arrays that should be equivalent....
         arr = np.empty((10, 10), dtype=np.float64)

@@ -60,7 +60,7 @@ class TestHDUListFunctions(PyfitsTestCase):
 
     def test_create_from_multiple_primary(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/145
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/145
 
         Ensure that a validation error occurs when saving an HDUList containing
         multiple PrimaryHDUs.
@@ -434,7 +434,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         assert hdul[0].header['EXTEND'] == True
 
     def test_new_hdulist_extend_keyword(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/114
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/114
 
         Tests that adding a PrimaryHDU to a new HDUList object updates the
         EXTEND keyword on that HDU.
@@ -461,7 +461,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         assert ((old_data + 1) == hdul[1].data).all()
 
     def test_open_file_with_end_padding(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/106
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/106
 
         Open files with end padding bytes.
         """
@@ -479,7 +479,7 @@ class TestHDUListFunctions(PyfitsTestCase):
 
     def test_open_file_with_bad_header_padding(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/136
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/136
 
         Open files with nulls for header block padding instead of spaces.
         """
@@ -507,7 +507,7 @@ class TestHDUListFunctions(PyfitsTestCase):
 
     def test_update_with_truncated_header(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/148
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/148
 
         Test that saving an update where the header is shorter than the
         original header doesn't leave a stump from the old header in the file.
@@ -567,7 +567,7 @@ class TestHDUListFunctions(PyfitsTestCase):
 
     def test_update_resized_header2(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/150
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/150
 
         This is similar to test_update_resized_header, but specifically tests a
         case of multiple consecutive flush() calls on the same HDUList object,
@@ -635,7 +635,7 @@ class TestHDUListFunctions(PyfitsTestCase):
             if sys.platform == 'win32' and filename == 'zerowidth.fits':
                 # Running this test on this file causes a crash in some
                 # versions of Numpy on Windows.  See PyFITS ticket
-                # https://trac.assembla.com/pyfits/ticket/174
+                # https://aeon.stsci.edu/ssb/trac/pyfits/ticket/174
                 continue
             test_fromstring(os.path.join(self.data_dir, filename))
 
@@ -643,7 +643,7 @@ class TestHDUListFunctions(PyfitsTestCase):
         assert_raises(TypeError, fits.HDUList.fromstring, ['a', 'b', 'c'])
 
     def test_save_backup(self):
-        """Test for https://trac.assembla.com/pyfits/ticket/121
+        """Test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/121
 
         Save backup of file before flushing changes.
         """

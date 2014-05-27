@@ -395,7 +395,7 @@ class TestCore(PyfitsTestCase):
 
     def test_nonstandard_hdu(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/157
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/157
 
         Tests that "Nonstandard" HDUs with SIMPLE = F are read and written
         without prepending a superfluous and unwanted standard primary HDU.
@@ -499,7 +499,7 @@ class TestConvenienceFunctions(PyfitsTestCase):
     @ignore_warnings(PyfitsDeprecationWarning)
     def test_writeto_2(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/107
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/107
 
         Test of `writeto()` with a trivial header containing a single keyword.
         """
@@ -640,7 +640,7 @@ class TestFileFunctions(PyfitsTestCase):
             gf.close()
 
     def test_open_gzip_file_for_writing(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/195."""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/195."""
 
         gf = self._make_gzip_file()
         with fits.open(gf, mode='update') as h:
@@ -662,7 +662,7 @@ class TestFileFunctions(PyfitsTestCase):
 
     def test_updated_file_permissions(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/79
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/79
 
         Tests that when a FITS file is modified in update mode, the file
         permissions are preserved.

@@ -41,11 +41,11 @@ Synchronizing with SVN
 ----------------------
 
 This section is primarily intended for developers at STScI who have commit
-access to the PyFITS SVN repository (http://svn6.assembla.com/svn/pyfits).
+access to the PyFITS SVN repository (https://aeon.stsci.edu/ssb/svn/pyfits/).
 The PyFITS Git and SVN repositories are synced using the git-svn command.
 git-svn can be tricky to install as it requires the Perl bindings for SVN, as
-well as SVN itself and of course Git.  The easiest way to get git-svn is to
-ask a system administrator to install it from the OS packaging system.
+well as SVN itself and of course Git.  The easiest way to get git-svn is to ask
+a system administrator to install it from the OS packaging system.
 
 Most guides for setting up git-svn start out with either the ``git svn init``
 command or ``git svn clone``.  But because the work of synchronizing the Git
@@ -306,8 +306,8 @@ Prerequisites for performing a release
    ticket to IT it will be handled eventually.
 
 8. Triage issues is milestones in the PyFITS bug tracker(s).  Currently this
-   includes the Trac site: https://trac.assembla.com/pyfits/roadmap and the
-   GitHub site: https://github.com/spacetelescope/PyFITS/issues/milestones
+   includes the Trac site: https://aeon.stsci.edu/ssb/trac/pyfits/roadmap and
+   the GitHub site: https://github.com/spacetelescope/PyFITS/issues/milestones
 
    No new tickets are being added in Trac, so after all open tickets in the
    Trac site have been addressed, milestones will only need to be managed in

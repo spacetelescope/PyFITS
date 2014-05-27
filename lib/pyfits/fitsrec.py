@@ -580,7 +580,7 @@ class FITS_rec(np.recarray):
         """
         A user-visible accessor for the coldefs.
 
-        See https://trac.assembla.com/pyfits/ticket/44
+        See https://aeon.stsci.edu/ssb/trac/pyfits/ticket/44
         """
 
         return self._coldefs

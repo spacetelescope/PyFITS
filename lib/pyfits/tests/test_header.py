@@ -166,7 +166,7 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
 
     def test_assign_boolean(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/123
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/123
 
         Tests assigning Python and Numpy boolean values to keyword values.
         """
@@ -198,7 +198,7 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert h.ascard['BAR'].cardimage == barimg
 
     def test_cardlist_list_methods(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/190"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/190"""
 
         header = fits.Header()
         header.update('A', 'B', 'C')
@@ -391,7 +391,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         # This test used to check if PyFITS rewrote this card to a new format,
         # something like "HISTO   = '=   (1, 2)".  But since ticket
-        # https://trac.assembla.com/pyfits/ticket/109 if the format is
+        # https://aeon.stsci.edu/ssb/trac/pyfits/ticket/109 if the format is
         # completely wrong we don't make any assumptions and the card should be
         # left alone
         with CaptureStdio():
@@ -457,7 +457,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert str(h1) == str(h2)
 
     def test_long_string_repr(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/193
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/193
 
         Ensure that the __repr__() for cards represented with CONTINUE cards is
         split across multiple lines (broken at each *physical* card).
@@ -479,7 +479,7 @@ class TestHeaderFunctions(PyfitsTestCase):
              str(fits.Card('TEST3', 'Regular value', 'Regular comment'))]
 
     def test_blank_keyword_long_value(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/194
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/194
 
         Test that a blank keyword ('') can be assigned a too-long value that is
         continued across multiple cards with blank keywords, just like COMMENT
@@ -540,7 +540,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_continue_card_with_equals_in_value(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/117
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/117
         """
 
         c = fits.Card.fromstring(
@@ -653,13 +653,13 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert 'abcdefghi' in header
         assert header['abcdefghi'] == 10
         # This used to be assert_false, but per ticket
-        # https://trac.assembla.com/pyfits/ticket/155 hierarch keywords
+        # https://aeon.stsci.edu/ssb/trac/pyfits/ticket/155 hierarch keywords
         # should be treated case-insensitively when performing lookups
         assert 'ABCDEFGHI' in header
 
     def test_hierarch_create_and_update(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/158
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/158
 
         Tests several additional use cases for working with HIERARCH cards.
         """
@@ -720,7 +720,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_short_hierarch_create_and_update(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/158
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/158
 
         Tests several additional use cases for working with HIERARCH cards,
         specifically where the keyword is fewer than 8 characters, but contains
@@ -1446,7 +1446,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert str(header.cards[2]).rstrip() == 'HISTORY ' + longval[72:]
 
     def test_header_fromtextfile(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/122
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/122
 
         Manually write a text file containing some header cards ending with
         newlines and ensure that fromtextfile can read them back in.
@@ -1464,7 +1464,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert header == header2
 
     def test_header_fromtextfile_with_end_card(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/154
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/154
 
         Make sure that when a Header is read from a text file that the END card
         is ignored.
@@ -1487,7 +1487,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_append_end_card(self):
         """
-        Regression test 2 for https://trac.assembla.com/pyfits/ticket/154
+        Regression test 2 for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/154
 
         Manually adding an END card to a header should simply result in a
         ValueError (as was the case in PyFITS 3.0 and earlier).
@@ -1506,7 +1506,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_invalid_end_cards(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/217
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/217
 
         This tests the case where the END card looks like a normal card like
         'END = ' and other similar oddities.  As long as a card starts with END
@@ -1575,7 +1575,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_unnecessary_move(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/125
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/125
 
         Ensures that a header is not modified when setting the position of a
         keyword that's already in its correct position.
@@ -1614,7 +1614,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert not header._modified
 
     def test_invalid_float_cards(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/137"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/137"""
 
         # Create a header containing two of the problematic cards in the test
         # case where this came up:
@@ -1657,7 +1657,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_invalid_float_cards2(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/140
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/140
         """
 
         # The example for this test requires creating a FITS file containing a
@@ -1686,9 +1686,9 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_leading_zeros(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/137, part 2
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/137, part 2
 
-        Ticket https://trac.assembla.com/pyfits/ticket/137 also showed that in
+        Ticket https://aeon.stsci.edu/ssb/trac/pyfits/ticket/137 also showed that in
         float values like 0.001 the leading zero was unnecessarily being
         stripped off when rewriting the header.  Though leading zeros should be
         removed from integer values to prevent misinterpretation as octal by
@@ -1708,7 +1708,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_assign_boolean(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/123
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/123
 
         Tests assigning Python and Numpy boolean values to keyword values.
         """
@@ -1741,7 +1741,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_header_method_keyword_normalization(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/149
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/149
 
         Basically ensures that all public Header methods are case-insensitive
         w.r.t. keywords.
@@ -1798,7 +1798,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_end_in_comment(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/142
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/142
 
         Tests a case where the comment of a card ends with END, and is followed
         by several blank cards.
@@ -1838,7 +1838,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_assign_unicode(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/134
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/134
 
         Assigning a unicode literal as a header value should not fail silently.
         If the value can be converted to ASCII then it should just work.
@@ -1907,7 +1907,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_header_strip_whitespace(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/146, and
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/146, and
         for the solution that is optional stripping of whitespace from the end
         of a header value.
 
@@ -1940,7 +1940,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_keep_duplicate_history_in_orig_header(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/156
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/156
 
         When creating a new HDU from an existing Header read from an existing
         FITS file, if the origianl header contains duplicate HISTORY values
@@ -1973,7 +1973,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_invalid_keyword_cards(self):
         """
-        Test for https://trac.assembla.com/pyfits/ticket/109
+        Test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/109
 
         Allow opening files with headers containing invalid keywords.
         """
@@ -2015,7 +2015,7 @@ class TestHeaderFunctions(PyfitsTestCase):
 
     def test_fix_hierarch_with_invalid_value(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/172
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/172
 
         Ensures that when fixing a hierarch card it remains a hierarch card.
         """
@@ -2323,7 +2323,7 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         string of the first card with that keyword.
 
         This test was changed to reflect the requirement in ticket
-        https://trac.assembla.com/pyfits/ticket/184--previously it required
+        https://aeon.stsci.edu/ssb/trac/pyfits/ticket/184--previously it required
         _test_header['DP1'] to return the parsed float value.
         """
 
@@ -2517,7 +2517,7 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
 
     def test_overly_permissive_parsing(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/183
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/183
 
         Ensures that cards with standard commentary keywords are never treated
         as RVKCs.  Also ensures that cards not stricly matching the RVKC
@@ -2553,7 +2553,7 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
 
     def test_overly_aggressive_rvkc_lookup(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/184
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/184
 
         Ensures that looking up a RVKC by keyword only (without the
         field-specifier) in a header returns the full string value of that card

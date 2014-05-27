@@ -100,7 +100,7 @@ def comparerecords(a, b):
 class TestTableFunctions(PyfitsTestCase):
     def test_constructor_copies_header(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/153
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/153
 
         Ensure that a header from one HDU is copied when used to initialize new
         HDU.
@@ -306,7 +306,7 @@ class TestTableFunctions(PyfitsTestCase):
 
     def test_column_endianness(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/77
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/77
         (PyFITS doesn't preserve byte order of non-native order column arrays)
         """
 
@@ -897,7 +897,7 @@ class TestTableFunctions(PyfitsTestCase):
         row[1:4]['counts'] = 300
         assert row[1:4]['counts'] == 300
 
-        # Test stepping for https://trac.assembla.com/pyfits/ticket/59
+        # Test stepping for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/59
         row[1:4][::-1][-1] = 500
         assert row[1:4]['counts'] == 500
         row[1:4:2][0] = 300
@@ -1704,7 +1704,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert t.field(1).shape == (3, 4, 3)
 
     def test_string_array_round_trip(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/201"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/201"""
 
         data = [['abc', 'def', 'ghi'],
                 ['jkl', 'mno', 'pqr'],
@@ -1725,7 +1725,7 @@ class TestTableFunctions(PyfitsTestCase):
 
         with fits.open(self.temp('test.fits')) as h:
             # Access the data; I think this is necessary to exhibit the bug
-            # reported in https://trac.assembla.com/pyfits/ticket/201
+            # reported in https://aeon.stsci.edu/ssb/trac/pyfits/ticket/201
             h[1].data[:]
             h.writeto(self.temp('test2.fits'))
 
@@ -1795,7 +1795,7 @@ class TestTableFunctions(PyfitsTestCase):
                       dim='(2,2)', array=arra)
 
     def test_slicing(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/52"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/52"""
 
         f = fits.open(self.data('table.fits'))
         data = f[1].data
@@ -1813,7 +1813,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert (s.field('target') == targets[::-1]).all()
 
     def test_array_slicing(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/55"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/55"""
 
         f = fits.open(self.data('table.fits'))
         data = f[1].data
@@ -1947,7 +1947,7 @@ class TestTableFunctions(PyfitsTestCase):
 
     def test_attribute_field_shadowing(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/86
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/86
 
         Numpy recarray objects have a poorly-considered feature of allowing
         field access by attribute lookup.  However, if a field name conincides
@@ -1972,7 +1972,7 @@ class TestTableFunctions(PyfitsTestCase):
 
     def test_table_from_bool_fields(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/113
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/113
 
         Tests creating a table from a recarray containing numpy.bool columns.
         """
@@ -1990,7 +1990,7 @@ class TestTableFunctions(PyfitsTestCase):
 
     def test_table_from_bool_fields2(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/215
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/215
 
         Tests the case where a multi-field ndarray (not a recarray) containing
         a bool field is used to initialize a `BinTableHDU`.
@@ -2001,7 +2001,7 @@ class TestTableFunctions(PyfitsTestCase):
         assert (hdu.data['a'] == arr['a']).all()
 
     def test_bool_column_update(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/139"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/139"""
 
         c1 = fits.Column('F1', 'L', array=[True, False])
         c2 = fits.Column('F2', 'L', array=[False, True])
@@ -2017,7 +2017,7 @@ class TestTableFunctions(PyfitsTestCase):
             assert (hdul[1].data['F2'] == [True, True]).all()
 
     def test_missing_tnull(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/197"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/197"""
 
         c = fits.Column('F1', 'A3', null='---',
                         array=np.array(['1.0', '2.0', '---', '3.0']),
@@ -2044,7 +2044,7 @@ class TestTableFunctions(PyfitsTestCase):
                 "keyword or the table contains invalid data")
 
     def test_column_array_type_mismatch(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/218"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/218"""
 
         arr = [-99] * 20
         col = fits.Column('mag', format='E', array=arr)
@@ -2196,7 +2196,7 @@ class TestVLATables(PyfitsTestCase):
             test(code)
 
     def test_extend_variable_length_array(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/54"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/54"""
 
         def test(format_code):
             arr = [[1] * 10] * 10
@@ -2288,7 +2288,7 @@ class TestVLATables(PyfitsTestCase):
             test(code)
 
     def test_getdata_vla(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/200"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/200"""
 
         def test(format_code):
             col = fits.Column(name='QUAL_SPE', format=format_code,
@@ -2435,7 +2435,7 @@ class TestColumnFunctions(PyfitsTestCase):
         assert c.format == 'D25.17'
 
     def test_column_array_type_mismatch(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/218"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/218"""
 
         arr = [-99] * 20
         col = fits.Column('mag', format='E', array=arr)

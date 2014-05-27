@@ -42,7 +42,7 @@ class TestImageFunctions(PyfitsTestCase):
 
     def test_constructor_copies_header(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/153
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/153
 
         Ensure that a header from one HDU is copied when used to initialize new
         HDU.
@@ -86,7 +86,7 @@ class TestImageFunctions(PyfitsTestCase):
             r.close()
 
     def test_primary_with_extname(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/151
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/151
 
         Tests that the EXTNAME keyword works with Primary HDUs as well, and
         interacts properly with the .name attribute.  For convenience
@@ -503,7 +503,7 @@ class TestImageFunctions(PyfitsTestCase):
 
     def test_section_data_scaled(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/143
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/143
 
         This is like test_section_data_square but uses a file containing scaled
         image data, to test that sections can work correctly with scaled data.
@@ -551,7 +551,7 @@ class TestImageFunctions(PyfitsTestCase):
         assert hdul[0].data.dtype == np.dtype('float32')
 
     def test_append_uint_data(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/56
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/56
         (BZERO and BSCALE added in the wrong location when appending scaled
         data)
         """
@@ -630,8 +630,8 @@ class TestImageFunctions(PyfitsTestCase):
         assert (hdul[1].data == arr).all()
 
     def test_rewriting_large_scaled_image(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/84 and
-        https://trac.assembla.com/pyfits/ticket/101
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/84 and
+        https://aeon.stsci.edu/ssb/trac/pyfits/ticket/101
         """
 
         hdul = fits.open(self.data('fixed-1890.fits'))
@@ -645,7 +645,7 @@ class TestImageFunctions(PyfitsTestCase):
 
         # Just as before, but this time don't touch hdul[0].data before writing
         # back out--this is the case that failed in
-        # https://trac.assembla.com/pyfits/ticket/84
+        # https://aeon.stsci.edu/ssb/trac/pyfits/ticket/84
         hdul = fits.open(self.data('fixed-1890.fits'))
         with ignore_warnings():
             hdul.writeto(self.temp('test_new.fits'), clobber=True)
@@ -672,7 +672,7 @@ class TestImageFunctions(PyfitsTestCase):
 
     def test_image_update_header(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/105
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/105
 
         Replacing the original header to an image HDU and saving should update
         the NAXISn keywords appropriately and save the image data correctly.
@@ -691,7 +691,7 @@ class TestImageFunctions(PyfitsTestCase):
 
     def test_open_scaled_in_update_mode(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/119
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/119
         (Don't update scaled image data if the data is not read)
 
         This ensures that merely opening and closing a file containing scaled
@@ -741,7 +741,7 @@ class TestImageFunctions(PyfitsTestCase):
         assert 'BSCALE' not in hdul[0].header
 
     def test_scale_back(self):
-        """A simple test for https://trac.assembla.com/pyfits/ticket/120
+        """A simple test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/120
 
         The scale_back feature for image HDUs.
         """
@@ -830,7 +830,7 @@ class TestCompressedImage(PyfitsTestCase):
     @ignore_warnings(PyfitsPendingDeprecationWarning)
     def test_comp_image_hcompress_image_stack(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/171
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/171
 
         Tests that data containing more than two dimensions can be
         compressed with HCOMPRESS_1 so long as the user-supplied tile size can
@@ -887,7 +887,7 @@ class TestCompressedImage(PyfitsTestCase):
 
     def test_open_comp_image_in_update_mode(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/167
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/167
 
         Similar to test_open_scaled_in_update_mode(), but specifically for
         compressed images.
@@ -907,7 +907,7 @@ class TestCompressedImage(PyfitsTestCase):
 
     def test_open_scaled_in_update_mode_compressed(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/88 2
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/88 2
 
         Identical to test_open_scaled_in_update_mode() but with a compressed
         version of the scaled image.
@@ -970,7 +970,7 @@ class TestCompressedImage(PyfitsTestCase):
 
     def test_rewriting_large_scaled_image_compressed(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/88 1
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/88 1
 
         Identical to test_rewriting_large_scaled_image() but with a compressed
         image.
@@ -993,7 +993,7 @@ class TestCompressedImage(PyfitsTestCase):
 
         # Just as before, but this time don't touch hdul[0].data before writing
         # back out--this is the case that failed in
-        # https://trac.assembla.com/pyfits/ticket/84
+        # https://aeon.stsci.edu/ssb/trac/pyfits/ticket/84
         hdul = fits.open(self.temp('fixed-1890-z.fits'))
         with ignore_warnings():
             hdul.writeto(self.temp('test_new.fits'), clobber=True)
@@ -1020,7 +1020,7 @@ class TestCompressedImage(PyfitsTestCase):
 
     def test_scale_back_compressed(self):
         """
-        Regression test for https://trac.assembla.com/pyfits/ticket/88 3
+        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/88 3
 
         Identical to test_scale_back() but uses a compressed image.
         """
@@ -1060,7 +1060,7 @@ class TestCompressedImage(PyfitsTestCase):
                 assert (hdul[1].data == hdul2[0].data).all()
 
     def test_lossless_gzip_compression(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/198"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/198"""
 
         noise = np.random.normal(size=(1000, 1000))
 
@@ -1084,7 +1084,7 @@ class TestCompressedImage(PyfitsTestCase):
             assert (noise == h[1].data).all()
 
     def test_compression_column_tforms(self):
-        """Regression test for https://trac.assembla.com/pyfits/ticket/199"""
+        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/199"""
 
         # Some interestingly tiled data so that some of it is quantized and
         # some of it ends up just getting gzip-compressed

@@ -38,7 +38,7 @@ The latest source code can be checked out from git with::
 
 An SVN mirror is still maintained as well::
 
-  svn checkout https://svn6.assembla.com/svn/pyfits/trunk
+  svn checkout https://aeon.stsci.edu/ssb/svn/pyfits/trunk
 
 For Packagers
 ===============
