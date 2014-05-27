@@ -134,7 +134,7 @@ class lazyproperty(object):
                 # over setting the value in obj.__dict__; this mechanism allows
                 # it to override the input value
                 return
-        obj_dict[func_name] = val
+        obj_dict[self._key] = val
 
     def __delete__(self, obj):
         if self._fdel:
