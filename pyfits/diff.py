@@ -12,7 +12,6 @@ import functools
 import glob
 import inspect
 import textwrap
-import sys
 
 from collections import defaultdict
 from itertools import islice
@@ -21,7 +20,7 @@ import numpy as np
 
 from .extern import six
 from .extern.six import string_types, StringIO
-from .extern.six.moves import zip, range, reduce
+from .extern.six.moves import zip, range, xrange, reduce
 
 import pyfits
 from .card import Card, BLANK_CARD
@@ -238,7 +237,7 @@ class FITSDiff(_BaseDiff):
             except Exception:
                 excls, exc = sys.exc_info()[:2]
                 raise IOError("error opening file a (%s): %s: %s" %
-                              (a, excls.__name__, exc.args[0]))
+                              (a, exc.__class__.__name__, exc.args[0]))
             close_a = True
         else:
             close_a = False
@@ -249,7 +248,7 @@ class FITSDiff(_BaseDiff):
             except Exception:
                 excls, exc = sys.exc_info()[:2]
                 raise IOError("error opening file b (%s): %s: %s" %
-                              (b, excls, exc.args[0]))
+                              (b, exc.__class__.__name__, exc.args[0]))
             close_b = True
         else:
             close_b = False
@@ -1087,7 +1086,7 @@ class TableDataDiff(_BaseDiff):
                 diffs = where_not_allclose(arra, arrb, atol=0.0,
                                            rtol=self.tolerance)
             elif 'P' in col.format:
-                diffs = ([idx for idx in range(len(arra))
+                diffs = ([idx for idx in xrange(len(arra))
                           if not np.allclose(arra[idx], arrb[idx], atol=0.0,
                                              rtol=self.tolerance)],)
             else:
