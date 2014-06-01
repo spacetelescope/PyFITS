@@ -112,7 +112,7 @@ class HeaderFormatter(object):
         result = []
         for i, hdukey in enumerate(hdukeys):
             if keywords:  # Are specific keywords requested?
-                for kw in keywords[0].split(','):
+                for kw in keywords.split(','):
                     try:
                         result.append('{0}\n'.format(
                                       self._get_header(hdukey)[kw]
@@ -160,7 +160,7 @@ def main(args=None):
                      'the decompressed header is shown.'))
     parser.add_option('-e', '--ext', metavar='HDU',
                       help='specify the HDU extension number or name')
-    parser.add_option('-k', '--keyword', nargs=1,
+    parser.add_option('-k', '--keyword', nargs=1, default=[None],
                       help='show only the value of the specified keyword(s)')
     parser.add_option('-c', '--compressed', action='store_true',
                       help='for compressed image data, '
@@ -175,7 +175,7 @@ def main(args=None):
             if i > 0 and not args.keyword:
                 print()  # newline between different headers
             print(HeaderFormatter(filename, args.compressed)
-                  .parse(args.ext, args.keyword), end='')
+                  .parse(args.ext, args.keyword[0]), end='')
     except FormattingException as e:
         log.error(e)
     except IOError as e:
