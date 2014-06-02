@@ -99,9 +99,9 @@ copyright = ', '.join([copyright_year] + authors)
 # built documents.
 #
 # The short X.Y version.
-version = '3.2.4.dev'
+version = '3.2.4'
 # The full version, including alpha/beta/rc tags.
-release = '3.2.4.dev'
+release = '3.2.4'
 
 # !!!!!
 
