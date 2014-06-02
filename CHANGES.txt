@@ -111,18 +111,24 @@ Other Changes and Additions
   ``False`` otherwise.
 
 
-3.2.4 (unreleased)
+3.2.5 (unreleased)
 ------------------
 
-- Fixed a regression where multiple consecutive calls of the ``writeto``
-  method on the same HDU but to different files could lead to corrupt data or
-  crashes on the subsequent calls after the first. (spacetelescope/PyFITS#40)
+- Nothing changed yet.
 
 
 3.1.7 (unreleased)
 ------------------
 
 - Nothing changed yet.
+
+
+3.2.4 (2014-06-02)
+------------------
+
+- Fixed a regression where multiple consecutive calls of the ``writeto``
+  method on the same HDU but to different files could lead to corrupt data or
+  crashes on the subsequent calls after the first. (spacetelescope/PyFITS#40)
 
 
 3.2.3 (2014-05-14)
