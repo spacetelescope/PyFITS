@@ -785,6 +785,29 @@ class TestImageFunctions(PyfitsTestCase):
 
 
 class TestCompressedImage(PyfitsTestCase):
+    def test_empty(self):
+        """
+        Regression test for https://github.com/astropy/astropy/issues/2595
+        """
+
+        hdu = fits.CompImageHDU()
+        hdu.data is None
+        hdu.writeto(self.temp('test.fits'))
+
+        with fits.open(self.temp('test.fits'), mode='update') as hdul:
+            assert len(hdul) == 2
+            assert isinstance(hdul[1], fits.CompImageHDU)
+            assert hdul[1].data is None
+
+            # Now test replacing the empty data with an array and see what
+            # happens
+            hdul[1].data = np.arange(100, dtype=np.int32)
+
+        with fits.open(self.temp('test.fits')) as hdul:
+            assert len(hdul) == 2
+            assert isinstance(hdul[1], fits.CompImageHDU)
+            assert np.all(hdul[1].data == np.arange(100, dtype=np.int32))
+
     def test_comp_image(self):
         argslist = [
             (np.zeros((2, 10, 10), dtype=np.float32), 'RICE_1', 16),
