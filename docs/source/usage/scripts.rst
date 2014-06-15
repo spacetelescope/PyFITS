@@ -15,6 +15,8 @@ fitscheck
 
 .. program-output:: fitscheck --help
 
+.. _fitsdiff:
+
 fitsdiff
 ========
 
