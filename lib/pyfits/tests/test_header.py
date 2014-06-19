@@ -1316,6 +1316,10 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert list(header.keys())[-1] == 'TEST2'
         assert list(header.keys())[-3] == 'TEST1'
 
+    def test_remove(self):
+        # TODO: Test the Header.remove() method; add support for ignore_missing
+        pass
+
     def test_header_comments(self):
         header = fits.Header([('A', 'B', 'C'), ('DEF', 'G', 'H')])
         assert repr(header.comments) == '       A  C\n     DEF  H'
