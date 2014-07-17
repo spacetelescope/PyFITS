@@ -8,13 +8,15 @@ import numpy as np
 
 import pyfits as fits
 
+from warnings import catch_warnings
+
 from ..extern.six import u, b, iterkeys, itervalues, iteritems, StringIO, PY3
 from ..extern.six.moves import zip, range
 
 from ..card import _pad
 from ..util import encode_ascii, _pad_length, BLOCK_SIZE
 from . import PyfitsTestCase
-from .util import catch_warnings, ignore_warnings, CaptureStdio
+from .util import ignore_warnings, CaptureStdio
 
 from nose.tools import assert_raises
 

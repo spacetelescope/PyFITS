@@ -11,9 +11,10 @@ from ..extern.six import BytesIO
 import pyfits as fits
 from ..verify import VerifyError
 from . import PyfitsTestCase
-from .util import catch_warnings, ignore_warnings
+from .util import ignore_warnings
 
 from nose.tools import assert_raises
+from warnings import catch_warnings
 
 
 class TestHDUListFunctions(PyfitsTestCase):

@@ -16,9 +16,10 @@ from ..convenience import _getext
 from ..file import _File
 from ..util import PyfitsDeprecationWarning
 from . import PyfitsTestCase
-from .util import catch_warnings, ignore_warnings, CaptureStdio
+from .util import ignore_warnings, CaptureStdio
 
 from nose.tools import assert_raises
+from warnings import catch_warnings
 
 
 class TestCore(PyfitsTestCase):
