@@ -8,13 +8,11 @@ from .extern.six import string_types, integer_types, text_type, binary_type
 from .extern.six.moves import range
 
 import pyfits
-from .util import (_str_to_num, _is_int, deprecated, maketrans, translate,
-                   _words_group, PyfitsDeprecationWarning)
+from .util import _str_to_num, _is_int, maketrans, translate, _words_group
 from .verify import _Verify, _ErrList, VerifyError, VerifyWarning
 
 
-__all__ = ['Card', 'CardList', 'create_card', 'create_card_from_string',
-           'upper_key', 'Undefined']
+__all__ = ['Card', 'Undefined']
 
 
 FIX_FP_TABLE = maketrans('de', 'DE')
@@ -38,263 +36,7 @@ class Undefined(object):
 UNDEFINED = Undefined()
 
 
-class CardList(list):
-    """
-    .. deprecated:: 3.1
-        `CardList` used to provide the list-like functionality for manipulating
-        a header as a list of cards.  This functionality is now subsumed into
-        the `Header` class itself, so it is no longer necessary to create or
-        use `CardList`\s.
-    """
-
-    def __init__(self, cards=[], keylist=None):
-        """
-        Construct the `CardList` object from a list of `Card` objects.
-
-        `CardList` is now merely a thin wrapper around `Header` to provide
-        backwards compatibility for the old API.  This should not be used for
-        any new code.
-
-        Parameters
-        ----------
-        cards
-            A list of `Card` objects.
-        """
-
-        warnings.warn(
-                'The CardList class has been deprecated; all its former '
-                'functionality has been subsumed by the Header class, so '
-                'CardList objects should not be directly created.  See the '
-                'PyFITS 3.1.0 CHANGELOG for more details.',
-                PyfitsDeprecationWarning)
-
-        # This is necessary for now to prevent a circular import
-        from pyfits.header import Header
-
-        # I'm not sure if they keylist argument here was ever really useful;
-        # I'm going to just say don't use it.
-        if keylist is not None:
-            raise ValueError(
-                'The keylist argument to CardList() is no longer supported.')
-
-        if isinstance(cards, Header):
-            self._header = cards
-        else:
-            self._header = Header(cards)
-
-        super(CardList, self).__init__(self._header.cards)
-
-    def __contains__(self, key):
-        return key in self._header
-
-    def __iter__(self):
-        return iter(self._header.cards)
-
-    def __getitem__(self, key):
-        """Get a `Card` by indexing or by the keyword name."""
-
-        if self._header._haswildcard(key):
-            return [copy.copy(self._header._cards[idx])
-                    for idx in self._header._wildcardmatch(key)]
-        elif isinstance(key, slice):
-            return CardList(self._header.cards[key])
-
-        idx = self._header._cardindex(key)
-        return self._header.cards[idx]
-
-    def __setitem__(self, key, value):
-        """Set a `Card` by indexing or by the keyword name."""
-
-        if isinstance(value, tuple) and (1 < len(value) <= 3):
-            value = Card(*value)
-
-        if isinstance(value, Card):
-            idx = self._header._cardindex(key)
-            card = self._header.cards[idx]
-            if str(card) != str(value):
-                # Replace the existing card at this index by delete/insert
-                del self._header[idx]
-                self._header.insert(idx, value)
-        else:
-            raise ValueError('%s is not a Card' % str(value))
-
-    def __delitem__(self, key):
-        """Delete a `Card` from the `CardList`."""
-
-        if key not in self._header._keyword_indices:
-            raise KeyError("Keyword '%s' not found." % key)
-        del self._header[key]
-
-    def __getslice__(self, start, end):
-        return CardList(self[slice(start, end)])
-
-    def __repr__(self):
-        """Format a list of cards into a string."""
-
-        return str(self._header)
-
-    def __str__(self):
-        """Format a list of cards into a printable string."""
-
-        return '\n'.join(str(card) for card in self)
-
-    @deprecated('3.1', alternative=':meth:`Header.copy`', pending=False)
-    def copy(self):
-        """Make a (deep)copy of the `CardList`."""
-
-        return CardList(self._header.copy())
-
-    @deprecated('3.1', alternative=':meth:`Header.keys`', pending=False)
-    def keys(self):
-        """
-        Return a list of all keywords from the `CardList`.
-        """
-
-        return self._header.keys()
-
-    @deprecated('3.1', alternative=':meth:`Header.values`', pending=False)
-    def values(self):
-        """
-        Return a list of the values of all cards in the `CardList`.
-
-        For ``RecordValuedKeywordCard`` objects, the value returned is
-        the floating point value, exclusive of the
-        ``field_specifier``.
-        """
-
-        return self._header.values()
-
-    @deprecated('3.1', alternative=':meth:`Header.append`', pending=False)
-    def append(self, card, useblanks=True, bottom=False):
-        """
-        Append a `Card` to the `CardList`.
-
-        Parameters
-        ----------
-        card : `Card` object
-            The `Card` to be appended.
-
-        useblanks : bool, optional
-            Use any *extra* blank cards?
-
-            If ``useblanks`` is `True`, and if there are blank cards directly
-            before ``END``, it will use this space first, instead of appending
-            after these blank cards, so the total space will not increase.
-            When ``useblanks`` is `False`, the card will be appended at the
-            end, even if there are blank cards in front of ``END``.
-
-        bottom : bool, optional
-           If `False` the card will be appended after the last non-commentary
-           card.  If `True` the card will be appended after the last non-blank
-           card.
-        """
-
-        self._header.append(card, useblanks=useblanks, bottom=bottom)
-
-    @deprecated('3.1', alternative=':meth:`Header.extend`', pending=False)
-    def extend(self, cards):
-        self._header.extend(cards)
-
-    @deprecated('3.1', alternative=':meth:`Header.insert`', pending=False)
-    def insert(self, idx, card, useblanks=True):
-        """
-        Insert a `Card` to the `CardList`.
-
-        Parameters
-        ----------
-        pos : int
-            The position (index, keyword name will not be allowed) to
-            insert. The new card will be inserted before it.
-
-        card : `Card` object
-            The card to be inserted.
-
-        useblanks : bool, optional
-            If ``useblanks`` is `True`, and if there are blank cards directly
-            before ``END``, it will use this space first, instead of appending
-            after these blank cards, so the total space will not increase.
-            When `useblanks` is `False`, the card will be appended at the end,
-            even if there are blank cards in front of ``END``.
-        """
-
-        self._header.insert(idx, card, useblanks=useblanks)
-
-    @deprecated('3.1', alternative=':meth:`Header.remove`')
-    def remove(self, card):
-        del self._header[self.index(card)]
-
-    @deprecated('3.1', alternative=':meth:`Header.pop`')
-    def pop(self, index=-1):
-        return self._header.pop(index)
-
-    @deprecated('3.1', alternative=':meth:`Header.index`')
-    def index(self, card):
-        return self._header._cards.index(card)
-
-    @deprecated('3.1', alternative=':meth:`Header.count`')
-    def count(self, card):
-        return self._header._cards.count(card)
-
-    @deprecated('3.1', alternative=':meth:`Header.index`', pending=False)
-    def index_of(self, key, backward=False):
-        """
-        Get the index of a keyword in the `CardList`.
-
-        Parameters
-        ----------
-        key : str or int
-            The keyword name (a string) or the index (an integer).
-
-        backward : bool, optional
-            When `True`, search the index from the ``END``, i.e.,
-            backward.
-
-        Returns
-        -------
-        index : int
-            The index of the `Card` with the given keyword.
-        """
-
-        # Backward is just ignored now, since the search is not linear anyways
-
-        if _is_int(key) or isinstance(key, string_types):
-            return self._header._cardindex(key)
-        else:
-            raise KeyError('Illegal key data type %s' % type(key))
-
-    @deprecated('3.1', alternative='``header[<wildcard_pattern>]``')
-    def filter_list(self, key):
-        """
-        Construct a `CardList` that contains references to all of the cards in
-        this `CardList` that match the input key value including any special
-        filter keys (``*``, ``?``, and ``...``).
-
-        Parameters
-        ----------
-        key : str
-            key value to filter the list with
-
-        Returns
-        -------
-        cardlist
-            A `CardList` object containing references to all the
-            requested cards.
-        """
-
-        return CardList(self._header[key])
-
-    @deprecated('3.1', pending=False)
-    def count_blanks(self):
-        """
-        Returns how many blank cards are *directly* before the ``END``
-        card.
-        """
-
-        return self._header._countblanks()
-
-
 class Card(_Verify):
-
     length = CARD_LENGTH
     """The length of a Card image; should always be 80 for valid FITS files."""
 
@@ -523,11 +265,6 @@ class Card(_Verify):
             self._modified = True
         else:
             raise ValueError('Keyword name %r is not a string.' % keyword)
-
-    @property
-    @deprecated('3.1', alternative='the `.keyword` attribute')
-    def key(self):
-        return self.keyword
 
     @property
     def value(self):
@@ -785,17 +522,6 @@ class Card(_Verify):
         return (not self.keyword and
                 (isinstance(self.value, string_types) and not self.value) and
                 not self.comment)
-
-    @property
-    @deprecated('3.1', alternative='the `.image` attribute')
-    def cardimage(self):
-        return self.image
-
-    @deprecated('3.1', alternative='the `.image` attribute')
-    def ascardimage(self, option='silentfix'):
-        if not self._verified:
-            self.verify(option)
-        return self.image
 
     @classmethod
     def fromstring(cls, image):
@@ -1409,33 +1135,6 @@ class Card(_Verify):
                 raise VerifyError('CONTINUE cards must have string values.')
 
             yield card
-
-
-def create_card(key='', value='', comment=''):
-    return Card(key, value, comment)
-create_card.__doc__ = Card.__init__.__doc__
-# For API backwards-compatibility
-create_card = deprecated('3.1', name='create_card',
-                         alternative='``Card.__init__``',
-                         pending=False)(create_card)
-
-
-def create_card_from_string(input):
-    return Card.fromstring(input)
-create_card_from_string.__doc__ = Card.fromstring.__doc__
-# For API backwards-compat
-create_card_from_string = deprecated('3.1', name='create_card_from_string',
-                                     alternative=':meth:`Card.fromstring`',
-                                     pending=False)(create_card_from_string)
-
-
-def upper_key(key):
-    return Card.normalize_keyword(key)
-upper_key.__doc__ = Card.normalize_keyword.__doc__
-# For API backwards-compat
-upper_key = deprecated('3.1', name='upper_key',
-                       alternative=':meth:`Card.normalize_keyword`',
-                       pending=False)(upper_key)
 
 
 def _int_or_float(s):

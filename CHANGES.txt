@@ -4,7 +4,12 @@ Changelog
 3.4 (unreleased)
 ----------------
 
-- Nothing changed yet.
+API Changes
+^^^^^^^^^^^
+
+- Added support for a ``savecomment`` argument in the ``Header.set`` method,
+  equivalent to the argument of the same name to the old ``Header.update``
+  method.
 
 
 3.3 (2014-07-17)

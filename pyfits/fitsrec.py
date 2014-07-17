@@ -13,8 +13,7 @@ from .extern.six.moves import range, reduce
 from .column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ASCII2STR, ColDefs,
                      _AsciiColDefs, _FormatX, _FormatP, _VLF, _get_index,
                      _wrapx, _unwrapx, _makep, _convert_ascii_format, Delayed)
-from .util import (encode_ascii, decode_ascii, lazyproperty,
-                   PyfitsDeprecationWarning)
+from .util import encode_ascii, decode_ascii, lazyproperty
 
 
 class FITS_record(object):
@@ -28,7 +27,7 @@ class FITS_record(object):
     """
 
     def __init__(self, input, row=0, start=None, end=None, step=None,
-                 base=None, **kwargs):
+                 base=None):
         """
         Parameters
         ----------
@@ -46,16 +45,6 @@ class FITS_record(object):
            The ending column in the row associated with this object.
            Used for subsetting the columns of the `FITS_rec` object.
         """
-
-        # For backward compatibility...
-        for arg in [('startColumn', 'start'), ('endColumn', 'end')]:
-            if arg[0] in kwargs:
-                warnings.warn('The %s argument to FITS_record is deprecated; '
-                              'use %s instead' % arg, PyfitsDeprecationWarning)
-                if arg[0] == 'startColumn':
-                    start = kwargs[arg[0]]
-                elif arg[0] == 'endColumn':
-                    end = kwargs[arg[0]]
 
         self.array = input
         self.row = row
