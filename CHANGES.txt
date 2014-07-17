@@ -1,6 +1,24 @@
 Changelog
 ===========
 
+3.3.1 (unreleased)
+------------------
+
+- Nothing changed yet.
+
+
+3.2.5 (unreleased)
+------------------
+
+- Nothing changed yet.
+
+
+3.1.7 (unreleased)
+------------------
+
+- Nothing changed yet.
+
+
 3.3 (2014-07-17)
 ----------------
 
@@ -120,18 +138,6 @@ Bug Fixes
 - Fixed a regression that may have been introduced in v3.2.1 with writing
   compressed image HDUs, particularly compressed images using a non-empty
   GZIP_COMPRESSED_DATA column. (spacetelescope/#71)
-
-
-3.2.5 (unreleased)
-------------------
-
-- Nothing changed yet.
-
-
-3.1.7 (unreleased)
-------------------
-
-- Nothing changed yet.
 
 
 3.2.4 (2014-06-02)
