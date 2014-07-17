@@ -2,7 +2,6 @@
 
 from __future__ import division, with_statement
 
-import sys
 import warnings
 
 import numpy as np
@@ -643,8 +642,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         # Test the exception message
         try:
             header['NAXIS']
-        except KeyError:
-            exc = sys.exc_info()[1]
+        except KeyError as exc:
             assert exc.args[0] == "Keyword 'NAXIS' not found."
 
     def test_hierarch_card_lookup(self):
@@ -2040,14 +2038,6 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         h = fits.Header()
 
-        # There is an obscure cross-platform issue that prevents things like
-        # float('nan') on Windows on older versions of Python; hence it is
-        # unlikely to come up in practice
-        if not (sys.platform.startswith('win32') and
-                sys.version_info[:2] < (2, 6)):
-           assert_raises(ValueError, h.set, 'TEST', float('nan'))
-           assert_raises(ValueError, h.set, 'TEST', float('inf'))
-
         assert_raises(ValueError, h.set, 'TEST', np.nan)
         assert_raises(ValueError, h.set, 'TEST', np.inf)
 
@@ -2355,8 +2345,7 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         # Test the exception message
         try:
             self._test_header['DP1.AXIS.3']
-        except KeyError:
-            exc = sys.exc_info()[1]
+        except KeyError as exc:
             assert exc.args[0] == "Keyword 'DP1.AXIS.3' not found."
 
     def test_update_rvkc(self):

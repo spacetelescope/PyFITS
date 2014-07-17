@@ -545,8 +545,7 @@ class HDUList(list, _Verify):
                               (filename, backup))
                 try:
                     shutil.copy(filename, backup)
-                except IOError:
-                    exc = sys.exc_info()[1]
+                except IOError as exc:
                     raise IOError('Failed to save backup to destination %s: '
                                   '%s' % (filename, exc))
 
@@ -811,8 +810,7 @@ class HDUList(list, _Verify):
                         hdu._output_checksum = kwargs['checksum']
                 # check in the case there is extra space after the last HDU or
                 # corrupted HDU
-                except (VerifyError, ValueError):
-                    exc = sys.exc_info()[1]
+                except (VerifyError, ValueError) as exc:
                     warnings.warn(
                         'Error validating header for HDU #%d (note: PyFITS '
                         'uses zero-based indexing).\n%s\n'

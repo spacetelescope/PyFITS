@@ -3,6 +3,7 @@ from __future__ import division
 import functools
 import gzip
 import itertools
+import io
 import mmap
 import os
 import signal
@@ -11,11 +12,6 @@ import tempfile
 import textwrap
 import threading
 import warnings
-
-try:
-    import io
-except ImportError:
-    io = None
 
 try:
     from StringIO import StringIO
@@ -578,28 +574,7 @@ if sys.platform.startswith('win32'):
         from ctypes import (cdll, c_size_t, c_void_p, c_int, c_char,
                             Structure, POINTER, cast)
 
-        try:
-            from ctypes.util import find_msvcrt
-        except ImportError:
-            # find_msvcrt is not available on Python 2.5 so we have to provide
-            # it ourselves anyways
-            from distutils.msvccompiler import get_build_version
-
-            def find_msvcrt():
-                version = get_build_version()
-                if version is None:
-                    # better be safe than sorry
-                    return None
-                if version <= 6:
-                    clibname = 'msvcrt'
-                else:
-                    clibname = 'msvcr%d' % (version * 10)
-
-                # If python was built with in debug mode
-                import imp
-                if imp.get_suffixes()[0][0] == '_d.pyd':
-                    clibname += 'd'
-                return clibname+'.dll'
+        from ctypes.util import find_msvcrt
 
         def _dummy_is_append_mode(fd):
             warnings.warn(
@@ -971,89 +946,17 @@ def _tmp_name(input):
     return fn
 
 
-if sys.version_info[:2] < (2, 6):
-    # In Python 2.5 mmap.mmap is a function that returns an object of type
-    # 'mmap.mmap', but the mmap.mmap type is otherwise not accessible through
-    # the module
-    def _is_mmap(obj):
-        return (type(obj).__module__ == 'mmap' and
-                type(obj).__name__ == 'mmap')
-else:
-    def _is_mmap(obj):
-        return isinstance(obj, mmap.mmap)
-
-
 def _get_array_mmap(array):
     """
     If the array has an mmap.mmap at base of its base chain, return the mmap
     object; otherwise return None.
     """
 
-    if _is_mmap(array):
+    if isinstance(array, mmap.mmap):
         return array
 
     base = array
     while hasattr(base, 'base') and base.base is not None:
-        if _is_mmap(base.base):
+        if isinstance(base.base, mmap.mmap):
             return base.base
         base = base.base
-
-
-if sys.version_info[:2] < (2, 6):
-    import __builtin__
-    # Replace the builtin property to add support for the getter/setter/deleter
-    # mechanism as introduced in Python 2.6 (this can go away if we ever drop
-    # 2.5 support)
-
-    class property(property):
-        def __init__(self, fget, *args, **kwargs):
-            self.__doc__ = fget.__doc__
-            super(property, self).__init__(fget, *args, **kwargs)
-
-        def getter(self, fget):
-            return self.__ter(fget, 0)
-
-        def setter(self, fset):
-            return self.__ter(fset, 1)
-
-        def deleter(self, fdel):
-            return self.__ter(fdel, 2)
-
-        def __ter(self, f, arg):
-            args = [self.fget, self.fset, self.fdel, self.__doc__]
-            args[arg] = f
-            cls_ns = sys._getframe(1).f_locals
-            for k, v in iteritems(cls_ns):
-                if v is self:
-                    property_name = k
-                    break
-
-            cls_ns[property_name] = property(*args)
-
-            return cls_ns[property_name]
-    __builtin__.property = property
-
-
-    # Provide an implementation of izip_longest
-    class ZipExhausted(Exception):
-        pass
-
-    def izip_longest(*args, **kwds):
-        # izip_longest('ABCD', 'xy', fillvalue='-') --> Ax By C- D-
-        fillvalue = kwds.get('fillvalue')
-        counter = [len(args) - 1]
-        def sentinel():
-            if not counter[0]:
-                raise ZipExhausted
-            counter[0] -= 1
-            yield fillvalue
-        fillers = itertools.repeat(fillvalue)
-        iterators = [itertools.chain(it, sentinel(), fillers) for it in args]
-        try:
-            while iterators:
-                yield tuple(map(next, iterators))
-        except ZipExhausted:
-            pass
-
-    from .extern import six
-    six.moves.zip_longest = izip_longest

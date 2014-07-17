@@ -1,6 +1,5 @@
 import copy
 import re
-import sys
 import warnings
 
 import numpy as np
@@ -1455,8 +1454,7 @@ def _int_or_float(s):
     except (ValueError, TypeError):
         try:
             return float(s)
-        except (ValueError, TypeError):
-            exc = sys.exc_info()[1]
+        except (ValueError, TypeError) as exc:
             raise ValueError(*exc.args)
 
 
@@ -1481,9 +1479,7 @@ def _format_value(value):
         return '%20s' % repr(value)[0]  # T or F
 
     elif _is_int(value):
-        # Originally this was '%20d' but Python 2.5 has a bug with string
-        # formatting where this format code won't accept a large 64-bit int
-        return '%20s' % value
+        return '%20d' % value
 
     elif isinstance(value, (float, np.floating)):
         return '%20s' % _format_float(value)

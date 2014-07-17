@@ -4,7 +4,6 @@ import gzip
 import mmap
 import os
 import shutil
-import sys
 import warnings
 import zipfile
 
@@ -202,8 +201,7 @@ class TestCore(PyfitsTestCase):
             del hdu.header['NAXIS']
             try:
                 hdu.verify('ignore')
-            except Exception:
-                exc = sys.exc_info()[1]
+            except Exception as exc:
                 self.fail('An exception occurred when the verification error '
                           'should have been ignored: %s' % exc)
         # Make sure the error wasn't fixed either, silently or otherwise
@@ -234,8 +232,7 @@ class TestCore(PyfitsTestCase):
             warnings.simplefilter('error')
             try:
                 hdu.verify('silentfix+ignore')
-            except Exception:
-                exc = sys.exc_info()[1]
+            except Exception as exc:
                 self.fail('An exception occurred when the verification error '
                           'should have been ignored: %s' % exc)
 
@@ -252,8 +249,7 @@ class TestCore(PyfitsTestCase):
         hdu = make_invalid_hdu()
         try:
             hdu.verify('silentfix+exception')
-        except fits.VerifyError:
-            exc = sys.exc_info()[1]
+        except fits.VerifyError as exc:
             assert 'Illegal keyword name' in str(exc)
             assert 'not upper case' not in str(exc)
         else:
@@ -279,8 +275,7 @@ class TestCore(PyfitsTestCase):
         hdu = make_invalid_hdu()
         try:
             hdu.verify('fix+exception')
-        except fits.VerifyError:
-            exc = sys.exc_info()[1]
+        except fits.VerifyError as exc:
             assert 'Illegal keyword name' in str(exc)
             assert 'not upper case' in str(exc)
         else:
@@ -562,8 +557,7 @@ class TestFileFunctions(PyfitsTestCase):
 
         try:
             fits.open(self.temp('foobar.fits'))
-        except IOError:
-            exc = sys.exc_info()[1]
+        except IOError as exc:
             assert 'File does not exist' in str(exc)
         except:
             raise
@@ -761,44 +755,41 @@ class TestFileFunctions(PyfitsTestCase):
             with fits.HDUList.fromfile(f) as h:
                 assert h.fileinfo(0)['filemode'] == 'append'
 
-    if sys.version_info[:2] > (2, 5):
-        # After a fair bit of experimentation I found that it's more difficult
-        # than it's worth to wrap mmap in Python 2.5.
-        def test_mmap_unwriteable(self):
-            """Regression test for
-            https://github.com/astropy/astropy/issues/968
+    def test_mmap_unwriteable(self):
+        """Regression test for
+        https://github.com/astropy/astropy/issues/968
 
-            Temporarily patches mmap.mmap to exhibit platform-specific bad
-            behavior.
-            """
+        Temporarily patches mmap.mmap to exhibit platform-specific bad
+        behavior.
+        """
 
-            class MockMmap(mmap.mmap):
-                def flush(self):
-                    raise mmap.error('flush is broken on this platform')
+        class MockMmap(mmap.mmap):
+            def flush(self):
+                raise mmap.error('flush is broken on this platform')
 
-            old_mmap = mmap.mmap
-            mmap.mmap = MockMmap
+        old_mmap = mmap.mmap
+        mmap.mmap = MockMmap
 
-            # Force the mmap test to be rerun
+        # Force the mmap test to be rerun
+        _File._mmap_available = None
+
+        try:
+            # TODO: Use self.copy_file once it's merged into Astropy
+            shutil.copy(self.data('test0.fits'), self.temp('test0.fits'))
+            with catch_warnings(record=True) as w:
+                with fits.open(self.temp('test0.fits'), mode='update',
+                               memmap=True) as h:
+                    h[1].data[0, 0] = 999
+
+                assert len(w) == 1
+                assert 'mmap.flush is unavailable' in str(w[0].message)
+
+            # Double check that writing without mmap still worked
+            with fits.open(self.temp('test0.fits')) as h:
+                assert h[1].data[0, 0] == 999
+        finally:
+            mmap.mmap = old_mmap
             _File._mmap_available = None
-
-            try:
-                # TODO: Use self.copy_file once it's merged into Astropy
-                shutil.copy(self.data('test0.fits'), self.temp('test0.fits'))
-                with catch_warnings(record=True) as w:
-                    with fits.open(self.temp('test0.fits'), mode='update',
-                                   memmap=True) as h:
-                        h[1].data[0, 0] = 999
-
-                    assert len(w) == 1
-                    assert 'mmap.flush is unavailable' in str(w[0].message)
-
-                # Double check that writing without mmap still worked
-                with fits.open(self.temp('test0.fits')) as h:
-                    assert h[1].data[0, 0] == 999
-            finally:
-                mmap.mmap = old_mmap
-                _File._mmap_available = None
 
     def test_uncloseable_file(self):
         """

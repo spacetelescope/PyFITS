@@ -43,15 +43,13 @@ from . import convenience
 from . import diff
 from . import hdu
 
-# Relative imports of * are not syntactically valid in Python 2.5
-from pyfits.card import *
-from pyfits.column import *
-from pyfits.convenience import *
-from pyfits.diff import *
-from pyfits.fitsrec import FITS_record, FITS_rec
-from pyfits.hdu import *
-from pyfits.util import (PyfitsDeprecationWarning,
-                         PyfitsPendingDeprecationWarning)
+from .card import *
+from .column import *
+from .convenience import *
+from .diff import *
+from .fitsrec import FITS_record, FITS_rec
+from .hdu import *
+from .util import PyfitsDeprecationWarning, PyfitsPendingDeprecationWarning
 
 from .hdu.hdulist import fitsopen as open
 from .hdu.image import Section
@@ -99,25 +97,6 @@ FALSE = False
 def ignore_deprecation_warnings():
     warnings.simplefilter('ignore', PyfitsDeprecationWarning)
     warnings.simplefilter('ignore', PyfitsPendingDeprecationWarning)
-
-
-# This is a workaround for a bug that appears in some versions of Python 2.5
-if sys.version_info[:2] < (2, 6):
-    import urllib
-
-    class ErrorURLopener(urllib.FancyURLopener):
-        """A class to use with `urlretrieve` to allow `IOError` exceptions to be
-        raised when a file specified by a URL cannot be accessed.
-
-        """
-
-        def http_error_default(self, url, fp, errcode, errmsg, headers):
-            raise IOError((errcode, errmsg, url))
-
-    urllib._urlopener = ErrorURLopener()  # Assign the locally subclassed opener
-                                          # class to the urllibrary
-    urllib._urlopener.tempcache = {}  # Initialize tempcache with an empty
-                                      # dictionary to enable file cacheing
 
 
 __credits__ = """

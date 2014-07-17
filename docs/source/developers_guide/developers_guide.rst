@@ -276,11 +276,11 @@ Prerequisites for performing a release
 
 6. Make sure that at least someone can make the Windows builds.  This requires
    a Windows machine with at least Windows XP, Mingw32 with msys, and all of
-   the Python development packages.  Python versions 2.5, 2.6, 2.7, 3.1, and
-   3.2 should be installed with the installers from python.org, as well as a
-   recent version of Numpy for each of those Python versions (currently Numpy
-   1.6.x), as well as Git.  (TODO: More detailed instructions for setting up
-   a Windows development environment.)
+   the Python development packages.  Python versions 2.6, 2.7, 3.3, and 3.4
+   should be installed with the installers from python.org, as well as a recent
+   version of Numpy for each of those Python versions (currently Numpy 1.6.x),
+   as well as Git.  (TODO: More detailed instructions for setting up a Windows
+   development environment.)
 
 7. PyFITS also has a page on STScI's website:
    http://www.stsci.edu/institute/software_hardware/pyfits.  This is normally

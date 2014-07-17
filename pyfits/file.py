@@ -3,7 +3,6 @@ from __future__ import division, with_statement
 import gzip
 import mmap
 import os
-import sys
 import tempfile
 import warnings
 import zipfile
@@ -495,8 +494,7 @@ class _File(object):
             os.fsync(tmpfd)
             try:
                 mm = mmap.mmap(tmpfd, 1, access=mmap.ACCESS_WRITE)
-            except mmap.error:
-                exc = sys.exc_info()[1]
+            except mmap.error as exc:
                 warnings.warn('Failed to create mmap: %s; mmap use will be '
                               'disabled' % exc)
                 _File._mmap_available = False

@@ -287,8 +287,7 @@ def check_long_description():
                                         stdin=subprocess.PIPE,
                                         stderr=subprocess.PIPE)
             rst2html.communicate(stdout)
-        except OSError:
-            exc = sys.exc_info()[1]
+        except OSError as exc:
             log.error('Error running rst2html.py: %s\n'
                       'Make sure you have docutils correctly installed.' %
                       exc)

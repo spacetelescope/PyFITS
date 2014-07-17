@@ -1,6 +1,5 @@
 import copy
 import operator
-import sys
 import warnings
 import weakref
 
@@ -711,8 +710,7 @@ class FITS_rec(np.recarray):
 
         try:
             dummy = np.array(dummy, dtype=recformat)
-        except ValueError:
-            exc = sys.exc_info()[1]
+        except ValueError as exc:
             raise ValueError(
                 '%s; the header may be missing the necessary TNULL%d '
                 'keyword or the table contains invalid data' %
