@@ -1541,8 +1541,8 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         hi = sum32 >> u16
         lo = sum32 & uFFFF
-        hi += np.add.reduce(data[0::2])
-        lo += np.add.reduce(data[1::2])
+        hi += np.add.reduce(data[0::2], dtype=np.uint64)
+        lo += np.add.reduce(data[1::2], dtype=np.uint64)
 
         if (data.nbytes // 2) % 2:
             lo += last << u8
