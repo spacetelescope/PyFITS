@@ -1,13 +1,7 @@
 Changelog
 ===========
 
-3.4 (unreleased)
-----------------
-
-- Nothing changed yet.
-
-
-3.3 (2014-07-17)
+3.3 (unreleased)
 ----------------
 
 New Features
@@ -126,9 +120,6 @@ Bug Fixes
 - Fixed a regression that may have been introduced in v3.2.1 with writing
   compressed image HDUs, particularly compressed images using a non-empty
   GZIP_COMPRESSED_DATA column. (spacetelescope/#71)
-
-- Fixes for checksums on 32-bit platforms.  Results may be different if
-  writing or checking checksums in "nonstandard" mode. (astropy/astropy#2484)
 
 
 3.2.5 (unreleased)
