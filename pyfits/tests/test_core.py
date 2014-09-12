@@ -21,7 +21,7 @@ from ..extern.six import BytesIO
 import pyfits as fits
 from ..convenience import _getext
 from ..diff import FITSDiff
-from ..file import _File
+from ..file import _File, GZIP_MAGIC
 from . import PyfitsTestCase
 from .util import ignore_warnings, CaptureStdio
 
@@ -679,6 +679,23 @@ class TestFileFunctions(PyfitsTestCase):
             # normal writes should work too...
             assert h[0].header['EXPFLAG'] == 'ABNORMAL'
 
+    def test_write_read_gzip_file(self):
+        """
+        Regression test for https://github.com/astropy/astropy/issues/2794
+
+        Ensure files written through gzip are readable.
+        """
+
+        data = np.arange(100)
+        hdu = fits.PrimaryHDU(data=data)
+        hdu.writeto(self.temp('test.fits.gz'))
+
+        with open(self.temp('test.fits.gz'), 'rb') as f:
+            assert f.read(3) == GZIP_MAGIC
+
+        with fits.open(self.temp('test.fits.gz')) as hdul:
+            assert np.all(hdul[0].data == data)
+
     def test_read_file_like_object(self):
         """Test reading a FITS file from a file-like object."""
 
@@ -837,6 +854,26 @@ class TestFileFunctions(PyfitsTestCase):
             """
 
             self._test_write_string_bytes_io(StringIO.StringIO())
+
+    if HAVE_STRINGIO:
+        def test_write_stringio_discontiguous(self):
+            """
+            Regression test related to
+            https://github.com/astropy/astropy/issues/2794#issuecomment-55441539
+
+            Demonstrates that writing an HDU containing a discontiguous Numpy
+            array should work properly.
+            """
+
+            data = np.arange(100)[::3]
+            hdu = fits.PrimaryHDU(data=data)
+            fileobj = StringIO.StringIO()
+            hdu.writeto(fileobj)
+
+            fileobj.seek(0)
+
+            with fits.open(fileobj) as h:
+                assert np.all(h[0].data == data)
 
     def test_write_bytesio(self):
         """
