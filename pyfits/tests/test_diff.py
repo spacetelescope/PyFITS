@@ -1,4 +1,3 @@
-import os.path
 import numpy as np
 
 import pyfits as fits
@@ -12,6 +11,7 @@ from ..hdu import HDUList, PrimaryHDU, ImageHDU
 from ..hdu.table import BinTableHDU
 from ..header import Header
 from . import PyfitsTestCase
+from nose.tools import assert_raises
 
 
 class TestDiff(PyfitsTestCase):
@@ -598,7 +598,7 @@ class TestDiff(PyfitsTestCase):
         assert 'b>' in out
 
     def test_file_output_from_path_string(self):
-        outpath = os.path.join(self.temp_dir, 'diff_output.txt')
+        outpath = self.temp('diff_output.txt')
         ha = Header([('A', 1), ('B', 2), ('C', 3)])
         hb = ha.copy()
         hb['C'] = 4
@@ -608,30 +608,24 @@ class TestDiff(PyfitsTestCase):
         assert open(outpath).read() == report_as_string
 
     def test_file_output_clobber_safety(self):
-        outpath = os.path.join(self.temp_dir, 'diff_output.txt')
+        outpath = self.temp('diff_output.txt')
         ha = Header([('A', 1), ('B', 2), ('C', 3)])
         hb = ha.copy()
         hb['C'] = 4
         diffobj = HeaderDiff(ha, hb)
         diffobj.report(fileobj=outpath)
-        try:
-            diffobj.report(fileobj=outpath)
-            assert False, ("report() did not complain about existing "
-                           "files when it should have")
-        except IOError:
-            pass
+
+        assert_raises(IOError, lambda p: diffobj.report(fileobj=p),
+                      outpath)
 
     def test_file_output_clobber_success(self):
-        outpath = os.path.join(self.temp_dir, 'diff_output.txt')
+        outpath = self.temp('diff_output.txt')
         ha = Header([('A', 1), ('B', 2), ('C', 3)])
         hb = ha.copy()
         hb['C'] = 4
         diffobj = HeaderDiff(ha, hb)
         diffobj.report(fileobj=outpath)
         report_as_string = diffobj.report()
-        try:
-            diffobj.report(fileobj=outpath, clobber=True)
-        except IOError as e:
-            assert False, "report() failed to clobber existing file {0}".format(e)
+        diffobj.report(fileobj=outpath, clobber=True)
         assert open(outpath).read() == report_as_string, ("clobbered output "
             "file is not identical to report string")

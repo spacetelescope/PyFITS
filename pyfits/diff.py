@@ -153,6 +153,8 @@ class _BaseDiff(object):
         """
 
         return_string = False
+        filepath = None
+
         if isinstance(fileobj, string_types):
             if os.path.exists(fileobj) and not clobber:
                 raise IOError("File {0} exists, aborting (pass in "
@@ -162,18 +164,19 @@ class _BaseDiff(object):
                 fileobj = open(filepath, 'w')
         elif fileobj is None:
             fileobj = StringIO()
-            filepath = None
             return_string = True
 
         self._fileobj = fileobj
         self._indent = indent  # This is used internally by _writeln
 
-        self._report()
+        try:
+            self._report()
+        finally:
+            if filepath:
+                fileobj.close()
 
         if return_string:
             return fileobj.getvalue()
-        if filepath:
-            fileobj.close()
 
     def _writeln(self, text):
         self._fileobj.write(indent(text, self._indent) + '\n')
