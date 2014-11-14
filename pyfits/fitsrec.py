@@ -547,13 +547,7 @@ class FITS_rec(np.recarray):
         data.
         """
 
-        try:
-            new = super(FITS_rec, self).copy(order=order)
-        except TypeError:
-            # This will probably occur if the order argument is not supported,
-            # such as on Numpy 1.5; in other words we're just going to ask
-            # forgiveness rather than check the Numpy version explicitly.
-            new = super(FITS_rec, self).copy()
+        new = super(FITS_rec, self).copy(order=order)
 
         new.__dict__ = copy.deepcopy(self.__dict__)
         return new
