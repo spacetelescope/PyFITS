@@ -792,7 +792,7 @@ method::
 Alternatively, if a file is opened with ``mode='update'`` along with the
 ``scale_back=True`` argument, the original BSCALE and BZERO scaling will
 be automatically re-applied to the data before saving.  Usually this is
-not desireable, especially when converting from floating point back to
+not desirable, especially when converting from floating point back to
 unsigned integer values.  But this may be useful in cases where the raw
 data needs to be modified corresponding to changes in the physical values.
 
