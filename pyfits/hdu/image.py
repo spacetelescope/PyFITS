@@ -1,8 +1,6 @@
 import sys
 import warnings
 
-from collections.abc import Iterable
-
 import numpy as np
 
 from ..extern.six import string_types
@@ -10,7 +8,7 @@ from ..extern.six.moves import range
 
 from ..header import Header
 from ..util import (_is_pseudo_unsigned, _unsigned_zero, _is_int,
-                    lazyproperty)
+                    lazyproperty, isiterable)
 from .base import DELAYED, _ValidHDU, ExtensionHDU
 from ..verify import VerifyWarning
 
@@ -777,7 +775,7 @@ class Section(object):
             if isinstance(key, slice):
                 ks = range(*key.indices(axis))
                 break
-            elif isinstance(key, Iterable):
+            elif isiterable(key):
                 # Handle both integer and boolean arrays.
                 ks = np.arange(axis, dtype=int)[key]
                 break
@@ -785,7 +783,8 @@ class Section(object):
 
         data = [self[keys[:idx] + (k,) + keys[idx + 1:]] for k in ks]
 
-        if any(isinstance(key, (slice, Iterable)) for key in keys[idx + 1:]):
+        if any(isinstance(key, slice) or isiterable(key)
+               for key in keys[idx + 1:]):
             # data contains multidimensional arrays; combine them.
             return np.array(data)
         else:
@@ -970,7 +969,7 @@ class _IndexInfo(object):
             self.npts = (stop - start) // step
             self.offset = start
             self.contiguous = step == 1
-        elif isinstance(indx, Iterable):
+        elif isiterable(indx):
             self.npts = len(indx)
             self.offset = 0
             self.contiguous = False
