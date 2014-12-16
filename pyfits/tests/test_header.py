@@ -2421,20 +2421,20 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
 
     def test_fitsheader_script(self):
         """
-        Checks the basic functionality of the fitsheader script
+        Tests the basic functionality of the `fitsheader` script
         """
         from ..scripts import fitsheader
         # Can an extension by specified by the EXTNAME keyword?
         hf = fitsheader.HeaderFormatter(self.data('zerowidth.fits'))
-        assert "EXTNAME = 'AIPS FQ" in hf.parse('AIPS FQ')
+        assert "EXTNAME = 'AIPS FQ" in hf.parse(['AIPS FQ'])
         # Alternative keyword access:
-        assert 'AIPS FQ' in hf.parse('AIPS FQ', ['EXTNAME'])
+        assert 'AIPS FQ' in hf.parse(['AIPS FQ'], ['EXTNAME'])
         # Can an extension by specified by the EXTNAME+EXTVER keywords?
         hf = fitsheader.HeaderFormatter(self.data('test0.fits'))
-        assert "EXTNAME = 'SCI" in hf.parse('SCI,2')
+        assert "EXTNAME = 'SCI" in hf.parse(['SCI,2'])
         # fitsheader should only print the compressed header when asked
         hf = fitsheader.HeaderFormatter(self.data('comp.fits'))
-        assert "XTENSION= 'IMAGE" in hf.parse(1)  # decompressed
+        assert "XTENSION= 'IMAGE" in hf.parse([1])  # decompressed
         hf = fitsheader.HeaderFormatter(self.data('comp.fits'),
                                         compressed=True)
-        assert "XTENSION= 'BINTABLE" in hf.parse(1)  # compressed
+        assert "XTENSION= 'BINTABLE" in hf.parse([1])  # compressed
