@@ -10,16 +10,16 @@ Example uses of fitsheader:
 
     $ fitsheader filename.fits
 
-2. Print the header of the third HDU extension::
+2. Print the header of the third and fifth HDU extension::
 
-    $ fitsheader --ext 3 filename.fits
+    $ fitsheader --ext 3 --ext 5 filename.fits
 
 3. Print the header of a named extension, e.g. to select the HDU with header
    keywords EXTNAME='SCI' and EXTVER='2'::
 
     $ fitsheader --ext "SCI,2" filename.fits
 
-4. Print the value of specific header keyword(s) only::
+4. Print only specific keywords::
 
     $ fitsheader --keyword BITPIX --keyword NAXIS filename.fits
 
