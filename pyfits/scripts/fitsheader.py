@@ -48,6 +48,10 @@ log = logging.getLogger('fitscheck')
 
 
 class FormattingException(Exception):
+    """
+    Exception raised if the header cannot be formatted for printing,
+    e.g. because the user specified a non-existent HDU or keyword.
+    """
     pass
 
 
@@ -71,7 +75,8 @@ class HeaderFormatter(object):
         self.compressed = compressed
 
     def parse(self, extension=None, keywords=None):
-        """Returns the FITS file header(s) in a readable format.
+        """
+        Returns the FITS file header(s) in a readable format.
 
         Parameters
         ----------
@@ -105,6 +110,12 @@ class HeaderFormatter(object):
                     hdukeys = [extension]
 
         # Having established which HDUs the user wants, we now format these:
+        return self._parse_internal(hdukeys, keywords=keywords)
+
+    def _parse_internal(self, hdukeys, keywords=None):
+        """
+        The meat of the parse method; in a separate method to allow overriding.
+        """
         result = []
         for i, hdukey in enumerate(hdukeys):
             if i > 0:  # Separate different HDUs by a blank line
@@ -136,7 +147,18 @@ class HeaderFormatter(object):
         return ''.join(result)
 
     def _get_header(self, hdukey):
-        """Returns the `pyfits.header.Header` object for the HDU."""
+        """
+        Returns the `pyfits.header.Header` object for an HDU.
+
+        This function will return the desired header object, taking into
+        account the user's preference to see the compressed or uncompressed
+        version. A `FormattingException` is raised if `hdukey` is invalid.
+
+        Parameters
+        ----------
+        hdukey : int or str
+            Key of the HDU in the HDUList.
+        """
         try:
             if self.compressed:
                 # In the case of a compressed image, return the header before
@@ -172,7 +194,7 @@ def main(args=None):
 
     try:
         for i, filename in enumerate(args.filename):
-            if i > 0 and not args.key:
+            if i > 0 and not args.keyword:
                 print()  # newline between different headers
             print(HeaderFormatter(filename, args.compressed)
                   .parse(args.ext, args.keyword), end='')
