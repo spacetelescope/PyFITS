@@ -2420,21 +2420,41 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         assert_raises(KeyError, lambda: h['FOO.'])
 
     def test_fitsheader_script(self):
-        """
-        Tests the basic functionality of the `fitsheader` script
-        """
+        """Tests the basic functionality of the `fitsheader` script."""
         from ..scripts import fitsheader
+
         # Can an extension by specified by the EXTNAME keyword?
         hf = fitsheader.HeaderFormatter(self.data('zerowidth.fits'))
-        assert "EXTNAME = 'AIPS FQ" in hf.parse(['AIPS FQ'])
-        # Alternative keyword access:
-        assert 'AIPS FQ' in hf.parse(['AIPS FQ'], ['EXTNAME'])
+        output = hf.parse(extensions=['AIPS FQ'])
+        assert "EXTNAME = 'AIPS FQ" in output
+        assert "BITPIX" in output
+
+        # Can we limit the display to one specific keyword?
+        output = hf.parse(extensions=['AIPS FQ'], keywords=['EXTNAME'])
+        assert "EXTNAME = 'AIPS FQ" in output
+        assert "BITPIX  =" not in output
+        assert len(output.split('\n')) == 3
+
+        # Can we limit the display to two specific keywords?
+        output = hf.parse(extensions=[1],
+                          keywords=['EXTNAME', 'BITPIX'])
+        assert "EXTNAME =" in output
+        assert "BITPIX  =" in output
+        assert len(output.split('\n')) == 4
+
+        # Can we use wildcards for keywords?
+        output = hf.parse(extensions=[1], keywords=['NAXIS*'])
+        assert "NAXIS   =" in output
+        assert "NAXIS1  =" in output
+        assert "NAXIS2  =" in output
+
         # Can an extension by specified by the EXTNAME+EXTVER keywords?
         hf = fitsheader.HeaderFormatter(self.data('test0.fits'))
-        assert "EXTNAME = 'SCI" in hf.parse(['SCI,2'])
-        # fitsheader should only print the compressed header when asked
+        assert "EXTNAME = 'SCI" in hf.parse(extensions=['SCI,2'])
+
+        # Can we print the original header before decompression?
         hf = fitsheader.HeaderFormatter(self.data('comp.fits'))
-        assert "XTENSION= 'IMAGE" in hf.parse([1])  # decompressed
-        hf = fitsheader.HeaderFormatter(self.data('comp.fits'),
-                                        compressed=True)
-        assert "XTENSION= 'BINTABLE" in hf.parse([1])  # compressed
+        assert "XTENSION= 'IMAGE" in hf.parse(extensions=[1],
+                                              compressed=False)
+        assert "XTENSION= 'BINTABLE" in hf.parse(extensions=[1],
+                                                 compressed=True)
