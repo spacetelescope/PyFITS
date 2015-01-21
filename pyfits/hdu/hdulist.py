@@ -23,7 +23,7 @@ def fitsopen(name, mode='readonly', memmap=None, save_backup=False, **kwargs):
     name : file path, file object or file-like object
         File to be opened.
 
-    mode : str
+    mode : str, optional
         Open mode, 'readonly' (default), 'update', 'append', 'denywrite', or
         'ostream'.
 
@@ -31,17 +31,17 @@ def fitsopen(name, mode='readonly', memmap=None, save_backup=False, **kwargs):
         match the mode the file was opened with, readonly (rb), update (rb+),
         append (ab+), ostream (w), denywrite (rb)).
 
-    memmap : bool
+    memmap : bool, optional
         Is memory mapping to be used?
 
-    save_backup : bool
+    save_backup : bool, optional
         If the file was opened in update or append mode, this ensures that a
         backup of the original file is saved before any changes are flushed.
         The backup has the same name as the original file with ".bak" appended.
         If "file.bak" already exists then "file.bak.1" is used, and so on.
 
-    kwargs : dict
-        optional keyword arguments, possible values are:
+    kwargs : dict, optional
+        additional optional keyword arguments, possible values are:
 
         - **uint** : bool
 
