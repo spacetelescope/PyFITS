@@ -98,9 +98,12 @@ class _BaseDiff(object):
 
         For example::
 
-            >>> fd = FITSDiff('a.fits', 'b.fits', ignore_keywords=['*'])
-            >>> hd = HeaderDiff.fromdiff(fd, header_a, header_b)
-            >>> hd.ignore_keywords
+            >>> from pyfits import HDUList, Header, FITSDiff
+            >>> hdul1, hdul2 = HDUList(), HDUList()
+            >>> headera, headerb = Header(), Header()
+            >>> fd = FITSDiff(hdul1, hdul2, ignore_keywords=['*'])
+            >>> hd = HeaderDiff.fromdiff(fd, headera, headerb)
+            >>> list(hd.ignore_keywords)
             ['*']
         """
 
