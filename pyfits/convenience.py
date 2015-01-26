@@ -64,8 +64,7 @@ from .hdu.hdulist import fitsopen
 from .hdu.image import PrimaryHDU, ImageHDU
 from .hdu.table import BinTableHDU
 from .header import Header
-from .util import (fileobj_closed, fileobj_name, fileobj_mode,
-                   fileobj_closed, _is_int)
+from .util import fileobj_closed, fileobj_name, fileobj_mode, _is_int
 
 
 __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',

@@ -17,7 +17,7 @@ from ..extern.six import string_types
 # utilities in pyfits.column
 from ..column import (FITS2NUMPY, KEYWORD_NAMES, KEYWORD_ATTRIBUTES, TDEF_RE,
                       Column, ColDefs, _AsciiColDefs, _FormatP, _FormatQ,
-                      _makep, _VLF, _parse_tformat, _scalar_to_format,
+                      _makep, _parse_tformat, _scalar_to_format,
                       _convert_format, _cmp_recformats, _get_index)
 from ..fitsrec import FITS_rec
 from ..header import Header

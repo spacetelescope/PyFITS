@@ -26,7 +26,8 @@ from .extern.six.moves import zip, range, xrange, reduce
 import pyfits
 from .card import Card, BLANK_CARD
 from .header import Header
-from .hdu.hdulist import fitsopen
+# HDUList is used in one of the doctests
+from .hdu.hdulist import fitsopen  # pylint: disable=W0611
 from .hdu.table import _TableLikeHDU
 from .util import indent
 

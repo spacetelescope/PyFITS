@@ -12,7 +12,7 @@ from .extern.six.moves import xrange, range, reduce
 
 from .column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ASCII2STR, ColDefs,
                      _AsciiColDefs, _FormatX, _FormatP, _VLF, _get_index,
-                     _wrapx, _unwrapx, _makep, _convert_ascii_format, Delayed)
+                     _wrapx, _unwrapx, _makep, Delayed)
 from .py3compat import ignored
 from .util import encode_ascii, decode_ascii, lazyproperty
 

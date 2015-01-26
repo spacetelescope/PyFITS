@@ -10,7 +10,7 @@ from ..extern.six import string_types, iteritems
 from ..extern.six.moves import range
 
 from ..card import Card
-from ..column import Column, ColDefs, _FormatP, TDEF_RE
+from ..column import Column, ColDefs, TDEF_RE
 from ..column import KEYWORD_NAMES as TABLE_KEYWORD_NAMES
 from ..fitsrec import FITS_rec
 from ..header import Header
