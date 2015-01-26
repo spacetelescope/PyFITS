@@ -317,7 +317,7 @@ class _ImageBaseHDU(_ValidHDU):
                          after='BITPIX')
 
         # TODO: This routine is repeated in several different classes--it
-        # should probably be made available as a methond on all standard HDU
+        # should probably be made available as a method on all standard HDU
         # types
         # add NAXISi if it does not exist
         for idx, axis in enumerate(self._axes):
@@ -707,7 +707,7 @@ class _ImageBaseHDU(_ValidHDU):
             # This is the case where the data has not been read from the file
             # yet.  We can handle that in a generic manner so we do it in the
             # base class.  The other possibility is that there is no data at
-            # all.  This can also be handled in a gereric manner.
+            # all.  This can also be handled in a generic manner.
             return super(_ImageBaseHDU, self)._calculate_datasum(
                 blocking=blocking)
 
@@ -961,7 +961,7 @@ class ImageHDU(_ImageBaseHDU, ExtensionHDU):
 
         errs = super(ImageHDU, self)._verify(option=option)
         naxis = self._header.get('NAXIS', 0)
-        # PCOUNT must == 0, GCOUNT must == 1; the former is verifed in
+        # PCOUNT must == 0, GCOUNT must == 1; the former is verified in
         # ExtensionHDU._verify, however ExtensionHDU._verify allows PCOUNT
         # to be >= 0, so we need to check it here
         self.req_cards('PCOUNT', naxis + 3, lambda v: (_is_int(v) and v == 0),

@@ -48,7 +48,7 @@ explanation of all the different formats.
     multiple argument formats that were used in past versions of PyFITS.
     Unfortunately, it is not possible to support all formats without
     introducing some ambiguity.  A future PyFITS release may standardize around
-    a single format and offically deprecate the other formats.
+    a single format and officially deprecate the other formats.
 """
 
 
@@ -500,7 +500,7 @@ def update(filename, data, *args, **kwargs):
         Any additional keyword arguments to be passed to `pyfits.open`.
     """
 
-    # The arguments to this function are a bit tricker to deal with than others
+    # The arguments to this function are a bit trickier to deal with than others
     # in this module, since the documentation has promised that the header
     # argument can be an optional positional argument.
     if args and isinstance(args[0], Header):
