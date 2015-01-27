@@ -2517,3 +2517,14 @@ class TestColumnFunctions(PyfitsTestCase):
         """
 
         assert_raises(TypeError, fits.ColDefs, [1, 2, 3])
+
+    def test_column_lookup_by_name(self):
+        """Tests that a `ColDefs` can be indexed by column name."""
+
+        a = fits.Column(name='a', format='D')
+        b = fits.Column(name='b', format='D')
+
+        cols = fits.ColDefs([a, b])
+
+        assert cols['a'] == cols[0]
+        assert cols['b'] == cols[1]
