@@ -174,7 +174,6 @@ class FITS_rec(np.recarray):
         self._coldefs = None
         self._gap = 0
         self._uint = False
-        self.formats = None
         return self
 
     def __setstate__(self, state):
@@ -225,7 +224,6 @@ class FITS_rec(np.recarray):
             self._nfields = obj._nfields
             self._gap = obj._gap
             self._uint = obj._uint
-            self.formats = obj.formats
         else:
             # This will allow regular ndarrays with fields, rather than
             # just other FITS_rec objects
@@ -239,9 +237,6 @@ class FITS_rec(np.recarray):
             self._gap = getattr(obj, '_gap', 0)
             self._uint = getattr(obj, '_uint', False)
 
-            # Bypass setattr-based assignment to fields; see #86
-            self.formats = None
-
             attrs = ['_convert', '_coldefs', '_gap']
             for attr in attrs:
                 if hasattr(obj, attr):
@@ -252,7 +247,6 @@ class FITS_rec(np.recarray):
 
             if self._coldefs is None:
                 self._coldefs = ColDefs(self)
-            self.formats = self._coldefs.formats
 
     @classmethod
     def from_columns(cls, columns, nrows=0, fill=False):
@@ -323,7 +317,6 @@ class FITS_rec(np.recarray):
         # All of this is an artifact of the fragility of the FITS_rec class,
         # and that it can't just be initialized by columns...
         data._coldefs = columns
-        data.formats = columns.formats
 
         # If fill is True we don't copy anything from the column arrays.  We're
         # just using them as a template, and returning a table filled with
@@ -445,23 +438,6 @@ class FITS_rec(np.recarray):
     def __repr__(self):
         return np.recarray.__repr__(self)
 
-    def __getattribute__(self, attr):
-        # See the comment in __setattr__
-        if attr in ('names', 'formats'):
-            return object.__getattribute__(self, attr)
-        else:
-            return super(FITS_rec, self).__getattribute__(attr)
-
-    def __setattr__(self, attr, value):
-        # Overrides the silly attribute-based assignment to fields supported by
-        # recarrays for our two built-in public attributes: names and formats
-        # Otherwise, the default behavior, bad as it is, is preserved.  See
-        # ticket #86
-        if attr in ('names', 'formats'):
-            return object.__setattr__(self, attr, value)
-        else:
-            return super(FITS_rec, self).__setattr__(attr, value)
-
     def __getitem__(self, key):
         if isinstance(key, string_types):
             return self.field(key)
@@ -573,6 +549,11 @@ class FITS_rec(np.recarray):
         else:
             return list(self.dtype.names)
 
+    @property
+    def formats(self):
+        """List of column FITS foramts."""
+
+        return self._coldefs.formats
 
     def field(self, key):
         """
