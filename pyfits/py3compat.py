@@ -1,4 +1,5 @@
 from .extern import six
+from ._compat.odict import OrderedDict
 
 if six.PY3:
     # Stuff to do if Python 3
