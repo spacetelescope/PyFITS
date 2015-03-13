@@ -1563,6 +1563,7 @@ class TestTableFunctions(PyfitsTestCase):
         # The ORBPARM column should not be in the data, though the data should
         # be readable
         assert 'ORBPARM' in tbhdu.data.names
+        assert 'ORBPARM' in tbhdu.data.dtype.names
         # Verify that some of the data columns are still correctly accessible
         # by name
         assert tbhdu.data[0]['ANNAME'] == 'VLA:_W16'
@@ -1586,6 +1587,7 @@ class TestTableFunctions(PyfitsTestCase):
         # Verify that the previous tests still hold after writing
         assert 'ORBPARM' in tbhdu.columns.names
         assert 'ORBPARM' in tbhdu.data.names
+        assert 'ORBPARM' in tbhdu.data.dtype.names
         assert tbhdu.data[0]['ANNAME'] == 'VLA:_W16'
         assert comparefloats(
             tbhdu.data[0]['STABXYZ'],
