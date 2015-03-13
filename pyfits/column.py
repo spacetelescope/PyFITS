@@ -1370,6 +1370,9 @@ class ColDefs(NotifierMixin):
 
         self.columns.append(column)
 
+        # Listen for changes on the new column
+        column._add_listener(self)
+
         # If this ColDefs is being tracked by a Table, inform the
         # table that its data is now invalid.
         self._notify('column_added', self, column)
@@ -1384,6 +1387,7 @@ class ColDefs(NotifierMixin):
         """
 
         indx = _get_index(self.names, col_name)
+        col = self.columns[indx]
 
         del self._arrays[indx]
         # Obliterate caches of certain things
@@ -1392,6 +1396,8 @@ class ColDefs(NotifierMixin):
         del self._dims
 
         del self.columns[indx]
+
+        col._remove_listener(self)
 
         # If this ColDefs is being tracked by a table HDU, inform the HDU (or
         # any other listeners) that the column has been removed
