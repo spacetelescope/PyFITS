@@ -588,6 +588,15 @@ def fileobj_name(f):
 
     if isinstance(f, string_types):
         return f
+    elif isinstance(f, gzip.GzipFile):
+        # The .name attribute on GzipFiles does not always represent the name
+        # of the file being read/written--it can also represent the original
+        # name of the file being compressed
+        # See the documentation at
+        # https://docs.python.org/3/library/gzip.html#gzip.GzipFile
+        # As such, for gzip files only return the name of the underlying
+        # fileobj, if it exists
+        return fileobj_name(f.fileobj)
     elif hasattr(f, 'name'):
         return f.name
     elif hasattr(f, 'filename'):
