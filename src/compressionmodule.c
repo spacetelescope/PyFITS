@@ -792,7 +792,7 @@ fail:
 
 
 void open_from_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
-                   PyObject* hdu, tcolumn** columns) {
+                   PyObject* hdu, tcolumn** columns, int mode) {
     PyObject* header = NULL;
     FITSfile* Fptr;
 
@@ -828,7 +828,7 @@ void open_from_hdu(fitsfile** fileptr, void** buf, size_t* bufsize,
     Fptr = (*fileptr)->Fptr;
 
     // Now we have some fun munging some of the elements in the fitsfile struct
-    Fptr->writemode = READONLY;
+    Fptr->writemode = mode;
     Fptr->open_count = 1;
     Fptr->hdutype = BINARY_TBL;  /* This is a binary table HDU */
     Fptr->lasthdu = 1;
@@ -899,7 +899,7 @@ PyObject* compression_compress_hdu(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    open_from_hdu(&fileptr, &outbuf, &outbufsize, hdu, &columns);
+    open_from_hdu(&fileptr, &outbuf, &outbufsize, hdu, &columns, READWRITE);
     if (PyErr_Occurred()) {
         goto fail;
     }
@@ -1018,7 +1018,7 @@ PyObject* compression_decompress_hdu(PyObject* self, PyObject* args)
         return Py_None;
     }
 
-    open_from_hdu(&fileptr, &inbuf, &inbufsize, hdu, &columns);
+    open_from_hdu(&fileptr, &inbuf, &inbufsize, hdu, &columns, READONLY);
     if (PyErr_Occurred()) {
         return NULL;
     }
