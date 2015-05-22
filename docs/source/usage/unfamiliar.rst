@@ -384,9 +384,9 @@ to create the HDU itself::
     [ 15., 16., 17., 18., 19.]]]], dtype=float32))
     ]
 
-
 Compressed Image Data
 =====================
+.. _compressedImageData:
 
 A general technique has been developed for storing compressed image data in
 FITS binary tables.  The principle used in this convention is to first divide
