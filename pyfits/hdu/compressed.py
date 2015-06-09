@@ -19,7 +19,7 @@ from ..py3compat import ignored
 from ..util import (lazyproperty, _is_pseudo_unsigned, _unsigned_zero,
                     deprecated, _is_int, _get_array_mmap,
                     PyfitsPendingDeprecationWarning)
-from .base import DELAYED, ExtensionHDU
+from .base import DELAYED, ExtensionHDU, BITPIX2DTYPE, DTYPE2BITPIX
 from .image import _ImageBaseHDU, ImageHDU
 from .table import BinTableHDU
 
@@ -1614,7 +1614,7 @@ class CompImageHDU(BinTableHDU):
             for idx in range(self.header['NAXIS']):
                 _shape += (self.header['NAXIS' + str(idx + 1)],)
 
-            _format = _ImageBaseHDU.NumCode[self.header['BITPIX']]
+            _format = BITPIX2DTYPE[self.header['BITPIX']]
 
         return (self.name, class_name, len(self.header), _shape,
                 _format)
@@ -1625,7 +1625,7 @@ class CompImageHDU(BinTableHDU):
         """
 
         # Check to see that the image_header matches the image data
-        image_bitpix = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+        image_bitpix = DTYPE2BITPIX[self.data.dtype.name]
 
         if image_bitpix != self._orig_bitpix or self.data.shape != self.shape:
             self._update_header_data(self.header)
@@ -1727,7 +1727,7 @@ class CompImageHDU(BinTableHDU):
 
         # Determine the destination (numpy) data type
         if type is None:
-            type = _ImageBaseHDU.NumCode[self._bitpix]
+            type = BITPIX2DTYPE[self._bitpix]
         _type = getattr(np, type)
 
         # Determine how to scale the data
@@ -1778,7 +1778,7 @@ class CompImageHDU(BinTableHDU):
             self.data = np.array(np.around(self.data), dtype=_type)  # 0.7.7.1
 
         # Update the BITPIX Card to match the data
-        self._bitpix = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+        self._bitpix = DTYPE2BITPIX[self.data.dtype.name]
         self._bzero = self.header.get('BZERO', 0)
         self._bscale = self.header.get('BSCALE', 1)
         # Update BITPIX for the image header specifically
@@ -1799,7 +1799,7 @@ class CompImageHDU(BinTableHDU):
 
     def _prewriteto(self, checksum=False, inplace=False):
         if self._scale_back:
-            self.scale(_ImageBaseHDU.NumCode[self._orig_bitpix])
+            self.scale(BITPIX2DTYPE[self._orig_bitpix])
 
         if self._has_data:
             self._update_compressed_data()
@@ -1910,7 +1910,7 @@ class CompImageHDU(BinTableHDU):
             if dtype is None:
                 dtype = self._dtype_for_bitpix()
             if dtype is not None:
-                self.header['BITPIX'] = _ImageBaseHDU.ImgCode[dtype.name]
+                self.header['BITPIX'] = DTYPE2BITPIX[dtype.name]
 
             self._bzero = 0
             self._bscale = 1

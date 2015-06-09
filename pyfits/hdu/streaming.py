@@ -3,9 +3,9 @@ import os
 
 from ..file import _File
 from ..util import _pad_length, fileobj_name
-from .base import _BaseHDU
+from .base import _BaseHDU, BITPIX2DTYPE
 from .hdulist import HDUList
-from .image import PrimaryHDU, _ImageBaseHDU
+from .image import PrimaryHDU
 
 
 class StreamingHDU(object):
@@ -168,7 +168,7 @@ class StreamingHDU(object):
             raise IOError('Attempt to write more data to the stream than the '
                           'header specified.')
 
-        if _ImageBaseHDU.NumCode[self._header['BITPIX']] != data.dtype.name:
+        if BITPIX2DTYPE[self._header['BITPIX']] != data.dtype.name:
             raise TypeError('Supplied data does not match the type specified '
                             'in the header.')
 

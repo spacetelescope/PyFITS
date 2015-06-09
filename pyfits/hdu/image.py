@@ -8,8 +8,8 @@ from ..extern.six.moves import range
 
 from ..header import Header
 from ..util import (_is_pseudo_unsigned, _unsigned_zero, _is_int,
-                    lazyproperty, isiterable)
-from .base import DELAYED, _ValidHDU, ExtensionHDU
+                    lazyproperty, isiterable, deprecated)
+from .base import DELAYED, _ValidHDU, ExtensionHDU, BITPIX2DTYPE, DTYPE2BITPIX
 from ..verify import VerifyWarning
 
 
@@ -24,14 +24,6 @@ class _ImageBaseHDU(_ValidHDU):
     data
         image data
     """
-
-    # mappings between FITS and numpy typecodes
-    # TODO: Maybe make these module-level constants instead...
-    NumCode = {8: 'uint8', 16: 'int16', 32: 'int32', 64: 'int64',
-               -32: 'float32', -64: 'float64'}
-    ImgCode = {'uint8': 8, 'int16': 16, 'uint16': 16, 'int32': 32,
-               'uint32': 32, 'int64': 64, 'uint64': 64, 'float32': -32,
-               'float64': -64}
 
     standard_keyword_comments = {
         'SIMPLE': 'conforms to FITS standard',
@@ -262,7 +254,7 @@ class _ImageBaseHDU(_ValidHDU):
         self._modified = True
 
         if isinstance(data, np.ndarray):
-            self._bitpix = _ImageBaseHDU.ImgCode[data.dtype.name]
+            self._bitpix = DTYPE2BITPIX[data.dtype.name]
             self._orig_bitpix = self._bitpix
             self._orig_bscale = 1
             self._orig_bzero = 0
@@ -369,7 +361,7 @@ class _ImageBaseHDU(_ValidHDU):
             if dtype is None:
                 dtype = self._dtype_for_bitpix()
             if dtype is not None:
-                self._header['BITPIX'] = _ImageBaseHDU.ImgCode[dtype.name]
+                self._header['BITPIX'] = DTYPE2BITPIX[dtype.name]
 
             self._bzero = 0
             self._bscale = 1
@@ -407,7 +399,7 @@ class _ImageBaseHDU(_ValidHDU):
 
         # Determine the destination (numpy) data type
         if type is None:
-            type = self.NumCode[self._bitpix]
+            type = BITPIX2DTYPE[self._bitpix]
         _type = getattr(np, type)
 
         # Determine how to scale the data
@@ -462,7 +454,7 @@ class _ImageBaseHDU(_ValidHDU):
             self.data = np.array(np.around(self.data), dtype=_type)
 
         # Update the BITPIX Card to match the data
-        self._bitpix = _ImageBaseHDU.ImgCode[self.data.dtype.name]
+        self._bitpix = DTYPE2BITPIX[self.data.dtype.name]
         self._bzero = self._header.get('BZERO', 0)
         self._bscale = self._header.get('BSCALE', 1)
         self._header['BITPIX'] = self._bitpix
@@ -483,7 +475,7 @@ class _ImageBaseHDU(_ValidHDU):
 
     def _prewriteto(self, checksum=False, inplace=False):
         if self._scale_back:
-            self.scale(self.NumCode[self._orig_bitpix])
+            self.scale(BITPIX2DTYPE[self._orig_bitpix])
 
         self.update_header()
         if not inplace and self._data_needs_rescale:
@@ -581,7 +573,7 @@ class _ImageBaseHDU(_ValidHDU):
         supports alternate offset/shape for Section support.
         """
 
-        code = _ImageBaseHDU.NumCode[self._orig_bitpix]
+        code = BITPIX2DTYPE[self._orig_bitpix]
 
         raw_data = self._get_raw_data(shape, code, offset)
         raw_data.dtype = raw_data.dtype.newbyteorder('>')
@@ -663,7 +655,7 @@ class _ImageBaseHDU(_ValidHDU):
             if self.shape and all(self.shape):
                 # Only show the format if all the dimensions are non-zero
                 # if data is not touched yet, use header info.
-                format = self.NumCode[self._bitpix]
+                format = BITPIX2DTYPE[self._bitpix]
             else:
                 format = ''
 
@@ -713,6 +705,14 @@ class _ImageBaseHDU(_ValidHDU):
             # all.  This can also be handled in a generic manner.
             return super(_ImageBaseHDU, self)._calculate_datasum(
                 blocking=blocking)
+
+    @deprecated('1.1.0', alternative='the module level constant BITPIX2DTYPE')
+    def NumCode(self):
+        return BITPIX2DTYPE
+
+    @deprecated('1.1.0', alternative='the module level constant DTYPE2BITPIX')
+    def ImgCode(self):
+        return DTYPE2BITPIX
 
 
 class Section(object):
