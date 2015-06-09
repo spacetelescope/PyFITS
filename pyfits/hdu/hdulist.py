@@ -7,7 +7,8 @@ import warnings
 from ..extern.six import print_, string_types
 from ..file import _File
 from ..util import (_is_int, _tmp_name, _pad_length, ignore_sigint,
-                    _get_array_mmap, indent, fileobj_closed)
+                    _get_array_mmap, indent, fileobj_closed,
+                    PyfitsDeprecationWarning)
 from ..verify import _Verify, _ErrList, VerifyError, VerifyWarning
 from . import compressed
 from .base import _BaseHDU, _ValidHDU, _NonstandardHDU, ExtensionHDU
@@ -107,6 +108,9 @@ def fitsopen(name, mode='readonly', memmap=None, save_backup=False, **kwargs):
     if 'uint16' in kwargs and 'uint' not in kwargs:
         kwargs['uint'] = kwargs['uint16']
         del kwargs['uint16']
+        warnings.warn(
+            'The uint16 keyword argument is deprecated since v3.4.0.  Use '
+            'the uint argument instead.', PyfitsDeprecationWarning)
 
     if not name:
         raise ValueError('Empty filename: %s' % repr(name))
