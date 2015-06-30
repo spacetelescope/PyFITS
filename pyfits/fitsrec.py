@@ -850,10 +850,7 @@ class FITS_rec(np.recarray):
         Overload this to make mask array indexing work properly.
         """
 
-        from pyfits.hdu.table import new_table
-
-        hdu = new_table(self._coldefs, nrows=shape[0])
-        return hdu.data
+        return self.copy()
 
     def _get_heap_data(self):
         """
