@@ -1069,3 +1069,8 @@ class TestStreamingFunctions(PyfitsTestCase):
                       lambda attr: getattr(fits.open(pth, memmap=True)[0],
                                            attr),
                       'data')
+
+        # However, it should not fail if do_not_scale_image_data was used:
+        # See https://github.com/astropy/astropy/issues/3766
+        hdul = fits.open(pth, memmap=True, do_not_scale_image_data=True)
+        hdul[0].data  # Just make sure it doesn't crash
