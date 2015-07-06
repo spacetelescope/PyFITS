@@ -114,6 +114,10 @@ def fitsopen(name, mode='readonly', memmap=None, save_backup=False, **kwargs):
             'The uint16 keyword argument is deprecated since v3.4.0.  Use '
             'the uint argument instead.', PyfitsDeprecationWarning)
 
+    if 'uint' not in kwargs:
+        from pyfits import ENABLE_UINT
+        kwargs['uint'] = ENABLE_UINT
+
     if not name:
         raise ValueError('Empty filename: %s' % repr(name))
 

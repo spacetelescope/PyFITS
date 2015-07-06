@@ -69,7 +69,8 @@ GLOBALS = [
     ('ENABLE_RECORD_VALUED_KEYWORD_CARDS', True),
     ('EXTENSION_NAME_CASE_SENSITIVE',      False),
     ('STRIP_HEADER_WHITESPACE',            True),
-    ('USE_MEMMAP',                         True)
+    ('USE_MEMMAP',                         True),
+    ('ENABLE_UINT',                        True)
 ]
 
 for varname, default in GLOBALS:
