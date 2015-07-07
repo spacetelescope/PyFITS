@@ -618,7 +618,9 @@ def tabledump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
 
     if closed:
         f.close()
-tabledump.__doc__ += BinTableHDU._tdump_file_format.replace('\n', '\n    ')
+
+if isinstance(tabledump.__doc__, string_types):
+    tabledump.__doc__ += BinTableHDU._tdump_file_format.replace('\n', '\n    ')
 
 
 def tableload(datafile, cdfile, hfile=None):
@@ -654,7 +656,9 @@ def tableload(datafile, cdfile, hfile=None):
     """
 
     return BinTableHDU.load(datafile, cdfile, hfile, replace=True)
-tableload.__doc__ += BinTableHDU._tdump_file_format.replace('\n', '\n    ')
+
+if isinstance(tableload.__doc__, string_types):
+    tableload.__doc__ += BinTableHDU._tdump_file_format.replace('\n', '\n    ')
 
 
 def _getext(filename, mode, *args, **kwargs):
