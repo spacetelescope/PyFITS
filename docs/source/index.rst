@@ -134,6 +134,8 @@ The headers will still be accessible after the HDUList is closed. The data may
 or may not be accessible depending on whether the data are touched and if they
 are memory-mapped, see later chapters for detail.
 
+.. _fits-large-files:
+
 Working with large files
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
