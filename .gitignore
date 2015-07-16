@@ -6,7 +6,7 @@
 *.pyd
 
 # Other generated files
-lib/pyfits/version.py
+pyfits/version.py
 
 # Sphinx
 _build
