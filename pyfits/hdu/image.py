@@ -8,7 +8,7 @@ from ..extern.six.moves import range
 
 from ..header import Header
 from ..util import (_is_pseudo_unsigned, _unsigned_zero, _is_int,
-                    lazyproperty, isiterable, deprecated)
+                    lazyproperty, isiterable, deprecated, classproperty)
 from .base import DELAYED, _ValidHDU, ExtensionHDU, BITPIX2DTYPE, DTYPE2BITPIX
 from ..verify import VerifyWarning
 
@@ -755,12 +755,14 @@ class _ImageBaseHDU(_ValidHDU):
             return super(_ImageBaseHDU, self)._calculate_datasum(
                 blocking=blocking)
 
+    @classproperty
     @deprecated('1.1.0', alternative='the module level constant BITPIX2DTYPE')
-    def NumCode(self):
+    def NumCode(cls):
         return BITPIX2DTYPE
 
+    @classproperty
     @deprecated('1.1.0', alternative='the module level constant DTYPE2BITPIX')
-    def ImgCode(self):
+    def ImgCode(cls):
         return DTYPE2BITPIX
 
 
