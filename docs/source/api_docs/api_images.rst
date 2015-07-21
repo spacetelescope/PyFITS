@@ -1,31 +1,8 @@
-.. currentmodule:: pyfits
+*************
+Moved: Images
+*************
 
-.. _images:
+.. meta::
+    :http-equiv=refresh: 0; ../api/images.html
 
-******
-Images
-******
-
-`ImageHDU`
-==========
-
-.. autoclass:: ImageHDU
-   :members:
-   :inherited-members:
-   :show-inheritance:
-
-`CompImageHDU`
-==============
-
-.. autoclass:: CompImageHDU
-   :members:
-   :inherited-members:
-   :show-inheritance:
-
-`Section`
-=========
-
-.. autoclass:: Section
-   :members:
-   :inherited-members:
-   :show-inheritance:
+This page has been moved to :doc:`../api/images`.

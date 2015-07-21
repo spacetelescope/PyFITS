@@ -1,45 +1,8 @@
-.. currentmodule:: pyfits
+**********************************************
+Moved: File Handling and Convenience Functions
+**********************************************
 
-***************************************
-File Handling and Convenience Functions
-***************************************
+.. meta::
+    :http-equiv=refresh: 0; ../api/files.html
 
-:func:`open`
-================
-.. autofunction:: open
-
-:func:`writeto`
-===============
-.. autofunction:: writeto
-
-:func:`info`
-============
-.. autofunction:: info
-
-:func:`append`
-==============
-.. autofunction:: append
-
-:func:`update`
-==============
-.. autofunction:: update
-
-:func:`getdata`
-===============
-.. autofunction:: getdata
-
-:func:`getheader`
-=================
-.. autofunction:: getheader
-
-:func:`getval`
-==============
-.. autofunction:: getval
-
-:func:`setval`
-==============
-.. autofunction:: setval
-
-:func:`delval`
-==============
-.. autofunction:: delval
+This page has been moved to :doc:`../api/files`.

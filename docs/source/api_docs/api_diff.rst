@@ -1,48 +1,8 @@
-*******
-Differs
-*******
+**************
+Moved: Differs
+**************
 
-.. automodule:: pyfits.diff
-.. currentmodule:: pyfits
+.. meta::
+    :http-equiv=refresh: 0; ../api/diff.html
 
-:class:`FITSDiff`
-=================
-.. autoclass:: FITSDiff
-   :members:
-   :inherited-members:
-   :show-inheritance:
-
-:class:`HDUDiff`
-================
-.. autoclass:: HDUDiff
-   :members:
-   :inherited-members:
-   :show-inheritance:
-
-:class:`HeaderDiff`
-===================
-.. autoclass:: HeaderDiff
-   :members:
-   :inherited-members:
-   :show-inheritance:
-
-:class:`ImageDataDiff`
-======================
-.. autoclass:: ImageDataDiff
-   :members:
-   :inherited-members:
-   :show-inheritance:
-
-:class:`RawDataDiff`
-====================
-.. autoclass:: RawDataDiff
-   :members:
-   :inherited-members:
-   :show-inheritance:
-
-:class:`TableDataDiff`
-======================
-.. autoclass:: TableDataDiff
-   :members:
-   :inherited-members:
-   :show-inheritance:
+This page has been moved to :doc:`../api/diff`.

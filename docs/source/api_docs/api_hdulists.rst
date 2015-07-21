@@ -1,15 +1,8 @@
-.. currentmodule:: pyfits
+****************
+Moved: HDU Lists
+****************
 
-*********
-HDU Lists
-*********
+.. meta::
+    :http-equiv=refresh: 0; ../api/hdulists.html
 
-.. inheritance-diagram:: HDUList
-
-:class:`HDUList`
-================
-
-.. autoclass:: HDUList
-   :members:
-   :undoc-members:
-   :show-inheritance:
+This page has been moved to :doc:`../api/hdulists`.
