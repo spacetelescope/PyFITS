@@ -96,18 +96,9 @@ class NotifierMixin(object):
         """
 
         if self._listeners is None:
-            self._listeners = []
+            self._listeners = weakref.WeakValueDictionary()
 
-        def remove(p):
-            self._listeners.remove(p)
-
-        # Make sure this object is not already in the listeners:
-        for ref in self._listeners:
-            if ref() is listener:
-                return
-
-        ref = weakref.ref(listener, remove)
-        self._listeners.append(ref)
+        self._listeners[id(listener)] = listener
 
     def _remove_listener(self, listener):
         """
@@ -118,10 +109,10 @@ class NotifierMixin(object):
         if self._listeners is None:
             return
 
-        for idx, ref in enumerate(self._listeners[:]):
-            if ref() is listener:
-                del self._listeners[idx]
-                break
+        try:
+            del self._listeners[id(listener)]
+        except KeyError:
+            pass
 
     def _notify(self, notification, *args, **kwargs):
         """
@@ -137,7 +128,7 @@ class NotifierMixin(object):
             return
 
         method_name = '_update_{0}'.format(notification)
-        for listener in self._listeners:
+        for listener in self._listeners.itervaluerefs():
             listener = listener()  # dereference weakref
             if hasattr(listener, method_name):
                 method = getattr(listener, method_name)
