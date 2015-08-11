@@ -685,7 +685,7 @@ class TestImageFunctions(PyfitsTestCase):
         hdu = fits.PrimaryHDU(data=arr)
         hdu.scale('int16', bscale=1.23)
 
-        # Creating data that uses BLANK is currently kludgy--a speparate issue
+        # Creating data that uses BLANK is currently kludgy--a separate issue
         # TODO: Rewrite this test when scaling with blank support is better
         # supported
 
