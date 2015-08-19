@@ -1197,8 +1197,6 @@ class Header(object):
                 else:
                     extend_cards.append(card)
             else:
-                # First parentheses needed because of operator precedence.
-                # Second is just for clarity.
                 if (unique or update) and keyword in self:
                     if card.is_blank:
                         extend_cards.append(card)
