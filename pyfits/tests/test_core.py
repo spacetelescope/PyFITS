@@ -809,8 +809,7 @@ class TestFileFunctions(PyfitsTestCase):
                 assert h.fileinfo(0)['filemode'] == 'append'
 
     def test_mmap_unwriteable(self):
-        """Regression test for
-        https://github.com/astropy/astropy/issues/968
+        """Regression test for https://github.com/astropy/astropy/issues/968
 
         Temporarily patches mmap.mmap to exhibit platform-specific bad
         behavior.
@@ -824,11 +823,10 @@ class TestFileFunctions(PyfitsTestCase):
         mmap.mmap = MockMmap
 
         # Force the mmap test to be rerun
-        _File._mmap_available = None
+        _File.__dict__['_mmap_available']._cache.clear()
 
         try:
-            # TODO: Use self.copy_file once it's merged into Astropy
-            shutil.copy(self.data('test0.fits'), self.temp('test0.fits'))
+            self.copy_file('test0.fits')
             with catch_warnings(record=True) as w:
                 with fits.open(self.temp('test0.fits'), mode='update',
                                memmap=True) as h:
@@ -842,7 +840,7 @@ class TestFileFunctions(PyfitsTestCase):
                 assert h[1].data[0, 0] == 999
         finally:
             mmap.mmap = old_mmap
-            _File._mmap_available = None
+            _File.__dict__['_mmap_available']._cache.clear()
 
     def test_uncloseable_file(self):
         """

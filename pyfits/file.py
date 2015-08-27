@@ -16,7 +16,7 @@ from .extern.six.moves import urllib, reduce
 
 from .util import (isreadable, iswritable, isfile, fileobj_open, fileobj_name,
                    fileobj_closed, fileobj_mode, _array_from_file,
-                   _array_to_file, _write_string, encode_ascii)
+                   _array_to_file, _write_string, encode_ascii, classproperty)
 
 
 # Maps PyFITS-specific file mode names to the appropriate file modes to use
@@ -70,11 +70,7 @@ class _File(object):
     Represents a FITS file on disk (or in some other file-like object).
     """
 
-    # See self._test_mmap
-    _mmap_available = None
-
     def __init__(self, fileobj=None, mode=None, memmap=None, clobber=False):
-
         self.strict_memmap = bool(memmap)
         memmap = True if memmap is None else memmap
 
@@ -169,7 +165,7 @@ class _File(object):
         if self.memmap:
             if not isfile(self._file):
                 self.memmap = False
-            elif not self.readonly and not self._test_mmap():
+            elif not self.readonly and not self._mmap_available:
                 # Test mmap.flush--see
                 # https://github.com/astropy/astropy/issues/968
                 self.memmap = False
@@ -495,7 +491,8 @@ class _File(object):
             zfile.close()
         self.compression = 'zip'
 
-    def _test_mmap(self):
+    @classproperty(lazy=True)
+    def _mmap_available(cls):
         """Tests that mmap, and specifically mmap.flush works.  This may
         be the case on some uncommon platforms (see
         https://github.com/astropy/astropy/issues/968).
@@ -503,9 +500,6 @@ class _File(object):
         If mmap.flush is found not to work, ``self.memmap = False`` is
         set and a warning is issued.
         """
-
-        if self._mmap_available is not None:
-            return self._mmap_available
 
         tmpfd, tmpname = tempfile.mkstemp()
         try:
@@ -517,7 +511,6 @@ class _File(object):
             except mmap.error as exc:
                 warnings.warn('Failed to create mmap: %s; mmap use will be '
                               'disabled' % exc)
-                _File._mmap_available = False
                 del exc
                 return False
             try:
@@ -525,7 +518,6 @@ class _File(object):
             except mmap.error:
                 warnings.warn('mmap.flush is unavailable on this platform; '
                               'using mmap in writeable mode will be disabled')
-                _File._mmap_available = False
                 return False
             finally:
                 mm.close()
@@ -533,7 +525,6 @@ class _File(object):
             os.close(tmpfd)
             os.remove(tmpname)
 
-        _File._mmap_available = True
         return True
 
 
