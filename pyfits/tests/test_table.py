@@ -1,5 +1,6 @@
 from __future__ import division, with_statement
 
+from distutils.version import LooseVersion as V
 from warnings import catch_warnings
 
 import numpy as np
@@ -1862,35 +1863,36 @@ class TestTableFunctions(PyfitsTestCase):
             assert (h[1].data['strarray'].encode('ascii') == arrb).all()
             assert (h[1].data['intarray'] == arrc).all()
 
-    def test_mismatched_tform_and_tdim(self):
-        """Normally the product of the dimensions listed in a TDIMn keyword
-        must be less than or equal to the repeat count in the TFORMn keyword.
+    if V(np.__version__) < V('1.10.0'):
+        def test_mismatched_tform_and_tdim(self):
+            """Normally the product of the dimensions listed in a TDIMn keyword
+            must be less than or equal to the repeat count in the TFORMn keyword.
 
-        This tests that this works if less than (treating the trailing bytes
-        as unspecified fill values per the FITS standard) and fails if the
-        dimensions specified by TDIMn are greater than the repeat count.
-        """
+            This tests that this works if less than (treating the trailing bytes
+            as unspecified fill values per the FITS standard) and fails if the
+            dimensions specified by TDIMn are greater than the repeat count.
+            """
 
-        arra = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
-        arrb = np.array([[[9, 10], [11, 12]], [[13, 14], [15, 16]]])
+            arra = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+            arrb = np.array([[[9, 10], [11, 12]], [[13, 14], [15, 16]]])
 
-        cols = [fits.Column(name='a', format='20I', dim='(2,2)',
-                            array=arra),
-                fits.Column(name='b', format='4I', dim='(2,2)',
-                            array=arrb)]
+            cols = [fits.Column(name='a', format='20I', dim='(2,2)',
+                                array=arra),
+                    fits.Column(name='b', format='4I', dim='(2,2)',
+                                array=arrb)]
 
-        # The first column has the mismatched repeat count
-        hdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols))
-        hdu.writeto(self.temp('test.fits'))
+            # The first column has the mismatched repeat count
+            hdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols))
+            hdu.writeto(self.temp('test.fits'))
 
-        with fits.open(self.temp('test.fits')) as h:
-            assert (h[1].data['a'] == arra).all()
-            assert (h[1].data['b'] == arrb).all()
+            with fits.open(self.temp('test.fits')) as h:
+                assert (h[1].data['a'] == arra).all()
+                assert (h[1].data['b'] == arrb).all()
 
-        # If dims is more than the repeat count in the format specifier raise
-        # an error
-        assert_raises(VerifyError, fits.Column, name='a', format='2I',
-                      dim='(2,2)', array=arra)
+            # If dims is more than the repeat count in the format specifier raise
+            # an error
+            assert_raises(VerifyError, fits.Column, name='a', format='2I',
+                          dim='(2,2)', array=arra)
 
     def test_tdim_of_size_one(self):
         """Regression test for https://github.com/astropy/astropy/pull/3580"""
