@@ -18,7 +18,7 @@ from ..header import Header
 from ..py3compat import ignored
 from ..util import (first, lazyproperty, _is_int, _is_pseudo_unsigned,
                     _unsigned_zero, _pad_length, itersubclasses,
-                    decode_ascii, deprecated, _get_array_mmap, _array_to_file)
+                    decode_ascii, deprecated, _get_array_mmap)
 from ..verify import _Verify, _ErrList
 
 
@@ -674,7 +674,7 @@ class _BaseHDU(object):
 
         raw = self._get_raw_data(self._data_size, 'ubyte', self._data_offset)
         if raw is not None:
-            _array_to_file(raw, fileobj)
+            fileobj.writearray(raw)
             return raw.nbytes
         else:
             return 0

@@ -1,5 +1,6 @@
 from __future__ import division
 
+import errno
 import functools
 import gzip
 import itertools
@@ -1173,6 +1174,7 @@ def _write_string(f, s):
     elif isinstance(f, StringIO) and isinstance(s, np.ndarray):
         # Workaround for StringIO/ndarray incompatibility
         s = s.data
+
     f.write(s)
 
 
