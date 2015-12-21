@@ -197,6 +197,7 @@ physical and storage column values.
 Creating a FITS Table
 =====================
 
+.. _column_creation:
 
 Column Creation
 ---------------
