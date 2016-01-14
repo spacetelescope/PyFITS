@@ -8,13 +8,14 @@ import warnings
 import numpy as np
 
 import pyfits as fits
-from ..util import PyfitsDeprecationWarning, PyfitsPendingDeprecationWarning
+from ..util import PyfitsPendingDeprecationWarning
 from ..hdu.compressed import SUBTRACTIVE_DITHER_1, DITHER_SEED_CHECKSUM
 from . import PyfitsTestCase
 from .test_table import comparerecords
-from .util import catch_warnings, ignore_warnings, CaptureStdio
+from .util import ignore_warnings, CaptureStdio
 
 from nose.tools import assert_raises
+from warnings import catch_warnings
 
 
 class TestImageFunctions(PyfitsTestCase):
@@ -113,7 +114,6 @@ class TestImageFunctions(PyfitsTestCase):
         with fits.open(self.temp('test.fits')) as hdul:
             assert hdul[0].name == 'XPRIMARY2'
 
-    @ignore_warnings(PyfitsDeprecationWarning)
     def test_io_manipulation(self):
         # This legacy test also tests numerous deprecated interfaces for
         # backwards compatibility
@@ -129,22 +129,22 @@ class TestImageFunctions(PyfitsTestCase):
             # the extension.
             assert r['sci', 1].header['detector'] == 1
 
-            # append (using "update()") a new card
+            # append a new card
             r[0].header['xxx'] = 1.234e56
 
-            assert (str(r[0].header.ascard[-3:]) ==
+            assert (repr(r[0].header[-3:]) ==
                     "EXPFLAG = 'NORMAL            ' / Exposure interruption indicator                \n"
                     "FILENAME= 'vtest3.fits'        / File name                                      \n"
                     "XXX     =            1.234E+56                                                  ")
 
             # rename a keyword
-            r[0].header.rename_key('filename', 'fname')
-            assert_raises(ValueError, r[0].header.rename_key, 'fname',
+            r[0].header.rename_keyword('filename', 'fname')
+            assert_raises(ValueError, r[0].header.rename_keyword, 'fname',
                           'history')
 
-            assert_raises(ValueError, r[0].header.rename_key, 'fname',
+            assert_raises(ValueError, r[0].header.rename_keyword, 'fname',
                           'simple')
-            r[0].header.rename_key('fname', 'filename')
+            r[0].header.rename_keyword('fname', 'filename')
 
             # get a subsection of data
             assert (r[2].data[:3, :3] ==
@@ -250,7 +250,7 @@ class TestImageFunctions(PyfitsTestCase):
         hdu2 = fits.ImageHDU(header=r[1].header, data=np.array([1, 2],
                              dtype='int32'))
 
-        assert (str(hdu2.header.ascard[1:5]) ==
+        assert (repr(hdu2.header[1:5]) ==
             "BITPIX  =                   32 / array data type                                \n"
             "NAXIS   =                    1 / number of array dimensions                     \n"
             "NAXIS1  =                    2                                                  \n"

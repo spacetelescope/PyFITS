@@ -908,10 +908,6 @@ class BinTableHDU(_TableBaseHDU):
 
     dump.__doc__ += _tdump_file_format.replace('\n', '\n        ')
 
-    @deprecated('3.1', alternative=':meth:`dump`')
-    def tdump(self, datafile=None, cdfile=None, hfile=None, clobber=False):
-        self.dump(datafile, cdfile, hfile, clobber)
-
     def load(cls, datafile, cdfile=None, hfile=None, replace=False,
              header=None):
         """
@@ -993,12 +989,6 @@ class BinTableHDU(_TableBaseHDU):
     load = classmethod(load)
     # Have to create a classmethod from this here instead of as a decorator;
     # otherwise we can't update __doc__
-
-    @deprecated('3.1', alternative=':meth:`load`')
-    @classmethod
-    def tcreate(cls, datafile, cdfile=None, hfile=None, replace=False,
-                header=None):
-        return cls.load(datafile, cdfile, hfile, replace, header)
 
     def _dump_data(self, fileobj):
         """

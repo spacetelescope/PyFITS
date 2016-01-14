@@ -64,13 +64,12 @@ from .hdu.hdulist import fitsopen
 from .hdu.image import PrimaryHDU, ImageHDU
 from .hdu.table import BinTableHDU
 from .header import Header
-from .util import (deprecated, fileobj_closed, fileobj_name, fileobj_mode,
+from .util import (fileobj_closed, fileobj_name, fileobj_mode,
                    fileobj_closed, _is_int)
 
 
 __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
-           'append', 'update', 'info', 'tdump', 'tcreate', 'tabledump',
-           'tableload']
+           'append', 'update', 'info', 'tabledump', 'tableload']
 
 
 def getheader(filename, *args, **kwargs):
@@ -623,12 +622,6 @@ def tabledump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
 tabledump.__doc__ += BinTableHDU._tdump_file_format.replace('\n', '\n    ')
 
 
-@deprecated('3.1', alternative=':func:`tabledump`')
-def tdump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
-          clobber=False):
-    tabledump(filename, datafile, cdfile, hfile, ext, clobber)
-
-
 def tableload(datafile, cdfile, hfile=None):
     """
     Create a table from the input ASCII files.  The input is from up
@@ -663,11 +656,6 @@ def tableload(datafile, cdfile, hfile=None):
 
     return BinTableHDU.load(datafile, cdfile, hfile, replace=True)
 tableload.__doc__ += BinTableHDU._tdump_file_format.replace('\n', '\n    ')
-
-
-@deprecated('3.1', alternative=':func:`tableload`')
-def tcreate(datafile, cdfile, hfile=None):
-    return tableload(datafile, cdfile, hfile)
 
 
 def _getext(filename, mode, *args, **kwargs):

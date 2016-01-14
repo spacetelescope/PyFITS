@@ -1,6 +1,6 @@
 # This is the configuration file for the pyfits namespace.
 
-from __future__ import division  # confidence high
+from __future__ import division
 
 try:
     from .version import __version__
@@ -9,10 +9,8 @@ except:
 
 # Import the pyfits core module.
 from . import core
-
-# Relative imports of * are not syntactically valid in Python 2.5
-from pyfits.core import *
-from pyfits.util import *
+from .core import *
+from .util import *
 
 __doc__ = core.__doc__
 

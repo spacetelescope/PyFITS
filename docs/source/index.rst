@@ -19,8 +19,9 @@ the astronomy community to store images and tables.
 Installation
 ============
 
-PyFITS requires Python version 2.5 or newer. PyFITS also requires the Numpy
-package. Information about numpy can be found at:
+PyFITS requires Python version 2.6 or newer.  Support for Python 3.0 through
+3.2 is deprecated, but Python 3.3 and above are fully supported.   PyFITS also
+requires the numpy package. Information about numpy can be found at:
 
     http://numpy.scipy.org/
 

@@ -2,12 +2,13 @@
 
 from __future__ import division, with_statement
 
-import sys
 import warnings
 
 import numpy as np
 
 import pyfits as fits
+
+from warnings import catch_warnings
 
 from ..extern.six import u, b, iterkeys, itervalues, iteritems, StringIO, PY3
 from ..extern.six.moves import zip, range
@@ -15,7 +16,7 @@ from ..extern.six.moves import zip, range
 from ..card import _pad
 from ..util import encode_ascii, _pad_length, BLOCK_SIZE
 from . import PyfitsTestCase
-from .util import catch_warnings, ignore_warnings, CaptureStdio
+from .util import ignore_warnings, CaptureStdio
 
 from nose.tools import assert_raises
 
@@ -35,21 +36,6 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
     def teardown(self):
         warnings.resetwarnings()
         super(TestOldApiHeaderFunctions, self).teardown()
-
-    def test_ascardimage_verifies_the_comment_string_to_be_ascii_text(self):
-        # the ascardimage() verifies the comment string to be ASCII text
-        c = fits.Card.fromstring('ABC     = +  2.1   e + 12 / abcde\0')
-        assert_raises(Exception, c.ascardimage)
-
-    def test_rename_key(self):
-        """Test backwards compatibility support for Header.rename_key()"""
-        header = fits.Header([('A', 'B', 'C'), ('D', 'E', 'F')])
-        header.rename_key('A', 'B')
-        assert 'A' not in header
-        assert 'B' in header
-        assert header[0] == 'B'
-        assert header['B'] == 'B'
-        assert header.comments['B'] == 'C'
 
     def test_add_commentary(self):
         header = fits.Header([('A', 'B', 'C'), ('HISTORY', 1),
@@ -82,142 +68,6 @@ class TestOldApiHeaderFunctions(PyfitsTestCase):
         assert header.cards[1].value == 0
         assert header[''] == [0, 1, 2, 3, '', '', 4]
 
-    def test_totxtfile(self):
-        hdul = fits.open(self.data('test0.fits'))
-        hdul[0].header.toTxtFile(self.temp('header.txt'))
-        hdu = fits.ImageHDU()
-        hdu.header.update('MYKEY', 'FOO', 'BAR')
-        hdu.header.fromTxtFile(self.temp('header.txt'), replace=True)
-        assert len(hdul[0].header.ascard) == len(hdu.header.ascard)
-        assert 'MYKEY' not in hdu.header
-        assert 'EXTENSION' not in hdu.header
-        assert 'SIMPLE' in hdu.header
-
-        # Write the hdu out and read it back in again--it should be recognized
-        # as a PrimaryHDU
-        hdu.writeto(self.temp('test.fits'), output_verify='ignore')
-        assert isinstance(fits.open(self.temp('test.fits'))[0],
-                          fits.PrimaryHDU)
-
-        hdu = fits.ImageHDU()
-        hdu.header.update('MYKEY', 'FOO', 'BAR')
-        hdu.header.fromTxtFile(self.temp('header.txt'))
-        # hdu.header should have MYKEY keyword, and also adds PCOUNT and
-        # GCOUNT, giving it 3 more keywords in total than the original
-        assert len(hdul[0].header.ascard) == len(hdu.header.ascard) - 3
-        assert 'MYKEY' in hdu.header
-        assert 'EXTENSION' not in hdu.header
-        assert 'SIMPLE' in hdu.header
-
-        with ignore_warnings():
-            hdu.writeto(self.temp('test.fits'), output_verify='ignore',
-                        clobber=True)
-        hdul2 = fits.open(self.temp('test.fits'))
-        assert len(hdul2) == 2
-        assert 'MYKEY' in hdul2[1].header
-
-    def test_update_comment(self):
-        hdul = fits.open(self.data('arange.fits'))
-        hdul[0].header.update('FOO', 'BAR', 'BAZ')
-        assert hdul[0].header['FOO'] == 'BAR'
-        assert hdul[0].header.ascard['FOO'].comment == 'BAZ'
-
-        hdul.writeto(self.temp('test.fits'))
-
-        hdul = fits.open(self.temp('test.fits'), mode='update')
-        hdul[0].header.ascard['FOO'].comment = 'QUX'
-        hdul.close()
-
-        hdul = fits.open(self.temp('test.fits'))
-        assert hdul[0].header.ascard['FOO'].comment == 'QUX'
-
-    def test_long_commentary_card(self):
-        # Another version of this test using new API methods is found in
-        # TestHeaderFunctions
-        header = fits.Header()
-        header.update('FOO', 'BAR')
-        header.update('BAZ', 'QUX')
-        longval = 'ABC' * 30
-        header.add_history(longval)
-        header.update('FRED', 'BARNEY')
-        header.add_history(longval)
-
-        assert len(header.ascard) == 7
-        assert header.ascard[2].key == 'FRED'
-        assert str(header.cards[3]) == 'HISTORY ' + longval[:72]
-        assert str(header.cards[4]).rstrip() == 'HISTORY ' + longval[72:]
-
-        header.add_history(longval, after='FOO')
-        assert len(header.ascard) == 9
-        assert str(header.cards[1]) == 'HISTORY ' + longval[:72]
-        assert str(header.cards[2]).rstrip() == 'HISTORY ' + longval[72:]
-
-    def test_wildcard_slice(self):
-        """Test selecting a subsection of a header via wildcard matching."""
-
-        header = fits.Header()
-        header.update('ABC', 0)
-        header.update('DEF', 1)
-        header.update('ABD', 2)
-        cards = header.ascard['AB*']
-        assert len(cards) == 2
-        assert cards[0].value == 0
-        assert cards[1].value == 2
-
-    def test_assign_boolean(self):
-        """
-        Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/123
-
-        Tests assigning Python and Numpy boolean values to keyword values.
-        """
-
-        fooimg = _pad('FOO     =                    T')
-        barimg = _pad('BAR     =                    F')
-        h = fits.Header()
-        h.update('FOO', True)
-        h.update('BAR', False)
-        assert h['FOO'] == True
-        assert h['BAR'] == False
-        assert h.ascard['FOO'].cardimage == fooimg
-        assert h.ascard['BAR'].cardimage == barimg
-
-        h = fits.Header()
-        h.update('FOO', np.bool_(True))
-        h.update('BAR', np.bool_(False))
-        assert h['FOO'] == True
-        assert h['BAR'] == False
-        assert h.ascard['FOO'].cardimage == fooimg
-        assert h.ascard['BAR'].cardimage == barimg
-
-        h = fits.Header()
-        h.ascard.append(fits.Card.fromstring(fooimg))
-        h.ascard.append(fits.Card.fromstring(barimg))
-        assert h['FOO'] == True
-        assert h['BAR'] == False
-        assert h.ascard['FOO'].cardimage == fooimg
-        assert h.ascard['BAR'].cardimage == barimg
-
-    def test_cardlist_list_methods(self):
-        """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/190"""
-
-        header = fits.Header()
-        header.update('A', 'B', 'C')
-        header.update('D', 'E', 'F')
-        # The old header.update method won't let you append a duplicate keyword
-        header.append(('D', 'G', 'H'))
-
-        assert header.ascard.index(header.cards['A']) == 0
-        assert header.ascard.index(header.cards['D']) == 1
-        assert header.ascard.index(header.cards[('D', 1)]) == 2
-
-        # Since the original CardList class really only works on card objects
-        # the count method is mostly useless since cards didn't used to compare
-        # equal sensibly
-        assert header.ascard.count(header.cards['A']) == 1
-        assert header.ascard.count(header.cards['D']) == 1
-        assert header.ascard.count(header.cards[('D', 1)]) == 1
-        assert header.ascard.count(fits.Card('A', 'B', 'C')) == 0
-
 
 class TestHeaderFunctions(PyfitsTestCase):
     """Test PyFITS Header and Card objects."""
@@ -226,9 +76,6 @@ class TestHeaderFunctions(PyfitsTestCase):
         """Test Card constructor with default argument values."""
 
         c = fits.Card()
-
-        with ignore_warnings():
-            assert '' == c.key
 
         assert '' == c.keyword
 
@@ -643,8 +490,7 @@ class TestHeaderFunctions(PyfitsTestCase):
         # Test the exception message
         try:
             header['NAXIS']
-        except KeyError:
-            exc = sys.exc_info()[1]
+        except KeyError as exc:
             assert exc.args[0] == "Keyword 'NAXIS' not found."
 
     def test_hierarch_card_lookup(self):
@@ -668,53 +514,53 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         header = fits.Header()
         with catch_warnings(record=True) as w:
-            header.update('HIERARCH BLAH BLAH', 'TESTA')
+            header.set('HIERARCH BLAH BLAH', 'TESTA')
             assert len(w) == 0
             assert 'BLAH BLAH' in header
             assert header['BLAH BLAH'] == 'TESTA'
 
-            header.update('HIERARCH BLAH BLAH', 'TESTB')
+            header.set('HIERARCH BLAH BLAH', 'TESTB')
             assert len(w) == 0
             assert header['BLAH BLAH'], 'TESTB'
 
             # Update without explicitly stating 'HIERARCH':
-            header.update('BLAH BLAH', 'TESTC')
+            header.set('BLAH BLAH', 'TESTC')
             assert len(w) == 0
             assert len(header) == 1
             assert header['BLAH BLAH'], 'TESTC'
 
             # Test case-insensitivity
-            header.update('HIERARCH blah blah', 'TESTD')
+            header.set('HIERARCH blah blah', 'TESTD')
             assert len(w) == 0
             assert len(header) == 1
             assert header['blah blah'], 'TESTD'
 
-            header.update('blah blah', 'TESTE')
+            header.set('blah blah', 'TESTE')
             assert len(w) == 0
             assert len(header) == 1
             assert header['blah blah'], 'TESTE'
 
             # Create a HIERARCH card > 8 characters without explicitly stating
             # 'HIERARCH'
-            header.update('BLAH BLAH BLAH', 'TESTA')
+            header.set('BLAH BLAH BLAH', 'TESTA')
             assert len(w) == 1
             assert msg in str(w[0].message)
 
-            header.update('HIERARCH BLAH BLAH BLAH', 'TESTB')
+            header.set('HIERARCH BLAH BLAH BLAH', 'TESTB')
             assert len(w) == 1
             assert header['BLAH BLAH BLAH'], 'TESTB'
 
             # Update without explicitly stating 'HIERARCH':
-            header.update('BLAH BLAH BLAH', 'TESTC')
+            header.set('BLAH BLAH BLAH', 'TESTC')
             assert len(w) == 1
             assert header['BLAH BLAH BLAH'], 'TESTC'
 
             # Test case-insensitivity
-            header.update('HIERARCH blah blah blah', 'TESTD')
+            header.set('HIERARCH blah blah blah', 'TESTD')
             assert len(w) == 1
             assert header['blah blah blah'], 'TESTD'
 
-            header.update('blah blah blah', 'TESTE')
+            header.set('blah blah blah', 'TESTE')
             assert len(w) == 1
             assert header['blah blah blah'], 'TESTE'
 
@@ -731,27 +577,27 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         header = fits.Header()
         with catch_warnings(record=True) as w:
-            header.update('HIERARCH BLA BLA', 'TESTA')
+            header.set('HIERARCH BLA BLA', 'TESTA')
             assert len(w) == 0
             assert 'BLA BLA' in header
             assert header['BLA BLA'] == 'TESTA'
 
-            header.update('HIERARCH BLA BLA', 'TESTB')
+            header.set('HIERARCH BLA BLA', 'TESTB')
             assert len(w) == 0
             assert header['BLA BLA'], 'TESTB'
 
             # Update without explicitly stating 'HIERARCH':
-            header.update('BLA BLA', 'TESTC')
+            header.set('BLA BLA', 'TESTC')
             assert len(w) == 0
             assert header['BLA BLA'], 'TESTC'
 
             # Test case-insensitivity
-            header.update('HIERARCH bla bla', 'TESTD')
+            header.set('HIERARCH bla bla', 'TESTD')
             assert len(w) == 0
             assert len(header) == 1
             assert header['bla bla'], 'TESTD'
 
-            header.update('bla bla', 'TESTE')
+            header.set('bla bla', 'TESTE')
             assert len(w) == 0
             assert len(header) == 1
             assert header['bla bla'], 'TESTE'
@@ -760,26 +606,26 @@ class TestHeaderFunctions(PyfitsTestCase):
         with catch_warnings(record=True) as w:
             # Create a HIERARCH card containing invalid characters without
             # explicitly stating 'HIERARCH'
-            header.update('BLA BLA', 'TESTA')
+            header.set('BLA BLA', 'TESTA')
             assert len(w) == 1
             assert msg in str(w[0].message)
 
-            header.update('HIERARCH BLA BLA', 'TESTB')
+            header.set('HIERARCH BLA BLA', 'TESTB')
             assert len(w) == 1
             assert header['BLA BLA'], 'TESTB'
 
             # Update without explicitly stating 'HIERARCH':
-            header.update('BLA BLA', 'TESTC')
+            header.set('BLA BLA', 'TESTC')
             assert len(w) == 1
             assert header['BLA BLA'], 'TESTC'
 
             # Test case-insensitivity
-            header.update('HIERARCH bla bla', 'TESTD')
+            header.set('HIERARCH bla bla', 'TESTD')
             assert len(w) == 1
             assert len(header) == 1
             assert header['bla bla'], 'TESTD'
 
-            header.update('bla bla', 'TESTE')
+            header.set('bla bla', 'TESTE')
             assert len(w) == 1
             assert len(header) == 1
             assert header['bla bla'], 'TESTE'
@@ -2040,14 +1886,6 @@ class TestHeaderFunctions(PyfitsTestCase):
 
         h = fits.Header()
 
-        # There is an obscure cross-platform issue that prevents things like
-        # float('nan') on Windows on older versions of Python; hence it is
-        # unlikely to come up in practice
-        if not (sys.platform.startswith('win32') and
-                sys.version_info[:2] < (2, 6)):
-           assert_raises(ValueError, h.set, 'TEST', float('nan'))
-           assert_raises(ValueError, h.set, 'TEST', float('inf'))
-
         assert_raises(ValueError, h.set, 'TEST', np.nan)
         assert_raises(ValueError, h.set, 'TEST', np.inf)
 
@@ -2355,8 +2193,7 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         # Test the exception message
         try:
             self._test_header['DP1.AXIS.3']
-        except KeyError:
-            exc = sys.exc_info()[1]
+        except KeyError as exc:
             assert exc.args[0] == "Keyword 'DP1.AXIS.3' not found."
 
     def test_update_rvkc(self):

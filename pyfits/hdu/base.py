@@ -53,8 +53,7 @@ def _hdu_class_from_header(cls, header):
                     break
             except NotImplementedError:
                 continue
-            except:
-                exc = sys.exc_info()[1]
+            except Exception as exc:
                 warnings.warn(
                     'An exception occurred matching an HDU header to the '
                     'appropriate HDU type: %s' % exc)

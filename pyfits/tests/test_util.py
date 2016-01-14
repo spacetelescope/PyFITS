@@ -7,10 +7,10 @@ import sys
 
 import nose
 from nose.tools import assert_raises
+from warnings import catch_warnings
 
 from ..util import ignore_sigint
 from . import PyfitsTestCase
-from .util import catch_warnings
 
 
 class TestUtils(PyfitsTestCase):

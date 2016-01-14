@@ -1,7 +1,5 @@
 from __future__ import division, with_statement
 
-import sys
-
 import numpy as np
 from numpy import char as chararray
 
@@ -2037,8 +2035,7 @@ class TestTableFunctions(PyfitsTestCase):
         try:
             with fits.open(self.temp('test.fits')) as h:
                 h[1].data['F1']
-        except ValueError:
-            exc = sys.exc_info()[1]
+        except ValueError as exc:
             assert str(exc).endswith(
                 "the header may be missing the necessary TNULL1 "
                 "keyword or the table contains invalid data")

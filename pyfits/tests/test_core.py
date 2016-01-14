@@ -4,7 +4,6 @@ import gzip
 import mmap
 import os
 import shutil
-import sys
 import warnings
 import zipfile
 
@@ -15,11 +14,11 @@ from ..extern.six import BytesIO
 import pyfits as fits
 from ..convenience import _getext
 from ..file import _File
-from ..util import PyfitsDeprecationWarning
 from . import PyfitsTestCase
-from .util import catch_warnings, ignore_warnings, CaptureStdio
+from .util import ignore_warnings, CaptureStdio
 
 from nose.tools import assert_raises
+from warnings import catch_warnings
 
 
 class TestCore(PyfitsTestCase):
@@ -96,7 +95,6 @@ class TestCore(PyfitsTestCase):
                 assert table.data.dtype.names == ('c2', 'c4', 'foo')
                 assert table.columns.names == ['c2', 'c4', 'foo']
 
-    @ignore_warnings(PyfitsDeprecationWarning)
     def test_update_header_card(self):
         """A very basic test for the Header.update method--I'd like to add a
         few more cases to this at some point.
@@ -107,23 +105,20 @@ class TestCore(PyfitsTestCase):
         header['BITPIX'] = (16, comment)
         assert 'BITPIX' in header
         assert header['BITPIX'] == 16
-        assert header.ascard['BITPIX'].comment == comment
+        assert header.cards['BITPIX'].comment == comment
 
-        # The new API doesn't support savecomment so leave this line here; at
-        # any rate good to have testing of the new API mixed with the old API
-        header.update('BITPIX', 32, savecomment=True)
+        header.set('BITPIX', 32)
         # Make sure the value has been updated, but the comment was preserved
         assert header['BITPIX'] == 32
-        assert header.ascard['BITPIX'].comment == comment
+        assert header.cards['BITPIX'].comment == comment
 
         # The comment should still be preserved--savecomment only takes effect if
         # a new comment is also specified
         header['BITPIX'] = 16
-        assert header.ascard['BITPIX'].comment == comment
-        header.update('BITPIX', 16, 'foobarbaz', savecomment=True)
-        assert header.ascard['BITPIX'].comment == comment
+        assert header.cards['BITPIX'].comment == comment
+        header.set('BITPIX', 16, 'foobarbaz', savecomment=True)
+        assert header.cards['BITPIX'].comment == comment
 
-    @ignore_warnings(PyfitsDeprecationWarning)
     def test_set_card_value(self):
         """Similar to test_update_header_card(), but tests the the
         `header['FOO'] = 'bar'` method of updating card values.
@@ -132,15 +127,15 @@ class TestCore(PyfitsTestCase):
         header = fits.Header()
         comment = 'number of bits per data pixel'
         card = fits.Card.fromstring('BITPIX  = 32 / %s' % comment)
-        header.ascard.append(card)
+        header.append(card)
 
         header['BITPIX'] = 32
 
         assert 'BITPIX' in header
         assert header['BITPIX'] == 32
-        assert header.ascard['BITPIX'].key == 'BITPIX'
-        assert header.ascard['BITPIX'].value == 32
-        assert header.ascard['BITPIX'].comment == comment
+        assert header.cards['BITPIX'].keyword == 'BITPIX'
+        assert header.cards['BITPIX'].value == 32
+        assert header.cards['BITPIX'].comment == comment
 
     def test_uint(self):
         hdulist_f = fits.open(self.data('o4sp040b0_raw.fits'))
@@ -150,14 +145,13 @@ class TestCore(PyfitsTestCase):
         assert hdulist_i[1].data.dtype == np.uint16
         assert np.all(hdulist_f[1].data == hdulist_i[1].data)
 
-    @ignore_warnings(PyfitsDeprecationWarning)
     def test_fix_missing_card_append(self):
         hdu = fits.ImageHDU()
         errs = hdu.req_cards('TESTKW', None, None, 'foo', 'silentfix', [])
         assert len(errs) == 1
         assert 'TESTKW' in hdu.header
         assert hdu.header['TESTKW'] == 'foo'
-        assert hdu.header.ascard[-1].key == 'TESTKW'
+        assert hdu.header.cards[-1].keyword == 'TESTKW'
 
     def test_fix_invalid_keyword_value(self):
         hdu = fits.ImageHDU()
@@ -202,8 +196,7 @@ class TestCore(PyfitsTestCase):
             del hdu.header['NAXIS']
             try:
                 hdu.verify('ignore')
-            except Exception:
-                exc = sys.exc_info()[1]
+            except Exception as exc:
                 self.fail('An exception occurred when the verification error '
                           'should have been ignored: %s' % exc)
         # Make sure the error wasn't fixed either, silently or otherwise
@@ -234,8 +227,7 @@ class TestCore(PyfitsTestCase):
             warnings.simplefilter('error')
             try:
                 hdu.verify('silentfix+ignore')
-            except Exception:
-                exc = sys.exc_info()[1]
+            except Exception as exc:
                 self.fail('An exception occurred when the verification error '
                           'should have been ignored: %s' % exc)
 
@@ -252,8 +244,7 @@ class TestCore(PyfitsTestCase):
         hdu = make_invalid_hdu()
         try:
             hdu.verify('silentfix+exception')
-        except fits.VerifyError:
-            exc = sys.exc_info()[1]
+        except fits.VerifyError as exc:
             assert 'Illegal keyword name' in str(exc)
             assert 'not upper case' not in str(exc)
         else:
@@ -279,8 +270,7 @@ class TestCore(PyfitsTestCase):
         hdu = make_invalid_hdu()
         try:
             hdu.verify('fix+exception')
-        except fits.VerifyError:
-            exc = sys.exc_info()[1]
+        except fits.VerifyError as exc:
             assert 'Illegal keyword name' in str(exc)
             assert 'not upper case' in str(exc)
         else:
@@ -529,7 +519,6 @@ class TestConvenienceFunctions(PyfitsTestCase):
         assert len(hdul) == 1
         assert (data == hdul[0].data).all()
 
-    @ignore_warnings(PyfitsDeprecationWarning)
     def test_writeto_2(self):
         """
         Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/107
@@ -539,7 +528,7 @@ class TestConvenienceFunctions(PyfitsTestCase):
 
         data = np.zeros((100, 100))
         header = fits.Header()
-        header.update('CRPIX1', 1.)
+        header['CRPIX1'] = 1.
         fits.writeto(self.temp('array.fits'), data, header=header,
                        clobber=True, output_verify='silentfix')
         hdul = fits.open(self.temp('array.fits'))
@@ -562,8 +551,7 @@ class TestFileFunctions(PyfitsTestCase):
 
         try:
             fits.open(self.temp('foobar.fits'))
-        except IOError:
-            exc = sys.exc_info()[1]
+        except IOError as exc:
             assert 'File does not exist' in str(exc)
         except:
             raise
@@ -761,44 +749,41 @@ class TestFileFunctions(PyfitsTestCase):
             with fits.HDUList.fromfile(f) as h:
                 assert h.fileinfo(0)['filemode'] == 'append'
 
-    if sys.version_info[:2] > (2, 5):
-        # After a fair bit of experimentation I found that it's more difficult
-        # than it's worth to wrap mmap in Python 2.5.
-        def test_mmap_unwriteable(self):
-            """Regression test for
-            https://github.com/astropy/astropy/issues/968
+    def test_mmap_unwriteable(self):
+        """Regression test for
+        https://github.com/astropy/astropy/issues/968
 
-            Temporarily patches mmap.mmap to exhibit platform-specific bad
-            behavior.
-            """
+        Temporarily patches mmap.mmap to exhibit platform-specific bad
+        behavior.
+        """
 
-            class MockMmap(mmap.mmap):
-                def flush(self):
-                    raise mmap.error('flush is broken on this platform')
+        class MockMmap(mmap.mmap):
+            def flush(self):
+                raise mmap.error('flush is broken on this platform')
 
-            old_mmap = mmap.mmap
-            mmap.mmap = MockMmap
+        old_mmap = mmap.mmap
+        mmap.mmap = MockMmap
 
-            # Force the mmap test to be rerun
+        # Force the mmap test to be rerun
+        _File._mmap_available = None
+
+        try:
+            # TODO: Use self.copy_file once it's merged into Astropy
+            shutil.copy(self.data('test0.fits'), self.temp('test0.fits'))
+            with catch_warnings(record=True) as w:
+                with fits.open(self.temp('test0.fits'), mode='update',
+                               memmap=True) as h:
+                    h[1].data[0, 0] = 999
+
+                assert len(w) == 1
+                assert 'mmap.flush is unavailable' in str(w[0].message)
+
+            # Double check that writing without mmap still worked
+            with fits.open(self.temp('test0.fits')) as h:
+                assert h[1].data[0, 0] == 999
+        finally:
+            mmap.mmap = old_mmap
             _File._mmap_available = None
-
-            try:
-                # TODO: Use self.copy_file once it's merged into Astropy
-                shutil.copy(self.data('test0.fits'), self.temp('test0.fits'))
-                with catch_warnings(record=True) as w:
-                    with fits.open(self.temp('test0.fits'), mode='update',
-                                   memmap=True) as h:
-                        h[1].data[0, 0] = 999
-
-                    assert len(w) == 1
-                    assert 'mmap.flush is unavailable' in str(w[0].message)
-
-                # Double check that writing without mmap still worked
-                with fits.open(self.temp('test0.fits')) as h:
-                    assert h[1].data[0, 0] == 999
-            finally:
-                mmap.mmap = old_mmap
-                _File._mmap_available = None
 
     def test_uncloseable_file(self):
         """
