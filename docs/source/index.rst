@@ -179,9 +179,9 @@ file as ``-32768``, along with the header keyword ``BZERO = 32768``.
 
 PyFITS recognizes and applies this convention by default, so that all data
 that looks like it should be interpreted as unsigned integers is automatically
-converted (this applies to both images and tables).  In Astropy versions prior
-to v1.1.0 this was *not* applied automatically, and it is necessary to pass the
-argument ``uint=True`` to :func:`open`.  In v1.1.0 or later this is the
+converted (this applies to both images and tables).  In PyFITS versions prior
+to v3.4.0 this was *not* applied automatically, and it is necessary to pass the
+argument ``uint=True`` to :func:`open`.  In v3.4.0 or later this is the
 default.
 
 Even with ``uint=False``, the ``BZERO`` shift is still applied, but the
