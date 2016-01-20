@@ -53,12 +53,12 @@ further 3.0.x releases for bug fixes only where possible.  Older versions of
 PyFITS (2.4 and earlier) are no longer actively supported.
 
 PyFITS is also included as a major component of upcoming Astropy_ project as
-the `astropy.io.fits` module.  The goal is for Astropy to eventually serve as a
-drop-in replacement for PyFITS (it even includes a legacy-compatibility mode
-where the `astropy.io.fits` module can still be imported as `pyfits`.
-However, for the time being PyFITS will still be released as an independent
-product as well, until such time that the Astropy project proves successful and
-widely-adopted.
+the ``astropy.io.fits`` module.  The goal is for Astropy to eventually serve
+as a drop-in replacement for PyFITS (it even includes a legacy-compatibility
+mode where the ``astropy.io.fits`` module can still be imported as
+``pyfits``.  However, for the time being PyFITS will still be released as an
+independent product as well, until such time that the Astropy project proves
+successful and widely-adopted.
 
 .. _Space Telescope Science Institute: http://www.stsci.edu/
 .. _AURA: http://www.aura-astronomy.org/
@@ -841,11 +841,9 @@ I'm opening many FITS files in a loop and getting OSError: Too many open files
 
 Say you have some code like:
 
-.. doctest-skip::
-
-    >>> from astropy.io import fits
+    >>> import pyfits
     >>> for filename in filenames:
-    ...     hdul = fits.open(filename)
+    ...     hdul = pyfits.open(filename)
     ...     for hdu in hdul:
     ...         hdu_data = hdul.data
     ...         # Do some stuff with the data
@@ -861,8 +859,8 @@ an exception like::
     OSError: [Errno 24] Too many open files: 'my_data.fits'
 
 As explained in the :ref:`note on working with large files <fits-large-files>`,
-because Astropy uses mmap by default to read the data in a FITS file, even if
-you correctly close a file with `HDUList.close <astropy.io.fits.HDUList.close>`
+because PyFITS uses mmap by default to read the data in a FITS file, even if
+you correctly close a file with `HDUList.close <pyfits.HDUList.close>`
 a handle is kept open to that file so that the memory-mapped data array can
 still be continued to be read transparently.
 
@@ -874,11 +872,8 @@ persists, the data array attached to it may persist too.  The easiest
 workaround is to *manually* delete the ``.data`` attribute on the HDU object so
 that the `~numpy.ndarray` reference is freed and the mmap can be closed:
 
-.. doctest-skip::
-
-    >>> from astropy.io import fits
     >>> for filename in filenames:
-    ...     hdul = fits.open(filename)
+    ...     hdul = pyfits.open(filename)
     ...     for hdu in hdul:
     ...         hdu_data = hdul.data
     ...         # Do some stuff with the data
