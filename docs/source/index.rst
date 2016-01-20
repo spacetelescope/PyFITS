@@ -186,8 +186,7 @@ default.
 
 Even with ``uint=False``, the ``BZERO`` shift is still applied, but the
 returned array is of "float64" type.  To disable scaling/shifting entirely, use
-``do_not_scale_image_data=True`` (see :ref:`fits-scaled-data-faq` in the FAQ
-for more details).
+``do_not_scale_image_data=True``.
 
 Working with compressed files
 """""""""""""""""""""""""""""
