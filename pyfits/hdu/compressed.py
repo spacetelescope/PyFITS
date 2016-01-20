@@ -1455,7 +1455,7 @@ class CompImageHDU(BinTableHDU):
             gc.collect()
 
     @lazyproperty
-    @deprecated('3.2', alternative='the ``.compressed_data` attribute',
+    @deprecated('3.2', alternative='the ``.compressed_data`` attribute',
                 pending=True)
     def compData(self):
         return self.compressed_data
