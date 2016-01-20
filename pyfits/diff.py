@@ -10,7 +10,6 @@ import difflib
 import fnmatch
 import functools
 import glob
-import inspect
 import textwrap
 import os.path
 
@@ -29,6 +28,7 @@ from .header import Header
 # HDUList is used in one of the doctests
 from .hdu.hdulist import fitsopen  # pylint: disable=W0611
 from .hdu.table import _TableLikeHDU
+from .py3compat import getargspec
 from .util import indent
 
 
@@ -107,7 +107,7 @@ class _BaseDiff(object):
             ['*']
         """
 
-        args, _, _, _ = inspect.getargspec(cls.__init__)
+        args, _, _, _ = getargspec(cls.__init__)
         # The first 3 arguments of any Diff initializer are self, a, and b.
         kwargs = {}
         for arg in args[3:]:

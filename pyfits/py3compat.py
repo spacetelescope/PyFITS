@@ -126,10 +126,16 @@ if six.PY3:
                 table[ord(c)] = None
         return s.translate(table)
     pyfits.util.translate = translate
+
+    import inspect
+    def getargspec(func):
+        return inspect.getfullargspec(func)[:4]
 else:
     # Stuff to do if not Python 3
     import string
     import pyfits.util
+    from inspect import getargspec
+
     pyfits.util.maketrans = string.maketrans
 
 

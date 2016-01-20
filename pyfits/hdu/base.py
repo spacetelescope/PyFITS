@@ -2,7 +2,6 @@ from __future__ import division
 
 
 import datetime
-import inspect
 import os
 import sys
 import warnings
@@ -15,7 +14,7 @@ from ..extern.six.moves import range
 import pyfits
 from ..file import _File
 from ..header import Header
-from ..py3compat import ignored
+from ..py3compat import ignored, getargspec
 from ..util import (first, lazyproperty, _is_int, _is_pseudo_unsigned,
                     _unsigned_zero, _pad_length, itersubclasses,
                     decode_ascii, deprecated, _get_array_mmap)
@@ -468,7 +467,7 @@ class _BaseHDU(object):
         # self._kwargs.  self._kwargs contains any number of optional arguments
         # that may or may not be valid depending on the HDU type
         cls = _hdu_class_from_header(cls, header)
-        args, varargs, varkwargs, defaults = inspect.getargspec(cls.__init__)
+        args, varargs, varkwargs, defaults = getargspec(cls.__init__)
         new_kwargs = kwargs.copy()
         if not varkwargs:
             # If __init__ accepts arbitrary keyword arguments, then we can go
