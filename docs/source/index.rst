@@ -45,7 +45,7 @@ and type:
 
 .. parsed-literal::
 
-    python setup.py install
+    pip install .
 
 This will install PyFITS in the system's Python site-packages directory. If
 your system permissions do not allow this kind of installation, use of
