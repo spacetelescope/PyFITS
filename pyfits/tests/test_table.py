@@ -3,6 +3,8 @@ from __future__ import division, with_statement
 from distutils.version import LooseVersion as V
 from warnings import catch_warnings
 
+import copy
+
 import numpy as np
 from numpy import char as chararray
 
@@ -2753,3 +2755,37 @@ class TestColumnFunctions(PyfitsTestCase):
         assert table.columns.names == ['foo']
         assert table.data.columns.names == ['foo']
 
+    def test_x_column_deepcopy(self):
+        """
+        Regression test for https://github.com/astropy/astropy/pull/4514
+
+        Tests that columns with the X (bit array) format can be deep-copied.
+        """
+
+        c = fits.Column('xcol', format='5X', array=[1, 0, 0, 1, 0])
+        c2 = copy.deepcopy(c)
+        assert c2.name == c.name
+        assert c2.format == c.format
+        assert np.all(c2.array == c.array)
+
+    def test_p_column_deepcopy(self):
+        """
+        Regression test for https://github.com/astropy/astropy/pull/4514
+
+        Tests that columns with the P/Q formats (variable length arrays) can be
+        deep-copied.
+        """
+
+        c = fits.Column('pcol', format='PJ', array=[[1, 2], [3, 4, 5]])
+        c2 = copy.deepcopy(c)
+        assert c2.name == c.name
+        assert c2.format == c.format
+        assert np.all(c2.array[0] == c.array[0])
+        assert np.all(c2.array[1] == c.array[1])
+
+        c3 = fits.Column('qcol', format='QJ', array=[[1, 2], [3, 4, 5]])
+        c4 = copy.deepcopy(c3)
+        assert c4.name == c3.name
+        assert c4.format == c3.format
+        assert np.all(c4.array[0] == c3.array[0])
+        assert np.all(c4.array[1] == c3.array[1])
