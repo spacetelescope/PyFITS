@@ -226,6 +226,16 @@ Bug Fixes
 - Fixed possible segfault during error handling in FITS tile compression.
   (astropy/astropy#4489)
 
+- Fixed crash on pickling of binary table columns with the 'X', 'P', or
+  'Q' format. (astropy/astropy#4514)
+
+- Fixed memory / reference leak that could occur when copying a ``FITS_rec``
+  object (the ``.data`` for table HDUs). (astropy/astropy#520)
+
+- Fixed a memory / reference leak in ``FITS_rec`` that occurred in a wide
+  range of cases, especially after writing FITS tables to a file, but in
+  other cases as well. (astropy/astropy#4539)
+
 
 3.3 (2014-07-17)
 ----------------
