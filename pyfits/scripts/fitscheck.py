@@ -132,7 +132,7 @@ def verify_checksums(filename):
     errors = 0
     try:
         hdulist = pyfits.open(filename, checksum=OPTIONS.checksum_kind)
-    except UserWarning, w:
+    except UserWarning as w:
         remainder = '.. ' + ' '.join(str(w).split(' ')[1:]).strip()
         # if "Checksum" in str(w) or "Datasum" in str(w):
         log.warn('BAD %r %s' % (filename, remainder))
