@@ -3,6 +3,7 @@ from __future__ import division, with_statement
 from distutils.version import LooseVersion as V
 from warnings import catch_warnings
 
+import contextlib
 import copy
 import gc
 
@@ -2431,6 +2432,73 @@ class TestTableFunctions(PyfitsTestCase):
             # Just make sure there aren't more FITS_rec objects remaining in
             # memory than we started with.
             assert len(objgraph.by_type('FITS_rec')) <= existing_fitsrecs
+
+    if HAVE_OBJGRAPH:
+        def test_reference_leak(self):
+            """
+            Regression test for https://github.com/astropy/astropy/pull/520
+            """
+
+            def readfile(filename):
+                with fits.open(filename) as hdul:
+                    data = hdul[1].data.copy()
+
+                for colname in data.dtype.names:
+                    data[colname]
+
+            with _refcounting('FITS_rec'):
+                readfile(self.data('memtest.fits'))
+
+        def test_reference_leak(self):
+            """
+            Regression test for https://github.com/astropy/astropy/pull/4539
+
+            This actually re-runs a small set of tests that I found, during
+            careful testing, exhibited the reference leaks fixed by #4539, but
+            now with reference counting around each test to ensure that the
+            leaks are fixed.
+            """
+
+            from .test_core import TestCore
+
+            t1 = TestCore()
+            t1.setup()
+            try:
+                with _refcounting('FITS_rec'):
+                    t1.test_add_del_columns2()
+            finally:
+                t1.teardown()
+            del t1
+
+            t2 = self.__class__()
+            for test_name in ['test_recarray_to_bintablehdu',
+                              'test_numpy_ndarray_to_bintablehdu',
+                              'test_new_table_from_recarray',
+                              'test_new_fitsrec']:
+                t2.setup()
+                try:
+                    with _refcounting('FITS_rec'):
+                        getattr(t2, test_name)()
+                finally:
+                    t2.teardown()
+            del t2
+
+
+@contextlib.contextmanager
+def _refcounting(type_):
+    """
+    Perform the body of a with statement with reference counting for the
+    given type (given by class name)--raises an assertion error if there
+    are more unfreed objects of the given type than when we entered the
+    with statement.
+    """
+
+    gc.collect()
+    refcount = len(objgraph.by_type(type_))
+    yield refcount
+    gc.collect()
+    assert len(objgraph.by_type(type_)) <= refcount, \
+            "More {0!r} objects still in memory than before."
 
 
 class TestVLATables(PyfitsTestCase):

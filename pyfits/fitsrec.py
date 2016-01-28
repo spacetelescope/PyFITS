@@ -15,6 +15,7 @@ from .column import (ASCIITNULL, FITS2NUMPY, ASCII2NUMPY, ASCII2STR, ColDefs,
                      _wrapx, _unwrapx, _makep, Delayed)
 from .py3compat import ignored
 from .util import encode_ascii, decode_ascii, lazyproperty
+from ._compat.weakref import WeakSet
 
 
 class FITS_record(object):
@@ -180,8 +181,10 @@ class FITS_rec(np.recarray):
 
         super(FITS_rec, self).__setstate__(state)
 
-        for i in range(len(meta)):
-            setattr(self,  meta[i],  column_state[i])
+        self._col_weakrefs = WeakSet()
+
+        for attr, value in zip(meta, column_state):
+            setattr(self, attr, value)
 
     def __reduce__(self):
         """
@@ -196,14 +199,18 @@ class FITS_rec(np.recarray):
         column_state = []
         meta = []
 
-        for attrs in set(dir(self))-set(dir(self.__class__)):
+        if '_coldefs' in self.__dict__:
+            meta.append('_coldefs')
+            column_state.append(self._coldefs.__deepcopy__(None))
+
+        for attr in set(dir(self))-set(dir(self.__class__)):
             # _coldefs can be Delayed, and file objects cannot be
             # picked, it needs to be deepcopied first
-            if attrs is '_coldefs':
-                column_state.append(self._coldefs.__deepcopy__(None))
+            if attr == '_col_weakrefs':
+                continue
             else:
-                column_state.append(getattr(self, attrs))
-            meta.append(attrs)
+                column_state.append(getattr(self, attr))
+            meta.append(attr)
 
         state = state + (column_state, meta)
 
@@ -217,6 +224,7 @@ class FITS_rec(np.recarray):
             self._converted = obj._converted
             self._heapoffset = obj._heapoffset
             self._heapsize = obj._heapsize
+            self._col_weakrefs = obj._col_weakrefs
             self._coldefs = obj._coldefs
             self._nfields = obj._nfields
             self._gap = obj._gap
@@ -232,7 +240,16 @@ class FITS_rec(np.recarray):
 
             self._gap = getattr(obj, '_gap', 0)
             self._uint = getattr(obj, '_uint', False)
+            self._col_weakrefs = WeakSet()
             self._coldefs = ColDefs(self)
+
+            # Work around chicken-egg problem.  Column.array relies on the
+            # _coldefs attribute to set up ref back to parent FITS_rec; however
+            # in the above line the self._coldefs has not been assigned yet so
+            # this fails.  This patches that up...
+            for col in self._coldefs:
+                del col.array
+                col._parent_fits_rec = weakref.ref(self)
         else:
             self._init()
 
@@ -243,6 +260,7 @@ class FITS_rec(np.recarray):
         self._converted = {}
         self._heapoffset = 0
         self._heapsize = 0
+        self._col_weakrefs = WeakSet()
         self._coldefs = None
         self._gap = 0
         self._uint = False
@@ -550,8 +568,13 @@ class FITS_rec(np.recarray):
         """
 
         new = super(FITS_rec, self).copy(order=order)
+        new_dict = dict(self.__dict__)
+        del new_dict['_col_weakrefs']
+        new.__dict__ = copy.deepcopy(new_dict)
 
-        new.__dict__ = copy.deepcopy(self.__dict__)
+        # Re-fill _col_weakrefs
+        new.__dict__['_col_weakrefs'] = WeakSet()
+        new._coldefs = new._coldefs
         return new
 
     @property
@@ -563,6 +586,51 @@ class FITS_rec(np.recarray):
         """
 
         return self._coldefs
+
+    @property
+    def _coldefs(self):
+        # This used to be a normal internal attribute, but it was changed to a
+        # property as a quick and transparent way to work around the reference
+        # leak bug fixed in https://github.com/astropy/astropy/pull/4539
+        #
+        # See the long comment in the Column.array property for more details
+        # on this.  But in short, FITS_rec now has a ._col_weakrefs attribute
+        # which is a WeakSet of weakrefs to each Column in _coldefs.
+        #
+        # So whenever ._coldefs is set we also add each Column in the ColDefs
+        # to the weakrefs set.  This is an easy way to find out if a Column has
+        # any references to it external to the FITS_rec (i.e. a user assigned a
+        # column to a variable).  If the column is still in _col_weakrefs then
+        # there are other references to it external to this FITS_rec.  We use
+        # that information in __del__ to save off copies of the array data
+        # for those columns to their Column.array property before our memory
+        # is freed.
+        return self.__dict__.get('_coldefs')
+
+    @_coldefs.setter
+    def _coldefs(self, cols):
+        self.__dict__['_coldefs'] = cols
+        if isinstance(cols, ColDefs):
+            for col in cols.columns:
+                self._col_weakrefs.add(col)
+
+    @_coldefs.deleter
+    def _coldefs(self):
+        try:
+            del self.__dict__['_coldefs']
+        except KeyError as exc:
+            raise AttributeError(exc.args[0])
+
+    def __del__(self):
+        try:
+            del self._coldefs
+        except AttributeError:
+            pass
+        else:
+            if self.dtype.fields is not None:
+                for col in self._col_weakrefs:
+                    if isinstance(col.array, np.ndarray):
+                        col.array = col.array.copy()
 
     @property
     def names(self):
