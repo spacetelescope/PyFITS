@@ -45,7 +45,7 @@ and type:
 
 .. parsed-literal::
 
-    python setup.py install
+    pip install .
 
 This will install PyFITS in the system's Python site-packages directory. If
 your system permissions do not allow this kind of installation, use of
@@ -134,6 +134,8 @@ The headers will still be accessible after the HDUList is closed. The data may
 or may not be accessible depending on whether the data are touched and if they
 are memory-mapped, see later chapters for detail.
 
+.. _fits-large-files:
+
 Working with large files
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -164,6 +166,45 @@ because by that point you're likely to run out of physical memory anyways), but
     held to the data array).
 
 
+Unsigned integers
+"""""""""""""""""
+
+Due to the FITS format's FORTRAN origins, FITS does not natively support
+unsigned integer data in images or tables.  However, there is a common
+convention to store unsigned integers as signed integers, along with a
+*shift* instruction (a ``BZERO`` keyword with value ``2 ** (BITPIX - 1)``) to
+shift up all signed integers to unsigned inters.  For example, when writing
+the value ``0`` as an unsigned 32-bit integer, it is stored in the FITS
+file as ``-32768``, along with the header keyword ``BZERO = 32768``.
+
+PyFITS recognizes and applies this convention by default, so that all data
+that looks like it should be interpreted as unsigned integers is automatically
+converted (this applies to both images and tables).  In PyFITS versions prior
+to v3.4.0 this was *not* applied automatically, and it is necessary to pass the
+argument ``uint=True`` to :func:`open`.  In v3.4.0 or later this is the
+default.
+
+Even with ``uint=False``, the ``BZERO`` shift is still applied, but the
+returned array is of "float64" type.  To disable scaling/shifting entirely, use
+``do_not_scale_image_data=True``.
+
+Working with compressed files
+"""""""""""""""""""""""""""""
+
+The :func:`open` function will seamlessly open FITS files that have been
+compressed with gzip, bzip2 or pkzip. Note that in this context we're talking
+about a fits file that has been compressed with one of these utilities - e.g. a
+.fits.gz file. Files that use compressed HDUs within the FITS file are
+discussed in :ref:`Compressed Image Data <compressedImageData>`.
+
+There are some limitations with working with compressed files. For example with
+Zip files that contain multiple compressed files, only the first file will be
+accessible.  Also bzip does not support the append or update access modes.
+
+When writing a file (e.g. with the :func:`writeto` function), compression will
+be determined based on the filename extension given, or the compression used in
+a pre-existing file that is being written to.
+
 Working with FITS Headers
 -------------------------
 
@@ -188,7 +229,7 @@ to get the value of the keyword targname, which is a string 'NGC121'.
 Although keyword names are always in upper case inside the FITS file,
 specifying a keyword name with PyFITS is case-insensitive, for the user's
 convenience. If the specified keyword name does not exist, it will raise a
-`KeyError` exception.
+`~.exceptions.KeyError` exception.
 
 We can also get the keyword value by indexing (a la Python lists)::
 
@@ -418,7 +459,7 @@ attribute::
     >>> cols = hdulist[1].columns
 
 This attribute is a :class:`ColDefs` (column definitions) object. If we use the
-:meth:`ColDefs.info` method::
+:meth:`ColDefs.info` method from the interactive prompt::
 
     >>> cols.info()
      name:
@@ -441,7 +482,12 @@ This attribute is a :class:`ColDefs` (column definitions) object. If we use the
           ['', '', '', '']
 
 it will show the attributes of all columns in the table, such as their names,
-formats, bscales, bzeros, etc.  We can also get these properties individually;
+formats, bscales, bzeros, etc. A similar output that will display the column
+names and their formats can be printed from within a script with::
+
+    print hdulist[1].columns
+
+We can also get these properties individually;
 e.g.
 
 ::
@@ -628,7 +674,7 @@ opening or closing a file, all the housekeeping is done implicitly.
     analysis scripts, but should not be used for application code, as they
     are highly inefficient.  For example, each call to :func:`getval`
     requires re-parsing the entire FITS file.  Code that makes repeated use
-    of these functions should instead open the file with :func:`pyfits.open`
+    of these functions should instead open the file with :func:`open`
     and access the data structures directly.
 
 The first of these functions is :func:`getheader`, to get the header of an HDU.

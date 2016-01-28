@@ -629,8 +629,17 @@ class TestHDUListFunctions(PyfitsTestCase):
                                 c1 = hdul[idx].data[n]
                                 c2 = hdul2[idx].data[n]
                                 assert (c1 == c2).all()
+                        elif (any(dim == 0 for dim in hdul[idx].data.shape) or
+                              any(dim == 0 for dim in hdul2[idx].data.shape)):
+                            # For some reason some combinations of Python and
+                            # Numpy on Windows result in MemoryErrors when
+                            # trying to work on memmap arrays with more than
+                            # one dimension but some dimensions of size zero,
+                            # so include a special case for that
+                            return hdul[idx].data.shape == hdul2[idx].data.shape
                         else:
-                            assert (hdul[idx].data == hdul2[idx].data).all()
+                            np.testing.assert_array_equal(hdul[idx].data,
+                                                          hdul2[idx].data)
 
         for filename in glob.glob(os.path.join(self.data_dir, '*.fits')):
             if sys.platform == 'win32' and filename == 'zerowidth.fits':
@@ -756,3 +765,22 @@ class TestHDUListFunctions(PyfitsTestCase):
 
             # Finally, without mmaping B
             test(True, False)
+
+    def test_extname_in_hdulist(self):
+        """
+        Tests to make sure that the 'in' operator works.
+
+        Regression test for https://github.com/astropy/astropy/issues/3060
+        """
+
+        hdulist = fits.HDUList()
+        hdulist.append(fits.ImageHDU(name='a'))
+
+        assert 'a' in hdulist
+        assert 'A' in hdulist
+        assert ('a', 1) in hdulist
+        assert ('A', 1) in hdulist
+        assert 'b' not in hdulist
+        assert ('a', 2) not in hdulist
+        assert ('b', 1) not in hdulist
+        assert ('b', 2) not in hdulist

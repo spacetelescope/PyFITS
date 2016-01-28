@@ -1,8 +1,22 @@
 from __future__ import division, with_statement
 
+from distutils.version import LooseVersion as V
+from warnings import catch_warnings
+
+import contextlib
+import copy
+import gc
+
 import numpy as np
 from numpy import char as chararray
 
+try:
+    import objgraph
+    HAVE_OBJGRAPH = True
+except ImportError:
+    HAVE_OBJGRAPH = False
+
+from ..extern import six
 from ..extern.six import u, print_
 from ..extern.six.moves import range
 from ..extern.six.moves import cPickle as pickle
@@ -1563,6 +1577,7 @@ class TestTableFunctions(PyfitsTestCase):
         # The ORBPARM column should not be in the data, though the data should
         # be readable
         assert 'ORBPARM' in tbhdu.data.names
+        assert 'ORBPARM' in tbhdu.data.dtype.names
         # Verify that some of the data columns are still correctly accessible
         # by name
         assert tbhdu.data[0]['ANNAME'] == 'VLA:_W16'
@@ -1586,6 +1601,7 @@ class TestTableFunctions(PyfitsTestCase):
         # Verify that the previous tests still hold after writing
         assert 'ORBPARM' in tbhdu.columns.names
         assert 'ORBPARM' in tbhdu.data.names
+        assert 'ORBPARM' in tbhdu.data.dtype.names
         assert tbhdu.data[0]['ANNAME'] == 'VLA:_W16'
         assert comparefloats(
             tbhdu.data[0]['STABXYZ'],
@@ -1701,6 +1717,101 @@ class TestTableFunctions(PyfitsTestCase):
         assert t.field(1).dtype.str[-1] == '5'
         assert t.field(1).shape == (3, 4, 3)
 
+    def test_bin_table_init_from_string_array_column(self):
+        """
+        Tests two ways of creatine a new `BinTableHDU` from a column of
+        string arrays.
+
+        This tests for a couple different regressions, and ensures that
+        both BinTableHDU(data=arr) and BinTableHDU.from_columns(arr) work
+        equivalently.
+
+        Some of this is redundant with the following test, but checks some
+        subtly different cases.
+        """
+
+        data = [[b'abcd', b'efgh'],
+                [b'ijkl', b'mnop'],
+                [b'qrst', b'uvwx']]
+
+        arr = np.array([(data,), (data,), (data,), (data,), (data,)],
+                       dtype=[('S', '(3, 2)S4')])
+
+        with catch_warnings(record=True) as w:
+            tbhdu1 = fits.BinTableHDU(data=arr)
+
+        assert len(w) == 0
+
+        def test_dims_and_roundtrip(tbhdu):
+            assert tbhdu.data['S'].shape == (5, 3, 2)
+            if six.PY3:
+                assert tbhdu.data['S'].dtype.str.endswith('U4')
+            else:
+                assert tbhdu.data['S'].dtype.str.endswith('S4')
+
+            tbhdu.writeto(self.temp('test.fits'), clobber=True)
+
+            with fits.open(self.temp('test.fits')) as hdul:
+                tbhdu2 = hdul[1]
+                assert tbhdu2.header['TDIM1'] == '(4,2,3)'
+                assert tbhdu2.data['S'].shape == (5, 3, 2)
+                if six.PY3:
+                    assert tbhdu.data['S'].dtype.str.endswith('U4')
+                else:
+                    assert tbhdu.data['S'].dtype.str.endswith('S4')
+                assert np.all(tbhdu2.data['S'] == tbhdu.data['S'])
+
+        test_dims_and_roundtrip(tbhdu1)
+
+        tbhdu2 = fits.BinTableHDU.from_columns(arr)
+        test_dims_and_roundtrip(tbhdu2)
+
+    def test_columns_with_truncating_tdim(self):
+        """
+        According to the FITS standard (section 7.3.2):
+
+            If the number of elements in the array implied by the TDIMn is less
+            than the allocated size of the ar- ray in the FITS file, then the
+            unused trailing elements should be interpreted as containing
+            undefined fill values.
+
+        *deep sigh* What this means is if a column has a repeat count larger
+        than the number of elements indicated by its TDIM (ex: TDIM1 = '(2,2)',
+        but TFORM1 = 6I), then instead of this being an outright error we are
+        to take the first 4 elements as implied by the TDIM and ignore the
+        additional two trailing elements.
+        """
+
+        # It's hard to even successfully create a table like this.  I think
+        # it *should* be difficult, but once created it should at least be
+        # possible to read.
+        arr1 = [[b'ab', b'cd'], [b'ef', b'gh'], [b'ij', b'kl']]
+        arr2 = [1, 2, 3, 4, 5]
+
+        arr = np.array([(arr1, arr2), (arr1, arr2)],
+                       dtype=[('a', '(3, 2)S2'), ('b', '5i8')])
+
+        tbhdu = fits.BinTableHDU(data=arr)
+        tbhdu.writeto(self.temp('test.fits'))
+
+        with open(self.temp('test.fits'), 'rb') as f:
+            raw_bytes = f.read()
+
+        # Aritifically truncate TDIM in the header; this seems to be the
+        # easiest way to do this while getting around pyfits' insistence on the
+        # data and header matching perfectly; again, we have no interest in
+        # making it possible to write files in this format, only read them
+        with open(self.temp('test.fits'), 'wb') as f:
+            f.write(raw_bytes.replace(b'(2,2,3)', b'(2,2,2)'))
+
+        with fits.open(self.temp('test.fits')) as hdul:
+            tbhdu2 = hdul[1]
+            assert tbhdu2.header['TDIM1'] == '(2,2,2)'
+            assert tbhdu2.header['TFORM1'] == '12A'
+            for row in tbhdu2.data:
+                assert np.all(row['a'] == [['ab', 'cd'], ['ef', 'gh']])
+                assert np.all(row['b'] == [1, 2, 3, 4, 5])
+
     def test_string_array_round_trip(self):
         """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/201"""
 
@@ -1719,7 +1830,7 @@ class TestTableFunctions(PyfitsTestCase):
             assert len(h[1].data) == 2
             assert len(h[1].data[0]) == 1
             assert (h[1].data.field(0)[0] ==
-                    recarr.field(0)[0].decode('ascii')).all()
+                    np.char.decode(recarr.field(0)[0], 'ascii')).all()
 
         with fits.open(self.temp('test.fits')) as h:
             # Access the data; I think this is necessary to exhibit the bug
@@ -1733,7 +1844,7 @@ class TestTableFunctions(PyfitsTestCase):
             assert len(h[1].data) == 2
             assert len(h[1].data[0]) == 1
             assert (h[1].data.field(0)[0] ==
-                    recarr.field(0)[0].decode('ascii')).all()
+                    np.char.decode(recarr.field(0)[0], 'ascii')).all()
 
     def test_new_table_with_nd_column(self):
         """Regression test for
@@ -1762,35 +1873,42 @@ class TestTableFunctions(PyfitsTestCase):
             assert (h[1].data['strarray'].encode('ascii') == arrb).all()
             assert (h[1].data['intarray'] == arrc).all()
 
-    def test_mismatched_tform_and_tdim(self):
-        """Normally the product of the dimensions listed in a TDIMn keyword
-        must be less than or equal to the repeat count in the TFORMn keyword.
+    if V(np.__version__) < V('1.10.0'):
+        def test_mismatched_tform_and_tdim(self):
+            """Normally the product of the dimensions listed in a TDIMn keyword
+            must be less than or equal to the repeat count in the TFORMn keyword.
 
-        This tests that this works if less than (treating the trailing bytes
-        as unspecified fill values per the FITS standard) and fails if the
-        dimensions specified by TDIMn are greater than the repeat count.
-        """
+            This tests that this works if less than (treating the trailing bytes
+            as unspecified fill values per the FITS standard) and fails if the
+            dimensions specified by TDIMn are greater than the repeat count.
+            """
 
-        arra = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
-        arrb = np.array([[[9, 10], [11, 12]], [[13, 14], [15, 16]]])
+            arra = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+            arrb = np.array([[[9, 10], [11, 12]], [[13, 14], [15, 16]]])
 
-        cols = [fits.Column(name='a', format='20I', dim='(2,2)',
-                            array=arra),
-                fits.Column(name='b', format='4I', dim='(2,2)',
-                            array=arrb)]
+            cols = [fits.Column(name='a', format='20I', dim='(2,2)',
+                                array=arra),
+                    fits.Column(name='b', format='4I', dim='(2,2)',
+                                array=arrb)]
 
-        # The first column has the mismatched repeat count
-        hdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols))
-        hdu.writeto(self.temp('test.fits'))
+            # The first column has the mismatched repeat count
+            hdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols))
+            hdu.writeto(self.temp('test.fits'))
 
-        with fits.open(self.temp('test.fits')) as h:
-            assert (h[1].data['a'] == arra).all()
-            assert (h[1].data['b'] == arrb).all()
+            with fits.open(self.temp('test.fits')) as h:
+                assert (h[1].data['a'] == arra).all()
+                assert (h[1].data['b'] == arrb).all()
 
-        # If dims is more than the repeat count in the format specifier raise
-        # an error
-        assert_raises(VerifyError, fits.Column, name='a', format='2I',
-                      dim='(2,2)', array=arra)
+            # If dims is more than the repeat count in the format specifier raise
+            # an error
+            assert_raises(VerifyError, fits.Column, name='a', format='2I',
+                          dim='(2,2)', array=arra)
+
+    def test_tdim_of_size_one(self):
+        """Regression test for https://github.com/astropy/astropy/pull/3580"""
+
+        hdulist = fits.open(self.data('tdim.fits'))
+        assert hdulist[1].data['V_mag'].shape == (3,1,1)
 
     def test_slicing(self):
         """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/52"""
@@ -1821,9 +1939,10 @@ class TestTableFunctions(PyfitsTestCase):
         s4 = data[:1]
         for s in [s1, s2, s3, s4]:
             assert isinstance(s, fits.FITS_rec)
-        assert (s1 == s2).all()
-        assert (s2 == s3).all()
-        assert (s3 == s4).all()
+
+        assert comparerecords(s1, s2)
+        assert comparerecords(s2, s3)
+        assert comparerecords(s3, s4)
 
     def test_array_broadcasting(self):
         """
@@ -1856,9 +1975,9 @@ class TestTableFunctions(PyfitsTestCase):
         s4 = data[:1]
         for s in [s1, s2, s3, s4]:
             assert isinstance(s, fits.FITS_rec)
-        assert (s1 == s2).all()
-        assert (s2 == s3).all()
-        assert (s3 == s4).all()
+        assert comparerecords(s1, s2)
+        assert comparerecords(s2, s3)
+        assert comparerecords(s3, s4)
 
     def test_dump_load_round_trip(self):
         """
@@ -2169,6 +2288,218 @@ class TestTableFunctions(PyfitsTestCase):
                 zwc_pl = pickle.loads(zwc_pd)
                 assert comparerecords(zwc_pl, zwc[2].data)
 
+    def test_zero_length_table(self):
+        array = np.array([], dtype=[
+            ('a', 'i8'),
+            ('b', 'S64'),
+            ('c', ('i4', (3, 2)))])
+        hdu = fits.BinTableHDU(array)
+        assert hdu.header['NAXIS1'] == 96
+        assert hdu.header['NAXIS2'] == 0
+        assert hdu.header['TDIM3'] == '(2,3)'
+
+        field = hdu.data.field(1)
+        assert field.shape == (0,)
+
+    def test_dim_column_byte_order_mismatch(self):
+        """
+        When creating a table column with non-trivial TDIMn, and
+        big-endian array data read from an existing FITS file, the data
+        should not be unnecessarily byteswapped.
+
+        Regression test for https://github.com/astropy/astropy/issues/3561
+        """
+
+        data = fits.getdata(self.data('random_groups.fits'))['DATA']
+        col = fits.Column(name='TEST', array=data, dim='(3,1,128,1,1)',
+                          format='1152E')
+        thdu = fits.BinTableHDU.from_columns([col])
+        thdu.writeto(self.temp('test.fits'))
+
+        with fits.open(self.temp('test.fits')) as hdul:
+            assert np.all(hdul[1].data['TEST'] == data)
+
+    def test_fits_rec_from_existing(self):
+        """
+        Tests creating a `FITS_rec` object with `FITS_rec.from_columns`
+        from an existing `FITS_rec` object read from a FITS file.
+
+        This ensures that the per-column arrays are updated properly.
+
+        Regression test for https://github.com/spacetelescope/PyFITS/issues/99
+        """
+
+        # The use case that revealed this problem was trying to create a new
+        # table from an existing table, but with additional rows so that we can
+        # append data from a second table (with the same column structure)
+
+        data1 = fits.getdata(self.data('tb.fits'))
+        data2 = fits.getdata(self.data('tb.fits'))
+        nrows = len(data1) + len(data2)
+
+        merged = fits.FITS_rec.from_columns(data1, nrows=nrows)
+        merged[len(data1):] = data2
+        mask = merged['c1'] > 1
+        masked = merged[mask]
+
+        # The test table only has two rows, only the second of which is > 1 for
+        # the 'c1' column
+        assert comparerecords(data1[1:], masked[:1])
+        assert comparerecords(data1[1:], masked[1:])
+
+        # Double check that the original data1 table hasn't been affected by
+        # its use in creating the "merged" table
+        assert comparerecords(data1, fits.getdata(self.data('tb.fits')))
+
+    def test_update_string_column_inplace(self):
+        """
+        Regression test for https://github.com/astropy/astropy/issues/4452
+
+        Ensure that changes to values in a string column are saved when
+        a file is opened in ``mode='update'``.
+        """
+
+        data = np.array([('abc',)], dtype=[('a', 'S3')])
+        fits.writeto(self.temp('test.fits'), data)
+
+        with fits.open(self.temp('test.fits'), mode='update') as hdul:
+            hdul[1].data['a'][0] = 'XYZ'
+            assert hdul[1].data['a'][0] == 'XYZ'
+
+        with fits.open(self.temp('test.fits')) as hdul:
+            assert hdul[1].data['a'][0] == 'XYZ'
+
+        # Test update but with a non-trivial TDIMn
+        data = np.array([([['abc', 'def', 'geh'],
+                           ['ijk', 'lmn', 'opq']],)],
+                        dtype=[('a', ('S3', (2, 3)))])
+
+        fits.writeto(self.temp('test2.fits'), data)
+
+        expected = [['abc', 'def', 'geh'],
+                    ['ijk', 'XYZ', 'opq']]
+
+        with fits.open(self.temp('test2.fits'), mode='update') as hdul:
+            assert hdul[1].header['TDIM1'] == '(3,3,2)'
+            # Note: Previously I wrote data['a'][0][1, 1] to address
+            # the single row.  However, this is broken for chararray because
+            # data['a'][0] does *not* return a view of the original array--this
+            # is a bug in chararray though and not a bug in any FITS-specific
+            # code so we'll roll with it for now...
+            # (by the way the bug in question is fixed in newer Numpy versions)
+            hdul[1].data['a'][0, 1, 1] = 'XYZ'
+            assert np.all(hdul[1].data['a'][0] == expected)
+
+        with fits.open(self.temp('test2.fits')) as hdul:
+            assert hdul[1].header['TDIM1'] == '(3,3,2)'
+            assert np.all(hdul[1].data['a'][0] == expected)
+
+    if HAVE_OBJGRAPH:
+        def test_reference_leak(self):
+            """Regression test for https://github.com/astropy/astropy/pull/520"""
+
+            # There are still other leads created by reference cycles in
+            # FITS_rec that are not fixed by the fix to #520.  In particular, a
+            # known leak is created by: self._coldefs [ColDefs] ->
+            # ColDefs.columns[n].array [ndarray] -> ndarray.base [FITS_rec] ->
+            # self
+            #
+            # In other words, the columns list in the coldefs attribute of the
+            # FITS_rec, contains Column objects whose .array attributes are
+            # updated to point to fields in the original FITS_rec, creating a
+            # cycle.  This is an outstanding issue with the original design of
+            # pyfits, and may or may not be fixed, depending on how soon
+            # FITS_rec is deprecated.
+            #
+            # In the meantime, this test ensures that no *new* FITS_rec objects
+            # are left behind in this one use case, which *is* fixed by #520.
+            # There are other cases that still create leaks though.
+            existing_fitsrecs = len(objgraph.by_type('FITS_rec'))
+
+            def readfile(filename):
+                with fits.open(filename) as hdul:
+                    data = hdul[1].data.copy()
+
+                for colname in data.dtype.names:
+                    data[colname]
+
+            readfile(self.data('memtest.fits'))
+
+            # Shouldn't matter since ndarray and subclasses don't participate
+            # in garbage collection, but just in case...
+            gc.collect()
+
+            # Just make sure there aren't more FITS_rec objects remaining in
+            # memory than we started with.
+            assert len(objgraph.by_type('FITS_rec')) <= existing_fitsrecs
+
+    if HAVE_OBJGRAPH:
+        def test_reference_leak(self):
+            """
+            Regression test for https://github.com/astropy/astropy/pull/520
+            """
+
+            def readfile(filename):
+                with fits.open(filename) as hdul:
+                    data = hdul[1].data.copy()
+
+                for colname in data.dtype.names:
+                    data[colname]
+
+            with _refcounting('FITS_rec'):
+                readfile(self.data('memtest.fits'))
+
+        def test_reference_leak(self):
+            """
+            Regression test for https://github.com/astropy/astropy/pull/4539
+
+            This actually re-runs a small set of tests that I found, during
+            careful testing, exhibited the reference leaks fixed by #4539, but
+            now with reference counting around each test to ensure that the
+            leaks are fixed.
+            """
+
+            from .test_core import TestCore
+
+            t1 = TestCore()
+            t1.setup()
+            try:
+                with _refcounting('FITS_rec'):
+                    t1.test_add_del_columns2()
+            finally:
+                t1.teardown()
+            del t1
+
+            t2 = self.__class__()
+            for test_name in ['test_recarray_to_bintablehdu',
+                              'test_numpy_ndarray_to_bintablehdu',
+                              'test_new_table_from_recarray',
+                              'test_new_fitsrec']:
+                t2.setup()
+                try:
+                    with _refcounting('FITS_rec'):
+                        getattr(t2, test_name)()
+                finally:
+                    t2.teardown()
+            del t2
+
+
+@contextlib.contextmanager
+def _refcounting(type_):
+    """
+    Perform the body of a with statement with reference counting for the
+    given type (given by class name)--raises an assertion error if there
+    are more unfreed objects of the given type than when we entered the
+    with statement.
+    """
+
+    gc.collect()
+    refcount = len(objgraph.by_type(type_))
+    yield refcount
+    gc.collect()
+    assert len(objgraph.by_type(type_)) <= refcount, \
+            "More {0!r} objects still in memory than before."
+
 
 class TestVLATables(PyfitsTestCase):
     """Tests specific to tables containing variable-length arrays."""
@@ -2403,6 +2734,23 @@ class TestColumnFunctions(PyfitsTestCase):
         assert c.format.width == 15
         assert c.format.precision == 8
 
+        # zero-precision should be allowed as well, for float types
+        # https://github.com/astropy/astropy/issues/3422
+        c = fits.Column('TEST', 'F10.0')
+        assert c.format.format == 'F'
+        assert c.format.width == 10
+        assert c.format.precision == 0
+
+        c = fits.Column('TEST', 'E10.0')
+        assert c.format.format == 'E'
+        assert c.format.width == 10
+        assert c.format.precision == 0
+
+        c = fits.Column('TEST', 'D10.0')
+        assert c.format.format == 'D'
+        assert c.format.width == 10
+        assert c.format.precision == 0
+
         # These are a couple cases where the format code is a valid binary
         # table format, and is not strictly a valid ASCII table format but
         # could be *interpreted* as one by appending a default width.  This
@@ -2431,6 +2779,25 @@ class TestColumnFunctions(PyfitsTestCase):
         c = fits.Column('TEST', 'D', ascii=True)
         assert c.format == 'D25.17'
 
+    def test_zero_precision_float_column(self):
+        """
+        Regression test for https://github.com/astropy/astropy/issues/3422
+        """
+
+        c = fits.Column('TEST', 'F5.0', array=[1.1, 2.2, 3.3])
+        # The decimal places will be clipped
+        t = fits.TableHDU.from_columns([c])
+        t.writeto(self.temp('test.fits'))
+
+        with fits.open(self.temp('test.fits')) as hdul:
+            assert hdul[1].header['TFORM1'] == 'F5.0'
+            assert hdul[1].data['TEST'].dtype == np.dtype('float32')
+            assert np.all(hdul[1].data['TEST'] == [1.0, 2.0, 3.0])
+
+            # Check how the raw data looks
+            raw = np.rec.recarray.field(hdul[1].data, 'TEST')
+            assert raw.tostring() == b'   1.   2.   3.'
+
     def test_column_array_type_mismatch(self):
         """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/218"""
 
@@ -2444,3 +2811,95 @@ class TestColumnFunctions(PyfitsTestCase):
         """
 
         assert_raises(TypeError, fits.ColDefs, [1, 2, 3])
+
+    def test_column_lookup_by_name(self):
+        """Tests that a `ColDefs` can be indexed by column name."""
+
+        a = fits.Column(name='a', format='D')
+        b = fits.Column(name='b', format='D')
+
+        cols = fits.ColDefs([a, b])
+
+        assert cols['a'] == cols[0]
+        assert cols['b'] == cols[1]
+
+    def test_column_attribute_change_after_removal(self):
+        """
+        This is a test of the column attribute change notification system.
+
+        After a column has been removed from a table (but other references
+        are kept to that same column) changes to that column's attributes
+        should not trigger a notification on the table it was removed from.
+        """
+
+        # One way we can check this is to ensure there are no further changes
+        # to the header
+        table = fits.BinTableHDU.from_columns([
+            fits.Column('a', format='D'),
+            fits.Column('b', format='D')])
+
+        b = table.columns['b']
+
+        table.columns.del_col('b')
+        assert table.data.dtype.names == ('a',)
+
+        b.name = 'HELLO'
+
+        assert b.name == 'HELLO'
+        assert 'TTYPE2' not in table.header
+        assert table.header['TTYPE1'] == 'a'
+        assert table.columns.names == ['a']
+
+        assert_raises(KeyError, table.columns.__getitem__, 'b')
+
+        # Make sure updates to the remaining column still work
+        table.columns.change_name('a', 'GOODBYE')
+        assert_raises(KeyError, table.columns.__getitem__, 'a')
+
+        assert table.columns['GOODBYE'].name == 'GOODBYE'
+        assert table.data.dtype.names == ('GOODBYE',)
+        assert table.columns.names == ['GOODBYE']
+        assert table.data.columns.names == ['GOODBYE']
+
+        table.columns['GOODBYE'].name = 'foo'
+        assert_raises(KeyError, table.columns.__getitem__, 'GOODBYE')
+
+        assert table.columns['foo'].name == 'foo'
+        assert table.data.dtype.names == ('foo',)
+        assert table.columns.names == ['foo']
+        assert table.data.columns.names == ['foo']
+
+    def test_x_column_deepcopy(self):
+        """
+        Regression test for https://github.com/astropy/astropy/pull/4514
+
+        Tests that columns with the X (bit array) format can be deep-copied.
+        """
+
+        c = fits.Column('xcol', format='5X', array=[1, 0, 0, 1, 0])
+        c2 = copy.deepcopy(c)
+        assert c2.name == c.name
+        assert c2.format == c.format
+        assert np.all(c2.array == c.array)
+
+    def test_p_column_deepcopy(self):
+        """
+        Regression test for https://github.com/astropy/astropy/pull/4514
+
+        Tests that columns with the P/Q formats (variable length arrays) can be
+        deep-copied.
+        """
+
+        c = fits.Column('pcol', format='PJ', array=[[1, 2], [3, 4, 5]])
+        c2 = copy.deepcopy(c)
+        assert c2.name == c.name
+        assert c2.format == c.format
+        assert np.all(c2.array[0] == c.array[0])
+        assert np.all(c2.array[1] == c.array[1])
+
+        c3 = fits.Column('qcol', format='QJ', array=[[1, 2], [3, 4, 5]])
+        c4 = copy.deepcopy(c3)
+        assert c4.name == c3.name
+        assert c4.format == c3.format
+        assert np.all(c4.array[0] == c3.array[0])
+        assert np.all(c4.array[1] == c3.array[1])

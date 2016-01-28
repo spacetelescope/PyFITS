@@ -2,27 +2,42 @@ from __future__ import division
 
 
 import datetime
-import inspect
 import os
+import sys
 import warnings
 
 import numpy as np
 
-from ..extern.six import string_types
+from ..extern.six import string_types, add_metaclass
 from ..extern.six.moves import range
 
 import pyfits
 from ..file import _File
 from ..header import Header
+from ..py3compat import ignored, getargspec
 from ..util import (first, lazyproperty, _is_int, _is_pseudo_unsigned,
-                    _unsigned_zero, _pad_length, itersubclasses, encode_ascii,
-                    decode_ascii, deprecated, _get_array_mmap, _array_to_file)
+                    _unsigned_zero, _pad_length, itersubclasses,
+                    decode_ascii, deprecated, _get_array_mmap)
 from ..verify import _Verify, _ErrList
 
 
 class _Delayed(object):
     pass
 DELAYED = _Delayed()
+
+
+BITPIX2DTYPE = {8: 'uint8', 16: 'int16', 32: 'int32', 64: 'int64',
+                -32: 'float32', -64: 'float64'}
+"""Maps FITS BITPIX values to Numpy dtype names."""
+
+DTYPE2BITPIX = {'uint8': 8, 'int16': 16, 'uint16': 16, 'int32': 32,
+                'uint32': 32, 'int64': 64, 'uint64': 64, 'float32': -32,
+                'float64': -64}
+"""
+Maps Numpy dtype names to FITS BITPIX values (this includes unsigned
+integers, with the assumption that the pseudo-unsigned integer convention
+will be used in this case.
+"""
 
 
 class InvalidHDUException(Exception):
@@ -64,9 +79,40 @@ def _hdu_class_from_header(cls, header):
 
     return klass
 
+class _BaseHDUMeta(type):
+    def __init__(cls, name, bases, members):
+        # The sole purpose of this metaclass right now is to add the same
+        # data.deleter to all HDUs with a data property.
+        # It's unfortunate, but there's otherwise no straightforward way
+        # that a property can inherit setters/deleters of the property of the
+        # same name on base classes
+        if 'data' in members:
+            data_prop = members['data']
+            if (isinstance(data_prop, (lazyproperty, property)) and
+                    data_prop._fdel is None):
+                # Don't do anything if the class has already explicitly
+                # set the deleter for its data property
+                def data(self):
+                    # The deleter
+                    if self._file is not None and self._data_loaded:
+                        data_refcount = sys.getrefcount(self.data)
+                        # Manually delete *now* so that FITS_rec.__del__
+                        # cleanup can happen if applicable
+                        del self.__dict__['data']
+                        # Don't even do this unless the *only* reference to the
+                        # .data array was the one we're deleting by deleting
+                        # this attribute; if any other references to the array
+                        # are hanging around (perhaps the user ran ``data =
+                        # hdu.data``) don't even consider this:
+                        if data_refcount == 2:
+                            self._file._maybe_close_mmap()
+
+                setattr(cls, 'data', data_prop.deleter(data))
+
 
 # TODO: Come up with a better __repr__ for HDUs (and for HDULists, for that
 # matter)
+@add_metaclass(_BaseHDUMeta)
 class _BaseHDU(object):
     """Base class for all HDU (header data unit) classes."""
 
@@ -265,7 +311,7 @@ class _BaseHDU(object):
         Parameters
         ----------
         data : str, bytearray, memoryview, ndarray
-           A byte string contining the HDU's header and data.
+           A byte string containing the HDU's header and data.
 
         checksum : bool, optional
            Check the HDU's checksum and/or datasum.
@@ -294,8 +340,8 @@ class _BaseHDU(object):
                  **kwargs):
         """
         Read the HDU from a file.  Normally an HDU should be opened with
-        `pyfits.open` which reads the entire HDU list in a FITS file.  But this
-        method is still provided for symmetry with `writeto`.
+        :func:`open` which reads the entire HDU list in a FITS file.  But this
+        method is still provided for symmetry with :func:`writeto`.
 
         Parameters
         ----------
@@ -345,7 +391,7 @@ class _BaseHDU(object):
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
             ``"exception"``.  May also be any combination of ``"fix"`` or
-            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception``
             (e.g. ``"fix+warn"``).  See :ref:`verify` for more info.
 
         clobber : bool
@@ -422,7 +468,7 @@ class _BaseHDU(object):
         # self._kwargs.  self._kwargs contains any number of optional arguments
         # that may or may not be valid depending on the HDU type
         cls = _hdu_class_from_header(cls, header)
-        args, varargs, varkwargs, defaults = inspect.getargspec(cls.__init__)
+        args, varargs, varkwargs, defaults = getargspec(cls.__init__)
         new_kwargs = kwargs.copy()
         if not varkwargs:
             # If __init__ accepts arbitrary keyword arguments, then we can go
@@ -543,18 +589,14 @@ class _BaseHDU(object):
         if (self._has_data and self._standard and
                 _is_pseudo_unsigned(self.data.dtype)):
             for keyword in ('BSCALE', 'BZERO'):
-                try:
+                with ignored(KeyError):
                     del self._header[keyword]
-                except KeyError:
-                    pass
 
     def _writeheader(self, fileobj):
         offset = 0
         if not fileobj.simulateonly:
-            try:
+            with ignored(AttributeError, IOError):
                 offset = fileobj.tell()
-            except (AttributeError, IOError):
-                pass
 
             self._header.tofile(fileobj)
 
@@ -632,7 +674,7 @@ class _BaseHDU(object):
 
         raw = self._get_raw_data(self._data_size, 'ubyte', self._data_offset)
         if raw is not None:
-            _array_to_file(raw, fileobj)
+            fileobj.writearray(raw)
             return raw.nbytes
         else:
             return 0
@@ -706,9 +748,18 @@ class _BaseHDU(object):
         self._data_size = datsize
         self._data_replaced = False
 
-_AllHDU = _BaseHDU  # For backwards-compatibility, though nobody should have
-                    # been using this directly
+    def _close(self, closed=True):
+        # If the data was mmap'd, close the underlying mmap (this will
+        # prevent any future access to the .data attribute if there are
+        # not other references to it; if there are other references then
+        # it is up to the user to clean those up
+        if (closed and self._data_loaded and
+                _get_array_mmap(self.data) is not None):
+            del self.data
 
+# For backwards-compatibility, though nobody should have
+# been using this directly:
+_AllHDU = _BaseHDU
 
 # For convenience...
 # TODO: register_hdu could be made into a class decorator which would be pretty
@@ -804,7 +855,7 @@ class _NonstandardHDU(_BaseHDU, _Verify):
 
     def _writedata(self, fileobj):
         """
-        Differs from the base class `_writedata()` in that it doesn't
+        Differs from the base class :class:`_writedata` in that it doesn't
         automatically add padding, and treats the data as a string of raw bytes
         instead of an array.
         """
@@ -980,8 +1031,8 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         savecomment : bool, optional
             When `True`, preserve the current comment for an existing
-            keyword.  The argument `savecomment` takes precedence over
-            `comment` if both specified.  If `comment` is not
+            keyword.  The argument ``savecomment`` takes precedence over
+            ``comment`` if both specified.  If ``comment`` is not
             specified then the current comment will automatically be
             preserved.
         """
@@ -1029,8 +1080,8 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         savecomment : bool, optional
             When `True`, preserve the current comment for an existing
-            keyword.  The argument `savecomment` takes precedence over
-            `comment` if both specified.  If `comment` is not
+            keyword.  The argument ``savecomment`` takes precedence over
+            ``comment`` if both specified.  If ``comment`` is not
             specified then the current comment will automatically be
             preserved.
         """
@@ -1117,7 +1168,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             The keyword to validate
 
         pos : int, callable
-            If an `int`, this specifies the exact location this card should
+            If an ``int``, this specifies the exact location this card should
             have in the header.  Remember that Python is zero-indexed, so this
             means ``pos=0`` requires the card to be the first card in the
             header.  If given a callable, it should take one argument--the
@@ -1181,7 +1232,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             err_text = "'%s' card does not exist." % keyword
             fix_text = "Fixed by inserting a new '%s' card." % keyword
             if fixable:
-                # use repr to accomodate both string and non-string types
+                # use repr to accommodate both string and non-string types
                 # Boolean is also OK in this constructor
                 card = (keyword, fix_value)
 
@@ -1241,7 +1292,7 @@ class _ValidHDU(_BaseHDU, _Verify):
             "standard" or "nonstandard", compute sum 2880 bytes at a time, or
             not
 
-        datasum_keyword: str, optional
+        datasum_keyword : str, optional
             The name of the header keyword to store the datasum value in;
             this is typically 'DATASUM' per convention, but there exist
             use cases in which a different keyword should be used
@@ -1288,12 +1339,12 @@ class _ValidHDU(_BaseHDU, _Verify):
             "standard" or "nonstandard", compute sum 2880 bytes at a time, or
             not
 
-        checksum_keyword: str, optional
+        checksum_keyword : str, optional
             The name of the header keyword to store the checksum value in; this
             is typically 'CHECKSUM' per convention, but there exist use cases
             in which a different keyword should be used
 
-        datasum_keyword: str, optional
+        datasum_keyword : str, optional
             See ``checksum_keyword``
 
         Notes
@@ -1332,7 +1383,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         Verify that the value in the ``DATASUM`` keyword matches the value
         calculated for the ``DATASUM`` of the current HDU data.
 
-        blocking: str, optional
+        blocking : str, optional
             "standard" or "nonstandard", compute sum 2880 bytes at a time, or
             not
 
@@ -1362,7 +1413,7 @@ class _ValidHDU(_BaseHDU, _Verify):
         Verify that the value in the ``CHECKSUM`` keyword matches the
         value calculated for the current HDU CHECKSUM.
 
-        blocking: str, optional
+        blocking : str, optional
             "standard" or "nonstandard", compute sum 2880 bytes at a time, or
             not
 
@@ -1540,8 +1591,8 @@ class _ValidHDU(_BaseHDU, _Verify):
 
         hi = sum32 >> u16
         lo = sum32 & uFFFF
-        hi += np.add.reduce(data[0::2])
-        lo += np.add.reduce(data[1::2])
+        hi += np.add.reduce(data[0::2], dtype=np.uint64)
+        lo += np.add.reduce(data[1::2], dtype=np.uint64)
 
         if (data.nbytes // 2) % 2:
             lo += last << u8
@@ -1594,7 +1645,7 @@ class _ValidHDU(_BaseHDU, _Verify):
 
     def _char_encode(self, value):
         """
-        Encodes the checksum `value` using the algorithm described
+        Encodes the checksum ``value`` using the algorithm described
         in SPR section A.7.2 and returns it as a 16 character string.
 
         Parameters
@@ -1671,7 +1722,7 @@ class ExtensionHDU(_ValidHDU):
                        1, option, errs)
 
         return errs
-# For backwards compatilibity, though this needs to be deprecated
+# For backwards compatibility, though this needs to be deprecated
 # TODO: Mark this as deprecated
 _ExtensionHDU = ExtensionHDU
 

@@ -1,12 +1,15 @@
-from .extern.six import PY3
+from .extern import six
+from ._compat.odict import OrderedDict
 
-if PY3:  # pragma: py3
+if six.PY3:
     # Stuff to do if Python 3
     import io
 
     # Make the decode_ascii utility function actually work
     import pyfits.util
     import numpy
+
+    from distutils.version import LooseVersion as V
 
     def encode_ascii(s):
         if isinstance(s, str):
@@ -52,6 +55,32 @@ if PY3:  # pragma: py3
         return s
     pyfits.util.decode_ascii = decode_ascii
 
+    # Here we monkey patch (yes, I know) numpy to fix a few numpy Python 3
+    # bugs.  The only behavior that's modified is that bugs are fixed, so that
+    # should be OK.
+
+    # Fix chararrays; this is necessary in numpy 1.9.x and below
+    # The fix for this is in https://github.com/numpy/numpy/pull/5982 and is
+    # available as of Numpy 1.10
+
+    if V(numpy.__version__) < V('1.10.0'):
+        _chararray = numpy.char.chararray
+
+        class chararray(_chararray):
+            def __getitem__(self, obj):
+                val = numpy.ndarray.__getitem__(self, obj)
+                if isinstance(val, numpy.character):
+                    temp = val.rstrip()
+                    if numpy.char._len(temp) == 0:
+                        val = ''
+                    else:
+                        val = temp
+                return val
+
+        for m in [numpy, numpy.char, numpy.core.defchararray,
+                  numpy.core.records]:
+            m.chararray = chararray
+
     # See the docstring for pyfits.util.fileobj_open for why we need to replace
     # this function
     def fileobj_open(filename, mode):
@@ -86,104 +115,6 @@ if PY3:  # pragma: py3
         return False
     pyfits.util.isfile = isfile
 
-    # Here we monkey patch (yes, I know) numpy to fix a few numpy Python 3
-    # bugs.  The only behavior that's modified is that bugs are fixed, so that
-    # should be OK.
-
-    # Fix chararrays; this is necessary in numpy 1.5.1 and below--hopefully
-    # should not be necessary later.  See
-    # http://projects.scipy.org/numpy/ticket/1817
-    # TODO: Maybe do a version check on numpy for this?  (Note: the fix for
-    # this hasn't been accepted in Numpy yet, so a version number check would
-    # not be helpful yet...)
-    import pyfits.file
-
-    _chararray = numpy.char.chararray
-
-    class chararray(_chararray):
-        def __getitem__(self, obj):
-            val = numpy.ndarray.__getitem__(self, obj)
-            if isinstance(val, numpy.character):
-                temp = val.rstrip()
-                if numpy.char._len(temp) == 0:
-                    val = ''
-                else:
-                    val = temp
-            return val
-    for m in [numpy.char, numpy.core.defchararray, numpy.core.records]:
-        m.chararray = chararray
-
-    # Fix recarrays with sub-array fields.  See
-    # http://projects.scipy.org/numpy/ticket/1766
-    # TODO: Same as above, though the fix to this problem hasn't made it into
-    # any Numpy release yet either, so we'll have to hold off on a version
-    # check
-    def _fix_dtype(dtype):
-        """
-        Numpy has a bug (in Python3 only) that causes a segfault when
-        accessing the data of arrays containing nested arrays.  Specifically,
-        this happens if the shape of the subarray is not given as a tuple.
-        See http://projects.scipy.org/numpy/ticket/1766.
-        """
-
-        if not hasattr(dtype, 'fields') or dtype.fields is None:
-            return dtype
-
-        formats = []
-        offsets = []
-        titles = []
-        for name in dtype.names:
-            field = dtype.fields[name]
-            shape = field[0].shape
-            if not isinstance(shape, tuple):
-                shape = (shape,)
-            formats.append((field[0].base, shape))
-            offsets.append(field[1])
-
-            # There seems to be no obvious way to extract the titles from
-            # a dtype, so this just searches for duplicate fields
-            title = None
-            for key, dup in dtype.fields.items():
-                if key != name and dup == field:
-                    title = key
-                    break
-            titles.append(title)
-
-        return numpy.dtype({'names': dtype.names, 'formats': formats,
-                            'offsets': offsets, 'titles': titles})
-
-    _recarray = numpy.recarray
-
-    class recarray(_recarray):
-        def __new__(subtype, shape, dtype=None, buf=None, offset=0,
-                    strides=None, formats=None, names=None, titles=None,
-                    byteorder=None, aligned=False, order='C'):
-            if dtype is not None:
-                dtype = _fix_dtype(dtype)
-
-            if 'order' in _recarray.__new__.__code__.co_varnames:
-                return _recarray.__new__(
-                    subtype, shape, dtype, buf, offset, strides, formats,
-                    names, titles, byteorder, aligned, order)
-            else:
-                return _recarray.__new__(
-                    subtype, shape, dtype, buf, offset, strides, formats,
-                    names, titles, byteorder, aligned)
-    numpy.recarray = numpy.core.records.recarray = recarray
-
-    # We also need to patch pyfits.file._File which can also be affected by the
-    # #1766 bug
-    old_File = pyfits.file._File
-
-    class _File(old_File):
-        def readarray(self, size=None, offset=0, dtype=numpy.uint8,
-                      shape=None):
-            if isinstance(dtype, numpy.dtype):
-                dtype = _fix_dtype(dtype)
-            return old_File.readarray(self, size, offset, dtype, shape)
-        readarray.__doc__ = old_File.readarray.__doc__
-    pyfits.file._File = _File
-
     # Replace pyfits.util.maketrans and translate with versions that work
     # with Python 3 unicode strings
     pyfits.util.maketrans = str.maketrans
@@ -195,8 +126,41 @@ if PY3:  # pragma: py3
                 table[ord(c)] = None
         return s.translate(table)
     pyfits.util.translate = translate
+
+    import inspect
+    def getargspec(func):
+        return inspect.getfullargspec(func)[:4]
 else:
     # Stuff to do if not Python 3
     import string
     import pyfits.util
+    from inspect import getargspec
+
     pyfits.util.maketrans = string.maketrans
+
+
+try:
+    from contextlib import ignored
+except ImportError:
+    from contextlib import contextmanager
+    @contextmanager
+    def ignored(*exceptions):
+        """A context manager for ignoring exceptions.  Equivalent to::
+
+            try:
+                <body>
+            except exceptions:
+                pass
+
+        Example::
+
+            >>> import os
+            >>> with ignored(OSError):
+            ...     os.remove('file-that-does-not-exist')
+
+        """
+
+        try:
+            yield
+        except exceptions:
+            pass

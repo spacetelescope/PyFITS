@@ -8,7 +8,7 @@ Header Interface Transition Guide
 
 PyFITS v3.1 included an almost complete rewrite of the :class:`Header`
 interface.  Although the new interface is largely compatible with the old
-interace (whether due to similarities in the design, or backwards-compatibility
+interface (whether due to similarities in the design, or backwards-compatibility
 support), there are enough differences that a full explanation of the new
 interface is merited.
 
@@ -65,7 +65,7 @@ directly through :class:`Header` objects.  It also tries to present headers as
 similar as possible to more a more familiar data structure--an ordered mapping
 (or :class:`~collections.OrderedDict` in Python) for ease of use by new users
 less familiar with the FITS format.  Though there are still many added
-complexities for dealing with the idiosyncracies of the FITS format.
+complexities for dealing with the idiosyncrasies of the FITS format.
 
 
 Deprecation Warnings
@@ -79,12 +79,12 @@ This will output any deprecation warnings to the console.
 
 Two of the most common deprecation warnings related to Headers are for:
 
-- :meth:`Header.has_key`--this has actually been deprecated since PyFITS 3.0,
+- :meth:``Header.has_key``--this has actually been deprecated since PyFITS 3.0,
   just as Python's `dict.has_key` is deprecated.  For checking a key's presence
   in a mapping object like `dict` or :class:`Header`, use the ``key in d``
   syntax.  This has long been the preference in Python.
 
-- :meth:`Header.ascardlist()` and :attr:`Header.ascard`--these were used to
+- :meth:``Header.ascardlist`` and :attr:`Header.ascard`--these were used to
   access the :class:`CardList` object underlying a header.  They should still
   work, and return a skeleton CardList implementation that should support most
   of the old CardList functionality.  But try removing as much of this as
@@ -107,9 +107,9 @@ old Header implementation also had a dict-like interface, it did not implement
 the *entire* dict interface as the new Header does.
 
 Although the new Header is used like a dict/mapping in most cases, it also
-supports a `list` interface.  The list-like interace is a bit idiosyncratic in
+supports a `list` interface.  The list-like interface is a bit idiosyncratic in
 that in some contexts the Header acts like a list of values, in some like a
-list of keywords, and in a few contexts like a list of :class:`Cards`.  This
+list of keywords, and in a few contexts like a list of :class:`Card` objects. This
 may be the most difficult aspect of the new design, but there is logic to it.
 
 As with the old Header implementation, integer index access is supported:
@@ -126,7 +126,7 @@ its argument::
     >>> header.count('HISTORY')
     20
 
-A good rule of thumb is that any item access using square brackets `[]` returns
+A good rule of thumb is that any item access using square brackets ``[]`` returns
 *value* in the header, whether using keyword or index lookup.  Methods like
 :meth:`~Header.index` and :meth:`~Header.count` that deal with the order and
 quantity of items in the Header generally work on keywords.  Finally, methods
@@ -141,7 +141,7 @@ surprises.  There are differences, however:
   with which to fill the header.  However, now any iterable may be used.  It is
   also important to note that *any* Header method that accepts :class:`Card`
   objects can also accept 2-tuples or 3-tuples in place of Cards.  That is,
-  either a `(keyword, value, comment)` tuple or a `(keyword, value)` tuple
+  either a ``(keyword, value, comment)`` tuple or a ``(keyword, value)`` tuple
   (comment is assumed blank) may be used anywhere in place of a Card object.
   This is even preferred, as it simply involves less typing.  For example::
 
@@ -174,7 +174,7 @@ surprises.  There are differences, however:
 
       >>> del header[('NAXIS', 1)]
 
-  This will remove an accdential duplicate NAXIS card from the header.
+  This will remove an accidental duplicate NAXIS card from the header.
 
 - Even if there are duplicate keywords, keyword lookups like
   ``header['NAXIS']`` will always return the value associated with the first
@@ -193,8 +193,8 @@ surprises.  There are differences, however:
   as with a normal `dict`, ``header['NAXIS'] = 1`` will either update the NAXIS
   keyword if it already exists, or add a new NAXIS keyword with a value of
   ``1`` if it does not exist.  In the old interface this would return a
-  ``KeyError`` if NAXIS did not exist, and the only way to add a new keyword
-  was through the update() method.
+  `~.exceptions.KeyError` if NAXIS did not exist, and the only way to add a new
+  keyword was through the update() method.
 
   By default, new keywords added in this manner are added to the end of the
   header, with a few FITS-specific exceptions:
@@ -251,7 +251,7 @@ surprises.  There are differences, however:
   nothing.  For backwards-compatibility it is still okay to delete a
   non-existent keyword, but a warning will be raised.  In the future this
   *will* be changed so that trying to delete a non-existent keyword raises a
-  `KeyError`.  This is for consistency with the behavior of Python dicts.  So
+  `~.exceptions.KeyError`.  This is for consistency with the behavior of Python dicts.  So
   unless you know for certain that a keyword exists before deleting it, it's
   best to do something like::
 
@@ -328,7 +328,7 @@ much--the deprecated interfaces will not be removed for several more versions
 because of this.
 
 - The first change worth making, which is supported by any PyFITS version in
-  the last several years, is remove any use of :meth:`Header.has_key` and
+  the last several years, is remove any use of :meth:``Header.has_key`` and
   replace it with ``keyword in header`` syntax.  It's worth making this change
   for any dict as well, since `dict.has_key` is deprecated.  Running the
   following regular expression over your code may help with most (but not all)
@@ -379,7 +379,7 @@ Other Gotchas
   The other type of string representation happens when one calls
   ``repr(header)``.  The `repr` of an object is just meant to be a useful
   string "representation" of the object; in this case the contents of the
-  header but with linebreaks betwen the cards and with the END card and
+  header but with linebreaks between the cards and with the END card and
   padding trailing padding stripped off.  This happens automatically when
   one enters a variable at the Python prompt by itself without a ``print``
   call.
@@ -396,7 +396,7 @@ Other Gotchas
   automatically stripping trailing spaces, so that ``header['KEYWORD1']`` would
   return just ``'Value'``.
 
-  There is, however, one convention used by the IRAF ccdmosiac task for
+  There is, however, one convention used by the IRAF ccdmosaic task for
   representing its `TNX World Coordinate System
   <http://iraf.noao.edu/projects/ccdmosaic/tnx.html>`_ and `ZPX World
   Coordinate System <http://iraf.noao.edu/projects/ccdmosaic/zpx.html>`_

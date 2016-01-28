@@ -172,7 +172,7 @@ def update(filename):
     Also updates fixes standards violations if possible and requested.
     """
 
-    hdulist = pyfits.open(filename)
+    hdulist = pyfits.open(filename, do_not_scale_image_data=True)
     try:
         output_verify = 'silentfix' if OPTIONS.compliance else 'ignore'
         hdulist.writeto(filename, checksum=OPTIONS.checksum_kind, clobber=True,

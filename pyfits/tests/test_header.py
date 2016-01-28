@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 from __future__ import division, with_statement
 
@@ -10,6 +10,7 @@ import pyfits as fits
 
 from warnings import catch_warnings
 
+from ..extern import six
 from ..extern.six import u, b, iterkeys, itervalues, iteritems, StringIO, PY3
 from ..extern.six.moves import zip, range
 
@@ -283,7 +284,7 @@ class TestHeaderFunctions(PyfitsTestCase):
             "CONTINUE  'string value long string value long string value &'                  "
             "CONTINUE  '&' / long comment long comment long comment long comment long        "
             "CONTINUE  '&' / comment long comment long comment long comment long comment     "
-            "CONTINUE  '&' / long comment                                                    ")
+            "CONTINUE  '' / long comment                                                     ")
 
     def test_long_unicode_string(self):
         """Regression test for
@@ -322,7 +323,7 @@ class TestHeaderFunctions(PyfitsTestCase):
              "CONTINUE  'string value long string value long string value &'                  ",
              "CONTINUE  '&' / long comment long comment long comment long comment long        ",
              "CONTINUE  '&' / comment long comment long comment long comment long comment     ",
-             "CONTINUE  '&' / long comment                                                    ",
+             "CONTINUE  '' / long comment                                                     ",
              str(fits.Card('TEST3', 'Regular value', 'Regular comment'))]
 
     def test_blank_keyword_long_value(self):
@@ -361,7 +362,7 @@ class TestHeaderFunctions(PyfitsTestCase):
             "CONTINUE  'string value long string value long string value &'                  "
             "CONTINUE  '&' / long comment long comment long comment long comment long        "
             "CONTINUE  '&' / comment long comment long comment long comment long comment     "
-            "CONTINUE  '&' / long comment                                                    ")
+            "CONTINUE  '' / long comment                                                     ")
 
     def test_word_in_long_string_too_long(self):
         # if a word in a long string is too long, it will be cut in the middle
@@ -371,7 +372,7 @@ class TestHeaderFunctions(PyfitsTestCase):
             "CONTINUE  'ingvaluelongstringvaluelongstringvaluelongstringvaluelongstringvalu&'"
             "CONTINUE  'elongstringvalue&'                                                   "
             "CONTINUE  '&' / longcommentlongcommentlongcommentlongcommentlongcommentlongcomme"
-            "CONTINUE  '&' / ntlongcommentlongcommentlongcommentlongcomment                  ")
+            "CONTINUE  '' / ntlongcommentlongcommentlongcommentlongcomment                   ")
 
     def test_long_string_value_via_fromstring(self):
         # long string value via fromstring() method
@@ -383,7 +384,7 @@ class TestHeaderFunctions(PyfitsTestCase):
             assert (str(c) ==
                 "ABC     = 'longstring''s testing  continue with long string but without the &'  "
                 "CONTINUE  'ampersand at the endcontinue must have string value (with quotes)&'  "
-                "CONTINUE  '&' / comments in line 1 comments with ''.                            ")
+                "CONTINUE  '' / comments in line 1 comments with ''.                             ")
 
     def test_continue_card_with_equals_in_value(self):
         """
@@ -400,6 +401,28 @@ class TestHeaderFunctions(PyfitsTestCase):
                 '/grp/hst/cdbs//grid/pickles/dat_uvk/pickles_uk_10.fits '
                 '* 5.87359e-12 * MWAvg(Av=0.12)')
         assert c.comment == 'pysyn expression'
+
+    def test_final_continue_card_lacks_ampersand(self):
+        """
+        Regression test for https://github.com/astropy/astropy/issues/3282
+        """
+
+        h = fits.Header()
+        h['SVALUE'] = 'A' * 69
+        assert repr(h).splitlines()[-1] == _pad("CONTINUE  'AA'")
+
+    def test_final_continue_card_ampersand_removal_on_long_comments(self):
+        """
+        Regression test for https://github.com/astropy/astropy/issues/3282
+        """
+
+        c = fits.Card('TEST', 'long value' * 10, 'long comment &' * 10)
+        assert (str(c) ==
+            "TEST    = 'long valuelong valuelong valuelong valuelong valuelong valuelong &'  "
+            "CONTINUE  'valuelong valuelong valuelong value&'                                "
+            "CONTINUE  '&' / long comment &long comment &long comment &long comment &long    "
+            "CONTINUE  '&' / comment &long comment &long comment &long comment &long comment "
+            "CONTINUE  '' / &long comment &                                                  ")
 
     def test_hierarch_card_creation(self):
         # Test automatic upgrade to hierarch card
@@ -998,9 +1021,26 @@ class TestHeaderFunctions(PyfitsTestCase):
         hdu = fits.PrimaryHDU()
         hdu2 = fits.ImageHDU()
         hdu.header['MYKEY'] = ('some val', 'some comment')
+        hdu2.header['MYKEY'] = ('some other val', 'some other comment')
         hdu.header.extend(hdu2.header, unique=True)
         assert len(hdu.header) == 5
         assert hdu.header[-1] == 'some val'
+
+    def test_header_extend_unique_commentary(self):
+        """
+        Test extending header with and without unique=True and commentary
+        cards in the header being added. Issue astropy/astropy#3967
+        """
+        for commentary_card in ['', 'COMMENT', 'HISTORY']:
+            for is_unique in [True, False]:
+                hdu = fits.PrimaryHDU()
+                # Make sure we are testing the case we want.
+                assert commentary_card not in hdu.header
+                hdu2 = fits.ImageHDU()
+                hdu2.header[commentary_card] = 'My text'
+                hdu.header.extend(hdu2.header, unique=is_unique)
+                assert len(hdu.header) == 5
+                assert hdu.header[commentary_card][0] == 'My text'
 
     def test_header_extend_update(self):
         """
@@ -1032,6 +1072,25 @@ class TestHeaderFunctions(PyfitsTestCase):
         assert hdu.header['MYKEY'] == 'some other val'
         assert len(hdu.header['HISTORY']) == 2
         assert hdu.header[-1] == 'history 2'
+
+    def test_header_extend_update_commentary(self):
+        """
+        Test extending header with and without unique=True and commentary
+        cards in the header being added.
+
+        Though not quite the same as astropy/astropy#3967, update=True hits
+        the same if statement as that issue.
+        """
+        for commentary_card in ['', 'COMMENT', 'HISTORY']:
+            for is_update in [True, False]:
+                hdu = fits.PrimaryHDU()
+                # Make sure we are testing the case we want.
+                assert commentary_card not in hdu.header
+                hdu2 = fits.ImageHDU()
+                hdu2.header[commentary_card] = 'My text'
+                hdu.header.extend(hdu2.header, update=is_update)
+                assert len(hdu.header) == 5
+                assert hdu.header[commentary_card][0] == 'My text'
 
     def test_header_extend_exact(self):
         """
@@ -1750,9 +1809,10 @@ class TestHeaderFunctions(PyfitsTestCase):
         """
 
         h = fits.Header()
-        if PY3:
-            assert_raises(ValueError, h.set, 'TEST', b('Hello'))
-        else:
+        if six.PY3:
+            assert_raises(ValueError, h.set, 'TEST',
+                          bytes('Hello', encoding='ascii'))
+        elif six.PY2:
             assert_raises(ValueError, h.set, 'TEST', str('ñ'))
 
     def test_header_strip_whitespace(self):
@@ -2034,8 +2094,9 @@ class TestHeaderFunctions(PyfitsTestCase):
 
 class TestRecordValuedKeywordCards(PyfitsTestCase):
     """
-    Tests for handling of record-valued keyword cards as used by the FITS WCS
-    Paper IV proposal.
+    Tests for handling of record-valued keyword cards as used by the
+    `FITS WCS distortion paper
+    <http://www.atnf.csiro.au/people/mcalabre/WCS/dcs_20040422.pdf>`__.
 
     These tests are derived primarily from the release notes for PyFITS 1.4 (in
     which this feature was first introduced.
@@ -2255,9 +2316,9 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         # updated
         del self._test_header['DP1.AXIS.2']
         assert len(self._test_header) == 6
-        assert list(self._test_header.keys())[0] == 'DP1.NAXIS'
+        assert list(self._test_header)[0] == 'DP1.NAXIS'
         assert self._test_header[0] == 2
-        assert list(self._test_header.keys())[1] == 'DP1.NAUX'
+        assert list(self._test_header)[1] == 'DP1.NAUX'
         assert self._test_header[1] == 2
 
     def test_pattern_matching_keys(self):
@@ -2416,3 +2477,43 @@ class TestRecordValuedKeywordCards(PyfitsTestCase):
         assert_raises(KeyError, lambda: h['FOO.AXIS'])
         assert_raises(KeyError, lambda: h['FOO.AXIS.'])
         assert_raises(KeyError, lambda: h['FOO.'])
+
+    def test_fitsheader_script(self):
+        """Tests the basic functionality of the `fitsheader` script."""
+        from ..scripts import fitsheader
+
+        # Can an extension by specified by the EXTNAME keyword?
+        hf = fitsheader.HeaderFormatter(self.data('zerowidth.fits'))
+        output = hf.parse(extensions=['AIPS FQ'])
+        assert "EXTNAME = 'AIPS FQ" in output
+        assert "BITPIX" in output
+
+        # Can we limit the display to one specific keyword?
+        output = hf.parse(extensions=['AIPS FQ'], keywords=['EXTNAME'])
+        assert "EXTNAME = 'AIPS FQ" in output
+        assert "BITPIX  =" not in output
+        assert len(output.split('\n')) == 3
+
+        # Can we limit the display to two specific keywords?
+        output = hf.parse(extensions=[1],
+                          keywords=['EXTNAME', 'BITPIX'])
+        assert "EXTNAME =" in output
+        assert "BITPIX  =" in output
+        assert len(output.split('\n')) == 4
+
+        # Can we use wildcards for keywords?
+        output = hf.parse(extensions=[1], keywords=['NAXIS*'])
+        assert "NAXIS   =" in output
+        assert "NAXIS1  =" in output
+        assert "NAXIS2  =" in output
+
+        # Can an extension by specified by the EXTNAME+EXTVER keywords?
+        hf = fitsheader.HeaderFormatter(self.data('test0.fits'))
+        assert "EXTNAME = 'SCI" in hf.parse(extensions=['SCI,2'])
+
+        # Can we print the original header before decompression?
+        hf = fitsheader.HeaderFormatter(self.data('comp.fits'))
+        assert "XTENSION= 'IMAGE" in hf.parse(extensions=[1],
+                                              compressed=False)
+        assert "XTENSION= 'BINTABLE" in hf.parse(extensions=[1],
+                                                 compressed=True)

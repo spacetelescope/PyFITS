@@ -1,7 +1,8 @@
 from __future__ import division, with_statement  # confidence high
 
-import warnings
+import contextlib
 import sys
+import warnings
 
 import numpy as np
 
@@ -39,7 +40,7 @@ class TestChecksumFunctions(PyfitsTestCase):
         hdul.close()
 
     def test_image_create(self):
-        n = np.arange(100)
+        n = np.arange(100, dtype=np.int64)
         hdu = fits.PrimaryHDU(n)
         hdu.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
         with fits.open(self.temp('tmp.fits'), checksum=True) as hdul:
@@ -47,25 +48,20 @@ class TestChecksumFunctions(PyfitsTestCase):
             assert 'CHECKSUM' in hdul[0].header
             assert 'DATASUM' in hdul[0].header
 
-            if sys.platform != 'win32':
-                # The checksum ends up being different on Windows, possibly due
-                # to slight floating point differences
-                # TODO: In Astropy mark these properly as known fail
+            if not sys.platform.startswith('win32'):
                 assert hdul[0].header['CHECKSUM'] == 'ZHMkeGKjZGKjbGKj'
                 assert hdul[0].header['DATASUM'] == '4950'
 
     def test_nonstandard_checksum(self):
-        hdu = fits.PrimaryHDU(np.arange(10.0 ** 6))
+        hdu = fits.PrimaryHDU(np.arange(10.0 ** 6, dtype=np.float64))
         hdu.writeto(self.temp('tmp.fits'), clobber=True,
                     checksum='nonstandard')
         del hdu
         with fits.open(self.temp('tmp.fits'), checksum='nonstandard') as hdul:
             assert 'CHECKSUM' in hdul[0].header
             assert 'DATASUM' in hdul[0].header
-            if sys.platform != 'win32':
-                # The checksum ends up being different on Windows, possibly due
-                # to slight floating point differences
-                # TODO: In Astropy mark these properly as known fail
+
+            if not sys.platform.startswith('win32'):
                 assert hdul[0].header['CHECKSUM'] == 'jD4Am942jC48j948'
                 assert hdul[0].header['DATASUM'] == '4164005614'
 
@@ -81,11 +77,52 @@ class TestChecksumFunctions(PyfitsTestCase):
                 assert 'DATASUM' in hdul1[0].header
                 assert hdul1[0].header['DATASUM'] == '1891563534'
 
+    def test_scaled_data_auto_rescale(self):
+        """
+        Regression test for
+        https://github.com/astropy/astropy/issues/3883#issuecomment-115122647
+
+        Ensure that when scaled data is automatically rescaled on
+        opening/writing a file that the checksum and datasum are computed for
+        the rescaled array.
+        """
+
+        with fits.open(self.data('scale.fits')) as hdul:
+            # Write out a copy of the data with the rescaling applied
+            hdul.writeto(self.temp('rescaled.fits'))
+
+        # Reopen the new file and save it back again with a checksum
+        with fits.open(self.temp('rescaled.fits')) as hdul:
+            hdul.writeto(self.temp('rescaled2.fits'), clobber=True,
+                         checksum=True)
+
+        # Now do like in the first writeto but use checksum immediately
+        with fits.open(self.data('scale.fits')) as hdul:
+            hdul.writeto(self.temp('rescaled3.fits'), checksum=True)
+
+        # Also don't rescale the data but add a checksum
+        with fits.open(self.data('scale.fits'),
+                       do_not_scale_image_data=True) as hdul:
+            hdul.writeto(self.temp('scaled.fits'), checksum=True)
+
+        # Must used nested with statements to support older Python versions
+        # (but contextlib.nested is not available in newer Pythons :(
+        with fits.open(self.temp('rescaled2.fits')) as hdul1:
+            with fits.open(self.temp('rescaled3.fits')) as hdul2:
+                with fits.open(self.temp('scaled.fits')) as hdul3:
+                    hdr1 = hdul1[0].header
+                    hdr2 = hdul2[0].header
+                    hdr3 = hdul3[0].header
+                    assert hdr1['DATASUM'] == hdr2['DATASUM']
+                    assert hdr1['CHECKSUM'] == hdr2['CHECKSUM']
+                    assert hdr1['DATASUM'] != hdr3['DATASUM']
+                    assert hdr1['CHECKSUM'] != hdr3['CHECKSUM']
+
     def test_uint16_data(self):
         checksums = [
-            ('aDcXaCcXaCcXaCcX', '0'), ('84DJ83CH83CH83CH', '1746888714'),
+            ('aDcXaCcXaCcXaCcX', '0'), ('oYiGqXi9oXiEoXi9', '1746888714'),
             ('VhqQWZoQVfoQVZoQ', '0'), ('4cPp5aOn4aOn4aOn', '0'),
-            ('97ZYI7WV97WVG7WV', '1756785133'), ('UhqdUZnbUfnbUZnb', '0'),
+            ('8aCN8X9N8aAN8W9N', '1756785133'), ('UhqdUZnbUfnbUZnb', '0'),
             ('4cQJ5aN94aNG4aN9', '0')]
         with fits.open(self.data('o4sp040b0_raw.fits'), uint=True) as hdul:
             hdul.writeto(self.temp('tmp.fits'), clobber=True, checksum=True)
@@ -240,11 +277,8 @@ class TestChecksumFunctions(PyfitsTestCase):
 
             assert 'CHECKSUM' in hdul[1].header
             assert 'DATASUM' in hdul[1].header
-            assert 'CHECKSUM' in hdul[1].header
-            if sys.platform != 'win32':
-                # The checksum ends up being different on Windows, possibly due
-                # to slight floating point differences
-                # TODO: In Astropy mark these properly as known fail
+
+            if not sys.platform.startswith('win32'):
                 assert hdul[1]._header['CHECKSUM'] == 'eATIf3SHe9SHe9SH'
                 assert hdul[1]._header['DATASUM'] == '1277667818'
 
@@ -355,7 +389,7 @@ class TestChecksumFunctions(PyfitsTestCase):
         with fits.open(self.temp('checksum.fits')) as hdul:
             assert 'CHECKSUM' in hdul[1].header
             assert 'DATASUM' in hdul[1].header
-            assert (data == hdul[1].data).all()
+            assert comparerecords(data, hdul[1].data)
 
     def test_open_update_mode_update_checksum(self):
         """

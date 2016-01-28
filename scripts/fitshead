@@ -1,0 +1,8 @@
+#! /usr/bin/env python
+
+import pyfits.scripts.fitshead
+import sys
+
+
+if __name__ == '__main__':
+    sys.exit(pyfits.scripts.fitshead.main())

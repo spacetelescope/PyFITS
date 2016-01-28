@@ -11,6 +11,7 @@ from ..hdu import HDUList, PrimaryHDU, ImageHDU
 from ..hdu.table import BinTableHDU
 from ..header import Header
 from . import PyfitsTestCase
+from nose.tools import assert_raises
 
 
 class TestDiff(PyfitsTestCase):
@@ -578,6 +579,21 @@ class TestDiff(PyfitsTestCase):
         assert np.isnan(diff.diff_values[1][1][0])
         assert diff.diff_values[1][1][1] == 2.0
 
+    def test_diff_types(self):
+        """
+        Regression test for https://github.com/astropy/astropy/issues/4122
+        """
+
+        f = StringIO()
+
+        a = 1.0
+        b = '1.0'
+
+        report_diff_values(f, a, b)
+        out = f.getvalue()
+
+        assert out.lstrip('u') == "  (float) a> 1.0\n    (str) b> '1.0'\n           ? +   +\n"
+
     def test_float_comparison(self):
         """
         Regression test for https://github.com/spacetelescope/PyFITS/issues/21
@@ -595,3 +611,36 @@ class TestDiff(PyfitsTestCase):
         # did show a difference in their text representations
         assert 'a>' in out
         assert 'b>' in out
+
+    def test_file_output_from_path_string(self):
+        outpath = self.temp('diff_output.txt')
+        ha = Header([('A', 1), ('B', 2), ('C', 3)])
+        hb = ha.copy()
+        hb['C'] = 4
+        diffobj = HeaderDiff(ha, hb)
+        diffobj.report(fileobj=outpath)
+        report_as_string = diffobj.report()
+        assert open(outpath).read() == report_as_string
+
+    def test_file_output_clobber_safety(self):
+        outpath = self.temp('diff_output.txt')
+        ha = Header([('A', 1), ('B', 2), ('C', 3)])
+        hb = ha.copy()
+        hb['C'] = 4
+        diffobj = HeaderDiff(ha, hb)
+        diffobj.report(fileobj=outpath)
+
+        assert_raises(IOError, lambda p: diffobj.report(fileobj=p),
+                      outpath)
+
+    def test_file_output_clobber_success(self):
+        outpath = self.temp('diff_output.txt')
+        ha = Header([('A', 1), ('B', 2), ('C', 3)])
+        hb = ha.copy()
+        hb['C'] = 4
+        diffobj = HeaderDiff(ha, hb)
+        diffobj.report(fileobj=outpath)
+        report_as_string = diffobj.report()
+        diffobj.report(fileobj=outpath, clobber=True)
+        assert open(outpath).read() == report_as_string, ("clobbered output "
+            "file is not identical to report string")

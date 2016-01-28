@@ -10,23 +10,25 @@ import difflib
 import fnmatch
 import functools
 import glob
-import inspect
 import textwrap
-import sys
+import os.path
 
 from collections import defaultdict
 from itertools import islice
 
 import numpy as np
 
-from .extern.six import PY3, string_types, StringIO
-from .extern.six.moves import zip, range, reduce
+from .extern import six
+from .extern.six import string_types, StringIO
+from .extern.six.moves import zip, range, xrange, reduce
 
 import pyfits
 from .card import Card, BLANK_CARD
 from .header import Header
-from .hdu.hdulist import fitsopen
+# HDUList is used in one of the doctests
+from .hdu.hdulist import fitsopen  # pylint: disable=W0611
 from .hdu.table import _TableLikeHDU
+from .py3compat import getargspec
 from .util import indent
 
 
@@ -83,26 +85,29 @@ class _BaseDiff(object):
 
         return not self.identical
 
-    if PY3:
+    if six.PY3:
         __bool__ = __nonzero__
         del __nonzero__
 
     @classmethod
     def fromdiff(cls, other, a, b):
         """
-        Returns a new Diff object of a specfic subclass from an existing diff
+        Returns a new Diff object of a specific subclass from an existing diff
         object, passing on the values for any arguments they share in common
         (such as ignore_keywords).
 
         For example::
 
-            >>> fd = FITSDiff('a.fits', 'b.fits', ignore_keywords=['*'])
-            >>> hd = HeaderDiff.fromdiff(fd, header_a, header_b)
-            >>> hd.ignore_keywords
+            >>> from pyfits import HDUList, Header, FITSDiff
+            >>> hdul1, hdul2 = HDUList(), HDUList()
+            >>> headera, headerb = Header(), Header()
+            >>> fd = FITSDiff(hdul1, hdul2, ignore_keywords=['*'])
+            >>> hd = HeaderDiff.fromdiff(fd, headera, headerb)
+            >>> list(hd.ignore_keywords)
             ['*']
         """
 
-        args, _, _, _ = inspect.getargspec(cls.__init__)
+        args, _, _, _ = getargspec(cls.__init__)
         # The first 3 arguments of any Diff initializer are self, a, and b.
         kwargs = {}
         for arg in args[3:]:
@@ -125,7 +130,7 @@ class _BaseDiff(object):
         return not any(getattr(self, attr) for attr in self.__dict__
                        if attr.startswith('diff_'))
 
-    def report(self, fileobj=None, indent=0):
+    def report(self, fileobj=None, indent=0, clobber=False):
         """
         Generates a text report on the differences (if any) between two
         objects, and either returns it as a string or writes it to a file-like
@@ -133,13 +138,18 @@ class _BaseDiff(object):
 
         Parameters
         ----------
-        fileobj : file-like object or None, optional
+        fileobj : file-like object, string, or None (optional)
             If `None`, this method returns the report as a string. Otherwise it
             returns `None` and writes the report to the given file-like object
-            (which must have a ``.write()`` method at a minimum).
+            (which must have a ``.write()`` method at a minimum), or to a new
+            file at the path specified.
 
         indent : int
             The number of 4 space tabs to indent the report.
+
+        clobber : bool
+            Whether the report output should overwrite an existing file, when
+            fileobj is specified as a path.
 
         Returns
         -------
@@ -147,14 +157,27 @@ class _BaseDiff(object):
         """
 
         return_string = False
-        if fileobj is None:
+        filepath = None
+
+        if isinstance(fileobj, string_types):
+            if os.path.exists(fileobj) and not clobber:
+                raise IOError("File {0} exists, aborting (pass in "
+                              "clobber=True to overwrite)".format(fileobj))
+            else:
+                filepath = fileobj
+                fileobj = open(filepath, 'w')
+        elif fileobj is None:
             fileobj = StringIO()
             return_string = True
 
         self._fileobj = fileobj
         self._indent = indent  # This is used internally by _writeln
 
-        self._report()
+        try:
+            self._report()
+        finally:
+            if filepath:
+                fileobj.close()
 
         if return_string:
             return fileobj.getvalue()
@@ -214,7 +237,7 @@ class FITSDiff(_BaseDiff):
             differences.  Though the count of differences is the same either
             way, this allows controlling the number of different values that
             are kept in memory or output.  If a negative value is given, then
-            numdifs is treated as unlimited (default: 10).
+            numdiffs is treated as unlimited (default: 10).
 
         tolerance : float, optional
             The relative difference to allow when comparing two float values
@@ -225,6 +248,10 @@ class FITSDiff(_BaseDiff):
             Ignore extra whitespace at the end of string values either in
             headers or data. Extra leading whitespace is not ignored
             (default: True).
+
+        ignore_blank_cards : bool, optional
+            Ignore all cards that are blank, i.e. they only contain
+            whitespace (default: True).
         """
 
         if isinstance(a, string_types):
@@ -233,7 +260,7 @@ class FITSDiff(_BaseDiff):
             except Exception:
                 excls, exc = sys.exc_info()[:2]
                 raise IOError("error opening file a (%s): %s: %s" %
-                              (a, excls.__name__, exc.args[0]))
+                              (a, exc.__class__.__name__, exc.args[0]))
             close_a = True
         else:
             close_a = False
@@ -244,7 +271,7 @@ class FITSDiff(_BaseDiff):
             except Exception:
                 excls, exc = sys.exc_info()[:2]
                 raise IOError("error opening file b (%s): %s: %s" %
-                              (b, excls, exc.args[0]))
+                              (b, exc.__class__.__name__, exc.args[0]))
             close_b = True
         else:
             close_b = False
@@ -445,7 +472,7 @@ class HDUDiff(_BaseDiff):
                           self.diff_extvers)
 
         if self.diff_extlevels:
-            self._writeln(" Extension levels differ:\n  a: %s\n  b: %s" %
+            self._writeln(u(" Extension levels differ:\n  a: %s\n  b: %s") %
                           self.diff_extlevels)
 
         if not self.diff_headers.identical:
@@ -486,14 +513,14 @@ class HeaderDiff(_BaseDiff):
 
     - ``diff_keyword_values``: If any of the common keyword between the two
       headers have different values, they appear in this dict.  It has a
-      structure similar to `diff_duplicate_keywords`, with the keyword as the
+      structure similar to ``diff_duplicate_keywords``, with the keyword as the
       key, and a 2-tuple of the different values as the value.  For example::
 
           {'NAXIS': (2, 3)}
 
       means that the NAXIS keyword has a value of 2 in header a, and a value of
       3 in header b.  This excludes any keywords matched by the
-      `ignore_keywords` list.
+      ``ignore_keywords`` list.
 
     - ``diff_keyword_comments``: Like ``diff_keyword_values``, but contains
       differences between keyword comments.
@@ -920,7 +947,7 @@ class TableDataDiff(_BaseDiff):
       objects.
 
     - ``diff_column_attributes``: Lists columns that are in both tables but
-      have different secondard attributes, such as TUNIT or TDISP.  The format
+      have different secondary attributes, such as TUNIT or TDISP.  The format
       is a list of 2-tuples: The first a tuple of the column name and the
       attribute, the second a tuple of the different values.
 
@@ -1082,7 +1109,7 @@ class TableDataDiff(_BaseDiff):
                 diffs = where_not_allclose(arra, arrb, atol=0.0,
                                            rtol=self.tolerance)
             elif 'P' in col.format:
-                diffs = ([idx for idx in range(len(arra))
+                diffs = ([idx for idx in xrange(len(arra))
                           if not np.allclose(arra[idx], arrb[idx], atol=0.0,
                                              rtol=self.tolerance)],)
             else:
@@ -1186,6 +1213,14 @@ def diff_values(a, b, tolerance=0.0):
 def report_diff_values(fileobj, a, b, ind=0):
     """Write a diff between two values to the specified file-like object."""
 
+    typea = type(a)
+    typeb = type(b)
+
+    if (isinstance(a, string_types) and not isinstance(b, string_types)):
+        a = repr(a).lstrip('u')
+    elif (isinstance(b, string_types) and not isinstance(a, string_types)):
+        b = repr(b).lstrip('u')
+
     if isinstance(a, (int, float, complex, np.number)):
         a = repr(a)
 
@@ -1197,7 +1232,7 @@ def report_diff_values(fileobj, a, b, ind=0):
         num_diffs = reduce(lambda x, y: x * y,
                            (len(d) for d in diff_indices), 1)
         for idx in islice(zip(*diff_indices), 3):
-            fileobj.write(indent('  at %r:\n' % list(idx), ind))
+            fileobj.write(indent(u('  at %r:\n') % list(idx), ind))
             report_diff_values(fileobj, a[idx], b[idx], ind=ind + 1)
 
         if num_diffs:
@@ -1205,13 +1240,24 @@ def report_diff_values(fileobj, a, b, ind=0):
                           (num_diffs - 3), ind))
         return
 
+    padding = max(len(typea.__name__), len(typeb.__name__)) + 3
+
     for line in difflib.ndiff(str(a).splitlines(), str(b).splitlines()):
         if line[0] == '-':
             line = 'a>' + line[1:]
+            if typea != typeb:
+                typename = '(' + typea.__name__ + ') '
+                line = typename.rjust(padding) + line
+
         elif line[0] == '+':
             line = 'b>' + line[1:]
+            if typea != typeb:
+                typename = '(' + typeb.__name__ + ') '
+                line = typename.rjust(padding) + line
         else:
             line = ' ' + line
+            if typea != typeb:
+                line = ' ' * padding + line
         fileobj.write(indent('  %s\n' % line.rstrip('\n'), ind))
 
 

@@ -5,11 +5,21 @@ Executable Scripts
 PyFITS installs a couple of useful utility programs on your system that are
 built with PyFITS.
 
+fitsinfo
+^^^^^^^^
+.. automodule:: pyfits.scripts.fitsinfo
+
+fitsheader
+^^^^^^^^^^
+.. automodule:: pyfits.scripts.fitsheader
+
 fitscheck
 =========
 .. automodule:: pyfits.scripts.fitscheck
 
 .. program-output:: fitscheck --help
+
+.. _fitsdiff:
 
 fitsdiff
 ========

@@ -39,6 +39,7 @@ Note that the formats in the record array refer to the raw data which are ASCII
 strings (therefore 'a11' and 'a5'), but the ``.formats`` attribute of data
 retains the original format specifications ('E10.4' and 'I5').
 
+.. _creating_ascii_table:
 
 Creating an ASCII Table
 -----------------------
@@ -105,7 +106,7 @@ ASCII tables it is not technically a valid format.  ASCII table format codes
 technically require a character width for each column, such as ``'I10'`` to
 create a column that can hold integers up to 10 characters wide.
 
-However, PyFITS allows the width specification to be ommitted in some cases.
+However, PyFITS allows the width specification to be omitted in some cases.
 When it is ommitted from ``'I'`` format columns the minimum width needed to
 accurately represent all integers in the column is used.  The only problem with
 using this shortcut is its ambiguity with the binary table ``'I'`` format, so
@@ -134,11 +135,12 @@ the format is
 
     rPt(max)
 
-where r is 0, 1, or absent, t is one of the letter code for regular table data
-type (L, B, X, I, J, etc. currently, the X format is not supported for variable
-length array field in PyFITS), and max is the maximum number of elements. So,
-for a variable length field of int32, The corresponding format spec is,
-e.g. 'PJ(100)'::
+where ``r`` may be 0 or 1 (typically omitted, as it is not applicable to
+variable length arrays), ``t`` is one of the letter codes for basic data types
+(L, B, I, J, etc.; currently, the X format is not supported for variable length
+array field in PyFITS), and ``max`` is the maximum number of elements of any
+array in the column. So, for a variable length field of int16, the
+corresponding format spec is, e.g.  'PJ(100)'::
 
     >>> f = pyfits.open('variable_length_table.fits')
     >>> print f[1].header['tform5']
@@ -147,11 +149,11 @@ e.g. 'PJ(100)'::
     [array([1], dtype=int16) array([88, 2], dtype=int16)
     array([ 1, 88, 3], dtype=int16)]
 
-The above example shows a variable length array field of data type int16 and its
+The above example shows a variable length array field of data type int16. Its
 first row has one element, second row has 2 elements etc. Accessing variable
 length fields is almost identical to regular fields, except that operations on
-the whole filed are usually not possible. A user has to process the field row by
-row.
+the whole field simultaneously are usually not possible. A user has to process
+the field row by row as though they are independent arrays.
 
 
 Creating a Variable Length Array Table
@@ -168,7 +170,7 @@ is regular and the other variable length array::
     >>> import numpy as np
     >>> c1 = pyfits.Column(name='var', format='PJ()',
     ...                    array=np.array([[45., 56]
-                                           [11, 12, 13]],
+    ...                                    [11, 12, 13]],
     ...                                   dtype=np.object))
     >>> c2 = pyfits.Column(name='xyz', format='2I', array=[[11, 3], [12, 4]])
     >>> tbhdu = pyfits.BinTableHDU.from_columns([c1, c2])
@@ -282,14 +284,14 @@ name::
 Note that the parameter name 'date' appears twice. This is a feature in the
 random access group, and it means to add the values together. Thus::
 
-    >>> f[0].data.parnames # get the parameter names
+    >>> f[0].data.parnames  # get the parameter names
     ['uu--', 'vv--', 'ww--', 'baseline', 'date', 'date']
     >>> print f[0].data.par(4)[99]  # Duplicate parameter name 'date'
     2445728.0
     >>> print f[0].data.par(5)[99]
     0.10
-    # When accessed by name, it adds the values together if the name is shared
-    # by more than one parameter
+    >>> # When accessed by name, it adds the values together if the name is
+    >>> # shared by more than one parameter
     >>> print f[0].data.par('date')[99]
     2445728.10
 
@@ -305,9 +307,9 @@ for a certain group, this is similar to the situation in table data (with its
 
 On the other hand, to modify a group parameter, we can either assign the new
 value directly (if accessing the row/group number last) or use the
-:meth:`~Group.setpar` method (if accessing the row/group number first). The
-method :meth:`~Group.setpar` is also needed for updating by name if the
-parameter is shared by more than one parameters::
+:meth:``~GroupData.setpar`` method (if accessing the row/group number first). The
+method :meth:``~GroupData.setpar`` is also needed for updating by name if the
+parameter is shared by more than one parameters:
 
     >>> # Update group parameter when selecting the row (group) number last
     >>> f[0].data.par(0)[99] = 99.
@@ -327,8 +329,8 @@ Data: Image Data
 ----------------
 
 The image array of the data portion is accessible by the
-:attr:`~GroupData.data` attribute of the data object. A numpy array is
-returned::
+:attr:``~GroupData.data`` attribute of the data object. A numpy array is
+returned:
 
     >>> print f[0].data.data[99]
     array([[[[[ 12.4308672 , 0.56860745, 3.99993873],
@@ -348,7 +350,7 @@ to create the HDU itself::
     >>> imdata = numpy.arange(100.0, shape=(10, 1, 1, 2, 5))
     >>> # Next, create the group parameter data, we'll have two parameters.
     >>> # Note that the size of each parameter's data is also the number of
-    >>> groups.
+    >>> # groups.
     >>> # A parameter's data can also be a numeric constant.
     >>> pdata1 = numpy.arange(10) + 0.1
     >>> pdata2 = 42
@@ -384,9 +386,9 @@ to create the HDU itself::
     [ 15., 16., 17., 18., 19.]]]], dtype=float32))
     ]
 
-
 Compressed Image Data
 =====================
+.. _compressedImageData:
 
 A general technique has been developed for storing compressed image data in
 FITS binary tables.  The principle used in this convention is to first divide

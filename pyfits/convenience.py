@@ -48,7 +48,7 @@ explanation of all the different formats.
     multiple argument formats that were used in past versions of PyFITS.
     Unfortunately, it is not possible to support all formats without
     introducing some ambiguity.  A future PyFITS release may standardize around
-    a single format and offically deprecate the other formats.
+    a single format and officially deprecate the other formats.
 """
 
 
@@ -64,8 +64,7 @@ from .hdu.hdulist import fitsopen
 from .hdu.image import PrimaryHDU, ImageHDU
 from .hdu.table import BinTableHDU
 from .header import Header
-from .util import (fileobj_closed, fileobj_name, fileobj_mode,
-                   fileobj_closed, _is_int)
+from .util import fileobj_closed, fileobj_name, fileobj_mode, _is_int
 
 
 __all__ = ['getheader', 'getdata', 'getval', 'setval', 'delval', 'writeto',
@@ -150,7 +149,7 @@ def getdata(filename, *args, **kwargs):
         tuple.
 
     lower, upper : bool, optional
-        If `lower` or `upper` are `True`, the field names in the
+        If ``lower`` or ``upper`` are `True`, the field names in the
         returned data object will be converted to lower or upper case,
         respectively.
 
@@ -374,7 +373,7 @@ def writeto(filename, data, header=None, output_verify='exception',
         data to write to the new file
 
     header : `Header` object, optional
-        the header associated with `data`. If `None`, a header
+        the header associated with ``data``. If `None`, a header
         of the appropriate type is created for the supplied data. This
         argument is optional.
 
@@ -405,7 +404,7 @@ def append(filename, data, header=None, checksum=False, verify=True, **kwargs):
     """
     Append the header/data to FITS file if filename exists, create if not.
 
-    If only `data` is supplied, a minimal header is created.
+    If only ``data`` is supplied, a minimal header is created.
 
     Parameters
     ----------
@@ -425,7 +424,7 @@ def append(filename, data, header=None, checksum=False, verify=True, **kwargs):
         When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards to the header
         of the HDU when written to the file.
 
-    verify: bool, optional
+    verify : bool, optional
         When `True`, the existing FITS file will be read in to verify it for
         correctness before appending.  When `False`, content is simply appended
         to the end of the file.  Setting ``verify`` to `False` can be much
@@ -500,7 +499,7 @@ def update(filename, data, *args, **kwargs):
         Any additional keyword arguments to be passed to `pyfits.open`.
     """
 
-    # The arguments to this function are a bit tricker to deal with than others
+    # The arguments to this function are a bit trickier to deal with than others
     # in this module, since the documentation has promised that the header
     # argument can be an optional positional argument.
     if args and isinstance(args[0], Header):
@@ -595,7 +594,7 @@ def tabledump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
     -----
     The primary use for the `tabledump` function is to allow editing in a
     standard text editor of the table data and parameters.  The
-    `tcreate` function can be used to reassemble the table from the
+    ``tcreate`` function can be used to reassemble the table from the
     three ASCII files.
     """
 
@@ -619,7 +618,9 @@ def tabledump(filename, datafile=None, cdfile=None, hfile=None, ext=1,
 
     if closed:
         f.close()
-tabledump.__doc__ += BinTableHDU._tdump_file_format.replace('\n', '\n    ')
+
+if isinstance(tabledump.__doc__, string_types):
+    tabledump.__doc__ += BinTableHDU._tdump_file_format.replace('\n', '\n    ')
 
 
 def tableload(datafile, cdfile, hfile=None):
@@ -655,7 +656,9 @@ def tableload(datafile, cdfile, hfile=None):
     """
 
     return BinTableHDU.load(datafile, cdfile, hfile, replace=True)
-tableload.__doc__ += BinTableHDU._tdump_file_format.replace('\n', '\n    ')
+
+if isinstance(tableload.__doc__, string_types):
+    tableload.__doc__ += BinTableHDU._tdump_file_format.replace('\n', '\n    ')
 
 
 def _getext(filename, mode, *args, **kwargs):
