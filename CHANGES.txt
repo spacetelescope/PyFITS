@@ -1,7 +1,7 @@
 Changelog
 ===========
 
-3.4 (unreleased)
+3.4 (2016-01-28)
 ----------------
 
 This release removes support for Python 2.5, as well as Python 3.0 - 3.2.
