@@ -91,7 +91,7 @@ authors = [
     'Michael Droettboom',
     'Erik M. Bray'
 ]
-copyright_year = '2015'
+copyright_year = '2016'
 copyright = ', '.join([copyright_year] + authors)
 
 # The version info for the project you're documenting, acts as replacement for
@@ -99,9 +99,9 @@ copyright = ', '.join([copyright_year] + authors)
 # built documents.
 #
 # The short X.Y version.
-version = '3.4.dev'
+version = '3.4'
 # The full version, including alpha/beta/rc tags.
-release = '3.4.dev'
+release = '3.4'
 
 # !!!!!
 
