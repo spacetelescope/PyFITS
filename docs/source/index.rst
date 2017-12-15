@@ -11,6 +11,15 @@ PyFITS Documentation
 Introduction
 ************
 
+.. warning::
+
+
+    **PyFITS is deprecated and no longer supported!**
+
+    All of the functionality of PyFITS is available in `Astropy
+    <http://www.astropy.org>`_ as the `astropy.io.fits
+    <http://docs.astropy.org/en/stable/io/fits/index.html>`_ package.
+
 The PyFITS module is a Python library providing access to FITS files. FITS
 (Flexible Image Transport System) is a portable file standard widely used in
 the astronomy community to store images and tables.
@@ -834,4 +843,3 @@ Reference/API
 
     users_guide/users_guide
     api_docs/api_docs
-

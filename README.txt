@@ -2,16 +2,14 @@
 Important notice for PyFITS
 ---------------------------
 
-**PyFITS is Deprecated and no longer supported! This repo is
+**PyFITS is deprecated and no longer supported! This repo is
 archived.**
 
-All of the functionality of PyFITS is now available in `Astropy
+All of the functionality of PyFITS is available in `Astropy
 <http://www.astropy.org>`_ as the `astropy.io.fits
-<http://docs.astropy.org/en/stable/io/fits/index.html>`_ package, which is now
-publicly available. We will NOT be releasing new versions of PyFITS as 
-a stand-alone product. STScI will continue to provide support for
-questions on the ``astropy.io.fits package`` in
-Astropy.
+<http://docs.astropy.org/en/stable/io/fits/index.html>`_ package.
+We will NOT be releasing new versions of PyFITS as
+a stand-alone product.
 
 --------------------
 ARCHIVAL INFORMATION
