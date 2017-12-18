@@ -2,6 +2,8 @@
 
 from __future__ import division
 
+import warnings
+
 try:
     from .version import __version__
 except:
@@ -15,6 +17,9 @@ from .util import *
 __doc__ = core.__doc__
 
 __all__ = core.__all__
+
+warnings.warn('PyFITS is deprecated, please use astropy.io.fits',
+              PyFITSDeprecationWarning)  # noqa
 
 
 try:

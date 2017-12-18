@@ -41,6 +41,12 @@ elif six.PY2:
     cmp = cmp
 
 
+class PyFITSDeprecationWarning(Warning):
+    """
+    A warning class to indicate a deprecated feature.
+    """
+
+
 class NotifierMixin(object):
     """
     Mixin class that provides services by which objects can register
